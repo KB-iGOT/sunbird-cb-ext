@@ -1104,8 +1104,20 @@ public class Constants {
 	public static final String CSV_FILE = ".csv";
 	public static final String XLSX_FILE = ".xlsx";
 	public static final String NO_OF_QUESTIONS = "noOfQuestions";
+  public static final String CADRE_DETAILS = "cadreDetails";
+	public static final String CADRE_CONFIG = "cadreConfig";
+	public static final String CIVIL_SERVICE_TYPE = "civilServiceType";
+	public static final String  SERVICE_TYPE = "serviceList";
+	public static final String CADRE_BATCH = "cadreBatch";
+	public static final String CONTROLLING_AUTHORITY = "cadreControllingAuthorityName";
+	public static final String CADRE_NAME = "cadreName";
+	public static final String CIVIL_SERVICE_NAME = "civilServiceName";
+	public static final String CADRE_LIST = "cadreList";
+	public static final String CIVIL_SERVICE_TYPE_ID = "civilServiceTypeId";
+	public static final String CIVIL_SERVICE_ID = "civilServiceId";
+	public static final String CADRE_ID = "cadreId";
 
-	private Constants() {
+  private Constants() {
 		throw new IllegalStateException("Utility class");
 	}
 
