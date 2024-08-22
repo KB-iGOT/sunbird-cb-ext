@@ -355,10 +355,8 @@ public class ProfileServiceImpl implements ProfileService {
 
 		try {
 			if (profileDetailsMap.get(Constants.CADRE_DETAILS) != null) {
-				Map<String, Object> cadreMap = mapper.convertValue(
-						profileDetailsMap.get(Constants.CADRE_DETAILS),
-						new TypeReference<Map<String, Object>>() {
-						});
+				Map<String, Object> cadreMap = (Map<String, Object>) profileDetailsMap.get(
+						Constants.CADRE_DETAILS);
 				if (cadreMap == null) {
 					return "Failed to validate cadreDetails schema";
 				}
@@ -447,45 +445,6 @@ public class ProfileServiceImpl implements ProfileService {
 				if (!isCadrePresent) {
 					return "Invalid cadreName is given";
 				}
-
-//				for (Map cadreDetail : cadreSchemaDetails) {
-//					String mapString = (String) cadreDetail.get(Constants.VALUE);
-//					Map map = (mapper.readValue(mapString, new TypeReference<Map<String, Object>>() {
-//					}));
-//					Map civilServiceMap = (Map) map.get(Constants.CIVIL_SERVICE_TYPE);
-//					List<Map> civilServiceList = (List<Map>) civilServiceMap.get("civilServiceTypeList");
-//					for (Map<String, Object> eachCivilSerivice : civilServiceList) {
-//						String civilServiceName = (String) eachCivilSerivice.get(Constants.NAME);
-//						if (((String) cadreMap.get(Constants.CIVIL_SERVICE_TYPE)).equalsIgnoreCase(civilServiceName)) {
-//							isCivilTypePresent = true;
-//							List<Map> serviceMap = (List<Map>) eachCivilSerivice.get(Constants.SERVICE_TYPE);
-//							for (Map service : serviceMap) {
-//								String serviceTypeName = service.get(Constants.NAME).toString();
-//								if (((String) cadreMap.get(Constants.CIVIL_SERVICE_NAME)).equalsIgnoreCase(serviceTypeName)) {
-//									isServiceTypePresent = true;
-//									List<Map> cadreFetchedMap = (List<Map>) service.get(Constants.CADRE_LIST);
-//									for (Map eachCadre : cadreFetchedMap) {
-//										String cadreName = eachCadre.get(Constants.NAME).toString();
-//										if (((String) cadreMap.get(Constants.CADRE_NAME)).equalsIgnoreCase(cadreName)) {
-//											isCadrePresent = true;
-//											break;
-//										}
-//									}
-//								}
-//							}
-//
-//						}
-//					}
-//					if (!isServiceTypePresent) {
-//						return "Invalid civilserviceType is given";
-//					}
-//					if (!isCivilTypePresent) {
-//						return "Invalid civilSerivceName is given";
-//					}
-//					if (!isCadrePresent) {
-//						return "Invalid cadreName is given";
-//					}
-//				}
 			}
 			return "";
 		} catch (Exception e) {
