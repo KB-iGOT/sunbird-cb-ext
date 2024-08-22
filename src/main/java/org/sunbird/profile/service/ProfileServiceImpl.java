@@ -351,101 +351,116 @@ public class ProfileServiceImpl implements ProfileService {
 	}
 
 	private String validateCadreDetails(Map<String, Object> profileDetailsMap) {
-		List<Map<String, Object>> cadreSchemaDetails;
+		Map<String, Object> cadreDetail;
 
 		try {
-			if (profileDetailsMap.get(Constants.CADRE_DETAILS) != null) {
-				Map<String, Object> cadreMap = (Map<String, Object>) profileDetailsMap.get(
-						Constants.CADRE_DETAILS);
-				if (cadreMap == null) {
-					return "Failed to validate cadreDetails schema";
+
+			Map<String, Object> cadreMap = (Map<String, Object>) profileDetailsMap.get(
+					Constants.CADRE_DETAILS);
+			if (MapUtils.isEmpty(cadreMap)) {
+				return "Failed to validate cadreDetails schema";
+			}
+			List<String> mandatoryCaderAttributes = Arrays.asList(
+					Constants.CIVIL_SERVICE_TYPE_ID,
+					Constants.CIVIL_SERVICE_TYPE,
+					Constants.CIVIL_SERVICE_ID,
+					Constants.CIVIL_SERVICE_NAME,
+					Constants.CADRE_ID,
+					Constants.CADRE_NAME,
+					Constants.CONTROLLING_AUTHORITY
+			);
+
+			List missingAttribts = new ArrayList();
+			for (String field : mandatoryCaderAttributes) {
+				if (!cadreMap.containsKey(field) || cadreMap.get(field) == null ||
+						(cadreMap.get(field) instanceof String && ((String) cadreMap.get(field)).isEmpty())) {
+					missingAttribts.add(field);
 				}
-				List<String> mandatoryCaderAttributes = Arrays.asList(
-						Constants.CIVIL_SERVICE_TYPE_ID,
-						Constants.CIVIL_SERVICE_TYPE,
-						Constants.CIVIL_SERVICE_ID,
-						Constants.CIVIL_SERVICE_NAME,
-						Constants.CADRE_ID,
-						Constants.CADRE_NAME,
-						Constants.CONTROLLING_AUTHORITY
-				);
+			}
+			if (!cadreMap.containsKey(Constants.CADRE_BATCH)
+					|| cadreMap.get(Constants.CADRE_BATCH) == null ||
+					!(cadreMap.get(Constants.CADRE_BATCH) instanceof Integer)) {
+				missingAttribts.add(Constants.CADRE_BATCH);
+			}
 
-				List missingAttribts = new ArrayList();
-				for (String field : mandatoryCaderAttributes) {
-					if (!cadreMap.containsKey(field) || cadreMap.get(field) == null ||
-							(cadreMap.get(field) instanceof String && ((String) cadreMap.get(field)).isEmpty())) {
-						missingAttribts.add(field);
-					}
-				}
-				if (!cadreMap.containsKey(Constants.CADRE_BATCH)
-						|| cadreMap.get(Constants.CADRE_BATCH) == null ||
-						!(cadreMap.get(Constants.CADRE_BATCH) instanceof Integer)) {
-					missingAttribts.add(Constants.CADRE_BATCH);
-				}
+			if (missingAttribts.size() > 0) {
+				return "Missing mandatory attributes or Improper dataType. " + missingAttribts.toString();
+			}
 
-				if (missingAttribts.size() > 0) {
-					return "Missing mandatory attributes or Improper dataType. " + missingAttribts.toString();
-				}
+			Map<String, Object> propertyMap = new HashMap<>();
+			propertyMap.put(Constants.ID, Constants.CADRE_CONFIG);
+			cadreDetail = cassandraOperation.getRecordsByPropertiesWithoutFiltering(
+					Constants.KEYSPACE_SUNBIRD, Constants.TABLE_SYSTEM_SETTINGS, propertyMap,
+					null, 2).get(0);
+			if (cadreDetail.isEmpty() && !cadreDetail.containsKey(Constants.VALUE)) {
+				return "Failed to validate cadreDetails schema";
+			}
+			boolean isCivilTypePresent = false;
+			boolean isServiceTypePresent = false;
+			boolean isCadrePresent = false;
+			boolean isValidBatchYr = false;
 
-				Map<String, Object> propertyMap = new HashMap<>();
-				propertyMap.put(Constants.ID, Constants.CADRE_CONFIG);
-				cadreSchemaDetails = cassandraOperation.getRecordsByPropertiesWithoutFiltering(
-						Constants.KEYSPACE_SUNBIRD, Constants.TABLE_SYSTEM_SETTINGS, propertyMap,
-						null, 2);
-				if (cadreSchemaDetails.isEmpty() && !cadreSchemaDetails.contains(Constants.VALUE)) {
-					return "Failed to validate cadreDetails schema";
-				}
-				boolean isCivilTypePresent = false;
-				boolean isServiceTypePresent = false;
-				boolean isCadrePresent = false;
+			String mapString = (String) cadreDetail.get(Constants.VALUE);
+			Map<String, Object> map = mapper.readValue(mapString,
+					new TypeReference<Map<String, Object>>() {
+					});
 
-				for (Map<String, Object> cadreDetail : cadreSchemaDetails) {
-					String mapString = (String) cadreDetail.get(Constants.VALUE);
-					Map<String, Object> map = mapper.readValue(mapString,
-							new TypeReference<Map<String, Object>>() {
-							});
+			Map<String, Object> civilServiceMap = (Map<String, Object>) map.get(
+					Constants.CIVIL_SERVICE_TYPE);
+			List<Map<String, Object>> civilServiceList = (List<Map<String, Object>>) civilServiceMap.get(
+					"civilServiceTypeList");
 
-					Map<String, Object> civilServiceMap = (Map<String, Object>) map.get(
-							Constants.CIVIL_SERVICE_TYPE);
-					List<Map<String, Object>> civilServiceList = (List<Map<String, Object>>) civilServiceMap.get(
-							"civilServiceTypeList");
+			for (Map<String, Object> eachCivilService : civilServiceList) {
+				String civilServiceName = (String) eachCivilService.get(Constants.NAME);
+				if (((String) cadreMap.get(Constants.CIVIL_SERVICE_TYPE)).equalsIgnoreCase(
+						civilServiceName)) {
+					isCivilTypePresent = true;
+					List<Map<String, Object>> serviceMap = (List<Map<String, Object>>) eachCivilService.get(
+							Constants.SERVICE_TYPE);
 
-					for (Map<String, Object> eachCivilService : civilServiceList) {
-						String civilServiceName = (String) eachCivilService.get(Constants.NAME);
-						if (((String) cadreMap.get(Constants.CIVIL_SERVICE_TYPE)).equalsIgnoreCase(
-								civilServiceName)) {
-							isCivilTypePresent = true;
-							List<Map<String, Object>> serviceMap = (List<Map<String, Object>>) eachCivilService.get(
-									Constants.SERVICE_TYPE);
+					for (Map<String, Object> service : serviceMap) {
+						String serviceTypeName = (String) service.get(Constants.NAME);
+						if (((String) cadreMap.get(Constants.CIVIL_SERVICE_NAME)).equalsIgnoreCase(
+								serviceTypeName)) {
+							isServiceTypePresent = true;
+							List<Map<String, Object>> cadreList = (List<Map<String, Object>>) service.get(
+									Constants.CADRE_LIST);
 
-							for (Map<String, Object> service : serviceMap) {
-								String serviceTypeName = (String) service.get(Constants.NAME);
-								if (((String) cadreMap.get(Constants.CIVIL_SERVICE_NAME)).equalsIgnoreCase(
-										serviceTypeName)) {
-									isServiceTypePresent = true;
-									List<Map<String, Object>> cadreList = (List<Map<String, Object>>) service.get(
-											Constants.CADRE_LIST);
+							Optional<Map<String, Object>> matchingCadre = cadreList.stream()
+									.filter(eachCadre ->
+											((String) cadreMap.get(Constants.CADRE_NAME))
+													.equalsIgnoreCase((String) eachCadre.get(Constants.NAME)))
+									.findFirst();
 
-									isCadrePresent = cadreList.stream()
-											.anyMatch(eachCadre ->
-													((String) cadreMap.get(Constants.CADRE_NAME)).equalsIgnoreCase(
-															(String) eachCadre.get(Constants.NAME))
-											);
-								}
+							if (matchingCadre.isPresent()) {
+								isCadrePresent = true;
+								Map<String, Object> eachCadre = matchingCadre.get();
+								int cadreBatch = (int) cadreMap.get(Constants.CADRE_BATCH);
+								List<Integer> exclusionYearList = (List<Integer>) eachCadre.get(
+										Constants.CADRE_BATCH_EXCLUSION_YR);
+								isValidBatchYr = (cadreBatch >= (int) eachCadre.get(Constants.CADRE_BATCH_START_YR)
+										&& cadreBatch <= (int) eachCadre.get(Constants.CADRE_BATCH_END_YR))
+										&& !exclusionYearList.contains(cadreBatch);
 							}
+
 						}
 					}
 				}
-				if (!isServiceTypePresent) {
-					return "Invalid civilserviceType is given";
-				}
-				if (!isCivilTypePresent) {
-					return "Invalid civilSerivceName is given";
-				}
-				if (!isCadrePresent) {
-					return "Invalid cadreName is given";
-				}
 			}
+
+			if (!isServiceTypePresent) {
+				return "Invalid civilserviceType is given";
+			}
+			if (!isCivilTypePresent) {
+				return "Invalid civilSerivceName is given";
+			}
+			if (!isCadrePresent) {
+				return "Invalid cadreName is given";
+			}
+			if (!isValidBatchYr) {
+				return "Invalid cadreBatch is given";
+			}
+
 			return "";
 		} catch (Exception e) {
 			log.error("Exception occured," + e.getMessage());

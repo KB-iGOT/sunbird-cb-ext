@@ -1116,6 +1116,10 @@ public class Constants {
 	public static final String CIVIL_SERVICE_TYPE_ID = "civilServiceTypeId";
 	public static final String CIVIL_SERVICE_ID = "civilServiceId";
 	public static final String CADRE_ID = "cadreId";
+	public static final String CADRE_BATCH_START_YR = "startBatchYear";
+	public static final String CADRE_BATCH_END_YR = "endBatchYear";
+	public static final String CADRE_BATCH_EXCLUSION_YR = "exculsionYearList";
+
 
   private Constants() {
 		throw new IllegalStateException("Utility class");
