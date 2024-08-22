@@ -210,8 +210,6 @@ public class ProfileServiceImpl implements ProfileService {
 				updateRequestValue.put(Constants.PROFILE_DETAILS, existingProfileDetails);
 				Map<String, Object> updateRequest = new HashMap<>();
 				updateRequest.put(Constants.REQUEST, updateRequestValue);
-				log.info("headrer:::"+mapper.writeValueAsString(updateRequest));
-				log.info(mapper.writeValueAsString(headerValues));
 				updateResponse = outboundRequestHandlerService.fetchResultUsingPatch(
 						serverConfig.getSbUrl() + serverConfig.getLmsUserUpdatePath(), updateRequest, headerValues);
 				if (Constants.OK.equalsIgnoreCase((String) updateResponse.get(Constants.RESPONSE_CODE))) {
@@ -352,9 +350,7 @@ public class ProfileServiceImpl implements ProfileService {
 
 	private String validateCadreDetails(Map<String, Object> profileDetailsMap) {
 		Map<String, Object> cadreDetail;
-
 		try {
-
 			Map<String, Object> cadreMap = (Map<String, Object>) profileDetailsMap.get(
 					Constants.CADRE_DETAILS);
 			if (MapUtils.isEmpty(cadreMap)) {
@@ -463,7 +459,7 @@ public class ProfileServiceImpl implements ProfileService {
 
 			return "";
 		} catch (Exception e) {
-			log.error("Exception occured," + e.getMessage());
+			log.error("Failed to validate CadreDetails. Exception :" + e.getMessage());
 		}
 		return "";
 	}
