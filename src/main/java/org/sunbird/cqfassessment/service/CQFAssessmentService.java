@@ -44,4 +44,6 @@ public interface CQFAssessmentService {
      * @return the API response containing the list of assessments
      */
     SBApiResponse listCQFAssessments(String authToken);
+
+    SBApiResponse readAssessment(String assessmentIdentifier, String token, boolean edit);
 }

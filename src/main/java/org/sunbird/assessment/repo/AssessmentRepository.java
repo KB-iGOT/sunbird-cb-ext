@@ -57,4 +57,18 @@ public interface AssessmentRepository {
 	Boolean updateUserAssesmentDataToDB(String userId, String assessmentIdentifier,
 										Map<String, Object> submitAssessmentRequest, Map<String, Object> submitAssessmentResponse, String status,
 										Date startTime,Map<String, Object> saveSubmitAssessmentRequest);
+
+	/**
+	 * Adds user CQF assessment data to the database.
+	 *
+	 * @param userId        The ID of the user.
+	 * @param assessmentId  The ID of the assessment.
+	 * @param startTime     The start time of the assessment.
+	 * @param endTime       The end time of the assessment.
+	 * @param questionSet   A map of questions and their corresponding answers.
+	 * @param status        The status of the assessment.
+	 * @return True if the data is added successfully, false otherwise.
+	 */
+	boolean addUserCQFAssesmentDataToDB(String userId, String assessmentId, Timestamp startTime, Timestamp endTime,
+									 Map<String, Object> questionSet, String status);
 }

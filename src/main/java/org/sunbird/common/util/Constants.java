@@ -1138,6 +1138,8 @@ public class Constants {
 	public static final String NO_DATA_FOUND_FOR_THE_ORGANISATION = "no data found for the organisation";
 	public static final String ERROR_WHILE_PROCESSING_USER_LEADERBOARD = "error while processing userLeaderBoard";
 	public static final String ERROR_WHILE_PROCESSING_MDO_LEADERBOARD = "error while processing mdoLeaderBoard";
+	public static final String BUFFER_TIME = "0";
+	public static final String TABLE_CQF_ASSESSMENT_DATA = "cqf_assessment_data";
 
   private Constants() {
 		throw new IllegalStateException("Utility class");

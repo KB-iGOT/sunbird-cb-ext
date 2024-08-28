@@ -186,4 +186,30 @@ public class AssessmentRepositoryImpl implements AssessmentRepository {
 		return true;
 	}
 
+	/**
+	 * Adds user CQF assessment data to the database.
+	 *
+	 * @param userId        The ID of the user.
+	 * @param assessmentIdentifier  The ID of the assessment.
+	 * @param startTime     The start time of the assessment.
+	 * @param endTime       The end time of the assessment.
+	 * @param questionSet   A map of questions and their corresponding answers.
+	 * @param status        The status of the assessment.
+	 * @return True if the data is added successfully, false otherwise.
+	 */
+	@Override
+	public boolean addUserCQFAssesmentDataToDB(String userId, String assessmentIdentifier, Timestamp startTime,
+											Timestamp endTime, Map<String, Object> questionSet, String status) {
+		Map<String, Object> request = new HashMap<>();
+		request.put(Constants.USER_ID, userId);
+		request.put(Constants.ASSESSMENT_ID_KEY, assessmentIdentifier);
+		request.put(Constants.START_TIME, startTime);
+		request.put(Constants.END_TIME, endTime);
+		request.put(Constants.ASSESSMENT_READ_RESPONSE, new Gson().toJson(questionSet));
+		request.put(Constants.STATUS, status);
+		SBApiResponse resp = cassandraOperation.insertRecord(Constants.KEYSPACE_SUNBIRD,
+				Constants.TABLE_CQF_ASSESSMENT_DATA, request);
+		return resp.get(Constants.RESPONSE).equals(Constants.SUCCESS);
+	}
+
 }
