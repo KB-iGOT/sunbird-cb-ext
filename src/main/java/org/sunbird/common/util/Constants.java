@@ -1131,6 +1131,9 @@ public class Constants {
 	public static final String NO_DATA_FOUND_FOR_THE_ORGANISATION = "no data found for the organisation";
 	public static final String ERROR_WHILE_PROCESSING_USER_LEADERBOARD = "error while processing userLeaderBoard";
 	public static final String ERROR_WHILE_PROCESSING_MDO_LEADERBOARD = "error while processing mdoLeaderBoard";
+	public static final String COMMON_BATCH_START_YR = "commonBatchStartYear";
+	public static final String COMMON_BATCH_END_YR = "commonBatchEndYear";
+	public static final String COMMON_BATCH_EXCLUSION_YR = "commonBatchExclusionYearList";
 
   private Constants() {
 		throw new IllegalStateException("Utility class");
