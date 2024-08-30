@@ -472,6 +472,7 @@ public class AssessmentServiceV5Impl implements AssessmentServiceV5 {
         List<String> sectionIdList = new ArrayList<>();
         List<String> sectionParams = serverProperties.getAssessmentSectionParams();
         List<Map<String, Object>> sections = (List<Map<String, Object>>) assessmentAllDetail.get(Constants.CHILDREN);
+        String assessmentType = (String) assessmentAllDetail.get(Constants.ASSESSMENT_TYPE);
         for (Map<String, Object> section : sections) {
             sectionIdList.add((String) section.get(Constants.IDENTIFIER));
             Map<String, Object> newSection = new HashMap<>();
@@ -481,10 +482,20 @@ public class AssessmentServiceV5Impl implements AssessmentServiceV5 {
                 }
             }
             List<Map<String, Object>> questions = (List<Map<String, Object>>) section.get(Constants.CHILDREN);
-            List<Map<String, Object>> selectedQuestionsList  = processRandomizationForQuestions((Map<String, Map<String, Object>>) section.get(Constants.SECTION_LEVEL_DEFINITION),questions);
-            List<String> childNodeList = selectedQuestionsList.stream()
-                    .map(question -> (String) question.get(Constants.IDENTIFIER))
-                    .collect(toList());
+            List<String> childNodeList;
+            if (assessmentType.equalsIgnoreCase(Constants.QUESTION_WEIGHTAGE)) {
+                List<Map<String, Object>> selectedQuestionsList = processRandomizationForQuestions((Map<String, Map<String, Object>>) section.get(Constants.SECTION_LEVEL_DEFINITION), questions);
+                childNodeList = selectedQuestionsList.stream()
+                        .map(question -> (String) question.get(Constants.IDENTIFIER))
+                        .collect(toList());
+            } else {
+                int maxQuestions = (int) section.getOrDefault(Constants.MAX_QUESTIONS, questions.size());
+                List<Map<String, Object>> shuffledQuestionsList = shuffleQuestions(questions);
+                childNodeList = shuffledQuestionsList.stream()
+                        .map(question -> (String) question.get(Constants.IDENTIFIER))
+                        .limit(maxQuestions)
+                        .collect(toList());
+            }
             Collections.shuffle(childNodeList);
             newSection.put(Constants.CHILD_NODES, childNodeList);
             sectionResponse.add(newSection);

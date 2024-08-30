@@ -190,13 +190,23 @@ public class ProfileServiceImpl implements ProfileService {
 					if (Constants.PERSONAL_DETAILS.equalsIgnoreCase(changedObj)) {
 						getModifiedPersonalDetails(profileDetailsMap.get(changedObj), requestData);
 					}
-					if (Constants.CADRE_DETAILS.equalsIgnoreCase(changedObj)){
-						String cadreErrMsg = validateCadreDetails(profileDetailsMap);
-						if (!cadreErrMsg.isEmpty()) {
-							response.setResponseCode(HttpStatus.BAD_REQUEST);
-							response.getParams().setStatus(Constants.FAILED);
-							response.getParams().setErrmsg(cadreErrMsg);
-							return response;
+					if (Constants.CADRE_DETAILS.equalsIgnoreCase(changedObj)) {
+						if (profileDetailsMap.get(Constants.CADRE_DETAILS) != null) {
+							if (MapUtils.isEmpty(
+									(Map<String, Object>) profileDetailsMap.get(Constants.CADRE_DETAILS))) {
+								if (!MapUtils.isEmpty(
+										(Map<String, Object>) existingProfileDetails.get(Constants.CADRE_DETAILS))) {
+									existingProfileDetails.put(changedObj, new HashMap<>());
+								}
+							} else {
+								String cadreErrMsg = validateCadreDetails(profileDetailsMap);
+								if (!cadreErrMsg.isEmpty()) {
+									response.setResponseCode(HttpStatus.BAD_REQUEST);
+									response.getParams().setStatus(Constants.FAILED);
+									response.getParams().setErrmsg(cadreErrMsg);
+									return response;
+								}
+							}
 						}
 					}
 				}

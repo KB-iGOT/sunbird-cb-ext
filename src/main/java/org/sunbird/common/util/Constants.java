@@ -1104,7 +1104,7 @@ public class Constants {
 	public static final String CSV_FILE = ".csv";
 	public static final String XLSX_FILE = ".xlsx";
 	public static final String NO_OF_QUESTIONS = "noOfQuestions";
-  public static final String CADRE_DETAILS = "cadreDetails";
+  	public static final String CADRE_DETAILS = "cadreDetails";
 	public static final String CADRE_CONFIG = "cadreConfig";
 	public static final String CIVIL_SERVICE_TYPE = "civilServiceType";
 	public static final String  SERVICE_TYPE = "serviceList";
