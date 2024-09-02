@@ -80,17 +80,23 @@ public class StorageController {
 		return new ResponseEntity<>(uploadResponse, uploadResponse.getResponseCode());
 	}
 
-	@PostMapping("/uploadIcon/{partnerOrgId}")
+	@PostMapping("/v1/uploadCiosIcon")
 	public ResponseEntity<?> ciosContentIconUpload(@RequestParam(value = "file", required = true) MultipartFile multipartFile, @PathVariable String partnerOrgId)
 			throws IOException {
-		SBApiResponse uploadResponse = storageService.ciosContentIconUpload(multipartFile, serverConfig.getCiosCloudContainerName(), serverConfig.getCiosCloudFolderName());
+		SBApiResponse uploadResponse = storageService.ciosContentIconUpload(multipartFile, serverConfig.getCloudProfileImageContainerName(), serverConfig.getCiosCloudIconFolderName());
 		return new ResponseEntity<>(uploadResponse, uploadResponse.getResponseCode());
 	}
 
-	@PostMapping("/uploadContract/{partnerOrgId}")
+	@PostMapping("/v1/uploadCiosContract")
 	public ResponseEntity<?> ciosContentContractUpload(@RequestParam(value = "file", required = true) MultipartFile multipartFile, @PathVariable String partnerOrgId)
-			throws IOException {
+	{
 		SBApiResponse uploadResponse = storageService.ciosContentContractUpload(multipartFile, serverConfig.getCiosCloudContainerName(), serverConfig.getCiosCloudFolderName());
+		return new ResponseEntity<>(uploadResponse, uploadResponse.getResponseCode());
+	}
+
+	@GetMapping("/v1/downloadCiosContract/{fileName}")
+	public ResponseEntity<?> downloadCiosContractFile(@PathVariable("fileName") String fileName) {
+		SBApiResponse uploadResponse = storageService.downloadCiosContractFile(fileName);
 		return new ResponseEntity<>(uploadResponse, uploadResponse.getResponseCode());
 	}
 }
