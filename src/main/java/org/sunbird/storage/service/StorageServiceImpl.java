@@ -480,19 +480,31 @@ public class StorageServiceImpl implements StorageService {
 	}
 
 	@Override
-	public SBApiResponse downloadCiosContractFile(String fileName) {
-		SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.API_FILE_DOWNLOAD);
+	public ResponseEntity<?> downloadCiosContractFile(String fileName) {
 		try {
 			String objectKey = serverProperties.getCiosCloudFolderName() + "/" + fileName;
 			storageService.download(serverProperties.getCiosCloudContainerName(), objectKey, Constants.LOCAL_BASE_PATH,
 					Option.apply(Boolean.FALSE));
-			return response;
+			Path tmpPath = Paths.get(Constants.LOCAL_BASE_PATH + fileName);
+			ByteArrayResource resource = new ByteArrayResource(Files.readAllBytes(tmpPath));
+			HttpHeaders headers = new HttpHeaders();
+			headers.add(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + fileName + "\"");
+			return ResponseEntity.ok()
+					.headers(headers)
+					.contentLength(tmpPath.toFile().length())
+					.contentType(MediaType.parseMediaType(MediaType.MULTIPART_FORM_DATA_VALUE))
+					.body(resource);
 		} catch (Exception e) {
-			logger.error("Failed to download the file: " + fileName + ", Exception: ", e);
-			response.getParams().setStatus(Constants.FAILED);
-			response.getParams().setErrmsg("Failed to download the file. Exception: " + e.getMessage());
-			response.setResponseCode(HttpStatus.INTERNAL_SERVER_ERROR);
-			return response;
+			logger.error("Failed to read the downloaded file: " + fileName + ", Exception: ", e);
+			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+		} finally {
+			try {
+				File file = new File(Constants.LOCAL_BASE_PATH + fileName);
+				if (file.exists()) {
+					file.delete();
+				}
+			} catch (Exception e1) {
+			}
 		}
 
 	}

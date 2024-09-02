@@ -96,7 +96,6 @@ public class StorageController {
 
 	@GetMapping("/v1/downloadCiosContract/{fileName}")
 	public ResponseEntity<?> downloadCiosContractFile(@PathVariable("fileName") String fileName) {
-		SBApiResponse uploadResponse = storageService.downloadCiosContractFile(fileName);
-		return new ResponseEntity<>(uploadResponse, uploadResponse.getResponseCode());
+		return storageService.downloadCiosContractFile(fileName);
 	}
 }
