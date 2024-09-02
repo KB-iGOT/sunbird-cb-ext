@@ -2716,18 +2716,6 @@ public class CbExtServerProperties {
 		this.insightsMappingKey = insightsMappingKey;
 	}
 
-	public String getCiosCloudContainerName() {
-		return ciosCloudContainerName;
-	}
-
-	public String getCiosCloudFolderName() {
-		return ciosCloudFolderName;
-	}
-
-	public void setCiosCloudContainerName(String ciosCloudContainerName) {
-		this.ciosCloudContainerName = ciosCloudContainerName;
-	}
-
 	public String getSbSearchServiceHost() {
 		return sbSearchServiceHost;
 	}
