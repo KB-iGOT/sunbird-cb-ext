@@ -768,6 +768,12 @@ public class CbExtServerProperties {
 	@Value("${sb.composite.v4.search}")
 	private String sbCompositeV4Search;
 
+	@Value("${cios.cloud.container.name}")
+	private String ciosCloudContainerName;
+
+	@Value("${cios.cloud.folder.name}")
+	private String ciosCloudFolderName;
+
 	public boolean qListFromCacheEnabled() {
 		return qListFromCacheEnabled;
 	}
@@ -2701,6 +2707,18 @@ public class CbExtServerProperties {
 
 	public void setInsightsMappingKey(Map<String, String> insightsMappingKey) {
 		this.insightsMappingKey = insightsMappingKey;
+	}
+
+	public String getCiosCloudContainerName() {
+		return ciosCloudContainerName;
+	}
+
+	public String getCiosCloudFolderName() {
+		return ciosCloudFolderName;
+	}
+
+	public void setCiosCloudContainerName(String ciosCloudContainerName) {
+		this.ciosCloudContainerName = ciosCloudContainerName;
 	}
 
 	public String getSbSearchServiceHost() {

@@ -30,4 +30,8 @@ public interface StorageService {
 	public SBApiResponse downloadFile(String fileName, String containerName);
 
 	SBApiResponse uploadFileForOrg(MultipartFile mFile, String userToken);
+
+	SBApiResponse ciosContentIconUpload(MultipartFile file, String containerName, String cloudFolderName);
+
+	SBApiResponse ciosContentContractUpload(MultipartFile file, String containerName, String cloudFolderName);
 }

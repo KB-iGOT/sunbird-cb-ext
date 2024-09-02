@@ -430,4 +430,54 @@ public class StorageServiceImpl implements StorageService {
 			return response;
 		}
 	}
+
+	@Override
+	public SBApiResponse ciosContentIconUpload(MultipartFile mFile, String containerName, String cloudFolderName) {
+		SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.API_FILE_UPLOAD);
+		File file = null;
+		try {
+			file = new File(System.currentTimeMillis() + "_" + mFile.getOriginalFilename());
+			file.createNewFile();
+			FileOutputStream fos = new FileOutputStream(file);
+			fos.write(mFile.getBytes());
+			fos.close();
+			return uploadFile(file, cloudFolderName, containerName);
+		} catch (Exception e) {
+			logger.error("Failed to upload file. Exception: ", e);
+			response.getParams().setStatus(Constants.FAILED);
+			response.getParams().setErrmsg("Failed to upload file. Exception: " + e.getMessage());
+			response.setResponseCode(HttpStatus.INTERNAL_SERVER_ERROR);
+			return response;
+		} finally {
+			if (file != null) {
+				file.delete();
+			}
+		}
+	}
+
+	@Override
+	public SBApiResponse ciosContentContractUpload(MultipartFile mFile, String containerName, String cloudFolderName) {
+		SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.API_FILE_UPLOAD);
+		File file = null;
+		try {
+			file = new File(System.currentTimeMillis() + "_" + mFile.getOriginalFilename());
+			file.createNewFile();
+			FileOutputStream fos = new FileOutputStream(file);
+			fos.write(mFile.getBytes());
+			fos.close();
+			return uploadFile(file, cloudFolderName, containerName);
+		} catch (Exception e) {
+			logger.error("Failed to upload file. Exception: ", e);
+			response.getParams().setStatus(Constants.FAILED);
+			response.getParams().setErrmsg("Failed to upload file. Exception: " + e.getMessage());
+			response.setResponseCode(HttpStatus.INTERNAL_SERVER_ERROR);
+			return response;
+		} finally {
+			if (file != null) {
+				file.delete();
+			}
+		}
+	}
+
+
 }
