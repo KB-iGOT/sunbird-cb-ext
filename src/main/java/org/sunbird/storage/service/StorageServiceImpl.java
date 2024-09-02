@@ -479,5 +479,23 @@ public class StorageServiceImpl implements StorageService {
 		}
 	}
 
+	@Override
+	public SBApiResponse downloadCiosContractFile(String fileName) {
+		SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.API_FILE_DOWNLOAD);
+		try {
+			String objectKey = serverProperties.getCiosCloudFolderName() + "/" + fileName;
+			storageService.download(serverProperties.getCiosCloudContainerName(), objectKey, Constants.LOCAL_BASE_PATH,
+					Option.apply(Boolean.FALSE));
+			return response;
+		} catch (Exception e) {
+			logger.error("Failed to download the file: " + fileName + ", Exception: ", e);
+			response.getParams().setStatus(Constants.FAILED);
+			response.getParams().setErrmsg("Failed to download the file. Exception: " + e.getMessage());
+			response.setResponseCode(HttpStatus.INTERNAL_SERVER_ERROR);
+			return response;
+		}
+
+	}
+
 
 }

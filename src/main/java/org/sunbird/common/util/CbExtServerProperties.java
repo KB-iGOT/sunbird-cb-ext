@@ -774,6 +774,13 @@ public class CbExtServerProperties {
 	@Value("${cios.cloud.folder.name}")
 	private String ciosCloudFolderName;
 
+	@Value("${cios.cloud.icon.folder.name}")
+	private String ciosCloudIconFolderName;
+
+	public String getCiosCloudIconFolderName() {
+		return ciosCloudIconFolderName;
+	}
+
 	public boolean qListFromCacheEnabled() {
 		return qListFromCacheEnabled;
 	}
