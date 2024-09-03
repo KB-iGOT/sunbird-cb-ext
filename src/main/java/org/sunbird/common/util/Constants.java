@@ -1139,6 +1139,12 @@ public class Constants {
 	public static final String ERROR_WHILE_PROCESSING_USER_LEADERBOARD = "error while processing userLeaderBoard";
 	public static final String ERROR_WHILE_PROCESSING_MDO_LEADERBOARD = "error while processing mdoLeaderBoard";
 	public static final String TABLE_CQF_ASSESSMENT_DATA = "cqf_assessment_data";
+	public static final String QUESTION_OPTION_WEIGHTAGE="questionOptionWeightage";
+	public static final String MAX_WEIGHTED_SCORE_FOR_SECTION="maxWeightedScoreForSection";
+	public static final String USER_WEIGHTED_SCORE_FOR_SECTION="userWeightedScoreForSection";
+	public static final String MAX_USER_SCORE_FOR_SECTION="maxUserScoreForSection";
+	public static final String SECTION_WEIGHTAGE="sectionWeightage";
+
 
 	private Constants() {
 		throw new IllegalStateException("Utility class");

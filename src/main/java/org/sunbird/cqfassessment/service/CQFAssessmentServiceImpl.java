@@ -1,5 +1,6 @@
 package org.sunbird.cqfassessment.service;
 
+import com.beust.jcommander.internal.Lists;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.gson.Gson;
@@ -11,6 +12,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.util.CollectionUtils;
 import org.springframework.util.ObjectUtils;
 import org.sunbird.assessment.repo.AssessmentRepository;
 import org.sunbird.assessment.service.AssessmentUtilServiceV2;
@@ -22,9 +24,12 @@ import org.sunbird.common.util.Constants;
 import org.sunbird.common.util.ProjectUtil;
 import org.sunbird.cqfassessment.model.CQFAssessmentModel;
 
+import java.io.IOException;
 import java.sql.Timestamp;
 import java.util.*;
 import java.util.stream.Collectors;
+
+import static java.util.stream.Collectors.toList;
 
 /**
  * @author mahesh.vakkund
@@ -638,4 +643,522 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
                 Constants.SUNBIRD_KEY_SPACE_NAME, Constants.TABLE_CQF_ASSESSMENT_DATA,
                 propertyMap, null);
     }
+
+
+    /**
+     * Submits a CQF assessment.
+     * <p>
+     * This method processes the submit request, validates the data, and updates the assessment result.
+     *
+     * @param submitRequest The submit request data.
+     * @param userAuthToken The user authentication token.
+     * @param editMode      Whether the assessment is in edit mode.
+     * @return The API response.
+     */
+    @Override
+    public SBApiResponse submitCQFAssessment(Map<String, Object> submitRequest, String userAuthToken, boolean editMode) {
+        logger.info("CQFAssessmentServiceImpl::submitCQFAssessment.. started");
+        // Create the default API response
+        SBApiResponse outgoingResponse = ProjectUtil.createDefaultResponse(Constants.API_SUBMIT_ASSESSMENT);
+        // Initialize the CQF assessment model
+        CQFAssessmentModel cqfAssessmentModel = new CQFAssessmentModel();
+        List<Map<String, Object>> sectionLevelsResults = new ArrayList<>();
+        String errMsg;
+        try {
+            // Step-1 fetch userid
+            String userId = accessTokenValidator.fetchUserIdFromAccessToken(userAuthToken);
+            if (StringUtils.isBlank(userId)) {
+                return handleUserIdDoesNotExist(outgoingResponse);
+            }
+
+            // Validate the submit assessment request
+            errMsg = validateSubmitAssessmentRequest(submitRequest, userId, cqfAssessmentModel, userAuthToken, editMode);
+            if (StringUtils.isNotBlank(errMsg)) {
+                updateErrorDetails(outgoingResponse, errMsg);
+                return outgoingResponse;
+            }
+            String assessmentIdFromRequest = (String) submitRequest.get(Constants.IDENTIFIER);
+            String assessmentType = ((String) cqfAssessmentModel.getAssessmentHierarchy().get(Constants.ASSESSMENT_TYPE)).toLowerCase();
+            // Process each hierarchy section
+            for (Map<String, Object> hierarchySection : cqfAssessmentModel.getHierarchySectionList()) {
+                String hierarchySectionId = (String) hierarchySection.get(Constants.IDENTIFIER);
+                String userSectionId = "";
+                Map<String, Object> userSectionData = new HashMap<>();
+                for (Map<String, Object> sectionFromSubmitRequest : cqfAssessmentModel.getSectionListFromSubmitRequest()) {
+                    userSectionId = (String) sectionFromSubmitRequest.get(Constants.IDENTIFIER);
+                    if (userSectionId.equalsIgnoreCase(hierarchySectionId)) {
+                        userSectionData = sectionFromSubmitRequest;
+                        break;
+                    }
+                }
+                hierarchySection.put(Constants.SCORE_CUTOFF_TYPE, assessmentType);
+                List<Map<String, Object>> questionsListFromSubmitRequest = new ArrayList<>();
+                if (userSectionData.containsKey(Constants.CHILDREN)
+                        && !ObjectUtils.isEmpty(userSectionData.get(Constants.CHILDREN))) {
+                    questionsListFromSubmitRequest = objectMapper.convertValue(userSectionData.get(Constants.CHILDREN),
+                            new TypeReference<List<Map<String, Object>>>() {
+                            });
+                }
+                List<String> desiredKeys = Lists.newArrayList(Constants.IDENTIFIER);
+                List<Object> questionsList = questionsListFromSubmitRequest.stream()
+                        .flatMap(x -> desiredKeys.stream().filter(x::containsKey).map(x::get)).collect(toList());
+                List<String> questionsListFromAssessmentHierarchy = questionsList.stream()
+                        .map(object -> Objects.toString(object, null)).collect(toList());
+                Map<String, Object> result = new HashMap<>();
+                Map<String, Object> questionSetDetailsMap = getParamDetailsForQTypes(hierarchySection, cqfAssessmentModel.getAssessmentHierarchy());
+                if (assessmentType.equalsIgnoreCase(Constants.QUESTION_OPTION_WEIGHTAGE)) {
+                    result.putAll(createResponseMapWithProperStructure(hierarchySection,
+                            validateCQFAssessment(questionSetDetailsMap, questionsListFromAssessmentHierarchy,
+                                    questionsListFromSubmitRequest, assessUtilServ.readQListfromCache(questionsListFromAssessmentHierarchy, assessmentIdFromRequest, editMode, userAuthToken))));
+                    outgoingResponse.getResult().putAll(result);
+                    return outgoingResponse;
+                }
+            }
+            return null;
+        } catch (Exception e) {
+            errMsg = String.format("Failed to process assessment submit request. Exception: ", e.getMessage());
+            logger.error(errMsg, e);
+            updateErrorDetails(outgoingResponse, errMsg);
+        }
+        return outgoingResponse;
+    }
+
+
+    /**
+     * Validates a submit assessment request.
+     * <p>
+     * This method checks the validity of the submit request, reads the assessment hierarchy from cache,
+     * checks if the primary category is practice question set or edit mode, reads the user submitted assessment records,
+     * and validates the section details and question IDs.
+     *
+     * @param submitRequest      The submit request to be validated.
+     * @param userId             The ID of the user submitting the assessment.
+     * @param cqfAssessmentModel The CQF assessment model.
+     * @param token              The token for the assessment.
+     * @param editMode           Whether the assessment is in edit mode.
+     * @return An error message if the validation fails, otherwise an empty string.
+     * @throws Exception If an error occurs during validation.
+     */
+    private String validateSubmitAssessmentRequest(Map<String, Object> submitRequest, String userId, CQFAssessmentModel cqfAssessmentModel, String token, boolean editMode) throws Exception {
+        submitRequest.put(Constants.USER_ID, userId);
+        if (StringUtils.isEmpty((String) submitRequest.get(Constants.IDENTIFIER))) {
+            return Constants.INVALID_ASSESSMENT_ID;
+        }
+        String assessmentIdFromRequest = (String) submitRequest.get(Constants.IDENTIFIER);
+        cqfAssessmentModel.getAssessmentHierarchy().putAll(assessUtilServ.readAssessmentHierarchyFromCache(assessmentIdFromRequest, editMode, token));
+        if (MapUtils.isEmpty(cqfAssessmentModel.getAssessmentHierarchy())) {
+            return Constants.READ_ASSESSMENT_FAILED;
+        }
+        // Get the hierarchy section list and section list from submit request
+        cqfAssessmentModel.getHierarchySectionList().addAll(objectMapper.convertValue(
+                cqfAssessmentModel.getAssessmentHierarchy().get(Constants.CHILDREN),
+                new TypeReference<List<Map<String, Object>>>() {
+                }
+        ));
+        cqfAssessmentModel.getSectionListFromSubmitRequest().addAll(objectMapper.convertValue(
+                submitRequest.get(Constants.CHILDREN),
+                new TypeReference<List<Map<String, Object>>>() {
+                }
+        ));
+        // Check if the primary category is practice question set or edit mode
+        if (((String) (cqfAssessmentModel.getAssessmentHierarchy().get(Constants.PRIMARY_CATEGORY)))
+                .equalsIgnoreCase(Constants.PRACTICE_QUESTION_SET) || editMode) {
+            return "";
+        }
+        // Read the user submitted assessment records
+        List<Map<String, Object>> existingDataList = assessUtilServ.readUserSubmittedAssessmentRecords(
+                userId, (String) submitRequest.get(Constants.IDENTIFIER));
+        // Check if the existing data list is empty
+        if (existingDataList.isEmpty()) {
+            return Constants.USER_ASSESSMENT_DATA_NOT_PRESENT;
+        } else {
+            // Add the existing assessment data to the CQF assessment model
+            cqfAssessmentModel.getExistingAssessmentData().putAll(existingDataList.get(0));
+        }
+        // Get the assessment start time
+        Date assessmentStartTime = (Date) cqfAssessmentModel.getExistingAssessmentData().get(Constants.START_TIME);
+        // Check if the assessment start time is null
+        if (assessmentStartTime == null) {
+            return Constants.READ_ASSESSMENT_START_TIME_FAILED;
+        }
+        // Calculate the expected duration and submission time
+        int expectedDuration = (Integer) cqfAssessmentModel.getAssessmentHierarchy().get(Constants.EXPECTED_DURATION);
+        Timestamp later = calculateAssessmentSubmitTime(expectedDuration,
+                new Timestamp(assessmentStartTime.getTime()),
+                Integer.parseInt(serverProperties.getUserAssessmentSubmissionDuration()));
+        Timestamp submissionTime = new Timestamp(new Date().getTime());
+        // Check if the submission time is before the expected duration
+        int time = submissionTime.compareTo(later);
+        if (time <= 0) {
+            // Validate the section details
+            List<String> desiredKeys = Lists.newArrayList(Constants.IDENTIFIER);
+            List<Object> hierarchySectionIds = cqfAssessmentModel.getHierarchySectionList().stream()
+                    .flatMap(x -> desiredKeys.stream().filter(x::containsKey).map(x::get)).collect(toList());
+            List<Object> submitSectionIds = cqfAssessmentModel.getSectionListFromSubmitRequest().stream()
+                    .flatMap(x -> desiredKeys.stream().filter(x::containsKey).map(x::get)).collect(toList());
+            if (!new HashSet<>(hierarchySectionIds).containsAll(submitSectionIds)) {
+                return Constants.WRONG_SECTION_DETAILS;
+            } else {
+                // Validate the question IDs
+                String areQuestionIdsSame = validateIfQuestionIdsAreSame(
+                        cqfAssessmentModel.getSectionListFromSubmitRequest(), desiredKeys, cqfAssessmentModel.getExistingAssessmentData());
+                if (!areQuestionIdsSame.isEmpty())
+                    return areQuestionIdsSame;
+            }
+        } else {
+            // Return an error if the submission time has expired
+            return Constants.ASSESSMENT_SUBMIT_EXPIRED;
+        }
+        return "";
+    }
+
+
+    /**
+     * Validates if the question IDs from the submit request are the same as the question IDs from the assessment hierarchy.
+     * <p>
+     * This method reads the question set from the assessment, extracts the question IDs from the assessment hierarchy,
+     * and compares them with the question IDs from the submit request.
+     *
+     * @param sectionListFromSubmitRequest The list of sections from the submit request.
+     * @param desiredKeys                  The list of desired keys to extract from the sections.
+     * @param existingAssessmentData       The existing assessment data.
+     * @return An error message if the validation fails, otherwise an empty string.
+     */
+    private String validateIfQuestionIdsAreSame(List<Map<String, Object>> sectionListFromSubmitRequest, List<String> desiredKeys,
+                                                Map<String, Object> existingAssessmentData) {
+        String questionSetFromAssessmentString = getQuestionSetFromAssessment(existingAssessmentData);
+        if (StringUtils.isBlank(questionSetFromAssessmentString)) {
+            return Constants.ASSESSMENT_SUBMIT_QUESTION_READ_FAILED;
+        }
+
+        Map<String, Object> questionSetFromAssessment = null;
+        try {
+            questionSetFromAssessment = objectMapper.readValue(questionSetFromAssessmentString,
+                    new TypeReference<Map<String, Object>>() {
+                    });
+        } catch (IOException e) {
+            logger.error("Failed to parse question set from assessment. Exception: ", e);
+            return Constants.ASSESSMENT_SUBMIT_QUESTION_READ_FAILED;
+        }
+        if (MapUtils.isEmpty(questionSetFromAssessment)) {
+            return Constants.ASSESSMENT_SUBMIT_QUESTION_READ_FAILED;
+        }
+        List<Map<String, Object>> sections = objectMapper.convertValue(
+                questionSetFromAssessment.get(Constants.CHILDREN),
+                new TypeReference<List<Map<String, Object>>>() {
+                }
+        );
+        List<String> desiredKey = Lists.newArrayList(Constants.CHILD_NODES);
+        List<Object> questionList = sections.stream()
+                .flatMap(x -> desiredKey.stream().filter(x::containsKey).map(x::get)).collect(toList());
+        List<String> questionIdsFromAssessmentHierarchy = new ArrayList<>();
+        for (Object question : questionList) {
+            questionIdsFromAssessmentHierarchy.addAll(objectMapper.convertValue(question,
+                    new TypeReference<List<String>>() {
+                    }
+            ));
+        }
+        List<String> userQuestionIdsFromSubmitRequest = getUserQuestionIdsFromSubmitRequest(sectionListFromSubmitRequest, desiredKeys);
+
+
+        if (!new HashSet<>(questionIdsFromAssessmentHierarchy).containsAll(userQuestionIdsFromSubmitRequest)) {
+            return Constants.ASSESSMENT_SUBMIT_INVALID_QUESTION;
+        }
+        return "";
+    }
+
+
+    /**
+     * Retrieves the question set from the existing assessment data.
+     * <p>
+     * This method extracts the question set from the assessment data using the assessment read response key.
+     *
+     * @param existingAssessmentData The existing assessment data.
+     * @return The question set from the assessment data.
+     */
+    private String getQuestionSetFromAssessment(Map<String, Object> existingAssessmentData) {
+        // Extract the question set from the assessment data using the assessment read response key
+        return (String) existingAssessmentData.get(Constants.ASSESSMENT_READ_RESPONSE_KEY);
+    }
+
+
+    /**
+     * Retrieves the user question IDs from the submit request.
+     * <p>
+     * This method extracts the question IDs from the section list in the submit request.
+     *
+     * @param sectionListFromSubmitRequest The section list from the submit request.
+     * @param desiredKeys                  The desired keys to extract from the section list.
+     * @return The list of user question IDs.
+     */
+    private List<String> getUserQuestionIdsFromSubmitRequest(List<Map<String, Object>> sectionListFromSubmitRequest, List<String> desiredKeys) {
+        List<Map<String, Object>> questionsListFromSubmitRequest = new ArrayList<>();
+        for (Map<String, Object> userSectionData : sectionListFromSubmitRequest) {
+            if (userSectionData.containsKey(Constants.CHILDREN)
+                    && !ObjectUtils.isEmpty(userSectionData.get(Constants.CHILDREN))) {
+                questionsListFromSubmitRequest
+                        .addAll(objectMapper.convertValue(
+                                userSectionData.get(Constants.CHILDREN),
+                                new TypeReference<List<Map<String, Object>>>() {
+                                }
+                        ));
+            }
+        }
+        return questionsListFromSubmitRequest.stream()
+                .flatMap(x -> desiredKeys.stream().filter(x::containsKey).map(x::get))
+                .map(x -> (String) x)
+                .collect(toList());
+
+    }
+
+
+    /**
+     * Creates a response map with the proper structure.
+     * <p>
+     * This method takes a hierarchy section and a result map as input, and returns a new map with the required structure.
+     *
+     * @param hierarchySection The hierarchy section to extract data from.
+     * @param resultMap        The result map to extract additional data from.
+     * @return The response map with the proper structure.
+     */
+    public Map<String, Object> createResponseMapWithProperStructure(Map<String, Object> hierarchySection,
+                                                                    Map<String, Object> resultMap) {
+        Map<String, Object> sectionLevelResult = new HashMap<>();
+        sectionLevelResult.put(Constants.IDENTIFIER, hierarchySection.get(Constants.IDENTIFIER));
+        sectionLevelResult.put(Constants.OBJECT_TYPE, hierarchySection.get(Constants.OBJECT_TYPE));
+        sectionLevelResult.put(Constants.PRIMARY_CATEGORY, hierarchySection.get(Constants.PRIMARY_CATEGORY));
+        sectionLevelResult.put(Constants.PASS_PERCENTAGE, hierarchySection.get(Constants.MINIMUM_PASS_PERCENTAGE));
+        sectionLevelResult.put(Constants.NAME, hierarchySection.get(Constants.NAME));
+        sectionLevelResult.put("maxUserScoreForSection", resultMap.get("maxUserScoreForSection"));
+        return sectionLevelResult;
+    }
+
+    /**
+     * @param questionSetDetailsMap a map containing details about the question set.
+     * @param originalQuestionList  a list of original question identifiers.
+     * @param userQuestionList      a list of maps where each map represents a user's question with its details.
+     * @param questionMap           a map containing additional question-related information.
+     * @return a map with validation results and resultMap.
+     */
+    public Map<String, Object> validateCQFAssessment(Map<String, Object> questionSetDetailsMap, List<String> originalQuestionList,
+                                                     List<Map<String, Object>> userQuestionList, Map<String, Object> questionMap) {
+        try {
+            Integer blank = 0;
+            double userCriteriaScore = 0.0;
+            double maxWeightedScoreForQn = 0.0;
+            double maxWeightedScoreForSection;
+            double maxUserScoreForSection;
+            double userWeightedScoreForSection;
+
+            String assessmentType = (String) questionSetDetailsMap.get(Constants.ASSESSMENT_TYPE);
+            Map<String, Object> resultMap = new HashMap<>();
+            Map<String, Object> optionWeightages = new HashMap<>();
+            Map<String, Object> maxMarksForQuestion = new HashMap<>();
+            if (assessmentType.equalsIgnoreCase(Constants.QUESTION_OPTION_WEIGHTAGE)) {
+                optionWeightages = getOptionWeightages(originalQuestionList, questionMap);
+                maxMarksForQuestion = getMaxMarksForQustions(originalQuestionList, questionMap);
+            }
+            for (Map<String, Object> question : userQuestionList) {
+                List<String> marked = new ArrayList<>();
+                handleqTypeQuestion(question, marked, assessmentType);
+                if (CollectionUtils.isEmpty(marked)) {
+                    blank++;
+                    question.put(Constants.RESULT, Constants.BLANK);
+                } else {
+                    userCriteriaScore = calculateScoreForOptionWeightage(question, assessmentType, optionWeightages, userCriteriaScore, marked);
+                    String identifier = question.get(Constants.IDENTIFIER).toString();
+                    maxWeightedScoreForQn = maxWeightedScoreForQn + (double) maxMarksForQuestion.get(identifier);
+                }
+            }
+            maxWeightedScoreForSection = maxWeightedScoreForQn * ((double) questionSetDetailsMap.get(Constants.SECTION_WEIGHTAGE) / 100);
+            userWeightedScoreForSection = userCriteriaScore * ((double) questionSetDetailsMap.get(Constants.SECTION_WEIGHTAGE) / 100);
+            if (userWeightedScoreForSection > 0) {
+                maxUserScoreForSection = userWeightedScoreForSection / maxWeightedScoreForSection;
+                resultMap.put(Constants.MAX_WEIGHTED_SCORE_FOR_SECTION, maxWeightedScoreForSection);
+                resultMap.put(Constants.USER_WEIGHTED_SCORE_FOR_SECTION, userWeightedScoreForSection);
+                resultMap.put(Constants.MAX_USER_SCORE_FOR_SECTION, maxUserScoreForSection);
+                resultMap.put(Constants.BLANK, blank);
+            }
+            return resultMap;
+        } catch (Exception ex) {
+            logger.error("Error when verifying assessment. Error : ", ex);
+        }
+        return new HashMap<>();
+    }
+
+    /**
+     * Retrieves option weightages for a list of questions corresponding to their options.
+     *
+     * @param questions   the list of questionIDs/doIds.
+     * @param questionMap the map containing questions/Question Level details.
+     * @return a map containing Identifier mapped to their option and option weightages.
+     * @throws Exception if there is an error processing the questions.
+     */
+    private Map<String, Object> getOptionWeightages(List<String> questions, Map<String, Object> questionMap) {
+        logger.info("Retrieving option weightages for questions based on the options...");
+        Map<String, Object> ret = new HashMap<>();
+        for (String questionId : questions) {
+            Map<String, Object> optionWeightage = new HashMap<>();
+            Map<String, Object> question = objectMapper.convertValue(questionMap.get(questionId), new TypeReference<Map<String, Object>>() {
+            });
+            if (question.containsKey(Constants.QUESTION_TYPE)) {
+                String questionType = ((String) question.get(Constants.QUESTION_TYPE)).toLowerCase();
+                Map<String, Object> editorStateObj = objectMapper.convertValue(question.get(Constants.EDITOR_STATE), new TypeReference<Map<String, Object>>() {
+                });
+                List<Map<String, Object>> options = objectMapper.convertValue(editorStateObj.get(Constants.OPTIONS), new TypeReference<List<Map<String, Object>>>() {
+                });
+                switch (questionType) {
+                    case Constants.MCQ_SCA:
+                    case Constants.MCQ_MCA:
+                    case Constants.MCQ_MCA_W:
+                        for (Map<String, Object> option : options) {
+                            Map<String, Object> valueObj = objectMapper.convertValue(option.get(Constants.VALUE), new TypeReference<Map<String, Object>>() {
+                            });
+                            optionWeightage.put(valueObj.get(Constants.VALUE).toString(), option.get(Constants.ANSWER));
+                        }
+                        break;
+                    default:
+                        break;
+                }
+            }
+            ret.put(question.get(Constants.IDENTIFIER).toString(), optionWeightage);
+        }
+        logger.info("Option weightages retrieved successfully.");
+        return ret;
+    }
+
+    /**
+     * Retrieves the maximum marks for a list of questions.
+     * <p>
+     * This method takes a list of question IDs and a question map as input, and returns a map with the maximum marks for each question.
+     *
+     * @param questions   The list of question IDs.
+     * @param questionMap The map of questions with their details.
+     * @return A map with the maximum marks for each question.
+     */
+    private Map<String, Object> getMaxMarksForQustions(List<String> questions, Map<String, Object> questionMap) {
+        logger.info("Retrieving max weightages for questions based on the questions...");
+        Map<String, Object> ret = new HashMap<>();
+        for (String questionId : questions) {
+            double maxMarks = 0;
+            Map<String, Object> question = objectMapper.convertValue(questionMap.get(questionId), new TypeReference<Map<String, Object>>() {
+            });
+            if (question.containsKey(Constants.QUESTION_TYPE)) {
+                String questionType = ((String) question.get(Constants.QUESTION_TYPE)).toLowerCase();
+                switch (questionType) {
+                    case Constants.MCQ_SCA:
+                    case Constants.MCQ_MCA:
+                    case Constants.MCQ_MCA_W:
+                        maxMarks = (double) question.get("totalMarks");
+                        break;
+                    default:
+                        break;
+                }
+            }
+            ret.put(question.get(Constants.IDENTIFIER).toString(), maxMarks);
+        }
+        logger.info("max weightages retrieved successfully.");
+        return ret;
+    }
+
+
+    /**
+     * Handles the question type and retrieves the marked indices for each question.
+     * <p>
+     * This method takes a question map, a list of marked indices, and an assessment type as input.
+     * It checks if the question has a question type and retrieves the marked indices based on the question type.
+     *
+     * @param question       The question map.
+     * @param marked         The list of marked indices.
+     * @param assessmentType The assessment type.
+     */
+    private void handleqTypeQuestion(Map<String, Object> question, List<String> marked, String assessmentType) {
+        if (question.containsKey(Constants.QUESTION_TYPE)) {
+            String questionType = ((String) question.get(Constants.QUESTION_TYPE)).toLowerCase();
+            Map<String, Object> editorStateObj = objectMapper.convertValue(question.get(Constants.EDITOR_STATE), new TypeReference<Map<String, Object>>() {
+            });
+            List<Map<String, Object>> options = objectMapper.convertValue(editorStateObj.get(Constants.OPTIONS), new TypeReference<List<Map<String, Object>>>() {
+            });
+            getMarkedIndexForEachQuestion(questionType, options, marked, assessmentType);
+        }
+    }
+
+    /**
+     * Gets index for each question based on the question type.
+     *
+     * @param questionType   the type of question.
+     * @param options        the list of options.
+     * @param marked         the list to store marked indices.
+     * @param assessmentType the type of assessment.
+     */
+    private void getMarkedIndexForEachQuestion(String questionType, List<Map<String, Object>> options, List<String> marked, String assessmentType) {
+        logger.info("Getting marks or index for each question...");
+        if (questionType.equalsIgnoreCase("mcq-mca-w")) {
+            getMarkedIndexForOptionWeightAge(options, marked);
+        }
+        logger.info("Marks or index retrieved successfully.");
+    }
+
+
+    /**
+     * Calculates the score for option weightage based on the given question, assessment type, option weightages, section marks, and marked indices.
+     * <p>
+     * This method takes a question map, an assessment type, a map of option weightages, a section marks value, and a list of marked indices as input.
+     * It calculates the score for option weightage based on the assessment type and returns the updated section marks value.
+     *
+     * @param question         The question map.
+     * @param assessmentType   The assessment type.
+     * @param optionWeightages The map of option weightages.
+     * @param sectionMarks     The section marks value.
+     * @param marked           The list of marked indices.
+     * @return The updated section marks value.
+     */
+    private Double calculateScoreForOptionWeightage(Map<String, Object> question, String assessmentType, Map<String, Object> optionWeightages, Double sectionMarks, List<String> marked) {
+        if (assessmentType.equalsIgnoreCase(Constants.OPTION_WEIGHTAGE)) {
+            String identifier = question.get(Constants.IDENTIFIER).toString();
+            Map<String, Object> optionWeightageMap = objectMapper.convertValue(optionWeightages.get(identifier), new TypeReference<Map<String, Object>>() {
+            });
+            for (Map.Entry<String, Object> optionWeightAgeFromOptions : optionWeightageMap.entrySet()) {
+                String submittedQuestionSetIndex = marked.get(0);
+                if (submittedQuestionSetIndex.equals(optionWeightAgeFromOptions.getKey())) {
+                    sectionMarks = sectionMarks + Integer.parseInt((String) optionWeightAgeFromOptions.getValue());
+                }
+            }
+        }
+        return sectionMarks;
+    }
+
+
+    /**
+     * Gets index for each question based on the question type.
+     *
+     * @param options the list of options.
+     */
+    private void getMarkedIndexForOptionWeightAge(List<Map<String, Object>> options, List<String> marked) {
+        logger.info("Processing marks for option weightage...");
+        for (Map<String, Object> option : options) {
+            String submittedQuestionSetIndex = (String) option.get(Constants.INDEX);
+            marked.add(submittedQuestionSetIndex);
+        }
+        logger.info("Marks for option weightage processed successfully.");
+    }
+
+
+    /**
+     * Retrieves the parameter details for question types based on the given assessment hierarchy.
+     *
+     * @param assessmentHierarchy a map containing the assessment hierarchy details.
+     * @return a map containing the parameter details for the question types.
+     */
+    private Map<String, Object> getParamDetailsForQTypes(Map<String, Object> hierarchySection, Map<String, Object> assessmentHierarchy) {
+        logger.info("Starting getParamDetailsForQTypes with assessmentHierarchy: {}", assessmentHierarchy);
+        Map<String, Object> questionSetDetailsMap = new HashMap<>();
+        String assessmentType = (String) assessmentHierarchy.get(Constants.ASSESSMENT_TYPE);
+        questionSetDetailsMap.put(Constants.ASSESSMENT_TYPE, assessmentType);
+        questionSetDetailsMap.put(Constants.MINIMUM_PASS_PERCENTAGE, assessmentHierarchy.get(Constants.MINIMUM_PASS_PERCENTAGE));
+        questionSetDetailsMap.put(Constants.TOTAL_MARKS, hierarchySection.get(Constants.TOTAL_MARKS));
+        logger.info("Completed getParamDetailsForQTypes with result: {}", questionSetDetailsMap);
+        return questionSetDetailsMap;
+    }
+
 }

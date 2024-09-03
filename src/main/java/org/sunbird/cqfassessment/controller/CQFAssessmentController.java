@@ -51,7 +51,7 @@ public class CQFAssessmentController {
         return ResponseEntity.ok(assessments);
     }
 
-    @GetMapping("/assessment/read/{assessmentIdentifier}/{contentId}/{versionKey}")
+    @GetMapping("/read/{assessmentIdentifier}/{contentId}/{versionKey}")
     public ResponseEntity<SBApiResponse> readAssessment(
             @PathVariable("assessmentIdentifier") String assessmentIdentifier,
             @PathVariable("contentId") String contentId,
@@ -60,5 +60,14 @@ public class CQFAssessmentController {
         boolean edit = !StringUtils.isEmpty(editMode) && Boolean.parseBoolean(editMode);
         SBApiResponse readResponse = cqfAssessmentService.readAssessment(assessmentIdentifier, token, edit, contentId, versionKey);
         return new ResponseEntity<>(readResponse, readResponse.getResponseCode());
+    }
+
+
+    @PostMapping("/submit")
+    public ResponseEntity<SBApiResponse> submitUserAssessmentV5(@Valid @RequestBody Map<String, Object> requestBody,
+                                                                @RequestHeader("x-authenticated-user-token") String authUserToken,@RequestParam(name = "editMode" ,required = false) String editMode) {
+        boolean edit = !StringUtils.isEmpty(editMode) && Boolean.parseBoolean(editMode);
+        SBApiResponse submitResponse = cqfAssessmentService.submitCQFAssessment(requestBody, authUserToken,edit);
+        return new ResponseEntity<>(submitResponse, submitResponse.getResponseCode());
     }
 }
