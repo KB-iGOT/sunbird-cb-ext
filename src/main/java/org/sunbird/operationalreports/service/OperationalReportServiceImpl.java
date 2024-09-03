@@ -187,7 +187,7 @@ public class OperationalReportServiceImpl implements OperationalReportService {
             }
             Map<String, Map<String, String>> userInfoMap = new HashMap<>();
             userUtilityService.getUserDetailsFromDB(
-                    Collections.singletonList(userId), Arrays.asList(Constants.ROOT_ORG_ID, Constants.USER_ID),
+                    Collections.singletonList(userId), Arrays.asList(Constants.ROOT_ORG_ID, Constants.USER_ID, Constants.CHANNEL),
                     userInfoMap);
             Map<String, String> userDetailsMap = userInfoMap.get(userId);
             String rootOrg = userDetailsMap.get(Constants.ROOT_ORG_ID);
