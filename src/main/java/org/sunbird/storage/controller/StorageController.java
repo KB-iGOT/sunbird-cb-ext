@@ -81,14 +81,14 @@ public class StorageController {
 	}
 
 	@PostMapping("/v1/uploadCiosIcon")
-	public ResponseEntity<?> ciosContentIconUpload(@RequestParam(value = "file", required = true) MultipartFile multipartFile, @PathVariable String partnerOrgId)
+	public ResponseEntity<?> ciosContentIconUpload(@RequestParam(value = "file", required = true) MultipartFile multipartFile)
 			throws IOException {
 		SBApiResponse uploadResponse = storageService.ciosContentIconUpload(multipartFile, serverConfig.getCloudProfileImageContainerName(), serverConfig.getCiosCloudIconFolderName());
 		return new ResponseEntity<>(uploadResponse, uploadResponse.getResponseCode());
 	}
 
 	@PostMapping("/v1/uploadCiosContract")
-	public ResponseEntity<?> ciosContentContractUpload(@RequestParam(value = "file", required = true) MultipartFile multipartFile, @PathVariable String partnerOrgId)
+	public ResponseEntity<?> ciosContentContractUpload(@RequestParam(value = "file", required = true) MultipartFile multipartFile)
 	{
 		SBApiResponse uploadResponse = storageService.ciosContentContractUpload(multipartFile, serverConfig.getCiosCloudContainerName(), serverConfig.getCiosCloudFolderName());
 		return new ResponseEntity<>(uploadResponse, uploadResponse.getResponseCode());
