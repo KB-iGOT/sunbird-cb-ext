@@ -70,4 +70,6 @@ public interface CQFAssessmentService {
      * @return The API response containing the result of the submission.
      */
     SBApiResponse submitCQFAssessment(@Valid Map<String, Object> requestBody, String authUserToken, boolean edit);
+
+    SBApiResponse readCQFAssessmentResult(@Valid Map<String, Object> requestBody, String authUserToken);
 }

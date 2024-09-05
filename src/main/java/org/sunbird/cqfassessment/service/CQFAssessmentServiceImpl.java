@@ -1037,7 +1037,6 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
      * @param questions   the list of questionIDs/doIds.
      * @param questionMap the map containing questions/Question Level details.
      * @return a map containing Identifier mapped to their option and option weightages.
-     * @throws Exception if there is an error processing the questions.
      */
     private Map<String, Object> getOptionWeightages(List<String> questions, Map<String, Object> questionMap) {
         logger.info("Retrieving option weightages for questions based on the options...");
@@ -1204,4 +1203,122 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
         return questionSetDetailsMap;
     }
 
+    /**
+     * Reads the CQF assessment result for a given user.
+     * <p>
+     * This method takes in a request map and a user authentication token,
+     * validates the request, and returns the assessment result.
+     *
+     * @param request       The request map containing the assessment details.
+     * @param userAuthToken The user authentication token.
+     * @return The assessment result response.
+     */
+    public SBApiResponse readCQFAssessmentResult(Map<String, Object> request, String userAuthToken) {
+        SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.API_READ_ASSESSMENT_RESULT);
+        try {
+            String userId = accessTokenValidator.fetchUserIdFromAccessToken(userAuthToken);
+            if (StringUtils.isBlank(userId)) {
+                updateErrorDetails(response, Constants.USER_ID_DOESNT_EXIST, HttpStatus.INTERNAL_SERVER_ERROR);
+                return response;
+            }
+
+            String errMsg = validateAssessmentReadResult(request);
+            if (StringUtils.isNotBlank(errMsg)) {
+                updateErrorDetails(response, errMsg, HttpStatus.BAD_REQUEST);
+                return response;
+            }
+
+            Map<String, Object> requestBody = objectMapper.convertValue(
+                    request.get(Constants.REQUEST),
+                    new TypeReference<Map<String, Object>>() {
+                    }
+            );
+
+            List<Map<String, Object>> existingDataList = readUserSubmittedAssessmentRecords(new CQFAssessmentModel(
+                    userId, requestBody.get(Constants.ASSESSMENT_ID).toString(), requestBody.get(Constants.CONTENT_ID_KEY).toString(), requestBody.get(Constants.VERSION_KEY).toString()));
+            if (existingDataList.isEmpty()) {
+                updateErrorDetails(response, Constants.USER_ASSESSMENT_DATA_NOT_PRESENT, HttpStatus.BAD_REQUEST);
+                return response;
+            }
+
+            String statusOfLatestObject = (String) existingDataList.get(0).get(Constants.STATUS);
+            if (!Constants.SUBMITTED.equalsIgnoreCase(statusOfLatestObject)) {
+                response.getResult().put(Constants.STATUS_IS_IN_PROGRESS, true);
+                return response;
+            }
+
+            String latestResponse = (String) existingDataList.get(0).get(Constants.SUBMIT_ASSESSMENT_RESPONSE_KEY);
+            if (StringUtils.isNotBlank(latestResponse)) {
+                response.putAll(objectMapper.readValue(latestResponse, new TypeReference<Map<String, Object>>() {
+                }));
+            }
+        } catch (Exception e) {
+            String errMsg = String.format("Failed to process Assessment read response. Excption: %s", e.getMessage());
+            updateErrorDetails(response, errMsg, HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+        return response;
+    }
+
+
+    /**
+     * Updates the error details in the response object.
+     * <p>
+     * This method takes in a response object, an error message, and a response code,
+     * and updates the response object with the error details.
+     *
+     * @param response     The response object to be updated.
+     * @param errMsg       The error message to be set in the response.
+     * @param responseCode The response code to be set in the response.
+     */
+    private void updateErrorDetails(SBApiResponse response, String errMsg, HttpStatus responseCode) {
+        response.getParams().setStatus(Constants.FAILED);
+        response.getParams().setErrmsg(errMsg);
+        response.setResponseCode(responseCode);
+    }
+
+
+    /**
+     * Validates the assessment read result request.
+     * <p>
+     * This method checks if the request is valid and contains all the required attributes.
+     *
+     * @param request The request map to be validated.
+     * @return The error message if the request is invalid, or an empty string if the request is valid.
+     */
+    private String validateAssessmentReadResult(Map<String, Object> request) {
+        String errMsg = "";
+        if (MapUtils.isEmpty(request) || !request.containsKey(Constants.REQUEST)) {
+            return Constants.INVALID_REQUEST;
+        }
+
+        Map<String, Object> requestBody = objectMapper.convertValue(
+                request.get(Constants.REQUEST),
+                new TypeReference<Map<String, Object>>() {
+                }
+        );
+        if (MapUtils.isEmpty(requestBody)) {
+            return Constants.INVALID_REQUEST;
+        }
+        List<String> missingAttribs = new ArrayList<>();
+        if (!requestBody.containsKey(Constants.ASSESSMENT_ID_KEY)
+                || StringUtils.isBlank((String) requestBody.get(Constants.ASSESSMENT_ID_KEY))) {
+            missingAttribs.add(Constants.ASSESSMENT_ID_KEY);
+        }
+
+        if (!requestBody.containsKey(Constants.BATCH_ID)
+                || StringUtils.isBlank((String) requestBody.get(Constants.BATCH_ID))) {
+            missingAttribs.add(Constants.BATCH_ID);
+        }
+
+        if (!requestBody.containsKey(Constants.COURSE_ID)
+                || StringUtils.isBlank((String) requestBody.get(Constants.COURSE_ID))) {
+            missingAttribs.add(Constants.COURSE_ID);
+        }
+
+        if (!missingAttribs.isEmpty()) {
+            errMsg = "One or more mandatory fields are missing in Request. Mandatory fields are : "
+                    + missingAttribs.toString();
+        }
+        return errMsg;
+    }
 }

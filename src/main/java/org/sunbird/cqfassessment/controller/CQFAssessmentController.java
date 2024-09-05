@@ -70,4 +70,11 @@ public class CQFAssessmentController {
         SBApiResponse submitResponse = cqfAssessmentService.submitCQFAssessment(requestBody, authUserToken,edit);
         return new ResponseEntity<>(submitResponse, submitResponse.getResponseCode());
     }
+
+    @PostMapping("/result")
+    public ResponseEntity<SBApiResponse> readAssessmentResultV5(@Valid @RequestBody Map<String, Object> requestBody,
+                                                                @RequestHeader("x-authenticated-user-token") String authUserToken) {
+        SBApiResponse response = cqfAssessmentService.readCQFAssessmentResult(requestBody, authUserToken);
+        return new ResponseEntity<>(response, response.getResponseCode());
+    }
 }
