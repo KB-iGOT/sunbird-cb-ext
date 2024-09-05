@@ -711,10 +711,20 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
                             validateCQFAssessment(questionSetDetailsMap, questionsListFromAssessmentHierarchy,
                                     questionsListFromSubmitRequest, assessUtilServ.readQListfromCache(questionsListFromAssessmentHierarchy, assessmentIdFromRequest, editMode, userAuthToken))));
                     outgoingResponse.getResult().putAll(result);
-                    return outgoingResponse;
+                    sectionLevelsResults.add(result);
                 }
             }
-            return null;
+            Map<String, Object> result = new HashMap<>();
+            result.put("result", sectionLevelsResults);
+            String questionSetFromAssessmentString = (String) cqfAssessmentModel.getExistingAssessmentData().get(Constants.ASSESSMENT_READ_RESPONSE_KEY);
+            Map<String, Object> questionSetFromAssessment = null;
+            if (StringUtils.isNotBlank(questionSetFromAssessmentString)) {
+                questionSetFromAssessment = objectMapper.readValue(questionSetFromAssessmentString,
+                        new TypeReference<Map<String, Object>>() {
+                        });
+            }
+            writeDataToDatabase(submitRequest, userId, questionSetFromAssessment, result);
+            return outgoingResponse;
         } catch (Exception e) {
             errMsg = String.format("Failed to process assessment submit request. Exception: ", e.getMessage());
             logger.error(errMsg, e);
@@ -723,6 +733,35 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
         return outgoingResponse;
     }
 
+    /**
+     * Writes data to the database after an assessment has been submitted.
+     *
+     * This method updates the assessment data in the database with the submitted response.
+     * It also logs any errors that occur during the process.
+     *
+     * @param submitRequest The request object containing the submitted assessment data
+     * @param userId The ID of the user who submitted the assessment
+     * @param questionSetFromAssessment The question set from the assessment
+     * @param result The result of the assessment submission
+     */
+    private void writeDataToDatabase(Map<String, Object> submitRequest, String userId,
+                                     Map<String, Object> questionSetFromAssessment, Map<String, Object> result) {
+        try {
+            if (questionSetFromAssessment.get(Constants.START_TIME) != null) {
+                Long existingAssessmentStartTime = (Long) questionSetFromAssessment.get(Constants.START_TIME);
+                Timestamp startTime = new Timestamp(existingAssessmentStartTime);
+                Map<String, Object> paramsMap = new HashMap<>();
+                paramsMap.put(Constants.USER_ID, userId);
+                paramsMap.put(Constants.ASSESSMENT_IDENTIFIER, submitRequest.get(Constants.IDENTIFIER));
+                paramsMap.put(Constants.CONTENT_ID_KEY, submitRequest.get(Constants.CONTENT_ID_KEY));
+                paramsMap.put(Constants.VERSION_KEY, submitRequest.get(Constants.VERSION_KEY));
+                assessmentRepository.updateCQFAssesmentDataToDB(paramsMap, submitRequest, result, Constants.SUBMITTED,
+                        startTime, null);
+            }
+        } catch (Exception e) {
+            logger.error("Failed to write data for assessment submit response. Exception: ", e);
+        }
+    }
 
     /**
      * Validates a submit assessment request.
@@ -766,8 +805,9 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
             return "";
         }
         // Read the user submitted assessment records
-        List<Map<String, Object>> existingDataList = assessUtilServ.readUserSubmittedAssessmentRecords(
-                userId, (String) submitRequest.get(Constants.IDENTIFIER));
+        List<Map<String, Object>> existingDataList = readUserSubmittedAssessmentRecords(
+                new CQFAssessmentModel(userId, submitRequest.get(Constants.IDENTIFIER).toString(), submitRequest.get(Constants.CONTENT_ID_KEY).toString(), submitRequest.get(Constants.VERSION_KEY).toString()));
+
         // Check if the existing data list is empty
         if (existingDataList.isEmpty()) {
             return Constants.USER_ASSESSMENT_DATA_NOT_PRESENT;
@@ -929,7 +969,9 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
         sectionLevelResult.put(Constants.PRIMARY_CATEGORY, hierarchySection.get(Constants.PRIMARY_CATEGORY));
         sectionLevelResult.put(Constants.PASS_PERCENTAGE, hierarchySection.get(Constants.MINIMUM_PASS_PERCENTAGE));
         sectionLevelResult.put(Constants.NAME, hierarchySection.get(Constants.NAME));
-        sectionLevelResult.put("maxUserScoreForSection", resultMap.get("maxUserScoreForSection"));
+        sectionLevelResult.put(Constants.MAX_USER_SCORE_FOR_SECTION, resultMap.get(Constants.MAX_USER_SCORE_FOR_SECTION));
+        sectionLevelResult.put(Constants.MAX_WEIGHTED_SCORE_FOR_SECTION, resultMap.get(Constants.MAX_WEIGHTED_SCORE_FOR_SECTION));
+        sectionLevelResult.put(Constants.USER_WEIGHTED_SCORE_FOR_SECTION,resultMap.get(Constants.USER_WEIGHTED_SCORE_FOR_SECTION));
         return sectionLevelResult;
     }
 
@@ -949,6 +991,7 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
             double maxWeightedScoreForSection;
             double maxUserScoreForSection;
             double userWeightedScoreForSection;
+            double totalUserCriteriaScoreForSection = 0.0;
 
             String assessmentType = (String) questionSetDetailsMap.get(Constants.ASSESSMENT_TYPE);
             Map<String, Object> resultMap = new HashMap<>();
@@ -960,7 +1003,7 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
             }
             for (Map<String, Object> question : userQuestionList) {
                 List<String> marked = new ArrayList<>();
-                handleqTypeQuestion(question, marked, assessmentType);
+                handleqTypeQuestion(question, marked);
                 if (CollectionUtils.isEmpty(marked)) {
                     blank++;
                     question.put(Constants.RESULT, Constants.BLANK);
@@ -968,6 +1011,7 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
                     userCriteriaScore = calculateScoreForOptionWeightage(question, assessmentType, optionWeightages, userCriteriaScore, marked);
                     String identifier = question.get(Constants.IDENTIFIER).toString();
                     maxWeightedScoreForQn = maxWeightedScoreForQn + (double) maxMarksForQuestion.get(identifier);
+                    totalUserCriteriaScoreForSection =totalUserCriteriaScoreForSection + userCriteriaScore;
                 }
             }
             maxWeightedScoreForSection = maxWeightedScoreForQn * ((double) questionSetDetailsMap.get(Constants.SECTION_WEIGHTAGE) / 100);
@@ -977,6 +1021,7 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
                 resultMap.put(Constants.MAX_WEIGHTED_SCORE_FOR_SECTION, maxWeightedScoreForSection);
                 resultMap.put(Constants.USER_WEIGHTED_SCORE_FOR_SECTION, userWeightedScoreForSection);
                 resultMap.put(Constants.MAX_USER_SCORE_FOR_SECTION, maxUserScoreForSection);
+                resultMap.put(Constants.TOTAL_USER_CRITERIA_SCORE_FOR_SECTION, totalUserCriteriaScoreForSection);
                 resultMap.put(Constants.BLANK, blank);
             }
             return resultMap;
@@ -1049,7 +1094,7 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
                     case Constants.MCQ_SCA:
                     case Constants.MCQ_MCA:
                     case Constants.MCQ_MCA_W:
-                        maxMarks = (double) question.get("totalMarks");
+                        maxMarks = (double) question.get(Constants.TOTAL_MARKS);
                         break;
                     default:
                         break;
@@ -1070,16 +1115,15 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
      *
      * @param question       The question map.
      * @param marked         The list of marked indices.
-     * @param assessmentType The assessment type.
      */
-    private void handleqTypeQuestion(Map<String, Object> question, List<String> marked, String assessmentType) {
+    private void handleqTypeQuestion(Map<String, Object> question, List<String> marked) {
         if (question.containsKey(Constants.QUESTION_TYPE)) {
             String questionType = ((String) question.get(Constants.QUESTION_TYPE)).toLowerCase();
             Map<String, Object> editorStateObj = objectMapper.convertValue(question.get(Constants.EDITOR_STATE), new TypeReference<Map<String, Object>>() {
             });
             List<Map<String, Object>> options = objectMapper.convertValue(editorStateObj.get(Constants.OPTIONS), new TypeReference<List<Map<String, Object>>>() {
             });
-            getMarkedIndexForEachQuestion(questionType, options, marked, assessmentType);
+            getMarkedIndexForEachQuestion(questionType, options, marked);
         }
     }
 
@@ -1089,11 +1133,10 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
      * @param questionType   the type of question.
      * @param options        the list of options.
      * @param marked         the list to store marked indices.
-     * @param assessmentType the type of assessment.
      */
-    private void getMarkedIndexForEachQuestion(String questionType, List<Map<String, Object>> options, List<String> marked, String assessmentType) {
+    private void getMarkedIndexForEachQuestion(String questionType, List<Map<String, Object>> options, List<String> marked) {
         logger.info("Getting marks or index for each question...");
-        if (questionType.equalsIgnoreCase("mcq-mca-w")) {
+        if (questionType.equalsIgnoreCase(Constants.MCQ_MCA_W)) {
             getMarkedIndexForOptionWeightAge(options, marked);
         }
         logger.info("Marks or index retrieved successfully.");

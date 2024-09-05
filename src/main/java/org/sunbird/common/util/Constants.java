@@ -1144,6 +1144,9 @@ public class Constants {
 	public static final String USER_WEIGHTED_SCORE_FOR_SECTION="userWeightedScoreForSection";
 	public static final String MAX_USER_SCORE_FOR_SECTION="maxUserScoreForSection";
 	public static final String SECTION_WEIGHTAGE="sectionWeightage";
+	public static final String ASSESSMENT_IDENTIFIER="assessmentIdentifier";
+	public static final String TOTAL_USER_CRITERIA_SCORE_FOR_SECTION="totalUserCriteriaScoreForSection";
+
 
 
 	private Constants() {
