@@ -389,7 +389,7 @@ public class AssessmentUtilServiceV2Impl implements AssessmentUtilServiceV2 {
 
 
 	public Map<String, Object> readQListfromCache(List<String> questionIds, String assessmentIdentifier,boolean editMode,String token) throws IOException {
-		if (serverProperties.qListFromCacheEnabled())
+		if (serverProperties.qListFromCacheEnabled() && !editMode)
 			return qListFromCache(assessmentIdentifier,editMode,token);
 		else
 			return qListFrmAssessService(questionIds);
