@@ -1146,7 +1146,7 @@ public class Constants {
 	public static final String SECTION_WEIGHTAGE="sectionWeightage";
 	public static final String ASSESSMENT_IDENTIFIER="assessmentIdentifier";
 	public static final String TOTAL_USER_CRITERIA_SCORE_FOR_SECTION="totalUserCriteriaScoreForSection";
-
+	public static final String IS_CQF_ASSESSMENT_ACTIVE="isCQFAssessmentActive";
 
 
 	private Constants() {

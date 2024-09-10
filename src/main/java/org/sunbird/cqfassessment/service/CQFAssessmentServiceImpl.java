@@ -7,6 +7,7 @@ import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import org.apache.commons.collections.MapUtils;
 import org.apache.commons.lang.StringUtils;
+import org.elasticsearch.rest.RestStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,10 +19,8 @@ import org.sunbird.assessment.repo.AssessmentRepository;
 import org.sunbird.assessment.service.AssessmentUtilServiceV2;
 import org.sunbird.cassandra.utils.CassandraOperation;
 import org.sunbird.common.model.SBApiResponse;
-import org.sunbird.common.util.AccessTokenValidator;
-import org.sunbird.common.util.CbExtServerProperties;
-import org.sunbird.common.util.Constants;
-import org.sunbird.common.util.ProjectUtil;
+import org.sunbird.common.service.OutboundRequestHandlerServiceImpl;
+import org.sunbird.common.util.*;
 import org.sunbird.cqfassessment.model.CQFAssessmentModel;
 
 import java.io.IOException;
@@ -57,6 +56,15 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
 
     @Autowired
     AssessmentRepository assessmentRepository;
+
+    @Autowired
+    OutboundRequestHandlerServiceImpl outboundRequestHandlerService;
+
+    @Autowired
+    IndexerService indexerService;
+
+    @Autowired
+    CbExtServerProperties serverConfig;
     /**
      * Creates a entry for new CQF Assessment.
      *
@@ -1320,5 +1328,200 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
                     + missingAttribs.toString();
         }
         return errMsg;
+    }
+
+    /**
+     * Creates a new CQF question set and adds it to the Elasticsearch service.
+     *
+     * @param authToken   the authentication token of the user creating the question set
+     * @param requestBody the request body containing the parameters for creating the question set
+     * @return the API response containing the created question set
+     */
+    @Override
+    public SBApiResponse createCQFQuestionSet(String authToken, Map<String, Object> requestBody) {
+        // Create a default response object
+        SBApiResponse outgoingResponse = ProjectUtil.createDefaultResponse(Constants.CQF_API_CREATE_ASSESSMENT);
+        String userId = accessTokenValidator.fetchUserIdFromAccessToken(authToken);
+        if (StringUtils.isBlank(userId)) {
+            updateErrorDetails(outgoingResponse, Constants.USER_ID_DOESNT_EXIST, HttpStatus.INTERNAL_SERVER_ERROR);
+            return outgoingResponse;
+        }
+        // Create the question set and retrieve its identifier
+        Map<String, Object> map = createQuestionSet(requestBody);
+        map.put(Constants.IS_CQF_ASSESSMENT_ACTIVE, false);
+        String identifier = map.get(Constants.IDENTIFIER).toString();
+        if (identifier == null) {
+            return outgoingResponse;
+        }
+        // Read the question set from the assessment service
+        Map<String, Object> questionSetReadMap = readQuestionSet(identifier);
+
+        // Check if the CQF assessment already exists in Elasticsearch
+        Map<String, Object> esCQFAssessmentMap = getCQFAssessmentsByIds(identifier);
+        boolean isCQFAssessmentExist = !ObjectUtils.isEmpty(esCQFAssessmentMap);
+        // If the CQF assessment does not exist, create a new one
+        if (!isCQFAssessmentExist) {
+            Map<String, Object> questionSetMap = objectMapper.convertValue(questionSetReadMap.get(Constants.QUESTION_SET), new TypeReference<Map<String, Object>>() {
+            });
+            questionSetMap.put(Constants.IS_CQF_ASSESSMENT_ACTIVE, false);
+            esCQFAssessmentMap = questionSetMap;
+        }
+
+        // Update or add the CQF assessment to Elasticsearch
+        RestStatus status = updateOrAddEntity(serverProperties.getQuestionSetHierarchyIndex(), serverConfig.getEsProfileIndexType(), identifier, esCQFAssessmentMap, isCQFAssessmentExist);
+        if (status.equals(RestStatus.CREATED) || status.equals(RestStatus.OK)) {
+            outgoingResponse.setResponseCode(HttpStatus.ACCEPTED);
+            outgoingResponse.getResult().put(Constants.IDENTIFIER, map.get(Constants.IDENTIFIER));
+            outgoingResponse.getResult().put(Constants.VERSION_KEY, map.get(Constants.VERSION_KEY));
+            outgoingResponse.getResult().put(Constants.IS_CQF_ASSESSMENT_ACTIVE, false);
+
+        } else {
+            outgoingResponse.setResponseCode(HttpStatus.INTERNAL_SERVER_ERROR);
+            outgoingResponse.getParams().setErrmsg("Failed to add details to ES Service");
+        }
+        return outgoingResponse;
+    }
+
+
+    /**
+     * Creates a new question set by sending a POST request to the assessment host.
+     *
+     * @param requestBody the request body containing the parameters for creating the question set
+     * @return the created question set as a map of strings to objects
+     */
+
+    private Map<String, Object> createQuestionSet(Map<String, Object> requestBody) {
+        String sbUrl = serverProperties.getAssessmentHost() + serverProperties.getQuestionSetCreate();
+        Map<String, String> headers = new HashMap<>();
+        headers.put(Constants.AUTHORIZATION, serverProperties.getSbApiKey());
+        Map<String, Object> data = outboundRequestHandlerService.fetchResultUsingPost(sbUrl, requestBody, headers);
+        return objectMapper.convertValue(data.get(Constants.RESULT), new TypeReference<Map<String, Object>>() {
+        });
+    }
+
+    /**
+     * Reads a question set by its identifier.
+     *
+     * @param identifier the identifier of the question set to read
+     * @return the question set as a map of strings to objects
+     */
+    private Map<String, Object> readQuestionSet(String identifier) {
+        Map<String, Object> questionsetRead = objectMapper.convertValue(
+                outboundRequestHandlerService.fetchResult(serverProperties.getAssessmentHost() + serverProperties.getQuestionSetRead() + identifier),
+                new TypeReference<Map<String, Object>>() {
+                });
+        return objectMapper.convertValue(questionsetRead.get("result"), new TypeReference<Map<String, Object>>() {
+        });
+    }
+
+
+    /**
+     * Updates or adds an entity to the Elasticsearch index.
+     *
+     * @param indexName  the name of the Elasticsearch index
+     * @param indexType  the type of the Elasticsearch index
+     * @param identifier the identifier of the entity to update or add
+     * @param data       the data to update or add
+     * @param isExist    whether the entity already exists in the index
+     * @return the status of the update or add operation
+     */
+    public RestStatus updateOrAddEntity(String indexName, String indexType, String identifier, Map<String, Object> data, boolean isExist) {
+        if (isExist) {
+            return indexerService.updateEntity(indexName, indexType, identifier, data);
+        } else {
+            return indexerService.addEntity(indexName, indexType, identifier, data);
+        }
+    }
+
+    /**
+     * Retrieves a CQF assessment by its registration code.
+     *
+     * @param assessmentIdentifier the assessmentIdentifier  of the CQF assessment to retrieve
+     * @return the CQF assessment as a map of strings to objects, or an empty map if the retrieval fails
+     */
+    public Map<String, Object> getCQFAssessmentsByIds(String assessmentIdentifier) {
+        try {
+            return indexerService.readEntity(serverProperties.getQuestionSetHierarchyIndex(),
+                    serverConfig.getEsProfileIndexType(), assessmentIdentifier);
+        } catch (Exception e) {
+            logger.error("Failed to get AssessemntId. Exception: ", e);
+            logger.warn(String.format("Exception in %s : %s", "getCQFAssessmentsByIds", e.getMessage()));
+        }
+        return Collections.emptyMap();
+    }
+
+    /**
+     * Updates a CQF question set.
+     *
+     * @param authToken   the authentication token for the request
+     * @param requestBody the request body containing the question set data
+     * @return the response from the API, including the updated question set data
+     */
+    @Override
+    public SBApiResponse updateCQFQuestionSet(String authToken, Map<String, Object> requestBody) {
+        // Create a default response object
+        SBApiResponse outgoingResponse = ProjectUtil.createDefaultResponse(Constants.CQF_API_UPDATE_ASSESSMENT);
+        String userId = accessTokenValidator.fetchUserIdFromAccessToken(authToken);
+        if (StringUtils.isBlank(userId)) {
+            updateErrorDetails(outgoingResponse, Constants.USER_ID_DOESNT_EXIST, HttpStatus.INTERNAL_SERVER_ERROR);
+            return outgoingResponse;
+        }
+        String sbUrl = serverProperties.getAssessmentHost() + serverProperties.getQuestionSetHierarchyUpdate();
+        Map<String, String> headers = new HashMap<>();
+        // Set up the authorization header with the SB API key
+        headers.put(Constants.AUTHORIZATION, serverProperties.getSbApiKey());
+        // Send a PATCH request to the assessment host to update the question set hierarchy
+        Map<String, Object> data = outboundRequestHandlerService.fetchResultUsingPatch(sbUrl, requestBody, headers);
+        // Add the response data to the outgoing response object
+        outgoingResponse.getResult().putAll(data);
+        // Extract the request map from the request body
+        Map<String, Object> requestMap = objectMapper.convertValue(requestBody.get(Constants.REQUEST), new TypeReference<Map<String, Object>>() {
+        });
+        // Extract the data map from the request map
+        Map<String, Object> dataMap = objectMapper.convertValue(requestMap.get(Constants.DATA), new TypeReference<Map<String, Object>>() {
+        });
+        // Extract the hierarchy map from the data map
+        Map<String, Object> hierarchyMap = objectMapper.convertValue(dataMap.get(Constants.HIERARCHY), new TypeReference<Map<String, Object>>() {
+        });
+        // Get the identifier from the hierarchy map
+        String identifier = hierarchyMap.entrySet().iterator().next().getKey();
+        // Get the CQF assessment data from the Elasticsearch index
+        Map<String, Object> esCQFAssessmentMap = getCQFAssessmentsByIds(identifier);
+        // Get the question set hierarchy data from the Elasticsearch index
+        Map<String, Object> questionsetMap = readQuestionSetHierarchy(identifier);
+        // Convert the question set hierarchy data to lowercase
+        Map<String, Object> lowerCaseMap = questionsetMap.entrySet().stream()
+                .collect(Collectors.toMap(entry -> entry.getKey().toLowerCase(), Map.Entry::getValue));
+        // Extract the question set data from the lowercase map
+        Map<String, Object> questionSetMap = objectMapper.convertValue(lowerCaseMap.get(Constants.QUESTION_SET), new TypeReference<Map<String, Object>>() {
+        });
+        // Check if the CQF assessment exists in the Elasticsearch index
+        boolean isCQFAssessmentExist = !ObjectUtils.isEmpty(esCQFAssessmentMap);
+        // Update or add the question set data to the Elasticsearch index
+        RestStatus status = updateOrAddEntity(serverProperties.getQuestionSetHierarchyIndex(), serverConfig.getEsProfileIndexType(), identifier, questionSetMap, isCQFAssessmentExist);
+        // Set the response code based on the status of the update operation
+        if (status.equals(RestStatus.CREATED) || status.equals(RestStatus.OK)) {
+            outgoingResponse.setResponseCode(HttpStatus.ACCEPTED);
+            outgoingResponse.getResult().put(Constants.RESULT, requestMap);
+        } else {
+            outgoingResponse.setResponseCode(HttpStatus.INTERNAL_SERVER_ERROR);
+            outgoingResponse.getParams().setErrmsg("Failed to add details to ES Service");
+        }
+        return outgoingResponse;
+    }
+
+    /**
+     * Reads the question set hierarchy from the server based on the provided identifier.
+     *
+     * @param identifier the identifier of the question set to read
+     * @return a map of question set data
+     */
+    private Map<String, Object> readQuestionSetHierarchy(String identifier) {
+        Map<String, Object> questionsetRead = objectMapper.convertValue(
+                outboundRequestHandlerService.fetchResult(serverProperties.getAssessmentHost() + serverProperties.getQuestionSetHierarchy() + identifier + "?mode=edit"),
+                new TypeReference<Map<String, Object>>() {
+                });
+        return objectMapper.convertValue(questionsetRead.get(Constants.RESULT), new TypeReference<Map<String, Object>>() {
+        });
     }
 }
