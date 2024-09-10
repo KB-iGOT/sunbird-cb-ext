@@ -1167,4 +1167,105 @@ public class AssessmentServiceV5Impl implements AssessmentServiceV5 {
         Collections.shuffle(shuffledQnsList);
         return shuffledQnsList;
     }
+
+    @Override
+    public SBApiResponse autoPublish(String assessmentIdentifier, String token) {
+        SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.QUESTION_SET_AUTO_PUBLISH);
+        if (StringUtils.isBlank(assessmentIdentifier) || StringUtils.isBlank(token)) {
+            response.setResponseCode(HttpStatus.BAD_REQUEST);
+            response.getParams().setErrmsg(Constants.INVALID_ASSESSMENT_ID);
+            response.getParams().setStatus(Constants.FAILED);
+        }
+
+        try {
+            String userId = accessTokenValidator.fetchUserIdFromAccessToken(token);
+            if (StringUtils.isBlank(userId)) {
+                response.setResponseCode(HttpStatus.BAD_REQUEST);
+                response.getParams().setStatus(Constants.FAILED);
+                response.getParams().setErrmsg(Constants.INVALID_USER_TOKEN);
+                return response;
+            }
+            Map<String, Object> data = reviewOrPublish(assessmentIdentifier, token, serverProperties.getQuestionSetReview());
+            logger.info("questionSet review processed");
+            if (MapUtils.isEmpty(data) || !data.get(Constants.RESPONSE_CODE).equals(Constants.OK)) {
+                updateErrorDetails(response, Constants.QUESTION_SET_REVIEW_FAILED,
+                        HttpStatus.INTERNAL_SERVER_ERROR);
+                return response;
+            }
+
+            Map<String, Object> map = (Map<String, Object>) data.get(Constants.RESULT);
+            logger.info("questionSet sent for update : " + Constants.IN_REVIEW);
+            Map<String, Object> resp = updateQuestionSet((String) map.get(Constants.VERSION_KEY), Constants.IN_REVIEW, token, assessmentIdentifier);
+            if (MapUtils.isEmpty(resp) || !resp.get(Constants.RESPONSE_CODE).equals(Constants.OK)) {
+                updateErrorDetails(response, Constants.UPDATE_FAILED_IN_REVIEW,
+                        HttpStatus.INTERNAL_SERVER_ERROR);
+                return response;
+            }
+            logger.info("questionSet sent for update : " + Constants.REVIEWED);
+
+            Map<String, Object> res = (Map<String, Object>) resp.get(Constants.RESULT);
+            Map<String, Object> resp1 = updateQuestionSet((String) res.get(Constants.VERSION_KEY), Constants.REVIEWED, token, assessmentIdentifier);
+            if (MapUtils.isEmpty(resp1) || !resp1.get(Constants.RESPONSE_CODE).equals(Constants.OK)) {
+                updateErrorDetails(response, Constants.UPDATE_FAILED_IN_REVIEWED,
+                        HttpStatus.INTERNAL_SERVER_ERROR);
+                return response;
+            }
+
+            Map<String, Object> re = (Map<String, Object>) resp1.get(Constants.RESULT);
+            logger.info("questionSet sent for update : " + Constants.REVIEWED);
+            Map<String, Object> resp2 = updateQuestionSet((String) re.get(Constants.VERSION_KEY), Constants.SENT_TO_PUBLISH, token, assessmentIdentifier);
+            if (MapUtils.isEmpty(resp2) || !resp2.get(Constants.RESPONSE_CODE).equals(Constants.OK)) {
+                updateErrorDetails(response, Constants.UPDATE_FAILED_SENT_TO_PUBLISH,
+                        HttpStatus.INTERNAL_SERVER_ERROR);
+                return response;
+            }
+            logger.info("questionSet sent for publish.");
+
+            Map<String, Object> publishResponse = reviewOrPublish(assessmentIdentifier, token, serverProperties.getQuestionSetPublish());
+            if (MapUtils.isEmpty(publishResponse) || !publishResponse.get(Constants.RESPONSE_CODE).equals(Constants.OK)) {
+                updateErrorDetails(response, Constants.PUBLISH_QUESTION_SET_FAILED,
+                        HttpStatus.INTERNAL_SERVER_ERROR);
+                return response;
+            }
+            response.setResponseCode(HttpStatus.OK);
+            response.setResult(publishResponse);
+            response.getParams().setStatus(Constants.SUCCESS);
+        } catch (Exception e) {
+            logger.error(Constants.AUTO_PUBLISH_FAILED + e);
+            updateErrorDetails(response, Constants.AUTO_PUBLISH_FAILED, HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+        return response;
+    }
+
+    public Map<String, Object> updateQuestionSet(String versionKey, String status, String token, String assessmentIdentifier) {
+        Map<String, Object> questionsetMap = new HashMap<>();
+        Map<String, Object> updateRequest = new HashMap<>();
+        questionsetMap.put(Constants.VERSION_KEY, versionKey);
+        questionsetMap.put(Constants.REVIEW_STATUS, status);
+        updateRequest.put(Constants.REQUEST, questionsetMap);
+        Map<String, String> headerValues = new HashMap<>();
+        headerValues.put(Constants.X_AUTH_TOKEN, token);
+        StringBuilder updateRequestUrl = new StringBuilder();
+        updateRequestUrl.append(serverProperties.getQuestionSetUpdate()).append(Constants.SLASH).append(assessmentIdentifier);
+        Object updateQuestionSetToInReview = outboundRequestHandlerService.fetchResultUsingPatch(
+                serverProperties.getAssessmentHost() + updateRequestUrl, updateRequest, headerValues);
+        Map<String, Object> reviewVal = new ObjectMapper().convertValue(updateQuestionSetToInReview, Map.class);
+        return reviewVal;
+    }
+
+    public Map<String, Object> reviewOrPublish(String assessmentIdentifier, String token, String reviewOrPublishPath) {
+        Map<String, Object> questionMap = new HashMap<>();
+        Map<String, Object> requestMap = new HashMap<>();
+        requestMap.put(Constants.QUESTION, questionMap);
+        Map<String, Object> updateRequest = new HashMap<>();
+        updateRequest.put(Constants.REQUEST, requestMap);
+        Map<String, String> headerValues = new HashMap<>();
+        headerValues.put(Constants.X_AUTH_TOKEN, token);
+        StringBuilder serviceUrl = new StringBuilder();
+        serviceUrl.append(reviewOrPublishPath).append(Constants.SLASH).append(assessmentIdentifier);
+        Object reviewResponse = outboundRequestHandlerService.fetchResultUsingPost(
+                serverProperties.getAssessmentHost() + serviceUrl, updateRequest, headerValues);
+        Map<String, Object> data = new ObjectMapper().convertValue(reviewResponse, Map.class);
+        return data;
+    }
 }
