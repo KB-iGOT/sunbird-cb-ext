@@ -39,4 +39,16 @@ public class HallOfFameController {
         SBApiResponse response = hallOfFameService.fetchingTop10Learners(ministryOrgId, authToken);
         return new ResponseEntity<>(response, response.getResponseCode());
     }
+
+    @GetMapping("v1/halloffame/org/read/{orgId}")
+    public ResponseEntity<SBApiResponse> getUserLeaderBoard(@PathVariable String orgId) {
+        SBApiResponse response = hallOfFameService.getUserLeaderBoard(orgId);
+        return new ResponseEntity<>(response, response.getResponseCode());
+    }
+
+    @GetMapping("v1/halloffame/mdoleaderboard")
+    public ResponseEntity<SBApiResponse> getMdoLeaderBoard() {
+        SBApiResponse response = hallOfFameService.getMdoLeaderBoard();
+        return new ResponseEntity<>(response, response.getResponseCode());
+    }
 }

@@ -146,6 +146,63 @@ public class HallOfFameServiceImpl implements HallOfFameService {
         return response;
     }
 
+    @Override
+    public SBApiResponse getUserLeaderBoard(String orgId) {
+        SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.API_HALL_OF_FAME_ORG_READ);
+        if (StringUtils.isBlank(orgId)) {
+            setBadRequestResponse(response, Constants.INVALID_ORG_ID);
+            return response;
+        }
+        Map<String, Object> propertyMap = new HashMap<>();
+        propertyMap.put(Constants.ORGID, orgId);
+        propertyMap.put(Constants.DB_COLUMN_ROW_NUM, Arrays.asList(1, 2, 3, 4, 5, 6, 7, 8, 9, 10));
+        try {
+            List<Map<String, Object>> userLeaderBoard = cassandraOperation.getRecordsByPropertiesWithoutFiltering(
+                    Constants.KEYSPACE_SUNBIRD, Constants.NLW_USER_LEADERBOARD, propertyMap, null);
+            if (CollectionUtils.isEmpty(userLeaderBoard)) {
+                response.getParams().setErrmsg(Constants.NO_DATA_FOUND_FOR_THE_ORGANISATION);
+                response.getParams().setStatus(Constants.SUCCESS);
+                response.setResponseCode(HttpStatus.OK);
+            } else {
+                response.getParams().setStatus(Constants.SUCCESS);
+                response.put(Constants.USER_LEADERBOARD, userLeaderBoard);
+                response.setResponseCode(HttpStatus.OK);
+            }
+        } catch (Exception e) {
+            response.setResponseCode(HttpStatus.INTERNAL_SERVER_ERROR);
+            response.getParams().setErrmsg(Constants.ERROR_WHILE_PROCESSING_USER_LEADERBOARD);
+            response.getParams().setStatus(Constants.FAILED);
+            logger.error("failed to process userLeaderBoard :: {}", String.valueOf(e));
+        }
+        return response;
+    }
+
+    @Override
+    public SBApiResponse getMdoLeaderBoard() {
+        SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.API_HALL_OF_FAME_MDO_LEADERBOARD);
+        Map<String, Object> propertyMap = new HashMap<>();
+        propertyMap.put(Constants.SIZE, Arrays.asList("S", "M", "L", "XL"));
+        try {
+            List<Map<String, Object>> mdoLeaderBoard = cassandraOperation.getRecordsByPropertiesWithoutFiltering(
+                    Constants.KEYSPACE_SUNBIRD, Constants.NLW_MDO_LEADERBOARD, propertyMap, null);
+            if (CollectionUtils.isEmpty(mdoLeaderBoard)) {
+                response.getParams().setErrmsg(Constants.NO_DATA_FOUND);
+                response.getParams().setStatus(Constants.SUCCESS);
+                response.setResponseCode(HttpStatus.OK);
+            } else {
+                response.getParams().setStatus(Constants.SUCCESS);
+                response.put(Constants.MDO_LEADERBOARD, mdoLeaderBoard);
+                response.setResponseCode(HttpStatus.OK);
+            }
+        } catch (Exception e) {
+            response.getParams().setErrmsg(Constants.ERROR_WHILE_PROCESSING_MDO_LEADERBOARD);
+            response.setResponseCode(HttpStatus.INTERNAL_SERVER_ERROR);
+            response.getParams().setStatus(Constants.FAILED);
+            logger.error("failed to process mdoLeaderBoard :: {}", String.valueOf(e));
+        }
+        return response;
+    }
+
     private void setBadRequestResponse(SBApiResponse response, String errMsg) {
         response.getParams().setStatus(Constants.FAILED);
         response.getParams().setErrmsg(errMsg);
