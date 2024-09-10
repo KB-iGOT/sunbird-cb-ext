@@ -1104,7 +1104,21 @@ public class Constants {
 	public static final String CSV_FILE = ".csv";
 	public static final String XLSX_FILE = ".xlsx";
 	public static final String NO_OF_QUESTIONS = "noOfQuestions";
-  	public static final String CADRE_DETAILS = "cadreDetails";
+	public static final String COMPETENCIES_V6_AREA_NAME = "competencies_v6.competencyAreaName";
+	public static final String COMPETENCIES_V6_THEME_NAME = "competencies_v6.competencyThemeName";
+	public static final String COMPETENCIES_V6_SUB_THEME_NAME = "competencies_v6.competencySubThemeName";
+	public static final String CURATED_PROGRAM = "Curated Program";
+	public static final String ASSOCIATIONS = "associations";
+	public static final String REFID = "refId";
+	public static final String COMPETENCYAREA = "Competency Area";
+	public static final String THEME = "Theme";
+	public static final String SUB_THEME = "Sub Theme";
+	public static final String FRAMEWORK = "framework";
+	public static final String CATEGORIES = "categories";
+	public static final String COMPETENCY_DETAILS_API_V6 = "api.competency.v6.details";
+	public static final String COURSE_CATEGORY = "courseCategory";
+	public static final String DISPLAY_NAME = "displayName";
+	public static final String CADRE_DETAILS = "cadreDetails";
 	public static final String CADRE_CONFIG = "cadreConfig";
 	public static final String CIVIL_SERVICE_TYPE = "civilServiceType";
 	public static final String  SERVICE_TYPE = "serviceList";
@@ -1135,7 +1149,7 @@ public class Constants {
 	public static final String COMMON_BATCH_END_YR = "commonBatchEndYear";
 	public static final String COMMON_BATCH_EXCLUSION_YR = "commonBatchExclusionYearList";
 
-  private Constants() {
+	private Constants() {
 		throw new IllegalStateException("Utility class");
 	}
 
