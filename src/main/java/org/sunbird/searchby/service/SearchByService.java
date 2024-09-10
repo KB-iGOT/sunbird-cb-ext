@@ -579,7 +579,10 @@ public class SearchByService {
 		areaMap.put(Constants.DESCRIPTION, areaTerm.get(Constants.DESCRIPTION));
 		areaMap.put(Constants.REFID, areaTerm.get(Constants.REFID));
 		areaMap.put(Constants.IDENTIFIER, areaTerm.get(Constants.IDENTIFIER));
-
+		Map<String, String> additionalProperties = (areaTerm.get(Constants.ADDITIONAL_PROPERTIES) instanceof Map)
+				? (Map<String, String>) areaTerm.get(Constants.ADDITIONAL_PROPERTIES)
+				: new HashMap<>();
+		areaMap.put(Constants.DISPLAY_NAME, additionalProperties.getOrDefault(Constants.DISPLAY_NAME, ""));
 		List<Map<String, Object>> themeList = new ArrayList<>();
 		if (themes != null) {
 			for (Map<String, Object> theme : themes) {
@@ -612,6 +615,10 @@ public class SearchByService {
 		themeMap.put(Constants.DESCRIPTION, themeTerm.get(Constants.DESCRIPTION));
 		themeMap.put(Constants.REFID, themeTerm.get(Constants.REFID));
 		themeMap.put(Constants.IDENTIFIER, themeTerm.get(Constants.IDENTIFIER));
+		Map<String, String> additionalProperties = (themeTerm.get(Constants.ADDITIONAL_PROPERTIES) instanceof Map)
+				? (Map<String, String>) themeTerm.get(Constants.ADDITIONAL_PROPERTIES)
+				: new HashMap<>();
+		themeMap.put(Constants.DISPLAY_NAME,additionalProperties.getOrDefault(Constants.DISPLAY_NAME, ""));
 
 		List<Map<String, Object>> subThemeList = new ArrayList<>();
 		if (subThemes != null) {
@@ -644,6 +651,10 @@ public class SearchByService {
 		subThemeMap.put(Constants.DESCRIPTION, subThemeTerm.get(Constants.DESCRIPTION));
 		subThemeMap.put(Constants.REFID, subThemeTerm.get(Constants.REFID));
 		subThemeMap.put(Constants.IDENTIFIER, subThemeTerm.get(Constants.IDENTIFIER));
+		Map<String, String> additionalProperties = (subThemeTerm.get(Constants.ADDITIONAL_PROPERTIES) instanceof Map)
+				? (Map<String, String>) subThemeTerm.get(Constants.ADDITIONAL_PROPERTIES)
+				: new HashMap<>();
+		subThemeMap.put(Constants.DISPLAY_NAME,additionalProperties.getOrDefault(Constants.DISPLAY_NAME, ""));
 
 		return subThemeMap;
 	}

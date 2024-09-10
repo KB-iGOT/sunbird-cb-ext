@@ -1117,6 +1117,37 @@ public class Constants {
 	public static final String CATEGORIES = "categories";
 	public static final String COMPETENCY_DETAILS_API_V6 = "api.competency.v6.details";
 	public static final String COURSE_CATEGORY = "courseCategory";
+	public static final String DISPLAY_NAME = "displayName";
+	public static final String CADRE_DETAILS = "cadreDetails";
+	public static final String CADRE_CONFIG = "cadreConfig";
+	public static final String CIVIL_SERVICE_TYPE = "civilServiceType";
+	public static final String  SERVICE_TYPE = "serviceList";
+	public static final String CADRE_BATCH = "cadreBatch";
+	public static final String CONTROLLING_AUTHORITY = "cadreControllingAuthorityName";
+	public static final String CADRE_NAME = "cadreName";
+	public static final String CIVIL_SERVICE_NAME = "civilServiceName";
+	public static final String CADRE_LIST = "cadreList";
+	public static final String CIVIL_SERVICE_TYPE_ID = "civilServiceTypeId";
+	public static final String CIVIL_SERVICE_ID = "civilServiceId";
+	public static final String CADRE_ID = "cadreId";
+	public static final String CADRE_BATCH_START_YR = "startBatchYear";
+	public static final String CADRE_BATCH_END_YR = "endBatchYear";
+	public static final String CADRE_BATCH_EXCLUSION_YR = "exculsionYearList";
+	public static final String NLW_USER_LEADERBOARD = "nlw_user_leaderboard";
+	public static final String NLW_MDO_LEADERBOARD= "nlw_mdo_leaderboard";
+	public static final String API_HALL_OF_FAME_ORG_READ = "api.v1.halloffame.org.read";
+	public static final String API_HALL_OF_FAME_MDO_LEADERBOARD = "api.v1.halloffame.mdoleaderboard";
+	public static final String USER_LEADERBOARD = "userLeaderBoard";
+	public static final String SIZE = "size";
+	public static final String INVALID_ORG_ID = "invalid organisation id";
+	public static final String MDO_LEADERBOARD = "mdoLeaderBoard";
+	public static final String NO_DATA_FOUND = "no data found";
+	public static final String NO_DATA_FOUND_FOR_THE_ORGANISATION = "no data found for the organisation";
+	public static final String ERROR_WHILE_PROCESSING_USER_LEADERBOARD = "error while processing userLeaderBoard";
+	public static final String ERROR_WHILE_PROCESSING_MDO_LEADERBOARD = "error while processing mdoLeaderBoard";
+	public static final String COMMON_BATCH_START_YR = "commonBatchStartYear";
+	public static final String COMMON_BATCH_END_YR = "commonBatchEndYear";
+	public static final String COMMON_BATCH_EXCLUSION_YR = "commonBatchExclusionYearList";
 
 	private Constants() {
 		throw new IllegalStateException("Utility class");

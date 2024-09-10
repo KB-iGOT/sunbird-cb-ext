@@ -774,7 +774,7 @@ public class CbExtServerProperties {
 	@Value("${framework.read.endpoint}")
 	private String frameworkReadEndpoint;
 
-	@Value("${competencyV6.search.primary.category.filter}")
+	@Value("${competencyV6.composite.search.course.category.filter}")
 	private String competencyV6SearchPrimaryCategoryFilter;
 
 	public boolean qListFromCacheEnabled() {
