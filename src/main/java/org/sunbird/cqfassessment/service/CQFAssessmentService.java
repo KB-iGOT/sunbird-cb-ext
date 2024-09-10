@@ -2,6 +2,7 @@ package org.sunbird.cqfassessment.service;
 
 import org.sunbird.common.model.SBApiResponse;
 
+import javax.validation.Valid;
 import java.util.Map;
 
 /**
@@ -57,4 +58,18 @@ public interface CQFAssessmentService {
      * @return SBApiResponse containing the assessment data.
      */
     SBApiResponse readAssessment(String assessmentIdentifier, String token, boolean edit, String contentId, String versionKey);
+
+    /**
+     * Submits a CQF Assessment.
+     * <p>
+     * This method is used to submit a CQF Assessment with the provided request body and authentication token.
+     *
+     * @param requestBody   The request body containing the assessment data to be submitted.
+     * @param authUserToken The authentication token of the user submitting the assessment.
+     * @param edit          Whether the assessment is being submitted in edit mode.
+     * @return The API response containing the result of the submission.
+     */
+    SBApiResponse submitCQFAssessment(@Valid Map<String, Object> requestBody, String authUserToken, boolean edit);
+
+    SBApiResponse readCQFAssessmentResult(@Valid Map<String, Object> requestBody, String authUserToken);
 }

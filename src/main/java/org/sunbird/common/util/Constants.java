@@ -1139,6 +1139,13 @@ public class Constants {
 	public static final String CQF_ASSESSMENT_TRACKING = "cqf_assessment_tracking";
 	public static final String CQF_ASSESSMENT_DATA = "cqfAssessmentData";
 	public static final String TABLE_CQF_ASSESSMENT_DATA = "cqf_assessment_data";
+	public static final String QUESTION_OPTION_WEIGHTAGE="questionOptionWeightage";
+	public static final String MAX_WEIGHTED_SCORE_FOR_SECTION="maxWeightedScoreForSection";
+	public static final String USER_WEIGHTED_SCORE_FOR_SECTION="userWeightedScoreForSection";
+	public static final String MAX_USER_SCORE_FOR_SECTION="maxUserScoreForSection";
+	public static final String SECTION_WEIGHTAGE="sectionWeightage";
+	public static final String ASSESSMENT_IDENTIFIER="assessmentIdentifier";
+	public static final String TOTAL_USER_CRITERIA_SCORE_FOR_SECTION="totalUserCriteriaScoreForSection";
 	public static final String QUESTION_SET_AUTO_PUBLISH = "api.questionSet.auto.publish";
 	public static final String IN_REVIEW = "inReview";
 	public static final String REVIEWED = "Reviewed";
