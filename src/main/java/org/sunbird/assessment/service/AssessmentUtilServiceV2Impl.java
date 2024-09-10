@@ -389,7 +389,7 @@ public class AssessmentUtilServiceV2Impl implements AssessmentUtilServiceV2 {
 
 
 	public Map<String, Object> readQListfromCache(List<String> questionIds, String assessmentIdentifier,boolean editMode,String token) throws IOException {
-		if (serverProperties.qListFromCacheEnabled())
+		if (serverProperties.qListFromCacheEnabled() && !editMode)
 			return qListFromCache(assessmentIdentifier,editMode,token);
 		else
 			return qListFrmAssessService(questionIds);
@@ -832,5 +832,256 @@ public class AssessmentUtilServiceV2Impl implements AssessmentUtilServiceV2 {
 		}
 
 		return updatedQuestionMap;
+	}
+
+
+	/**
+	 * @param questionSetDetailsMap a map containing details about the question set.
+	 * @param originalQuestionList  a list of original question identifiers.
+	 * @param userQuestionList      a list of maps where each map represents a user's question with its details.
+	 * @param questionMap           a map containing additional question-related information.
+	 * @return a map with validation results and resultMap.
+	 */
+	public Map<String, Object> validateQumlAssessmentV3(Map<String, Object> questionSetDetailsMap, List<String> originalQuestionList,
+														List<Map<String, Object>> userQuestionList, Map<String, Object> questionMap) {
+		try {
+			String assessmentType = getAssessmentType(questionSetDetailsMap);
+			int minimumPassPercentage = getMinimumPassPercentage(questionSetDetailsMap);
+			int totalMarks = getTotalMarks(questionSetDetailsMap);
+
+			Map<String, Object> resultMap = new HashMap<>();
+
+			Map<String, Object> answers = getQumlAnswersV2(originalQuestionList, questionMap);
+
+			Integer correct = 0;
+			Integer blank = 0;
+			Integer inCorrect = 0;
+			Double sectionMarks = 0.0;
+			Map<String, Object> questionSetSectionScheme = new HashMap<>();
+			int negativeMarksValue = 0;
+			Map<String, Object> optionWeightages = new HashMap<>();
+			if (assessmentType.equalsIgnoreCase(Constants.OPTION_WEIGHTAGE)) {
+				optionWeightages = getOptionWeightages(originalQuestionList, questionMap);
+			} else if (assessmentType.equalsIgnoreCase(Constants.QUESTION_WEIGHTAGE)) {
+				questionSetSectionScheme = getQuestionSetSectionScheme(questionSetDetailsMap);
+				negativeMarksValue = getNegativeMarksValue(questionSetDetailsMap);
+			}
+
+			for (Map<String, Object> question : userQuestionList) {
+				Map<String, Object> proficiencyMap = getProficiencyMap(questionMap, question);
+				List<String> marked = new ArrayList<>();
+				handleqTypeQuestionV2(question, marked, assessmentType);
+				if (CollectionUtils.isEmpty(marked)) {
+					blank++;
+					question.put(Constants.RESULT, Constants.BLANK);
+				} else {
+					List<String> answer = mapper.convertValue(answers.get(question.get(Constants.IDENTIFIER)), new TypeReference<List<String>>() {
+					});
+					sortAnswers(answer);
+					sortAnswers(marked);
+					if (assessmentType.equalsIgnoreCase(Constants.QUESTION_WEIGHTAGE)) {
+						if (answer.equals(marked)) {
+							question.put(Constants.RESULT, Constants.CORRECT);
+							correct++;
+							sectionMarks = handleCorrectAnswer(sectionMarks, questionSetSectionScheme, proficiencyMap);
+						} else {
+							question.put(Constants.RESULT, Constants.INCORRECT);
+							inCorrect++;
+							sectionMarks = handleIncorrectAnswer(negativeMarksValue, sectionMarks, questionSetSectionScheme, proficiencyMap);
+						}
+					}
+					sectionMarks = calculateScoreForOptionWeightage(question, assessmentType, optionWeightages, sectionMarks, marked);
+				}
+			}
+			blank = handleBlankAnswers(userQuestionList, answers, blank);
+			updateResultMap(userQuestionList, correct, blank, inCorrect, resultMap, sectionMarks, totalMarks);
+			calculatePassPercentage(sectionMarks, totalMarks, correct, blank, inCorrect, assessmentType, resultMap);
+			computeSectionResults(sectionMarks, totalMarks, minimumPassPercentage, resultMap);
+			return resultMap;
+		} catch (Exception ex) {
+			logger.error("Error when verifying assessment. Error : ", ex);
+		}
+		return new HashMap<>();
+	}
+
+	/**
+	 * Retrieves the negative marks value from the question set details map.
+	 *
+	 * @param questionSetDetailsMap Map containing question set details
+	 * @return Negative marks value as an integer
+	 */
+	private static int getNegativeMarksValue(Map<String, Object> questionSetDetailsMap) {
+		int negativeMarksValue;
+		String negativeWeightAgeEnabled;
+		negativeWeightAgeEnabled = (String) questionSetDetailsMap.get(Constants.NEGATIVE_MARKING_PERCENTAGE);
+		negativeMarksValue = Integer.parseInt(negativeWeightAgeEnabled.replace("%", ""));
+		return negativeMarksValue;
+	}
+
+	/**
+	 * Extracts the question set section scheme from the question set details map.
+	 *
+	 * @param questionSetDetailsMap Map containing question set details
+	 * @return Question set section scheme as a map of string to object
+	 */
+	private Map<String, Object> getQuestionSetSectionScheme(Map<String, Object> questionSetDetailsMap) {
+		return mapper.convertValue(questionSetDetailsMap.get(Constants.QUESTION_SECTION_SCHEME), new TypeReference<Map<String, Object>>() {
+		});
+	}
+
+	/**
+	 * Retrieves the minimum pass percentage from the question set details map.
+	 * If the minimum pass percentage is not present in the map, returns 0 as the default value.
+	 *
+	 * @param questionSetDetailsMap Map containing question set details
+	 * @return Minimum pass percentage as an integer
+	 */
+	private int getMinimumPassPercentage(Map<String, Object> questionSetDetailsMap) {
+		if (questionSetDetailsMap.get(Constants.MINIMUM_PASS_PERCENTAGE) != null) {
+			return (int) questionSetDetailsMap.get(Constants.MINIMUM_PASS_PERCENTAGE);
+		}
+		return 0;
+	}
+
+	/**
+	 * Retrieves the assessment type from the question set details map.
+	 *
+	 * @param questionSetDetailsMap Map containing question set details
+	 * @return Assessment type as a string
+	 */
+	private String getAssessmentType(Map<String, Object> questionSetDetailsMap) {
+		return (String) questionSetDetailsMap.get(Constants.ASSESSMENT_TYPE);
+	}
+
+	/**
+	 * Retrieves the total marks for the assessment from the question set details map.
+	 *
+	 * @param questionSetDetailsMap Map containing question set details
+	 * @return Total marks as an integer
+	 */
+	private int getTotalMarks(Map<String, Object> questionSetDetailsMap) {
+		return (int) questionSetDetailsMap.get(Constants.TOTAL_MARKS);
+	}
+
+	private Map<String, Object> getQumlAnswersV2(List<String> questions, Map<String, Object> questionMap) {
+		Map<String, Object> ret = new HashMap<>();
+		for (String questionId : questions) {
+			List<String> correctOption = new ArrayList<>();
+			Map<String, Object> question = mapper.convertValue(questionMap.get(questionId), new TypeReference<Map<String, Object>>() {
+			});
+			if (question.containsKey(Constants.QUESTION_TYPE)) {
+				String questionType = ((String) question.get(Constants.QUESTION_TYPE)).toLowerCase();
+				Map<String, Object> editorStateObj = mapper.convertValue(question.get(Constants.EDITOR_STATE), new TypeReference<Map<String, Object>>() {
+				});
+				List<Map<String, Object>> options = mapper.convertValue(editorStateObj.get(Constants.OPTIONS), new TypeReference<List<Map<String, Object>>>() {
+				});
+				switch (questionType) {
+					case Constants.MTF:
+						for (Map<String, Object> option : options) {
+							Map<String, Object> valueObj = mapper.convertValue(option.get(Constants.VALUE), new TypeReference<Map<String, Object>>() {
+							});
+							correctOption.add(valueObj.get(Constants.VALUE).toString() + "-"
+									+ option.get(Constants.ANSWER).toString().toLowerCase());
+						}
+						break;
+					case Constants.FTB:
+						for (Map<String, Object> option : options) {
+							if ((boolean) option.get(Constants.ANSWER)) {
+								int position = Integer.parseInt((String) option.get("position")) - 1;
+								Map<String, Object> valueObj = mapper.convertValue(option.get(Constants.VALUE), new TypeReference<Map<String, Object>>() {
+								});
+								correctOption.add(position + "-" + valueObj.get(Constants.BODY).toString());
+							}
+						}
+						break;
+					case Constants.MCQ_SCA:
+					case Constants.MCQ_MCA:
+					case Constants.MCQ_SCA_TF:
+						for (Map<String, Object> option : options) {
+							if ((boolean) option.get(Constants.ANSWER)) {
+								Map<String, Object> valueObj = mapper.convertValue(option.get(Constants.VALUE), new TypeReference<Map<String, Object>>() {
+								});
+								correctOption.add(valueObj.get(Constants.VALUE).toString());
+							}
+						}
+						break;
+					default:
+						break;
+				}
+			} else {
+				List<Map<String, Object>> optionsList = mapper.convertValue(question.get(Constants.OPTIONS), new TypeReference<List<Map<String, Object>>>() {
+				});
+				for (Map<String, Object> options : optionsList) {
+					if ((boolean) options.get(Constants.IS_CORRECT))
+						correctOption.add(options.get(Constants.OPTION_ID).toString());
+				}
+			}
+			ret.put(question.get(Constants.IDENTIFIER).toString(), correctOption);
+		}
+
+		return ret;
+	}
+
+
+	/**
+	 * Handles the logic for processing type question v2.
+	 *
+	 * @param question       Map containing question details
+	 * @param marked         List of marked options
+	 * @param assessmentType Assessment type
+	 */
+	private void handleqTypeQuestionV2(Map<String, Object> question, List<String> marked, String assessmentType) {
+		if (question.containsKey(Constants.QUESTION_TYPE)) {
+			String questionType = ((String) question.get(Constants.QUESTION_TYPE)).toLowerCase();
+			Map<String, Object> editorStateObj = mapper.convertValue(question.get(Constants.EDITOR_STATE), new TypeReference<Map<String, Object>>() {
+			});
+			List<Map<String, Object>> options = mapper.convertValue(editorStateObj.get(Constants.OPTIONS),
+					new TypeReference<List<Map<String, Object>>>() {
+					});
+			getMarkedIndexForEachQuestionV2(questionType, options, marked, assessmentType);
+		}
+	}
+
+
+	/**
+	 * Retrieves the marked index for each question based on the question type.
+	 *
+	 * @param questionType   Type of the question
+	 * @param options        List of options for the question
+	 * @param marked         List to store the marked indexes
+	 * @param assessmentType Type of assessment
+	 */
+	private void getMarkedIndexForEachQuestionV2(String questionType, List<Map<String, Object>> options, List<String> marked, String assessmentType) {
+		logger.info("Getting marks or index for each question...");
+		switch (questionType) {
+			case Constants.MTF:
+				for (Map<String, Object> option : options) {
+					marked.add(option.get(Constants.INDEX).toString() + "-"
+							+ option.get(Constants.SELECTED_ANSWER).toString().toLowerCase());
+				}
+				break;
+			case Constants.FTB:
+				for (Map<String, Object> option : options) {
+					marked.add(option.get(Constants.INDEX) + "-" + option.get(Constants.SELECTED_ANSWER));
+				}
+				break;
+			case Constants.MCQ_SCA:
+			case Constants.MCQ_MCA:
+			case Constants.MCQ_SCA_TF:
+				if (assessmentType.equalsIgnoreCase(Constants.QUESTION_WEIGHTAGE)) {
+					getMarkedIndexForQuestionWeightAge(options, marked);
+				} else if (assessmentType.equalsIgnoreCase(Constants.OPTION_WEIGHTAGE)) {
+					getMarkedIndexForOptionWeightAge(options, marked);
+				}
+				break;
+			case Constants.MCQ_MCA_W:
+				if (assessmentType.equalsIgnoreCase(Constants.OPTION_WEIGHTAGE)) {
+					getMarkedIndexForOptionWeightAge(options, marked);
+				}
+				break;
+			default:
+				break;
+		}
+		logger.info("Marks or index retrieved successfully.");
 	}
 }

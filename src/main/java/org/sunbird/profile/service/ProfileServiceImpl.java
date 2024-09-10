@@ -3,6 +3,7 @@ package org.sunbird.profile.service;
 import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonMappingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.gson.Gson;
 
@@ -159,6 +160,7 @@ public class ProfileServiceImpl implements ProfileService {
 			headerValues.put(Constants.X_AUTH_TOKEN, userToken);
 			Map<String, Object> workflowResponse = new HashMap<>();
 			Map<String, Object> updateResponse = new HashMap<>();
+			String validateCadreDetails = "";
 			if (!profileDetailsMap.isEmpty()) {
 				List<String> listOfChangedDetails = new ArrayList<>();
 				for (String keys : profileDetailsMap.keySet()) {
@@ -184,10 +186,28 @@ public class ProfileServiceImpl implements ProfileService {
 							existingProfileDetails.put(changedObj, profileDetailsMap.get(changedObj));
 						}
 					}
-
 					// Additional Condition for updating personal Details directly to user object
 					if (Constants.PERSONAL_DETAILS.equalsIgnoreCase(changedObj)) {
 						getModifiedPersonalDetails(profileDetailsMap.get(changedObj), requestData);
+					}
+					if (Constants.CADRE_DETAILS.equalsIgnoreCase(changedObj)) {
+						if (profileDetailsMap.get(Constants.CADRE_DETAILS) != null) {
+							if (MapUtils.isEmpty(
+									(Map<String, Object>) profileDetailsMap.get(Constants.CADRE_DETAILS))) {
+								if (!MapUtils.isEmpty(
+										(Map<String, Object>) existingProfileDetails.get(Constants.CADRE_DETAILS))) {
+									existingProfileDetails.put(changedObj, new HashMap<>());
+								}
+							} else {
+								String cadreErrMsg = validateCadreDetails(profileDetailsMap);
+								if (!cadreErrMsg.isEmpty()) {
+									response.setResponseCode(HttpStatus.BAD_REQUEST);
+									response.getParams().setStatus(Constants.FAILED);
+									response.getParams().setErrmsg(cadreErrMsg);
+									return response;
+								}
+							}
+						}
 					}
 				}
 				//This field is updated via approval
@@ -336,6 +356,158 @@ public class ProfileServiceImpl implements ProfileService {
 			response.setResponseCode(HttpStatus.INTERNAL_SERVER_ERROR);
 		}
 		return response;
+	}
+
+	private String validateCadreDetails(Map<String, Object> profileDetailsMap) {
+		Map<String, Object> cadreDetail;
+		try {
+			Map<String, Object> cadreMap = (Map<String, Object>) profileDetailsMap.get(
+					Constants.CADRE_DETAILS);
+			if (MapUtils.isEmpty(cadreMap)) {
+				return "Failed to validate cadreDetails schema";
+			}
+			List<String> mandatoryCaderAttributes = Arrays.asList(
+					Constants.CIVIL_SERVICE_TYPE_ID,
+					Constants.CIVIL_SERVICE_TYPE,
+					Constants.CIVIL_SERVICE_ID,
+					Constants.CIVIL_SERVICE_NAME,
+					Constants.CONTROLLING_AUTHORITY
+			);
+
+			List missingAttribts = new ArrayList();
+			for (String field : mandatoryCaderAttributes) {
+				if (!cadreMap.containsKey(field) || cadreMap.get(field) == null ||
+						(cadreMap.get(field) instanceof String && ((String) cadreMap.get(field)).isEmpty())) {
+					missingAttribts.add(field);
+				}
+			}
+			if (!cadreMap.containsKey(Constants.CADRE_BATCH)
+					|| cadreMap.get(Constants.CADRE_BATCH) == null ||
+					!(cadreMap.get(Constants.CADRE_BATCH) instanceof Integer)) {
+				missingAttribts.add(Constants.CADRE_BATCH);
+			}
+
+			if (missingAttribts.size() > 0) {
+				return "Missing mandatory attributes or Improper dataType. " + missingAttribts.toString();
+			}
+
+			Map<String, Object> propertyMap = new HashMap<>();
+			propertyMap.put(Constants.ID, Constants.CADRE_CONFIG);
+			cadreDetail = cassandraOperation.getRecordsByPropertiesWithoutFiltering(
+					Constants.KEYSPACE_SUNBIRD, Constants.TABLE_SYSTEM_SETTINGS, propertyMap,
+					null, 2).get(0);
+			if (cadreDetail.isEmpty() && !cadreDetail.containsKey(Constants.VALUE)) {
+				return "Failed to validate cadreDetails schema";
+			}
+			boolean isCivilTypePresent = false;
+			boolean isServiceTypePresent = false;
+			boolean isCadrePresent = false;
+			boolean isValidBatchYr = false;
+
+			String mapString = (String) cadreDetail.get(Constants.VALUE);
+			Map<String, Object> map = mapper.readValue(mapString,
+					new TypeReference<Map<String, Object>>() {
+					});
+
+			Map<String, Object> civilServiceMap = (Map<String, Object>) map.get(
+					Constants.CIVIL_SERVICE_TYPE);
+			List<Map<String, Object>> civilServiceList = (List<Map<String, Object>>) civilServiceMap.get(
+					"civilServiceTypeList");
+
+			for (Map<String, Object> eachCivilService : civilServiceList) {
+				String civilServiceName = (String) eachCivilService.get(Constants.NAME);
+				if (((String) cadreMap.get(Constants.CIVIL_SERVICE_TYPE)).equalsIgnoreCase(
+						civilServiceName)) {
+					isCivilTypePresent = true;
+					List<Map<String, Object>> serviceMap = (List<Map<String, Object>>) eachCivilService.get(
+							Constants.SERVICE_TYPE);
+
+					for (Map<String, Object> service : serviceMap) {
+						String serviceTypeName = (String) service.get(Constants.NAME);
+						if (((String) cadreMap.get(Constants.CIVIL_SERVICE_NAME)).equalsIgnoreCase(
+								serviceTypeName)) {
+							isServiceTypePresent = true;
+							String cadreId = (String) cadreMap.get(Constants.CADRE_ID);
+							String cadreName = (String) cadreMap.get(Constants.CADRE_NAME);
+
+							if (StringUtils.isNotEmpty(cadreId) && StringUtils.isNotEmpty(cadreName)) {
+
+								if (CollectionUtils.isNotEmpty(
+										(List<Map<String, Object>>) service.get(Constants.CADRE_LIST))) {
+									List<Map<String, Object>> cadreList = (List<Map<String, Object>>) service.get(
+											Constants.CADRE_LIST);
+
+									Optional<Map<String, Object>> matchingCadre = cadreList.stream()
+											.filter(eachCadre -> cadreName.equalsIgnoreCase(
+													(String) eachCadre.get(Constants.NAME)))
+											.findFirst();
+
+									if (matchingCadre.isPresent()) {
+										Map<String, Object> eachCadre = matchingCadre.get();
+										isCadrePresent = true;
+
+										int cadreBatch = (int) cadreMap.get(Constants.CADRE_BATCH);
+										List<Integer> exclusionYearList = (List<Integer>) eachCadre.get(
+												Constants.CADRE_BATCH_EXCLUSION_YR);
+
+										isValidBatchYr =
+												(cadreBatch >= (int) eachCadre.get(Constants.CADRE_BATCH_START_YR)
+														&& cadreBatch <= (int) eachCadre.get(Constants.CADRE_BATCH_END_YR))
+														&& !exclusionYearList.contains(cadreBatch);
+
+									}
+									if (isCadrePresent || isValidBatchYr) {
+										break;
+									}
+								}
+							} else {
+								// Fall-back logic for when CADRE_ID and CADRE_NAME are empty strings
+
+								if (CollectionUtils.isEmpty(
+										(List<Map<String, Object>>) service.get(Constants.CADRE_LIST))) {
+									if (CollectionUtils.isEmpty(
+											(List<Map<String, Object>>) service.get(Constants.CADRE_LIST))) {
+										isCadrePresent = true;
+
+										int cadreBatch = (int) cadreMap.get(Constants.CADRE_BATCH);
+										List<Integer> exclusionYearList = (List<Integer>) service.get(
+												Constants.COMMON_BATCH_EXCLUSION_YR);
+
+										isValidBatchYr =
+												(cadreBatch >= (int) service.get(Constants.COMMON_BATCH_START_YR)
+														&& cadreBatch <= (int) service.get(Constants.COMMON_BATCH_END_YR))
+														&& !exclusionYearList.contains(cadreBatch);
+										if (isCadrePresent || isValidBatchYr) {
+											break;
+										}
+									}
+
+								}
+							}
+
+						}
+					}
+				}
+			}
+
+			if (!isServiceTypePresent) {
+				return "Invalid civilserviceType is given";
+			}
+			if (!isCivilTypePresent) {
+				return "Invalid civilSerivceName is given";
+			}
+			if (!isCadrePresent) {
+				return "Invalid cadreName is given";
+			}
+			if (!isValidBatchYr) {
+				return "Invalid cadreBatch is given";
+			}
+
+			return "";
+		} catch (Exception e) {
+			log.error("Failed to validate CadreDetails. Exception :" + e.getMessage());
+		}
+		return "";
 	}
 
 	public boolean validateJsonAgainstSchema(Map<String, Object> existingProfileDetails) {
