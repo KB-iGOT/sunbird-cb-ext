@@ -1361,7 +1361,7 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
         boolean isCQFAssessmentExist = !ObjectUtils.isEmpty(esCQFAssessmentMap);
         // If the CQF assessment does not exist, create a new one
         if (!isCQFAssessmentExist) {
-            Map<String, Object> questionSetMap = objectMapper.convertValue(questionSetReadMap.get(Constants.QUESTION_SET), new TypeReference<Map<String, Object>>() {
+            Map<String, Object> questionSetMap = objectMapper.convertValue(questionSetReadMap.get(Constants.QUESTION_SET_LOWER_CASE), new TypeReference<Map<String, Object>>() {
             });
             questionSetMap.put(Constants.IS_CQF_ASSESSMENT_ACTIVE, false);
             esCQFAssessmentMap = questionSetMap;
@@ -1370,7 +1370,7 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
         // Update or add the CQF assessment to Elasticsearch
         RestStatus status = updateOrAddEntity(serverProperties.getQuestionSetHierarchyIndex(), serverConfig.getEsProfileIndexType(), identifier, esCQFAssessmentMap, isCQFAssessmentExist);
         if (status.equals(RestStatus.CREATED) || status.equals(RestStatus.OK)) {
-            outgoingResponse.setResponseCode(HttpStatus.ACCEPTED);
+            outgoingResponse.setResponseCode(HttpStatus.OK);
             outgoingResponse.getResult().put(Constants.IDENTIFIER, map.get(Constants.IDENTIFIER));
             outgoingResponse.getResult().put(Constants.VERSION_KEY, map.get(Constants.VERSION_KEY));
             outgoingResponse.getResult().put(Constants.IS_CQF_ASSESSMENT_ACTIVE, false);
@@ -1472,8 +1472,6 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
         headers.put(Constants.AUTHORIZATION, serverProperties.getSbApiKey());
         // Send a PATCH request to the assessment host to update the question set hierarchy
         Map<String, Object> data = outboundRequestHandlerService.fetchResultUsingPatch(sbUrl, requestBody, headers);
-        // Add the response data to the outgoing response object
-        outgoingResponse.getResult().putAll(data);
         // Extract the request map from the request body
         Map<String, Object> requestMap = objectMapper.convertValue(requestBody.get(Constants.REQUEST), new TypeReference<Map<String, Object>>() {
         });
@@ -1493,7 +1491,7 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
         Map<String, Object> lowerCaseMap = questionsetMap.entrySet().stream()
                 .collect(Collectors.toMap(entry -> entry.getKey().toLowerCase(), Map.Entry::getValue));
         // Extract the question set data from the lowercase map
-        Map<String, Object> questionSetMap = objectMapper.convertValue(lowerCaseMap.get(Constants.QUESTION_SET), new TypeReference<Map<String, Object>>() {
+        Map<String, Object> questionSetMap = objectMapper.convertValue(lowerCaseMap.get(Constants.QUESTION_SET_LOWER_CASE), new TypeReference<Map<String, Object>>() {
         });
         // Check if the CQF assessment exists in the Elasticsearch index
         boolean isCQFAssessmentExist = !ObjectUtils.isEmpty(esCQFAssessmentMap);
@@ -1501,8 +1499,11 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
         RestStatus status = updateOrAddEntity(serverProperties.getQuestionSetHierarchyIndex(), serverConfig.getEsProfileIndexType(), identifier, questionSetMap, isCQFAssessmentExist);
         // Set the response code based on the status of the update operation
         if (status.equals(RestStatus.CREATED) || status.equals(RestStatus.OK)) {
-            outgoingResponse.setResponseCode(HttpStatus.ACCEPTED);
-            outgoingResponse.getResult().put(Constants.RESULT, requestMap);
+            outgoingResponse.setResponseCode(HttpStatus.OK);
+            Map<String, Object> resultMap = objectMapper.convertValue(data.get(Constants.RESULT), new TypeReference<Map<String, Object>>() {
+            });
+            outgoingResponse.getResult().put(Constants.IDENTIFIER, resultMap.get(Constants.IDENTIFIER));
+            outgoingResponse.getResult().put(Constants.IDENTIFIERS, resultMap.get(Constants.IDENTIFIERS));
         } else {
             outgoingResponse.setResponseCode(HttpStatus.INTERNAL_SERVER_ERROR);
             outgoingResponse.getParams().setErrmsg("Failed to add details to ES Service");

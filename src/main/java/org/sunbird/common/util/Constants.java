@@ -1147,7 +1147,8 @@ public class Constants {
 	public static final String ASSESSMENT_IDENTIFIER="assessmentIdentifier";
 	public static final String TOTAL_USER_CRITERIA_SCORE_FOR_SECTION="totalUserCriteriaScoreForSection";
 	public static final String IS_CQF_ASSESSMENT_ACTIVE="isCQFAssessmentActive";
-
+	public static final String QUESTION_SET_LOWER_CASE = "questionset";
+	public static final String IDENTIFIERS = "identifiers";
 
 	private Constants() {
 		throw new IllegalStateException("Utility class");
