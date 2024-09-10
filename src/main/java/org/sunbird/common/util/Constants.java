@@ -1115,6 +1115,8 @@ public class Constants {
 	public static final String SUB_THEME = "Sub Theme";
 	public static final String FRAMEWORK = "framework";
 	public static final String CATEGORIES = "categories";
+	public static final String COMPETENCY_DETAILS_API_V6 = "api.competency.v6.details";
+	public static final String COURSE_CATEGORY = "courseCategory";
 
 	private Constants() {
 		throw new IllegalStateException("Utility class");

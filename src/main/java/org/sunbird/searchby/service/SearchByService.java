@@ -468,8 +468,8 @@ public class SearchByService {
 	private String validateAuthTokenAndFetchUserId(String authUserToken) {
 		return accessTokenValidator.fetchUserIdFromAccessToken(authUserToken);
 	}
-	public SBApiResponse getCompetencyDetailsV1() {
-		SBApiResponse apiResponse = new SBApiResponse();
+	public SBApiResponse getCompetencyDetailsV2() {
+		SBApiResponse apiResponse = ProjectUtil.createDefaultResponse(Constants.COMPETENCY_DETAILS_API_V6);
 		Map<String, Object> result = new HashMap<>();
 
 		try {
@@ -485,7 +485,7 @@ public class SearchByService {
 			List<Map<String, Object>> facetsList = (List<Map<String, Object>>) compositeSearchResult.get(Constants.FACETS);
 
 			logger.info("facetsList :: "+facetsList);
-			String url = cbExtServerProperties.getKnowledgeServiceUrl() + cbExtServerProperties.getFrameworkReadEndpoint() + cbExtServerProperties.getKcmFrameworkName();
+			String url = cbExtServerProperties.getKmBaseHost() + cbExtServerProperties.getFrameworkReadEndpoint() + cbExtServerProperties.getKcmFrameworkName();
 			logger.info("framework url:: "+url);
 
 			Map<String, Object> fracSearchRes = (Map<String, Object>) outboundRequestHandlerService.fetchResult(url);
@@ -527,7 +527,7 @@ public class SearchByService {
 				Constants.COMPETENCIES_V6_SUB_THEME_NAME
 		));
 		Map<String, Object> filters = new HashMap<>();
-		filters.put(Constants.PRIMARY_CATEGORY, Arrays.asList(Constants.COURSE, Constants.PROGRAM, Constants.CURATED_PROGRAM));
+		filters.put(Constants.COURSE_CATEGORY, cbExtServerProperties.getCompetencyV6SearchPrimaryCategoryFilter());
 		filters.put(Constants.STATUS, Arrays.asList(Constants.LIVE));
 		req.put(Constants.FILTERS, filters);
 		req.put(Constants.LIMIT, 0);

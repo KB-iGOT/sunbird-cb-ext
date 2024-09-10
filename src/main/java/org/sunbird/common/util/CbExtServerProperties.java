@@ -771,11 +771,11 @@ public class CbExtServerProperties {
 	@Value("${kcm.framework.name}")
 	private String kcmFrameworkName;
 
-	@Value("${knowledge.mv.service}")
-	private String knowledgeServiceUrl;
-
 	@Value("${framework.read.endpoint}")
 	private String frameworkReadEndpoint;
+
+	@Value("${competencyV6.search.primary.category.filter}")
+	private String competencyV6SearchPrimaryCategoryFilter;
 
 	public boolean qListFromCacheEnabled() {
 		return qListFromCacheEnabled;
@@ -2732,11 +2732,11 @@ public class CbExtServerProperties {
 		return kcmFrameworkName;
 	}
 
-	public String getKnowledgeServiceUrl() {
-		return knowledgeServiceUrl;
-	}
-
 	public String getFrameworkReadEndpoint() {
 		return frameworkReadEndpoint;
+	}
+
+	public List<String> getCompetencyV6SearchPrimaryCategoryFilter() {
+		return Arrays.asList(competencyV6SearchPrimaryCategoryFilter.split(",", -1));
 	}
 }

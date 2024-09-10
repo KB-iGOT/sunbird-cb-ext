@@ -43,7 +43,7 @@ public class SearchByController {
 
 	@GetMapping("/v2/browseByCompetency")
 	public ResponseEntity<?> browseByCompetencyV2() {
-		SBApiResponse response = searchByService.getCompetencyDetailsV1();
+		SBApiResponse response = searchByService.getCompetencyDetailsV2();
 		return new ResponseEntity<>(response, response.getResponseCode());
 	}
 }
