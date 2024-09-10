@@ -1104,6 +1104,17 @@ public class Constants {
 	public static final String CSV_FILE = ".csv";
 	public static final String XLSX_FILE = ".xlsx";
 	public static final String NO_OF_QUESTIONS = "noOfQuestions";
+	public static final String COMPETENCIES_V6_AREA_NAME = "competencies_v6.competencyAreaName";
+	public static final String COMPETENCIES_V6_THEME_NAME = "competencies_v6.competencyThemeName";
+	public static final String COMPETENCIES_V6_SUB_THEME_NAME = "competencies_v6.competencySubThemeName";
+	public static final String CURATED_PROGRAM = "Curated Program";
+	public static final String ASSOCIATIONS = "associations";
+	public static final String REFID = "refId";
+	public static final String COMPETENCYAREA = "Competency Area";
+	public static final String THEME = "Theme";
+	public static final String SUB_THEME = "Sub Theme";
+	public static final String FRAMEWORK = "framework";
+	public static final String CATEGORIES = "categories";
 
 	private Constants() {
 		throw new IllegalStateException("Utility class");

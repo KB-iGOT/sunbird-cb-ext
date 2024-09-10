@@ -768,6 +768,15 @@ public class CbExtServerProperties {
 	@Value("${sb.composite.v4.search}")
 	private String sbCompositeV4Search;
 
+	@Value("${kcm.framework.name}")
+	private String kcmFrameworkName;
+
+	@Value("${knowledge.mv.service}")
+	private String knowledgeServiceUrl;
+
+	@Value("${framework.read.endpoint}")
+	private String frameworkReadEndpoint;
+
 	public boolean qListFromCacheEnabled() {
 		return qListFromCacheEnabled;
 	}
@@ -2717,5 +2726,17 @@ public class CbExtServerProperties {
 
 	public void setSbCompositeV4Search(String sbCompositeV4Search) {
 		this.sbCompositeV4Search = sbCompositeV4Search;
+	}
+
+	public String getKcmFrameworkName() {
+		return kcmFrameworkName;
+	}
+
+	public String getKnowledgeServiceUrl() {
+		return knowledgeServiceUrl;
+	}
+
+	public String getFrameworkReadEndpoint() {
+		return frameworkReadEndpoint;
 	}
 }
