@@ -1171,10 +1171,11 @@ public class AssessmentServiceV5Impl implements AssessmentServiceV5 {
     @Override
     public SBApiResponse autoPublish(String assessmentIdentifier, String token) {
         SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.QUESTION_SET_AUTO_PUBLISH);
-        if (StringUtils.isBlank(assessmentIdentifier) || StringUtils.isBlank(token)) {
+        if (StringUtils.isBlank(assessmentIdentifier)) {
             response.setResponseCode(HttpStatus.BAD_REQUEST);
             response.getParams().setErrmsg(Constants.INVALID_ASSESSMENT_ID);
             response.getParams().setStatus(Constants.FAILED);
+            return response;
         }
 
         try {
