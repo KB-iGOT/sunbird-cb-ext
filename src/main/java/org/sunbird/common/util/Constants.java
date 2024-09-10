@@ -1104,13 +1104,6 @@ public class Constants {
 	public static final String CSV_FILE = ".csv";
 	public static final String XLSX_FILE = ".xlsx";
 	public static final String NO_OF_QUESTIONS = "noOfQuestions";
-	public static final String CQF_API_CREATE_ASSESSMENT = "api.create.cqfasssessment";
-	public static final String CQF_API_READ_ASSESSMENT = "api.read.cqfasssessment";
-	public static final String CQF_API_LIST_ASSESSMENT = "api.list.cqfasssessment";
-	public static final String CQF_API_UPDATE_ASSESSMENT = "api.update.cqfasssessment";
-	public static final String ACTIVE_STATUS = "activeStatus";
-	public static final String CQF_ASSESSMENT_TRACKING = "cqf_assessment_tracking";
-	public static final String CQF_ASSESSMENT_DATA = "cqfAssessmentData";
   	public static final String CADRE_DETAILS = "cadreDetails";
 	public static final String CADRE_CONFIG = "cadreConfig";
 	public static final String CIVIL_SERVICE_TYPE = "civilServiceType";
@@ -1138,6 +1131,13 @@ public class Constants {
 	public static final String NO_DATA_FOUND_FOR_THE_ORGANISATION = "no data found for the organisation";
 	public static final String ERROR_WHILE_PROCESSING_USER_LEADERBOARD = "error while processing userLeaderBoard";
 	public static final String ERROR_WHILE_PROCESSING_MDO_LEADERBOARD = "error while processing mdoLeaderBoard";
+	public static final String CQF_API_CREATE_ASSESSMENT = "api.create.cqfasssessment";
+	public static final String CQF_API_READ_ASSESSMENT = "api.read.cqfasssessment";
+	public static final String CQF_API_LIST_ASSESSMENT = "api.list.cqfasssessment";
+	public static final String CQF_API_UPDATE_ASSESSMENT = "api.update.cqfasssessment";
+	public static final String ACTIVE_STATUS = "activeStatus";
+	public static final String CQF_ASSESSMENT_TRACKING = "cqf_assessment_tracking";
+	public static final String CQF_ASSESSMENT_DATA = "cqfAssessmentData";
 	public static final String TABLE_CQF_ASSESSMENT_DATA = "cqf_assessment_data";
 	public static final String QUESTION_OPTION_WEIGHTAGE="questionOptionWeightage";
 	public static final String MAX_WEIGHTED_SCORE_FOR_SECTION="maxWeightedScoreForSection";
