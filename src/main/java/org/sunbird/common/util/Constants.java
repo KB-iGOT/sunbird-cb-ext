@@ -1149,6 +1149,12 @@ public class Constants {
 	public static final String IS_CQF_ASSESSMENT_ACTIVE="isCQFAssessmentActive";
 	public static final String QUESTION_SET_LOWER_CASE = "questionset";
 	public static final String IDENTIFIERS = "identifiers";
+	public static final String QUESTION_SET_AUTO_PUBLISH = "api.questionSet.auto.publish";
+	public static final String INVALID_USER_TOKEN = "invalid user token";
+	public static final String AUTO_PUBLISH_FAILED = "failed to auto publish the request :";
+	public static final String PUBLISH_QUESTION_SET_FAILED = "failed to publish questionSet";
+	public static final String QUESTION_SET_SENT_FOR_PUBLISH = "questionSet sent for publish.";
+	public static final String FAILED_TO_PUBLISH = "failed to publish the questionSet.";
 
 	private Constants() {
 		throw new IllegalStateException("Utility class");

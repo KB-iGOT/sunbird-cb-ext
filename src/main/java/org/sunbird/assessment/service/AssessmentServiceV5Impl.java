@@ -1167,4 +1167,56 @@ public class AssessmentServiceV5Impl implements AssessmentServiceV5 {
         Collections.shuffle(shuffledQnsList);
         return shuffledQnsList;
     }
+
+    @Override
+    public SBApiResponse autoPublish(String assessmentIdentifier, String token) {
+        SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.QUESTION_SET_AUTO_PUBLISH);
+        if (StringUtils.isBlank(assessmentIdentifier)) {
+            response.setResponseCode(HttpStatus.BAD_REQUEST);
+            response.getParams().setErrmsg(Constants.INVALID_ASSESSMENT_ID);
+            response.getParams().setStatus(Constants.FAILED);
+            return response;
+        }
+        try {
+            String userId = accessTokenValidator.fetchUserIdFromAccessToken(token);
+            if (StringUtils.isBlank(userId)) {
+                response.setResponseCode(HttpStatus.BAD_REQUEST);
+                response.getParams().setStatus(Constants.FAILED);
+                response.getParams().setErrmsg(Constants.INVALID_USER_TOKEN);
+                return response;
+            }
+            logger.info(Constants.QUESTION_SET_SENT_FOR_PUBLISH);
+
+            Map<String, Object> publishResponse = publish(assessmentIdentifier, token);
+            if (MapUtils.isEmpty(publishResponse) || !publishResponse.get(Constants.RESPONSE_CODE).equals(Constants.OK)) {
+                logger.info(Constants.FAILED_TO_PUBLISH);
+                updateErrorDetails(response, Constants.PUBLISH_QUESTION_SET_FAILED,
+                        HttpStatus.INTERNAL_SERVER_ERROR);
+                return response;
+            }
+            response.setResponseCode(HttpStatus.OK);
+            response.setResult(publishResponse);
+            response.getParams().setStatus(Constants.SUCCESS);
+        } catch (Exception e) {
+            logger.error(Constants.AUTO_PUBLISH_FAILED + e);
+            updateErrorDetails(response, Constants.AUTO_PUBLISH_FAILED, HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+        return response;
+    }
+
+    public Map<String, Object> publish(String assessmentIdentifier, String token) {
+        Map<String, Object> questionMap = new HashMap<>();
+        Map<String, Object> requestMap = new HashMap<>();
+        requestMap.put(Constants.QUESTION, questionMap);
+        Map<String, Object> updateRequest = new HashMap<>();
+        updateRequest.put(Constants.REQUEST, requestMap);
+        Map<String, String> headerValues = new HashMap<>();
+        headerValues.put(Constants.X_AUTH_TOKEN, token);
+        StringBuilder serviceUrl = new StringBuilder();
+        serviceUrl.append(serverProperties.getQuestionSetPublish()).append(Constants.SLASH).append(assessmentIdentifier);
+        Object reviewResponse = outboundRequestHandlerService.fetchResultUsingPost(
+                serverProperties.getAssessmentHost() + serviceUrl, updateRequest, headerValues);
+        Map<String, Object> data = new ObjectMapper().convertValue(reviewResponse, Map.class);
+        return data;
+    }
 }
