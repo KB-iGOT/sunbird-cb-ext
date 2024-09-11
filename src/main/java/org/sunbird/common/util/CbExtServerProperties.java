@@ -777,6 +777,9 @@ public class CbExtServerProperties {
 	@Value("${cios.cloud.icon.folder.name}")
 	private String ciosCloudIconFolderName;
 
+	@Value("${questionSet.publish}")
+	private String questionSetPublish;
+
 	public String getCiosCloudIconFolderName() {
 		return ciosCloudIconFolderName;
 	}
@@ -2743,4 +2746,8 @@ public class CbExtServerProperties {
 	public void setSbCompositeV4Search(String sbCompositeV4Search) {
 		this.sbCompositeV4Search = sbCompositeV4Search;
 	}
+
+	public String getQuestionSetPublish() { return questionSetPublish; }
+
+	public void setQuestionSetPublish(String questionSetPublish) { this.questionSetPublish = questionSetPublish; }
 }
