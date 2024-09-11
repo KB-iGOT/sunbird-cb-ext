@@ -1147,17 +1147,11 @@ public class Constants {
 	public static final String ASSESSMENT_IDENTIFIER="assessmentIdentifier";
 	public static final String TOTAL_USER_CRITERIA_SCORE_FOR_SECTION="totalUserCriteriaScoreForSection";
 	public static final String QUESTION_SET_AUTO_PUBLISH = "api.questionSet.auto.publish";
-	public static final String IN_REVIEW = "inReview";
-	public static final String REVIEWED = "Reviewed";
-	public static final String SENT_TO_PUBLISH = "SentToPublish";
 	public static final String INVALID_USER_TOKEN = "invalid user token";
-	public static final String QUESTION_SET_REVIEW_FAILED = "questionSet review failed";
-	public static final String UPDATE_FAILED_IN_REVIEW = "failed to update questionSet for inReview state";
-	public static final String UPDATE_FAILED_IN_REVIEWED = "failed to update questionSet for Reviewed state";
 	public static final String AUTO_PUBLISH_FAILED = "failed to auto publish the request :";
-	public static final String UPDATE_FAILED_SENT_TO_PUBLISH = "failed to update questionSet for SentToPublish";
 	public static final String PUBLISH_QUESTION_SET_FAILED = "failed to publish questionSet";
-	public static final String REVIEW_STATUS= "reviewStatus";
+	public static final String QUESTION_SET_SENT_FOR_PUBLISH = "questionSet sent for publish.";
+	public static final String FAILED_TO_PUBLISH = "failed to publish the questionSet.";
 
 	private Constants() {
 		throw new IllegalStateException("Utility class");

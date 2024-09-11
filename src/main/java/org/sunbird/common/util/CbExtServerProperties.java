@@ -777,12 +777,6 @@ public class CbExtServerProperties {
 	@Value("${cios.cloud.icon.folder.name}")
 	private String ciosCloudIconFolderName;
 
-	@Value("${questionSet.review}")
-	private String questionSetReview;
-
-	@Value("${questionSet.update}")
-	private String questionSetUpdate;
-
 	@Value("${questionSet.publish}")
 	private String questionSetPublish;
 
@@ -2752,14 +2746,6 @@ public class CbExtServerProperties {
 	public void setSbCompositeV4Search(String sbCompositeV4Search) {
 		this.sbCompositeV4Search = sbCompositeV4Search;
 	}
-
-	public String getQuestionSetReview() { return questionSetReview; }
-
-	public void setQuestionSetReview(String questionSetReview) { this.questionSetReview = questionSetReview; }
-
-	public String getQuestionSetUpdate() { return questionSetUpdate; }
-
-	public void setQuestionSetUpdate(String questionSetUpdate) { this.questionSetUpdate = questionSetUpdate; }
 
 	public String getQuestionSetPublish() { return questionSetPublish; }
 
