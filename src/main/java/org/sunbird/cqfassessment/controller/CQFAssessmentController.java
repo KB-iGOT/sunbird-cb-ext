@@ -77,4 +77,20 @@ public class CQFAssessmentController {
         SBApiResponse response = cqfAssessmentService.readCQFAssessmentResult(requestBody, authUserToken);
         return new ResponseEntity<>(response, response.getResponseCode());
     }
+
+
+    @PostMapping("/questionset/create")
+    public ResponseEntity<SBApiResponse> createCQFQuestionSet(@RequestHeader(Constants.X_AUTH_TOKEN) String authToken,
+                                                              @Valid @RequestBody Map<String, Object> requestBody) {
+        SBApiResponse createdAssessment = cqfAssessmentService.createCQFQuestionSet(authToken, requestBody);
+        return ResponseEntity.status(HttpStatus.CREATED).body(createdAssessment);
+    }
+
+    @PatchMapping("/questionset/update")
+    public ResponseEntity<SBApiResponse> updateCQFQuestionSet(
+            @RequestHeader(Constants.X_AUTH_TOKEN) String authToken,
+            @Valid @RequestBody Map<String, Object> requestBody) {
+        SBApiResponse createdAssessment = cqfAssessmentService.updateCQFQuestionSet(authToken, requestBody);
+        return ResponseEntity.status(HttpStatus.CREATED).body(createdAssessment);
+    }
 }

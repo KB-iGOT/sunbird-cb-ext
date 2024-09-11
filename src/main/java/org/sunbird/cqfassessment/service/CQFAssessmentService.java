@@ -71,5 +71,31 @@ public interface CQFAssessmentService {
      */
     SBApiResponse submitCQFAssessment(@Valid Map<String, Object> requestBody, String authUserToken, boolean edit);
 
+    /**
+     * Retrieves the result of a CQF assessment.
+     *
+     * @param requestBody   the request body containing the assessment identifier and other parameters
+     * @param authUserToken the authentication token of the user requesting the assessment result
+     * @return the API response containing the assessment result
+     */
     SBApiResponse readCQFAssessmentResult(@Valid Map<String, Object> requestBody, String authUserToken);
+
+
+    /**
+     * Creates a new CQF question set.
+     *
+     * @param authToken   the authentication token of the user creating the question set
+     * @param requestBody the request body containing the parameters for creating the question set
+     * @return the API response containing the created question set
+     */
+    SBApiResponse createCQFQuestionSet(String authToken, @Valid Map<String, Object> requestBody);
+
+    /**
+     * Updates an existing CQF question set.
+     *
+     * @param authToken   the authentication token of the user updating the question set
+     * @param requestBody the request body containing the updated parameters for the question set
+     * @return the API response containing the updated question set
+     */
+    SBApiResponse updateCQFQuestionSet(String authToken, @Valid Map<String, Object> requestBody);
 }
