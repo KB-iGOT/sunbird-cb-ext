@@ -38,7 +38,7 @@ public class CQFAssessmentController {
         return ResponseEntity.ok(updatedAssessment);
     }
 
-    @GetMapping("/read/{cqfAssessmentIdentifier}")
+    @GetMapping("/readEntry/{cqfAssessmentIdentifier}")
     public ResponseEntity<SBApiResponse> getCQFAssessment(@RequestHeader(Constants.X_AUTH_TOKEN) String authToken,
                                                           @PathVariable("cqfAssessmentIdentifier") String cqfAssessmentIdentifier) {
         SBApiResponse assessment = cqfAssessmentService.getCQFAssessment(authToken,cqfAssessmentIdentifier);
