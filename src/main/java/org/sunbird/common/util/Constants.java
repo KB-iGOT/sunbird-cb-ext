@@ -1172,6 +1172,12 @@ public class Constants {
 	public static final String COMMON_BATCH_START_YR = "commonBatchStartYear";
 	public static final String COMMON_BATCH_END_YR = "commonBatchEndYear";
 	public static final String COMMON_BATCH_EXCLUSION_YR = "commonBatchExclusionYearList";
+	public static final String OVERALL_SECTION_PERCENTAGE_SCORE = "overallSectionPercentageScore";
+	public static final String ACHIEVED_PERCENTAGE_SCORE = "achievedPercentageScore";
+	public static final String SECTION_LEVEL_PERCENTAGE = "sectionLevelPercentage";
+	public static final String TOTAL_MARKS_FOR_SECTION = "totalMarksForSection";
+	public static final String ACHIEVED_MARKS_FOR_SECTION = "achievedMarksForSection";
+	public static final String OVERALL_ASSESSMENT_SCORE = "overalAssessmentScore";
 
 	private Constants() {
 		throw new IllegalStateException("Utility class");
