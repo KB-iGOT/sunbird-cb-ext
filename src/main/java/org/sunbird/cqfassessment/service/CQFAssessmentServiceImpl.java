@@ -1136,7 +1136,7 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
         String assessmentType = (String) assessmentHierarchy.get(Constants.ASSESSMENT_TYPE);
         questionSetDetailsMap.put(Constants.ASSESSMENT_TYPE, assessmentType);
         questionSetDetailsMap.put(Constants.MINIMUM_PASS_PERCENTAGE, assessmentHierarchy.get(Constants.MINIMUM_PASS_PERCENTAGE));
-        questionSetDetailsMap.put(Constants.SECTION_WEIGHTAGE, assessmentHierarchy.get(Constants.SECTION_WEIGHTAGE));
+        questionSetDetailsMap.put(Constants.SECTION_WEIGHTAGE, Double.parseDouble(assessmentHierarchy.get(Constants.SECTION_WEIGHTAGE).toString()));
         questionSetDetailsMap.put(Constants.TOTAL_MARKS, hierarchySection.get(Constants.TOTAL_MARKS));
         logger.info("Completed getParamDetailsForQTypes with result: {}", questionSetDetailsMap);
         return questionSetDetailsMap;
