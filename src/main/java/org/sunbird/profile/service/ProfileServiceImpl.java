@@ -2334,6 +2334,9 @@ public class ProfileServiceImpl implements ProfileService {
 			if (personalDetails.containsKey(Constants.PHONE) && (userUtilityService.isUserExist(Constants.PHONE, (String) personalDetails.get(Constants.PHONE)))) {
 				return Constants.PHONE_NUMBER_EXIST_ERROR;
 			}
+			if (personalDetails.containsKey(Constants.MOBILE) && (userUtilityService.isUserExist(Constants.PHONE, (String) personalDetails.get(Constants.MOBILE)))) {
+				return Constants.MOBILE_NUMBER_EXIST_ERROR;
+			}
 		}
 		return "";
 	}
