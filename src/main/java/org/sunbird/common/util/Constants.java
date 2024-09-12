@@ -1155,6 +1155,12 @@ public class Constants {
 	public static final String PUBLISH_QUESTION_SET_FAILED = "failed to publish questionSet";
 	public static final String QUESTION_SET_SENT_FOR_PUBLISH = "questionSet sent for publish.";
 	public static final String FAILED_TO_PUBLISH = "failed to publish the questionSet.";
+	public static final String OVERALL_SECTION_PERCENTAGE_SCORE = "overallSectionPercentageScore";
+	public static final String ACHIEVED_PERCENTAGE_SCORE = "achievedPercentageScore";
+	public static final String SECTION_LEVEL_PERCENTAGE = "sectionLevelPercentage";
+	public static final String TOTAL_MARKS_FOR_SECTION = "totalMarksForSection";
+	public static final String ACHIEVED_MARKS_FOR_SECTION = "achievedMarksForSection";
+	public static final String OVERALL_ASSESSMENT_SCORE = "overalAssessmentScore";
 
 	private Constants() {
 		throw new IllegalStateException("Utility class");
