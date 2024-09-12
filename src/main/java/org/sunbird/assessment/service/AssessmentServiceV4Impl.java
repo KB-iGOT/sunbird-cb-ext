@@ -92,7 +92,7 @@ public class AssessmentServiceV4Impl implements AssessmentServiceV4 {
             
             if (serverProperties.isAssessmentRetakeCountVerificationEnabled()) {
                 retakeAttemptsConsumed = calculateAssessmentRetakeCount(userId, assessmentIdentifier);
-                if(retakeAttemptsConsumed > 0)
+                // if(retakeAttemptsConsumed > 0)
                     retakeAttemptsConsumed = retakeAttemptsConsumed-1;
             }
         } catch (Exception e) {

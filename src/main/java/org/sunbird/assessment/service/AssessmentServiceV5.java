@@ -20,4 +20,6 @@ public interface AssessmentServiceV5 {
 
 	public SBApiResponse readAssessmentSavePoint(String assessmentIdentifier, String token,boolean editMode);
 
+	public SBApiResponse submitAssessmentAsyncV6(Map<String, Object> data, String userAuthToken,boolean editMode);
+
 	}

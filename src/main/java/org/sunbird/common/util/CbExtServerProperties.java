@@ -768,6 +768,21 @@ public class CbExtServerProperties {
 	@Value("${sb.composite.v4.search}")
 	private String sbCompositeV4Search;
 
+	@Value("${kcm.framework.name}")
+	private String kcmFrameworkName;
+
+	@Value("${framework.read.endpoint}")
+	private String frameworkReadEndpoint;
+
+	@Value("${competencyV6.composite.search.course.category.filter}")
+	private String competencyV6SearchPrimaryCategoryFilter;
+
+	@Value("${spv.full.report.folder.name}")
+	private String spvFullReportReportFolderName;
+
+	@Value("${spv.full.report.file.name}")
+	private String spvFullReportFileName;
+
 	public boolean qListFromCacheEnabled() {
 		return qListFromCacheEnabled;
 	}
@@ -2717,5 +2732,33 @@ public class CbExtServerProperties {
 
 	public void setSbCompositeV4Search(String sbCompositeV4Search) {
 		this.sbCompositeV4Search = sbCompositeV4Search;
+	}
+
+	public String getKcmFrameworkName() {
+		return kcmFrameworkName;
+	}
+
+	public String getFrameworkReadEndpoint() {
+		return frameworkReadEndpoint;
+	}
+
+	public List<String> getCompetencyV6SearchPrimaryCategoryFilter() {
+		return Arrays.asList(competencyV6SearchPrimaryCategoryFilter.split(",", -1));
+  }
+  
+	public String getSpvFullReportReportFolderName() {
+		return spvFullReportReportFolderName;
+	}
+
+	public void setSpvFullReportReportFolderName(String spvFullReportReportFolderName) {
+		this.spvFullReportReportFolderName = spvFullReportReportFolderName;
+	}
+
+	public String getSpvFullReportFileName() {
+		return spvFullReportFileName;
+	}
+
+	public void setSpvFullReportFileName(String spvFullReportFileName) {
+		this.spvFullReportFileName = spvFullReportFileName;
 	}
 }

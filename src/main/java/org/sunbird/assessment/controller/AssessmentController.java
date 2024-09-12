@@ -278,4 +278,12 @@ public class AssessmentController {
 		SBApiResponse readResponse = assessmentServiceV5.readAssessmentSavePoint(assessmentIdentifier, token,edit);
 		return new ResponseEntity<>(readResponse, readResponse.getResponseCode());
 	}
+
+	@PostMapping("/v6/user/assessment/submit")
+	public ResponseEntity<SBApiResponse> submitUserAssessmentV6(@Valid @RequestBody Map<String, Object> requestBody,
+																@RequestHeader("x-authenticated-user-token") String authUserToken,@RequestParam(name = "editMode" ,required = false) String editMode) {
+		boolean edit = !StringUtils.isEmpty(editMode) && Boolean.parseBoolean(editMode);
+		SBApiResponse submitResponse = assessmentServiceV5.submitAssessmentAsyncV6(requestBody, authUserToken,edit);
+		return new ResponseEntity<>(submitResponse, submitResponse.getResponseCode());
+	}
 }
