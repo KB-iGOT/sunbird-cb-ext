@@ -65,14 +65,11 @@ public interface AssessmentRepository {
 	 * Adds the user's CQF assessment data to the database.
 	 *
 	 * @param cqfAssessmentModel The CQFAssessmentModel object representing the assessment.
-	 * @param startTime          The timestamp marking the start of the assessment.
-	 * @param endTime            The timestamp marking the end of the assessment.
 	 * @param questionSet        The map containing the question set data.
 	 * @param status             The status of the assessment.
 	 * @return True if the assessment data was added successfully, false otherwise.
 	 */
-	boolean addUserCQFAssesmentDataToDB(CQFAssessmentModel cqfAssessmentModel, Timestamp startTime,
-										Timestamp endTime, Map<String, Object> questionSet, String status);
+	boolean addUserCQFAssesmentDataToDB(CQFAssessmentModel cqfAssessmentModel, Map<String, Object> questionSet, String status);
 
 	/**
 	 * Updates CQF assessment data to the database.

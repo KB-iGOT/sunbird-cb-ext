@@ -348,8 +348,7 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
      */
     private SBApiResponse handleUserSubmittedAssessment(SBApiResponse response, Map<String, Object> assessmentAllDetail, CQFAssessmentModel cqfAssessmentModel) {
         List<Map<String, Object>> existingDataList = readUserSubmittedAssessmentRecords(cqfAssessmentModel);
-        Timestamp assessmentStartTime = new Timestamp(new Date().getTime());
-        return processAssessment(assessmentAllDetail, assessmentStartTime, response, existingDataList, cqfAssessmentModel);
+        return processAssessment(assessmentAllDetail,  response, existingDataList, cqfAssessmentModel);
     }
 
 
@@ -357,17 +356,17 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
      * Processes the assessment based on whether it's a first-time assessment or an existing one.
      *
      * @param assessmentAllDetail A map containing all the details of the assessment.
-     * @param assessmentStartTime The timestamp marking the start of the assessment.
+
      * @param response            The SBApiResponse object to be populated with the assessment results.
      * @param existingDataList    A list of maps containing existing assessment data.
      * @param cqfAssessmentModel  A CQFAssessmentModel object representing the assessment.
      * @return The SBApiResponse object containing the assessment results.
      */
-    public SBApiResponse processAssessment(Map<String, Object> assessmentAllDetail, Timestamp assessmentStartTime, SBApiResponse response, List<Map<String, Object>> existingDataList, CQFAssessmentModel cqfAssessmentModel) {
+    public SBApiResponse processAssessment(Map<String, Object> assessmentAllDetail, SBApiResponse response, List<Map<String, Object>> existingDataList, CQFAssessmentModel cqfAssessmentModel) {
         if (existingDataList.isEmpty()) {
-            return handleFirstTimeAssessment(assessmentAllDetail, assessmentStartTime, response, cqfAssessmentModel);
+            return handleFirstTimeAssessment(assessmentAllDetail, response, cqfAssessmentModel);
         } else {
-            return handleExistingAssessment(assessmentAllDetail, assessmentStartTime, response, existingDataList, cqfAssessmentModel);
+            return handleExistingAssessment(assessmentAllDetail,  response, existingDataList, cqfAssessmentModel);
         }
     }
 
@@ -375,24 +374,17 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
      * Handles the first-time assessment by preparing the assessment data and updating it to the database.
      *
      * @param assessmentAllDetail A map containing all the details of the assessment.
-     * @param assessmentStartTime The timestamp marking the start of the assessment.
      * @param response            The SBApiResponse object to be populated with the assessment results.
      * @param cqfAssessmentModel  A CQFAssessmentModel object representing the assessment.
      * @return The SBApiResponse object containing the assessment results.
      */
-    private SBApiResponse handleFirstTimeAssessment(Map<String, Object> assessmentAllDetail, Timestamp assessmentStartTime, SBApiResponse response, CQFAssessmentModel cqfAssessmentModel) {
+    private SBApiResponse handleFirstTimeAssessment(Map<String, Object> assessmentAllDetail, SBApiResponse response, CQFAssessmentModel cqfAssessmentModel) {
         logger.info("Assessment read first time for user.");
-        if (!isValidAssessmentDuration(assessmentAllDetail)) {
-            updateErrorDetails(response, Constants.ASSESSMENT_INVALID);
-            return response;
-        }
-        int expectedDuration = (Integer) assessmentAllDetail.get(Constants.EXPECTED_DURATION);
-        Timestamp assessmentEndTime = calculateAssessmentSubmitTime(expectedDuration, assessmentStartTime, 0);
-        Map<String, Object> assessmentData = prepareAssessmentData(assessmentAllDetail, assessmentStartTime, assessmentEndTime);
+        Map<String, Object> assessmentData = prepareAssessmentData(assessmentAllDetail);
         response.getResult().put(Constants.QUESTION_SET, assessmentData);
         Map<String, Object> questionSetMap = objectMapper.convertValue(response.getResult().get(Constants.QUESTION_SET), new TypeReference<Map<String, Object>>() {
         });
-        if (Boolean.FALSE.equals(updateAssessmentDataToDB(cqfAssessmentModel, assessmentStartTime, assessmentEndTime, questionSetMap))) {
+        if (Boolean.FALSE.equals(updateAssessmentDataToDB(cqfAssessmentModel, questionSetMap))) {
             updateErrorDetails(response, Constants.ASSESSMENT_DATA_START_TIME_NOT_UPDATED);
         }
         return response;
@@ -427,15 +419,10 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
      * Prepares the assessment data by reading the assessment level data and adding the start and end times.
      *
      * @param assessmentAllDetail The map containing the assessment details.
-     * @param assessmentStartTime The start time of the assessment.
-     * @param assessmentEndTime   The end time of the assessment.
      * @return The prepared assessment data.
      */
-    private Map<String, Object> prepareAssessmentData(Map<String, Object> assessmentAllDetail, Timestamp assessmentStartTime, Timestamp assessmentEndTime) {
-        Map<String, Object> assessmentData = readAssessmentLevelData(assessmentAllDetail);
-        assessmentData.put(Constants.START_TIME, assessmentStartTime.getTime());
-        assessmentData.put(Constants.END_TIME, assessmentEndTime.getTime());
-        return assessmentData;
+    private Map<String, Object> prepareAssessmentData(Map<String, Object> assessmentAllDetail) {
+        return readAssessmentLevelData(assessmentAllDetail);
     }
 
 
@@ -443,13 +430,11 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
      * Updates the assessment data to the database by adding the user's CQF assessment data.
      *
      * @param cqfAssessmentModel  A CQFAssessmentModel object representing the assessment.
-     * @param assessmentStartTime The timestamp marking the start of the assessment.
-     * @param assessmentEndTime   The timestamp marking the end of the assessment.
      * @param questionSetMap      A map containing the question set data.
      * @return True if the assessment data was updated successfully, false otherwise.
      */
-    private Boolean updateAssessmentDataToDB(CQFAssessmentModel cqfAssessmentModel, Timestamp assessmentStartTime, Timestamp assessmentEndTime, Map<String, Object> questionSetMap) {
-        return assessmentRepository.addUserCQFAssesmentDataToDB(cqfAssessmentModel, assessmentStartTime, assessmentEndTime,
+    private Boolean updateAssessmentDataToDB(CQFAssessmentModel cqfAssessmentModel, Map<String, Object> questionSetMap) {
+        return assessmentRepository.addUserCQFAssesmentDataToDB(cqfAssessmentModel,
                 questionSetMap,
                 Constants.NOT_SUBMITTED);
 
@@ -459,126 +444,62 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
      * Handles an existing assessment by determining whether it is still ongoing, can be reattempted, or has expired.
      *
      * @param assessmentAllDetail A map containing all the details of the assessment.
-     * @param assessmentStartTime The timestamp marking the start of the assessment.
      * @param response            The SBApiResponse object to be populated with the assessment results.
      * @param existingDataList    A list of maps containing the existing assessment data.
      * @param cqfAssessmentModel  A CQFAssessmentModel object representing the assessment.
      * @return The SBApiResponse object containing the assessment results, or null if the assessment is not handled.
      */
-    private SBApiResponse handleExistingAssessment(Map<String, Object> assessmentAllDetail, Timestamp assessmentStartTime, SBApiResponse response, List<Map<String, Object>> existingDataList, CQFAssessmentModel cqfAssessmentModel) {
+    private SBApiResponse handleExistingAssessment(Map<String, Object> assessmentAllDetail, SBApiResponse response, List<Map<String, Object>> existingDataList, CQFAssessmentModel cqfAssessmentModel) {
         logger.info("Assessment read... user has details... ");
-        Date existingAssessmentEndTime = (Date) existingDataList.get(0).get(Constants.END_TIME);
-        Timestamp existingAssessmentEndTimeTimestamp = new Timestamp(existingAssessmentEndTime.getTime());
         String status = (String) existingDataList.get(0).get(Constants.STATUS);
-        if (isAssessmentStillOngoing(assessmentStartTime, existingAssessmentEndTimeTimestamp, status)) {
-            return handleOngoingAssessment(existingDataList, assessmentStartTime, existingAssessmentEndTimeTimestamp, response);
-        } else if (shouldReattemptOrStartNewAssessment(assessmentStartTime, existingAssessmentEndTimeTimestamp, status)) {
+        if (isAssessmentStillOngoing(status)) {
+            return handleOngoingAssessment(existingDataList, response);
+        }else{
             return handleAssessmentRetryOrExpired(assessmentAllDetail, response, cqfAssessmentModel);
         }
-        return null;
     }
 
     /**
      * Checks if the assessment is still ongoing based on the start time, end time, and status.
      *
-     * @param assessmentStartTime                The start time of the assessment.
-     * @param existingAssessmentEndTimeTimestamp The end time of the existing assessment.
      * @param status                             The status of the assessment.
      * @return True if the assessment is still ongoing, false otherwise.
      */
-    private boolean isAssessmentStillOngoing(Timestamp assessmentStartTime, Timestamp existingAssessmentEndTimeTimestamp, String status) {
-        return assessmentStartTime.compareTo(existingAssessmentEndTimeTimestamp) < 0
-                && Constants.NOT_SUBMITTED.equalsIgnoreCase(status);
+    private boolean isAssessmentStillOngoing( String status) {
+        return  Constants.NOT_SUBMITTED.equalsIgnoreCase(status);
     }
 
     /**
      * Handles the case where the assessment is still ongoing.
      *
      * @param existingDataList                   The list of existing assessment data.
-     * @param assessmentStartTime                The start time of the assessment.
-     * @param existingAssessmentEndTimeTimestamp The end time of the existing assessment.
      * @param response                           The API response object.
      * @return The API response object with the updated question set.
      */
-    private SBApiResponse handleOngoingAssessment(List<Map<String, Object>> existingDataList, Timestamp assessmentStartTime, Timestamp existingAssessmentEndTimeTimestamp, SBApiResponse response) {
+    private SBApiResponse handleOngoingAssessment(List<Map<String, Object>> existingDataList, SBApiResponse response) {
         String questionSetFromAssessmentString = (String) existingDataList.get(0).get(Constants.ASSESSMENT_READ_RESPONSE_KEY);
         Map<String, Object> questionSetFromAssessment = new Gson().fromJson(
                 questionSetFromAssessmentString, new TypeToken<HashMap<String, Object>>() {
                 }.getType());
-        questionSetFromAssessment.put(Constants.START_TIME, assessmentStartTime.getTime());
-        questionSetFromAssessment.put(Constants.END_TIME, existingAssessmentEndTimeTimestamp.getTime());
         response.getResult().put(Constants.QUESTION_SET, questionSetFromAssessment);
         return response;
     }
 
-    /**
-     * Checks if the assessment should be reattempted or started anew based on the start time, end time, and status.
-     *
-     * @param assessmentStartTime                The start time of the assessment.
-     * @param existingAssessmentEndTimeTimestamp The end time of the existing assessment.
-     * @param status                             The status of the assessment.
-     * @return True if the assessment should be reattempted or started anew, false otherwise.
-     */
-    private boolean shouldReattemptOrStartNewAssessment(Timestamp assessmentStartTime, Timestamp existingAssessmentEndTimeTimestamp, String status) {
-        return (assessmentStartTime.compareTo(existingAssessmentEndTimeTimestamp) < 0
-                && Constants.SUBMITTED.equalsIgnoreCase(status))
-                || assessmentStartTime.compareTo(existingAssessmentEndTimeTimestamp) > 0;
-    }
 
 
     private SBApiResponse handleAssessmentRetryOrExpired(Map<String, Object> assessmentAllDetail, SBApiResponse response, CQFAssessmentModel cqfAssessmentModel) {
         logger.info("Incase the assessment is submitted before the end time, or the endtime has exceeded, read assessment freshly ");
 
-        if (isMaxRetakeAttemptsExceeded(cqfAssessmentModel, assessmentAllDetail)) {
-            updateErrorDetails(response, Constants.ASSESSMENT_RETRY_ATTEMPTS_CROSSED);
-            return response;
-        }
         Map<String, Object> assessmentData = readAssessmentLevelData(assessmentAllDetail);
-        Timestamp assessmentStartTime = new Timestamp(new Date().getTime());
-        Timestamp assessmentEndTime = calculateAssessmentSubmitTime(
-                (Integer) assessmentAllDetail.get(Constants.EXPECTED_DURATION),
-                assessmentStartTime, 0);
         response.getResult().put(Constants.QUESTION_SET, assessmentData);
 
-        if (Boolean.FALSE.equals(updateAssessmentDataToDB(cqfAssessmentModel, assessmentStartTime, assessmentEndTime, assessmentData))) {
+        if (Boolean.FALSE.equals(updateAssessmentDataToDB(cqfAssessmentModel, assessmentData))) {
             updateErrorDetails(response, Constants.ASSESSMENT_DATA_START_TIME_NOT_UPDATED);
         }
 
         return response;
     }
 
-    /**
-     * Checks if the maximum number of retake attempts for the assessment has been exceeded.
-     *
-     * @param cqfAssessmentModel  A CQFAssessmentModel object representing the assessment.
-     * @param assessmentAllDetail A map containing all the details of the assessment.
-     * @return True if the maximum number of retake attempts has been exceeded, false otherwise.
-     */
-    private boolean isMaxRetakeAttemptsExceeded(CQFAssessmentModel cqfAssessmentModel, Map<String, Object> assessmentAllDetail) {
-        if (assessmentAllDetail.get(Constants.MAX_ASSESSMENT_RETAKE_ATTEMPTS) != null) {
-            int retakeAttemptsAllowed = (int) assessmentAllDetail.get(Constants.MAX_ASSESSMENT_RETAKE_ATTEMPTS) + 1;
-            int retakeAttemptsConsumed = calculateAssessmentRetakeCount(cqfAssessmentModel.getUserId(), cqfAssessmentModel.getAssessmentIdentifier());
-            return retakeAttemptsConsumed >= retakeAttemptsAllowed;
-        }
-        return false;
-    }
-
-
-    /**
-     * Calculates the number of retake attempts made by a user for a specific assessment.
-     *
-     * @param userId       The ID of the user.
-     * @param assessmentId The ID of the assessment.
-     * @return The number of retake attempts made by the user for the assessment.
-     */
-    private int calculateAssessmentRetakeCount(String userId, String assessmentId) {
-        List<Map<String, Object>> userAssessmentDataList = assessUtilServ.readUserSubmittedAssessmentRecords(userId,
-                assessmentId);
-        return (int) userAssessmentDataList.stream()
-                .filter(userData -> userData.containsKey(Constants.SUBMIT_ASSESSMENT_RESPONSE_KEY)
-                        && null != userData.get(Constants.SUBMIT_ASSESSMENT_RESPONSE_KEY))
-                .count();
-    }
 
 
     /**

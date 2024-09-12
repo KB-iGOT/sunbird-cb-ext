@@ -192,20 +192,15 @@ public class AssessmentRepositoryImpl implements AssessmentRepository {
 	 * Adds the user's CQF assessment data to the database.
 	 *
 	 * @param cqfAssessmentModel The CQFAssessmentModel object representing the assessment.
-	 * @param startTime          The timestamp marking the start of the assessment.
-	 * @param endTime            The timestamp marking the end of the assessment.
 	 * @param questionSet        The map containing the question set data.
 	 * @param status             The status of the assessment.
 	 * @return True if the assessment data was added successfully, false otherwise.
 	 */
 	@Override
-	public boolean addUserCQFAssesmentDataToDB(CQFAssessmentModel cqfAssessmentModel, Timestamp startTime,
-											   Timestamp endTime, Map<String, Object> questionSet, String status) {
+	public boolean addUserCQFAssesmentDataToDB(CQFAssessmentModel cqfAssessmentModel, Map<String, Object> questionSet, String status) {
 		Map<String, Object> request = new HashMap<>();
 		request.put(Constants.USER_ID, cqfAssessmentModel.getUserId());
 		request.put(Constants.ASSESSMENT_ID_KEY, cqfAssessmentModel.getAssessmentIdentifier());
-		request.put(Constants.START_TIME, startTime);
-		request.put(Constants.END_TIME, endTime);
 		request.put(Constants.ASSESSMENT_READ_RESPONSE, new Gson().toJson(questionSet));
 		request.put(Constants.STATUS, status);
 		request.put(Constants.CONTENT_ID_KEY, cqfAssessmentModel.getContentId());
