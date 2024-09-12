@@ -798,6 +798,20 @@ public class CbExtServerProperties {
 	public String getCiosCloudIconFolderName() {
 		return ciosCloudIconFolderName;
 	}
+	@Value("${kcm.framework.name}")
+	private String kcmFrameworkName;
+
+	@Value("${framework.read.endpoint}")
+	private String frameworkReadEndpoint;
+
+	@Value("${competencyV6.composite.search.course.category.filter}")
+	private String competencyV6SearchPrimaryCategoryFilter;
+
+	@Value("${spv.full.report.folder.name}")
+	private String spvFullReportReportFolderName;
+
+	@Value("${spv.full.report.file.name}")
+	private String spvFullReportFileName;
 
 	public boolean qListFromCacheEnabled() {
 		return qListFromCacheEnabled;
@@ -2804,4 +2818,31 @@ public class CbExtServerProperties {
 	public String getQuestionSetPublish() { return questionSetPublish; }
 
 	public void setQuestionSetPublish(String questionSetPublish) { this.questionSetPublish = questionSetPublish; }
+	public String getKcmFrameworkName() {
+		return kcmFrameworkName;
+	}
+
+	public String getFrameworkReadEndpoint() {
+		return frameworkReadEndpoint;
+	}
+
+	public List<String> getCompetencyV6SearchPrimaryCategoryFilter() {
+		return Arrays.asList(competencyV6SearchPrimaryCategoryFilter.split(",", -1));
+  }
+  
+	public String getSpvFullReportReportFolderName() {
+		return spvFullReportReportFolderName;
+	}
+
+	public void setSpvFullReportReportFolderName(String spvFullReportReportFolderName) {
+		this.spvFullReportReportFolderName = spvFullReportReportFolderName;
+	}
+
+	public String getSpvFullReportFileName() {
+		return spvFullReportFileName;
+	}
+
+	public void setSpvFullReportFileName(String spvFullReportFileName) {
+		this.spvFullReportFileName = spvFullReportFileName;
+	}
 }

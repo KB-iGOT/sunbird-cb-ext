@@ -21,5 +21,7 @@ public interface AssessmentServiceV5 {
 	public SBApiResponse readAssessmentSavePoint(String assessmentIdentifier, String token,boolean editMode);
 
 	public SBApiResponse autoPublish(String assessmentIdentifier, String token);
+	
+	public SBApiResponse submitAssessmentAsyncV6(Map<String, Object> data, String userAuthToken,boolean editMode);
 
 	}

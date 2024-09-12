@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RestController;
 import org.sunbird.common.model.FracApiResponse;
+import org.sunbird.common.model.SBApiResponse;
 import org.sunbird.common.util.Constants;
 import org.sunbird.searchby.service.SearchByService;
 
@@ -38,5 +39,11 @@ public class SearchByController {
 	@GetMapping("/v1/competenciesByOrg/{orgId}")
 	public ResponseEntity<?> listOfCompetenciesByOrg(@PathVariable String orgId, @RequestHeader(Constants.X_AUTH_TOKEN) String userToken) {
 		return new ResponseEntity<>(searchByService.listCompetenciesByOrg(orgId, userToken), HttpStatus.OK);
+	}
+
+	@GetMapping("/v2/browseByCompetency")
+	public ResponseEntity<?> browseByCompetencyV2() {
+		SBApiResponse response = searchByService.getCompetencyDetailsV2();
+		return new ResponseEntity<>(response, response.getResponseCode());
 	}
 }

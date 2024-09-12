@@ -371,8 +371,6 @@ public class ProfileServiceImpl implements ProfileService {
 					Constants.CIVIL_SERVICE_TYPE,
 					Constants.CIVIL_SERVICE_ID,
 					Constants.CIVIL_SERVICE_NAME,
-					Constants.CADRE_ID,
-					Constants.CADRE_NAME,
 					Constants.CONTROLLING_AUTHORITY
 			);
 
@@ -429,24 +427,62 @@ public class ProfileServiceImpl implements ProfileService {
 						if (((String) cadreMap.get(Constants.CIVIL_SERVICE_NAME)).equalsIgnoreCase(
 								serviceTypeName)) {
 							isServiceTypePresent = true;
-							List<Map<String, Object>> cadreList = (List<Map<String, Object>>) service.get(
-									Constants.CADRE_LIST);
+							String cadreId = (String) cadreMap.get(Constants.CADRE_ID);
+							String cadreName = (String) cadreMap.get(Constants.CADRE_NAME);
 
-							Optional<Map<String, Object>> matchingCadre = cadreList.stream()
-									.filter(eachCadre ->
-											((String) cadreMap.get(Constants.CADRE_NAME))
-													.equalsIgnoreCase((String) eachCadre.get(Constants.NAME)))
-									.findFirst();
+							if (StringUtils.isNotEmpty(cadreId) && StringUtils.isNotEmpty(cadreName)) {
 
-							if (matchingCadre.isPresent()) {
-								isCadrePresent = true;
-								Map<String, Object> eachCadre = matchingCadre.get();
-								int cadreBatch = (int) cadreMap.get(Constants.CADRE_BATCH);
-								List<Integer> exclusionYearList = (List<Integer>) eachCadre.get(
-										Constants.CADRE_BATCH_EXCLUSION_YR);
-								isValidBatchYr = (cadreBatch >= (int) eachCadre.get(Constants.CADRE_BATCH_START_YR)
-										&& cadreBatch <= (int) eachCadre.get(Constants.CADRE_BATCH_END_YR))
-										&& !exclusionYearList.contains(cadreBatch);
+								if (CollectionUtils.isNotEmpty(
+										(List<Map<String, Object>>) service.get(Constants.CADRE_LIST))) {
+									List<Map<String, Object>> cadreList = (List<Map<String, Object>>) service.get(
+											Constants.CADRE_LIST);
+
+									Optional<Map<String, Object>> matchingCadre = cadreList.stream()
+											.filter(eachCadre -> cadreName.equalsIgnoreCase(
+													(String) eachCadre.get(Constants.NAME)))
+											.findFirst();
+
+									if (matchingCadre.isPresent()) {
+										Map<String, Object> eachCadre = matchingCadre.get();
+										isCadrePresent = true;
+
+										int cadreBatch = (int) cadreMap.get(Constants.CADRE_BATCH);
+										List<Integer> exclusionYearList = (List<Integer>) eachCadre.get(
+												Constants.CADRE_BATCH_EXCLUSION_YR);
+
+										isValidBatchYr =
+												(cadreBatch >= (int) eachCadre.get(Constants.CADRE_BATCH_START_YR)
+														&& cadreBatch <= (int) eachCadre.get(Constants.CADRE_BATCH_END_YR))
+														&& !exclusionYearList.contains(cadreBatch);
+
+									}
+									if (isCadrePresent || isValidBatchYr) {
+										break;
+									}
+								}
+							} else {
+								// Fall-back logic for when CADRE_ID and CADRE_NAME are empty strings
+
+								if (CollectionUtils.isEmpty(
+										(List<Map<String, Object>>) service.get(Constants.CADRE_LIST))) {
+									if (CollectionUtils.isEmpty(
+											(List<Map<String, Object>>) service.get(Constants.CADRE_LIST))) {
+										isCadrePresent = true;
+
+										int cadreBatch = (int) cadreMap.get(Constants.CADRE_BATCH);
+										List<Integer> exclusionYearList = (List<Integer>) service.get(
+												Constants.COMMON_BATCH_EXCLUSION_YR);
+
+										isValidBatchYr =
+												(cadreBatch >= (int) service.get(Constants.COMMON_BATCH_START_YR)
+														&& cadreBatch <= (int) service.get(Constants.COMMON_BATCH_END_YR))
+														&& !exclusionYearList.contains(cadreBatch);
+										if (isCadrePresent || isValidBatchYr) {
+											break;
+										}
+									}
+
+								}
 							}
 
 						}

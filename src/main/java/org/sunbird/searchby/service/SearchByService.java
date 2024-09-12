@@ -468,4 +468,223 @@ public class SearchByService {
 	private String validateAuthTokenAndFetchUserId(String authUserToken) {
 		return accessTokenValidator.fetchUserIdFromAccessToken(authUserToken);
 	}
+	public SBApiResponse getCompetencyDetailsV2() {
+		SBApiResponse apiResponse = ProjectUtil.createDefaultResponse(Constants.COMPETENCY_DETAILS_API_V6);
+		Map<String, Object> result = new HashMap<>();
+
+		try {
+			Map<String, Object> reqBody = prepareCompositeSearchRequestBody();
+			Map<String, Object> compositeSearchRes = outboundRequestHandlerService.fetchResultUsingPost(
+					cbExtServerProperties.getSbSearchServiceHost() + cbExtServerProperties.getSbCompositeV4Search(), reqBody, null);
+
+			if (compositeSearchRes == null || !compositeSearchRes.containsKey(Constants.RESULT)) {
+				throw new Exception("Composite search result is null or missing.");
+			}
+
+			Map<String, Object> compositeSearchResult = (Map<String, Object>) compositeSearchRes.get(Constants.RESULT);
+			List<Map<String, Object>> facetsList = (List<Map<String, Object>>) compositeSearchResult.get(Constants.FACETS);
+
+			logger.info("facetsList :: "+facetsList);
+			String url = cbExtServerProperties.getKmBaseHost() + cbExtServerProperties.getFrameworkReadEndpoint() + cbExtServerProperties.getKcmFrameworkName();
+			logger.info("framework url:: "+url);
+
+			Map<String, Object> fracSearchRes = (Map<String, Object>) outboundRequestHandlerService.fetchResult(url);
+
+			if (fracSearchRes == null || !fracSearchRes.containsKey(Constants.RESULT)) {
+				throw new Exception("Framework read result is null or missing.");
+			}
+
+			Map<String, Object> fracResponseList = (Map<String, Object>) fracSearchRes.get(Constants.RESULT);
+			Map<String, Object> frameworkMap = (Map<String, Object>) fracResponseList.get(Constants.FRAMEWORK);
+			List<Map<String, Object>> categories = (List<Map<String, Object>>) frameworkMap.get(Constants.CATEGORIES);
+
+			// Validate and process the response
+			if (!CollectionUtils.isEmpty(facetsList) && !CollectionUtils.isEmpty(categories)) {
+				List<Map<String, Object>> contentList = processFacetData(facetsList, categories);
+				result.put(Constants.CONTENT, contentList);
+				apiResponse.setResult(result);
+				apiResponse.setResponseCode(HttpStatus.OK);
+			} else {
+				throw new Exception("Facets or Framework categories are empty.");
+			}
+
+		} catch (Exception ex) {
+			logger.error("Error while fetching competency details: ",ex);
+			apiResponse.setResponseCode(HttpStatus.INTERNAL_SERVER_ERROR);
+			apiResponse.getParams().setErr("Failed to get competency details.");
+			apiResponse.getParams().setErrmsg(ex.getMessage());
+		}
+
+		return apiResponse;
+	}
+
+	private Map<String, Object> prepareCompositeSearchRequestBody() {
+		Map<String, Object> reqBody = new HashMap<>();
+		Map<String, Object> req = new HashMap<>();
+		req.put(Constants.FACETS, Arrays.asList(
+				Constants.COMPETENCIES_V6_AREA_NAME,
+				Constants.COMPETENCIES_V6_THEME_NAME,
+				Constants.COMPETENCIES_V6_SUB_THEME_NAME
+		));
+		Map<String, Object> filters = new HashMap<>();
+		filters.put(Constants.COURSE_CATEGORY, cbExtServerProperties.getCompetencyV6SearchPrimaryCategoryFilter());
+		filters.put(Constants.STATUS, Arrays.asList(Constants.LIVE));
+		req.put(Constants.FILTERS, filters);
+		req.put(Constants.LIMIT, 0);
+		reqBody.put(Constants.REQUEST, req);
+
+		return reqBody;
+	}
+
+	private List<Map<String, Object>> processFacetData(List<Map<String, Object>> facetsList, List<Map<String, Object>> categories) throws Exception {
+		List<Map<String, Object>> contentList = new ArrayList<>();
+
+		Map<String, Map<String, Object>> competencyAreaTerms = extractFrameworkTerms(categories, Constants.COMPETENCYAREA);
+		Map<String, Map<String, Object>> competencyThemeTerms = extractFrameworkTerms(categories, Constants.THEME);
+		Map<String, Map<String, Object>> competencySubThemeTerms = extractFrameworkTerms(categories, Constants.SUB_THEME);
+
+
+		for (Map<String, Object> facet : facetsList) {
+			String facetName = (String) facet.get(Constants.NAME);
+			List<Map<String, Object>> facetValues = (List<Map<String, Object>>) facet.get(Constants.VALUES);
+
+			if (Constants.COMPETENCIES_V6_AREA_NAME.equalsIgnoreCase(facetName)) {
+				for (Map<String, Object> area : facetValues) {
+					String areaName = ((String) area.get(Constants.NAME)).toLowerCase();
+					int areaCount = (int) area.get(Constants.COUNT);
+
+					if (competencyAreaTerms.containsKey(areaName)) {
+						Map<String, Object> areaMap = buildAreaMap(competencyAreaTerms, competencyThemeTerms, competencySubThemeTerms, facetsList, areaName, areaCount);
+						contentList.add(areaMap);
+					}
+				}
+			}
+		}
+
+		return contentList;
+	}
+
+	private Map<String, Object> buildAreaMap(Map<String, Map<String, Object>> competencyAreaTerms,
+											 Map<String, Map<String, Object>> competencyThemeTerms,
+											 Map<String, Map<String, Object>> competencySubThemeTerms,
+											 List<Map<String, Object>> facetsList,
+											 String areaName, int areaCount) throws Exception {
+
+		Map<String, Object> areaTerm = competencyAreaTerms.get(areaName);
+		List<Map<String, Object>> themes = (List<Map<String, Object>>) areaTerm.get(Constants.ASSOCIATIONS);
+
+		Map<String, Object> areaMap = new HashMap<>();
+		areaMap.put(Constants.NAME, areaName);
+		areaMap.put(Constants.COUNT, areaCount);
+		areaMap.put(Constants.DESCRIPTION, areaTerm.get(Constants.DESCRIPTION));
+		areaMap.put(Constants.REFID, areaTerm.get(Constants.REFID));
+		areaMap.put(Constants.IDENTIFIER, areaTerm.get(Constants.IDENTIFIER));
+		Map<String, String> additionalProperties = (areaTerm.get(Constants.ADDITIONAL_PROPERTIES) instanceof Map)
+				? (Map<String, String>) areaTerm.get(Constants.ADDITIONAL_PROPERTIES)
+				: new HashMap<>();
+		areaMap.put(Constants.DISPLAY_NAME, additionalProperties.getOrDefault(Constants.DISPLAY_NAME, ""));
+		List<Map<String, Object>> themeList = new ArrayList<>();
+		if (themes != null) {
+			for (Map<String, Object> theme : themes) {
+				String themeName = ((String) theme.get(Constants.NAME)).toLowerCase();
+				if (competencyThemeTerms.containsKey(themeName)) {
+					Map<String, Object> themeMap = buildThemeMap(competencyThemeTerms, competencySubThemeTerms, facetsList, themeName);
+					themeList.add(themeMap);
+				}
+			}
+		}
+
+		areaMap.put(Constants.CHILDREN, themeList);
+		return areaMap;
+	}
+
+	private Map<String, Object> buildThemeMap(Map<String, Map<String, Object>> competencyThemeTerms,
+											  Map<String, Map<String, Object>> competencySubThemeTerms,
+											  List<Map<String, Object>> facetsList, String themeName) throws Exception {
+		Map<String, Object> themeTerm = competencyThemeTerms.get(themeName);
+
+		Map<String, Object> themeFacet = findFacetByName(facetsList, Constants.COMPETENCIES_V6_THEME_NAME, themeName);
+		int themeCount = themeFacet != null ? (int) themeFacet.get(Constants.COUNT) : 0;
+
+		List<Map<String, Object>> subThemes = (List<Map<String, Object>>) themeTerm.get(Constants.ASSOCIATIONS);
+
+		Map<String, Object> themeMap = new HashMap<>();
+		themeMap.put(Constants.NAME, themeName);
+
+		themeMap.put(Constants.COUNT, themeCount);
+		themeMap.put(Constants.DESCRIPTION, themeTerm.get(Constants.DESCRIPTION));
+		themeMap.put(Constants.REFID, themeTerm.get(Constants.REFID));
+		themeMap.put(Constants.IDENTIFIER, themeTerm.get(Constants.IDENTIFIER));
+		Map<String, String> additionalProperties = (themeTerm.get(Constants.ADDITIONAL_PROPERTIES) instanceof Map)
+				? (Map<String, String>) themeTerm.get(Constants.ADDITIONAL_PROPERTIES)
+				: new HashMap<>();
+		themeMap.put(Constants.DISPLAY_NAME,additionalProperties.getOrDefault(Constants.DISPLAY_NAME, ""));
+
+		List<Map<String, Object>> subThemeList = new ArrayList<>();
+		if (subThemes != null) {
+			for (Map<String, Object> subTheme : subThemes) {
+				String subThemeName = ((String) subTheme.get(Constants.NAME)).toLowerCase();
+				if (competencySubThemeTerms.containsKey(subThemeName)) {
+					Map<String, Object> subThemeMap = buildSubThemeMap(competencySubThemeTerms, facetsList, subThemeName);
+					subThemeList.add(subThemeMap);
+				}
+			}
+		}
+
+		themeMap.put(Constants.CHILDREN, subThemeList);
+		return themeMap;
+	}
+
+	private Map<String, Object> buildSubThemeMap(Map<String, Map<String, Object>> competencySubThemeTerms,
+												 List<Map<String, Object>> facetsList, String subThemeName) throws Exception {
+		Map<String, Object> subThemeTerm = competencySubThemeTerms.get(subThemeName);
+
+		Map<String, Object> subThemeFacet = findFacetByName(facetsList, Constants.COMPETENCIES_V6_SUB_THEME_NAME, subThemeName);
+		int subThemeCount = subThemeFacet != null ? (int) subThemeFacet.get(Constants.COUNT) : 0;
+
+		Map<String, Object> subThemeMap = new HashMap<>();
+		subThemeMap.put(Constants.NAME, subThemeName);
+
+
+		subThemeMap.put(Constants.COUNT, subThemeCount);
+
+		subThemeMap.put(Constants.DESCRIPTION, subThemeTerm.get(Constants.DESCRIPTION));
+		subThemeMap.put(Constants.REFID, subThemeTerm.get(Constants.REFID));
+		subThemeMap.put(Constants.IDENTIFIER, subThemeTerm.get(Constants.IDENTIFIER));
+		Map<String, String> additionalProperties = (subThemeTerm.get(Constants.ADDITIONAL_PROPERTIES) instanceof Map)
+				? (Map<String, String>) subThemeTerm.get(Constants.ADDITIONAL_PROPERTIES)
+				: new HashMap<>();
+		subThemeMap.put(Constants.DISPLAY_NAME,additionalProperties.getOrDefault(Constants.DISPLAY_NAME, ""));
+
+		return subThemeMap;
+	}
+
+	private Map<String, Object> findFacetByName(List<Map<String, Object>> facetsList, String facetName, String termName) {
+		for (Map<String, Object> facet : facetsList) {
+			if (facetName.equalsIgnoreCase((String) facet.get(Constants.NAME))) {
+				List<Map<String, Object>> facetValues = (List<Map<String, Object>>) facet.get(Constants.VALUES);
+				for (Map<String, Object> value : facetValues) {
+					if (termName.equalsIgnoreCase((String) value.get(Constants.NAME))) {
+						return value;
+					}
+				}
+			}
+		}
+		return null;
+	}
+
+	private Map<String, Map<String, Object>> extractFrameworkTerms(List<Map<String, Object>> categories, String name) {
+		Map<String, Map<String, Object>> termsMap = new HashMap<>();
+		for (Map<String, Object> category : categories) {
+			if (name.equalsIgnoreCase((String) category.get(Constants.NAME))) {
+				List<Map<String, Object>> terms = (List<Map<String, Object>>) category.get(Constants.TERMS);
+				for (Map<String, Object> term : terms) {
+					termsMap.put(((String) term.get(Constants.NAME)).toLowerCase(), term);
+				}
+				break;
+			}
+		}
+		return termsMap;
+	}
+
 }

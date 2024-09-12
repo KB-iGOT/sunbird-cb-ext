@@ -830,7 +830,11 @@ public class AssessmentServiceV5Impl implements AssessmentServiceV5 {
                     totalMarks += (Integer) sectionChildren.get(Constants.TOTAL_MARKS);
                 }
             }
-            res.put(Constants.OVERALL_RESULT, ((double)correct / (double)(correct+inCorrect)) * 100);
+            if (correct > 0 && inCorrect > 0) {
+                res.put(Constants.OVERALL_RESULT, ((double) correct / (double) (correct + inCorrect)) * 100);
+            } else {
+                res.put(Constants.OVERALL_RESULT, 0);
+            }
             res.put(Constants.BLANK, blank);
             res.put(Constants.CORRECT, correct);
             res.put(Constants.INCORRECT, inCorrect);
@@ -1218,5 +1222,133 @@ public class AssessmentServiceV5Impl implements AssessmentServiceV5 {
                 serverProperties.getAssessmentHost() + serviceUrl, updateRequest, headerValues);
         Map<String, Object> data = new ObjectMapper().convertValue(reviewResponse, Map.class);
         return data;
+    }
+    
+    public SBApiResponse submitAssessmentAsyncV6(Map<String, Object> submitRequest, String userAuthToken,boolean editMode) {
+        logger.info("AssessmentServicev5Impl::submitAssessmentAsyncV6.. started");
+        SBApiResponse outgoingResponse = ProjectUtil.createDefaultResponse(Constants.API_SUBMIT_ASSESSMENT);
+        long assessmentCompletionTime= Calendar.getInstance().getTime().getTime();
+        try {
+            // Step-1 fetch userid
+            String userId = accessTokenValidator.fetchUserIdFromAccessToken(userAuthToken);
+            if (ObjectUtils.isEmpty(userId)) {
+                updateErrorDetails(outgoingResponse, Constants.USER_ID_DOESNT_EXIST, HttpStatus.BAD_REQUEST);
+                return outgoingResponse;
+            }
+            String assessmentIdFromRequest = (String) submitRequest.get(Constants.IDENTIFIER);
+            String errMsg;
+            List<Map<String, Object>> sectionListFromSubmitRequest = new ArrayList<>();
+            List<Map<String, Object>> hierarchySectionList = new ArrayList<>();
+            Map<String, Object> assessmentHierarchy = new HashMap<>();
+            Map<String, Object> existingAssessmentData = new HashMap<>();
+            //Confirm whether the submitted request sections and questions match.
+            errMsg = validateSubmitAssessmentRequest(submitRequest, userId, hierarchySectionList,
+                    sectionListFromSubmitRequest, assessmentHierarchy, existingAssessmentData,userAuthToken,editMode);
+            if (StringUtils.isNotBlank(errMsg)) {
+                updateErrorDetails(outgoingResponse, errMsg, HttpStatus.BAD_REQUEST);
+                return outgoingResponse;
+            }
+            int maxAssessmentRetakeAttempts = (Integer) assessmentHierarchy.get(Constants.MAX_ASSESSMENT_RETAKE_ATTEMPTS);
+            int retakeAttemptsConsumed = calculateAssessmentRetakeCount(userId, assessmentIdFromRequest);
+            String assessmentPrimaryCategory = (String) assessmentHierarchy.get(Constants.PRIMARY_CATEGORY);
+            String assessmentType=((String) assessmentHierarchy.get(Constants.ASSESSMENT_TYPE)).toLowerCase();
+            String scoreCutOffType ;
+            if(assessmentType.equalsIgnoreCase(Constants.QUESTION_WEIGHTAGE)){
+                scoreCutOffType= Constants.SECTION_LEVEL_SCORE_CUTOFF;
+            }else {
+                scoreCutOffType= Constants.ASSESSMENT_LEVEL_SCORE_CUTOFF;
+            }
+            List<Map<String, Object>> sectionLevelsResults = new ArrayList<>();
+            for (Map<String, Object> hierarchySection : hierarchySectionList) {
+                String hierarchySectionId = (String) hierarchySection.get(Constants.IDENTIFIER);
+                String userSectionId = "";
+                Map<String, Object> userSectionData = new HashMap<>();
+                for (Map<String, Object> sectionFromSubmitRequest : sectionListFromSubmitRequest) {
+                    userSectionId = (String) sectionFromSubmitRequest.get(Constants.IDENTIFIER);
+                    if (userSectionId.equalsIgnoreCase(hierarchySectionId)) {
+                        userSectionData = sectionFromSubmitRequest;
+                        break;
+                    }
+                }
+
+                hierarchySection.put(Constants.SCORE_CUTOFF_TYPE, scoreCutOffType);
+                List<Map<String, Object>> questionsListFromSubmitRequest = new ArrayList<>();
+                if (userSectionData.containsKey(Constants.CHILDREN)
+                        && !ObjectUtils.isEmpty(userSectionData.get(Constants.CHILDREN))) {
+                    questionsListFromSubmitRequest = (List<Map<String, Object>>) userSectionData
+                            .get(Constants.CHILDREN);
+                }
+                List<String> desiredKeys = Lists.newArrayList(Constants.IDENTIFIER);
+                List<Object> questionsList = questionsListFromSubmitRequest.stream()
+                        .flatMap(x -> desiredKeys.stream().filter(x::containsKey).map(x::get)).collect(toList());
+                List<String> questionsListFromAssessmentHierarchy = questionsList.stream()
+                        .map(object -> Objects.toString(object, null)).collect(toList());
+                Map<String, Object> result = new HashMap<>();
+                Map<String, Object> questionSetDetailsMap = getParamDetailsForQTypes(hierarchySection,assessmentHierarchy,hierarchySectionId);
+                switch (scoreCutOffType) {
+                    case Constants.ASSESSMENT_LEVEL_SCORE_CUTOFF: {
+                        result.putAll(createResponseMapWithProperStructure(hierarchySection,
+                                assessUtilServ.validateQumlAssessmentV3(questionSetDetailsMap,questionsListFromAssessmentHierarchy,
+                                        questionsListFromSubmitRequest,assessUtilServ.readQListfromCache(questionsListFromAssessmentHierarchy,assessmentIdFromRequest,editMode,userAuthToken))));
+                        Map<String, Object> finalRes= calculateAssessmentFinalResults(result);
+                        outgoingResponse.getResult().putAll(finalRes);
+                        outgoingResponse.getResult().put(Constants.PRIMARY_CATEGORY, assessmentPrimaryCategory);
+                        if (!Constants.PRACTICE_QUESTION_SET.equalsIgnoreCase(assessmentPrimaryCategory) && !editMode) {
+                            String questionSetFromAssessmentString = (String) existingAssessmentData
+                                    .get(Constants.ASSESSMENT_READ_RESPONSE_KEY);
+                            Map<String,Object> questionSetFromAssessment = null;
+                            if (StringUtils.isNotBlank(questionSetFromAssessmentString)) {
+                                questionSetFromAssessment = mapper.readValue(questionSetFromAssessmentString,
+                                        new TypeReference<Map<String, Object>>() {
+                                        });
+                            }
+                            writeDataToDatabaseAndTriggerKafkaEvent(submitRequest, userId, questionSetFromAssessment, finalRes,
+                                    (String) assessmentHierarchy.get(Constants.PRIMARY_CATEGORY));
+                        }
+                        return outgoingResponse;
+                    }
+                    case Constants.SECTION_LEVEL_SCORE_CUTOFF: {
+                        result.putAll(createResponseMapWithProperStructure(hierarchySection,
+                                assessUtilServ.validateQumlAssessmentV3(questionSetDetailsMap,questionsListFromAssessmentHierarchy,
+                                        questionsListFromSubmitRequest,assessUtilServ.readQListfromCache(questionsListFromAssessmentHierarchy,assessmentIdFromRequest,editMode,userAuthToken))));
+                        sectionLevelsResults.add(result);
+                    }
+                    break;
+                    default:
+                        break;
+                }
+            }
+            if (Constants.SECTION_LEVEL_SCORE_CUTOFF.equalsIgnoreCase(scoreCutOffType)) {
+                long assessmentStartTime = 0;
+                if (existingAssessmentData.get(Constants.START_TIME)!=null) {
+                    Date assessmentStart = (Date) existingAssessmentData.get(Constants.START_TIME);
+                    assessmentStartTime = assessmentStart.getTime();
+                }
+                Map<String, Object> result = calculateSectionFinalResults(sectionLevelsResults,assessmentStartTime,assessmentCompletionTime,maxAssessmentRetakeAttempts,retakeAttemptsConsumed);
+                outgoingResponse.getResult().putAll(result);
+                outgoingResponse.getParams().setStatus(Constants.SUCCESS);
+                outgoingResponse.setResponseCode(HttpStatus.OK);
+                outgoingResponse.getResult().put(Constants.PRIMARY_CATEGORY, assessmentPrimaryCategory);
+                if (!Constants.PRACTICE_QUESTION_SET.equalsIgnoreCase(assessmentPrimaryCategory) && !editMode) {
+                    String questionSetFromAssessmentString = (String) existingAssessmentData
+                            .get(Constants.ASSESSMENT_READ_RESPONSE_KEY);
+                    Map<String,Object> questionSetFromAssessment = null;
+                    if (StringUtils.isNotBlank(questionSetFromAssessmentString)) {
+                        questionSetFromAssessment = mapper.readValue(questionSetFromAssessmentString,
+                                new TypeReference<Map<String, Object>>() {
+                                });
+                    }
+                    writeDataToDatabaseAndTriggerKafkaEvent(submitRequest, userId, questionSetFromAssessment, result,
+                            (String) assessmentHierarchy.get(Constants.PRIMARY_CATEGORY));
+                }
+                return outgoingResponse;
+            }
+
+        } catch (Exception e) {
+            String errMsg = String.format("Failed to process assessment submit request. Exception: ", e.getMessage());
+            logger.error(errMsg, e);
+            updateErrorDetails(outgoingResponse, errMsg, HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+        return outgoingResponse;
     }
 }
