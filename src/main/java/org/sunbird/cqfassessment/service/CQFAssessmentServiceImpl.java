@@ -718,12 +718,11 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
                     result.putAll(createResponseMapWithProperStructure(hierarchySection,
                             validateCQFAssessment(questionSetDetailsMap, questionsListFromAssessmentHierarchy,
                                     questionsListFromSubmitRequest, assessUtilServ.readQListfromCache(questionsListFromAssessmentHierarchy, assessmentIdFromRequest, editMode, userAuthToken))));
-                    outgoingResponse.getResult().putAll(result);
                     sectionLevelsResults.add(result);
                 }
             }
-            Map<String, Object> result = new HashMap<>();
-            result.put("result", sectionLevelsResults);
+            Map<String, Object> result = calculateSectionFinalResults(sectionLevelsResults);
+            outgoingResponse.getResult().putAll(result);
             String questionSetFromAssessmentString = (String) cqfAssessmentModel.getExistingAssessmentData().get(Constants.ASSESSMENT_READ_RESPONSE_KEY);
             Map<String, Object> questionSetFromAssessment = null;
             if (StringUtils.isNotBlank(questionSetFromAssessmentString)) {
@@ -737,8 +736,8 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
             errMsg = String.format("Failed to process assessment submit request. Exception: ", e.getMessage());
             logger.error(errMsg, e);
             updateErrorDetails(outgoingResponse, errMsg);
+            return outgoingResponse;
         }
-        return outgoingResponse;
     }
 
     /**
@@ -977,9 +976,13 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
         sectionLevelResult.put(Constants.PRIMARY_CATEGORY, hierarchySection.get(Constants.PRIMARY_CATEGORY));
         sectionLevelResult.put(Constants.PASS_PERCENTAGE, hierarchySection.get(Constants.MINIMUM_PASS_PERCENTAGE));
         sectionLevelResult.put(Constants.NAME, hierarchySection.get(Constants.NAME));
-        sectionLevelResult.put(Constants.MAX_USER_SCORE_FOR_SECTION, resultMap.get(Constants.MAX_USER_SCORE_FOR_SECTION));
-        sectionLevelResult.put(Constants.MAX_WEIGHTED_SCORE_FOR_SECTION, resultMap.get(Constants.MAX_WEIGHTED_SCORE_FOR_SECTION));
-        sectionLevelResult.put(Constants.USER_WEIGHTED_SCORE_FOR_SECTION,resultMap.get(Constants.USER_WEIGHTED_SCORE_FOR_SECTION));
+        sectionLevelResult.put(Constants.OVERALL_SECTION_PERCENTAGE_SCORE, resultMap.get(Constants.OVERALL_SECTION_PERCENTAGE_SCORE));
+        sectionLevelResult.put(Constants.ACHIEVED_PERCENTAGE_SCORE, resultMap.get(Constants.ACHIEVED_PERCENTAGE_SCORE));
+        sectionLevelResult.put(Constants.SECTION_LEVEL_PERCENTAGE, resultMap.get(Constants.SECTION_LEVEL_PERCENTAGE));
+        sectionLevelResult.put(Constants.ACHIEVED_MARKS_FOR_SECTION,resultMap.get(Constants.ACHIEVED_MARKS_FOR_SECTION));
+        sectionLevelResult.put(Constants.TOTAL_MARKS_FOR_SECTION,resultMap.get(Constants.TOTAL_MARKS_FOR_SECTION));
+        sectionLevelResult.put(Constants.CHILDREN, resultMap.get(Constants.CHILDREN));
+        sectionLevelResult.put(Constants.SECTION_RESULT, resultMap.get(Constants.SECTION_RESULT));
         return sectionLevelResult;
     }
 
@@ -994,17 +997,21 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
                                                      List<Map<String, Object>> userQuestionList, Map<String, Object> questionMap) {
         try {
             Integer blank = 0;
-            double userCriteriaScore = 0.0;
-            double maxWeightedScoreForQn = 0.0;
-            double maxWeightedScoreForSection;
-            double maxUserScoreForSection;
-            double userWeightedScoreForSection;
-            double totalUserCriteriaScoreForSection = 0.0;
-
+            double achievedMarksPerQn = 0.0;
+            double achievedMarksForSection = 0.0;
+            int maxMarksForQn = 0;
+            int totalMarksForSection = 0;
+            double overallSectionPercentageScore;
+            double achievedPercentageScore;
+            double sectionLevelPercentage;
             String assessmentType = (String) questionSetDetailsMap.get(Constants.ASSESSMENT_TYPE);
             Map<String, Object> resultMap = new HashMap<>();
             Map<String, Object> optionWeightages = new HashMap<>();
             Map<String, Object> maxMarksForQuestion = new HashMap<>();
+            int minimumPassPercentage = 0;
+            if (questionSetDetailsMap.get(Constants.MINIMUM_PASS_PERCENTAGE) != null) {
+                minimumPassPercentage = (int) questionSetDetailsMap.get(Constants.MINIMUM_PASS_PERCENTAGE);
+            }
             if (assessmentType.equalsIgnoreCase(Constants.QUESTION_OPTION_WEIGHTAGE)) {
                 optionWeightages = getOptionWeightages(originalQuestionList, questionMap);
                 maxMarksForQuestion = getMaxMarksForQustions(originalQuestionList, questionMap);
@@ -1016,22 +1023,24 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
                     blank++;
                     question.put(Constants.RESULT, Constants.BLANK);
                 } else {
-                    userCriteriaScore = calculateScoreForOptionWeightage(question, assessmentType, optionWeightages, userCriteriaScore, marked);
+                    achievedMarksPerQn = calculateScoreForOptionWeightage(question, assessmentType, optionWeightages, achievedMarksPerQn, marked);
                     String identifier = question.get(Constants.IDENTIFIER).toString();
-                    maxWeightedScoreForQn = maxWeightedScoreForQn + (double) maxMarksForQuestion.get(identifier);
-                    totalUserCriteriaScoreForSection =totalUserCriteriaScoreForSection + userCriteriaScore;
+                    maxMarksForQn = maxMarksForQn + (int) maxMarksForQuestion.get(identifier);
+                    achievedMarksForSection = achievedMarksForSection + achievedMarksPerQn;
+                    totalMarksForSection = totalMarksForSection + maxMarksForQn;
                 }
             }
-            maxWeightedScoreForSection = maxWeightedScoreForQn * ((double) questionSetDetailsMap.get(Constants.SECTION_WEIGHTAGE) / 100);
-            userWeightedScoreForSection = userCriteriaScore * ((double) questionSetDetailsMap.get(Constants.SECTION_WEIGHTAGE) / 100);
-            if (userWeightedScoreForSection > 0) {
-                maxUserScoreForSection = userWeightedScoreForSection / maxWeightedScoreForSection;
-                resultMap.put(Constants.MAX_WEIGHTED_SCORE_FOR_SECTION, maxWeightedScoreForSection);
-                resultMap.put(Constants.USER_WEIGHTED_SCORE_FOR_SECTION, userWeightedScoreForSection);
-                resultMap.put(Constants.MAX_USER_SCORE_FOR_SECTION, maxUserScoreForSection);
-                resultMap.put(Constants.TOTAL_USER_CRITERIA_SCORE_FOR_SECTION, totalUserCriteriaScoreForSection);
-                resultMap.put(Constants.BLANK, blank);
-            }
+            overallSectionPercentageScore = totalMarksForSection * ((double) questionSetDetailsMap.get(Constants.SECTION_WEIGHTAGE) / 100);
+            achievedPercentageScore = achievedMarksForSection * ((double) questionSetDetailsMap.get(Constants.SECTION_WEIGHTAGE) / 100);
+            sectionLevelPercentage = (achievedMarksForSection/totalMarksForSection) *100;
+            resultMap.put(Constants.OVERALL_SECTION_PERCENTAGE_SCORE, overallSectionPercentageScore);
+            resultMap.put(Constants.ACHIEVED_PERCENTAGE_SCORE, achievedPercentageScore);
+            resultMap.put(Constants.SECTION_LEVEL_PERCENTAGE, sectionLevelPercentage);
+            resultMap.put(Constants.ACHIEVED_MARKS_FOR_SECTION,achievedMarksForSection);
+            resultMap.put(Constants.TOTAL_MARKS_FOR_SECTION,totalMarksForSection);
+            resultMap.put(Constants.CHILDREN, userQuestionList);
+            resultMap.put(Constants.BLANK, blank);
+            computeSectionResults(achievedMarksForSection, totalMarksForSection, minimumPassPercentage, resultMap);
             return resultMap;
         } catch (Exception ex) {
             logger.error("Error when verifying assessment. Error : ", ex);
@@ -1092,7 +1101,7 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
         logger.info("Retrieving max weightages for questions based on the questions...");
         Map<String, Object> ret = new HashMap<>();
         for (String questionId : questions) {
-            double maxMarks = 0;
+            int maxMarks = 0;
             Map<String, Object> question = objectMapper.convertValue(questionMap.get(questionId), new TypeReference<Map<String, Object>>() {
             });
             if (question.containsKey(Constants.QUESTION_TYPE)) {
@@ -1101,7 +1110,7 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
                     case Constants.MCQ_SCA:
                     case Constants.MCQ_MCA:
                     case Constants.MCQ_MCA_W:
-                        maxMarks = (double) question.get(Constants.TOTAL_MARKS);
+                            maxMarks = (int) question.get(Constants.TOTAL_MARKS);
                         break;
                     default:
                         break;
@@ -1164,14 +1173,14 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
      * @return The updated section marks value.
      */
     private Double calculateScoreForOptionWeightage(Map<String, Object> question, String assessmentType, Map<String, Object> optionWeightages, Double sectionMarks, List<String> marked) {
-        if (assessmentType.equalsIgnoreCase(Constants.OPTION_WEIGHTAGE)) {
+        if (assessmentType.equalsIgnoreCase(Constants.QUESTION_OPTION_WEIGHTAGE)) {
             String identifier = question.get(Constants.IDENTIFIER).toString();
             Map<String, Object> optionWeightageMap = objectMapper.convertValue(optionWeightages.get(identifier), new TypeReference<Map<String, Object>>() {
             });
             for (Map.Entry<String, Object> optionWeightAgeFromOptions : optionWeightageMap.entrySet()) {
                 String submittedQuestionSetIndex = marked.get(0);
                 if (submittedQuestionSetIndex.equals(optionWeightAgeFromOptions.getKey())) {
-                    sectionMarks = sectionMarks + Integer.parseInt((String) optionWeightAgeFromOptions.getValue());
+                    sectionMarks = sectionMarks + Integer.parseInt(optionWeightAgeFromOptions.getValue().toString());
                 }
             }
         }
@@ -1206,6 +1215,7 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
         String assessmentType = (String) assessmentHierarchy.get(Constants.ASSESSMENT_TYPE);
         questionSetDetailsMap.put(Constants.ASSESSMENT_TYPE, assessmentType);
         questionSetDetailsMap.put(Constants.MINIMUM_PASS_PERCENTAGE, assessmentHierarchy.get(Constants.MINIMUM_PASS_PERCENTAGE));
+        questionSetDetailsMap.put(Constants.SECTION_WEIGHTAGE, assessmentHierarchy.get(Constants.SECTION_WEIGHTAGE));
         questionSetDetailsMap.put(Constants.TOTAL_MARKS, hierarchySection.get(Constants.TOTAL_MARKS));
         logger.info("Completed getParamDetailsForQTypes with result: {}", questionSetDetailsMap);
         return questionSetDetailsMap;
@@ -1243,7 +1253,7 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
             );
 
             List<Map<String, Object>> existingDataList = readUserSubmittedAssessmentRecords(new CQFAssessmentModel(
-                    userId, requestBody.get(Constants.ASSESSMENT_ID).toString(), requestBody.get(Constants.CONTENT_ID_KEY).toString(), requestBody.get(Constants.VERSION_KEY).toString()));
+                    userId, requestBody.get(Constants.ASSESSMENT_ID_KEY).toString(), requestBody.get(Constants.CONTENT_ID_KEY).toString(), requestBody.get(Constants.VERSION_KEY).toString()));
             if (existingDataList.isEmpty()) {
                 updateErrorDetails(response, Constants.USER_ASSESSMENT_DATA_NOT_PRESENT, HttpStatus.BAD_REQUEST);
                 return response;
@@ -1313,15 +1323,6 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
             missingAttribs.add(Constants.ASSESSMENT_ID_KEY);
         }
 
-        if (!requestBody.containsKey(Constants.BATCH_ID)
-                || StringUtils.isBlank((String) requestBody.get(Constants.BATCH_ID))) {
-            missingAttribs.add(Constants.BATCH_ID);
-        }
-
-        if (!requestBody.containsKey(Constants.COURSE_ID)
-                || StringUtils.isBlank((String) requestBody.get(Constants.COURSE_ID))) {
-            missingAttribs.add(Constants.COURSE_ID);
-        }
 
         if (!missingAttribs.isEmpty()) {
             errMsg = "One or more mandatory fields are missing in Request. Mandatory fields are : "
@@ -1524,5 +1525,40 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
                 });
         return objectMapper.convertValue(questionsetRead.get(Constants.RESULT), new TypeReference<Map<String, Object>>() {
         });
+    }
+
+    /**
+     * Computes the result of a section based on section marks, total marks, and minimum pass value.
+     *
+     * @param sectionMarks the marks obtained in the section.
+     * @param totalMarks the total marks available for the section.
+     * @param minimumPassValue the minimum percentage required to pass the section.
+     * @param resultMap the map to store the section result.
+     */
+    private  void computeSectionResults(Double sectionMarks, Integer totalMarks, int minimumPassValue, Map<String, Object> resultMap) {
+        logger.info("Computing section results...");
+        if (sectionMarks > 0 && totalMarks>0 && ((sectionMarks / totalMarks) * 100 >= minimumPassValue)) {
+            resultMap.put(Constants.SECTION_RESULT, Constants.PASS);
+        } else {
+            resultMap.put(Constants.SECTION_RESULT, Constants.FAIL);
+        }
+        logger.info("Section results computed successfully.");
+    }
+
+    private Map<String, Object> calculateSectionFinalResults(List<Map<String, Object>> sectionLevelsResults) {
+        double totalAchievedPercentageScore = 0.0;
+        double totalOverallSectionPercentageScore = 0.0;
+        double overalAssessmentScore=0.0;
+        Map<String, Object> res = new HashMap<>();
+        for (Map<String, Object> sectionChildren : sectionLevelsResults) {
+            res.put(Constants.CHILDREN, sectionLevelsResults);
+            totalAchievedPercentageScore=totalAchievedPercentageScore + (double)sectionChildren.get(Constants.ACHIEVED_PERCENTAGE_SCORE);
+            totalOverallSectionPercentageScore =totalOverallSectionPercentageScore + (double) sectionChildren.get(Constants.OVERALL_SECTION_PERCENTAGE_SCORE);
+        }
+        if (totalOverallSectionPercentageScore > 0) {
+            overalAssessmentScore = (totalAchievedPercentageScore / totalOverallSectionPercentageScore) * 100;
+        }
+        res.put(Constants.OVERALL_ASSESSMENT_SCORE,overalAssessmentScore);
+        return res;
     }
 }
