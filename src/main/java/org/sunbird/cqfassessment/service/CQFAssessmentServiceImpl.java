@@ -1548,13 +1548,16 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
     private Map<String, Object> calculateSectionFinalResults(List<Map<String, Object>> sectionLevelsResults) {
         double totalAchievedPercentageScore = 0.0;
         double totalOverallSectionPercentageScore = 0.0;
+        double overalAssessmentScore=0.0;
         Map<String, Object> res = new HashMap<>();
         for (Map<String, Object> sectionChildren : sectionLevelsResults) {
             res.put(Constants.CHILDREN, sectionLevelsResults);
             totalAchievedPercentageScore=totalAchievedPercentageScore + (double)sectionChildren.get(Constants.ACHIEVED_PERCENTAGE_SCORE);
             totalOverallSectionPercentageScore =totalOverallSectionPercentageScore + (double) sectionChildren.get(Constants.OVERALL_SECTION_PERCENTAGE_SCORE);
         }
-        double overalAssessmentScore = (totalAchievedPercentageScore/totalOverallSectionPercentageScore) *100;
+        if (totalOverallSectionPercentageScore > 0) {
+            overalAssessmentScore = (totalAchievedPercentageScore / totalOverallSectionPercentageScore) * 100;
+        }
         res.put(Constants.OVERALL_ASSESSMENT_SCORE,overalAssessmentScore);
         return res;
     }
