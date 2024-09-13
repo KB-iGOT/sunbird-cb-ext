@@ -179,6 +179,9 @@ public class UserBulkUploadService {
                     } else {
                         if (nextRow.getCell(1).getCellType() == CellType.STRING) {
                             userRegistration.setEmail(nextRow.getCell(1).getStringCellValue().trim());
+                            if (ProjectUtil.validatesNewLine(userRegistration.getEmail())) {
+                                invalidErrList.add("Invalid Email: Email address contains newline characters");
+                            }
                         } else {
                             invalidErrList.add("Invalid value for Email column type. Expecting string format");
                         }
@@ -195,6 +198,9 @@ public class UserBulkUploadService {
                         } else {
                             invalidErrList.add("Invalid value for Mobile Number column type. Expecting number/string format");
                         }
+                        if (ProjectUtil.validatesNewLine(userRegistration.getPhone())) {
+                            invalidErrList.add("Invalid Phone: Phone Number contains newline characters");
+                        }
                     }
                     if (StringUtils.isNotBlank(phone)) {
                         if (!ProjectUtil.validateContactPattern(phone)) {
@@ -206,6 +212,9 @@ public class UserBulkUploadService {
                     } else {
                         if (nextRow.getCell(3).getCellType() == CellType.STRING) {
                             userRegistration.setGroup(nextRow.getCell(3).getStringCellValue().trim());
+                            if (ProjectUtil.validatesNewLine(userRegistration.getGroup())) {
+                                invalidErrList.add("Invalid Group: Group contains newline characters");
+                            }
                             if (!userUtilityService.validateGroup(userRegistration.getGroup())) {
                                 invalidErrList.add("Invalid Group : Group can be only among one of these " + serverProperties.getBulkUploadGroupValue());
                             }
@@ -218,6 +227,9 @@ public class UserBulkUploadService {
                     } else {
                         if (nextRow.getCell(4).getCellType() == CellType.STRING) {
                             userRegistration.setPosition(nextRow.getCell(4).getStringCellValue().trim());
+                            if (ProjectUtil.validatesNewLine(userRegistration.getPosition())) {
+                                invalidErrList.add("Invalid Position: Position contains newline characters");
+                            }
                         } else {
                             invalidErrList.add("Invalid value for Designation column type. Expecting string format");
                         }
@@ -231,6 +243,9 @@ public class UserBulkUploadService {
                         if (nextRow.getCell(5).getCellType() == CellType.STRING) {
                             if (userUtilityService.validateGender(nextRow.getCell(5).getStringCellValue().trim())) {
                                 userRegistration.setGender(nextRow.getCell(5).getStringCellValue().trim());
+                                if (ProjectUtil.validatesNewLine(userRegistration.getGender())) {
+                                    invalidErrList.add("Invalid Gender: Gender contains newline characters");
+                                }
                             } else {
                                 invalidErrList.add("Invalid Gender : Gender can be only among one of these " + serverProperties.getBulkUploadGenderValue());
                             }
@@ -242,6 +257,9 @@ public class UserBulkUploadService {
                         if (nextRow.getCell(6).getCellType() == CellType.STRING) {
                             if (userUtilityService.validateCategory(nextRow.getCell(6).getStringCellValue().trim())) {
                                 userRegistration.setCategory(nextRow.getCell(6).getStringCellValue().trim());
+                                if (ProjectUtil.validatesNewLine(userRegistration.getCategory())) {
+                                    invalidErrList.add("Invalid Category: Category contains newline characters");
+                                }
                             } else {
                                 invalidErrList.add("Invalid Category : Category can be only among one of these " + serverProperties.getBulkUploadCategoryValue());
                             }
@@ -268,10 +286,16 @@ public class UserBulkUploadService {
                         } else {
                             invalidErrList.add("Invalid value for Date of Birth column type. Expecting string type in dd-mm-yyyy format");
                         }
+                        if (ProjectUtil.validatesNewLine(userRegistration.getDob())) {
+                            invalidErrList.add("Invalid DOB: DOB contains newline characters");
+                        }
                     }
                     if (nextRow.getCell(8) != null && nextRow.getCell(8).getCellType() != CellType.BLANK) {
                         if (nextRow.getCell(8).getCellType() == CellType.STRING) {
                             userRegistration.setDomicileMedium(nextRow.getCell(8).getStringCellValue().trim());
+                            if (ProjectUtil.validatesNewLine(userRegistration.getDomicileMedium())) {
+                                invalidErrList.add("Invalid Domicile Medium: Domicile Medium contains newline characters");
+                            }
                         } else {
                             invalidErrList.add("Invalid value for Mother Tongue column type. Expecting string format");
                         }
@@ -297,6 +321,9 @@ public class UserBulkUploadService {
                                 invalidErrList.add("Invalid Employee ID : Employee Id cannot contain spaces");
                             }
                         }
+                        if (ProjectUtil.validatesNewLine(userRegistration.getEmployeeId())) {
+                            invalidErrList.add("Invalid Employee ID: Employee ID contains newline characters");
+                        }
                     }
                     if (nextRow.getCell(10) != null && nextRow.getCell(10).getCellType() != CellType.BLANK) {
                         if (nextRow.getCell(10).getCellType() == CellType.NUMERIC) {
@@ -310,6 +337,9 @@ public class UserBulkUploadService {
                             if (!ProjectUtil.validatePinCode(userRegistration.getPincode())) {
                                 invalidErrList.add("Invalid Office Pin Code : Office Pin Code should be numeric and is of 6 digit.");
                             }
+                        }
+                        if (ProjectUtil.validatesNewLine(userRegistration.getPincode())) {
+                            invalidErrList.add("Invalid Pin Code: Pin Code contains newline characters");
                         }
                     }
                     if (nextRow.getCell(11) != null && nextRow.getCell(11).getCellType() != CellType.BLANK) {
@@ -326,12 +356,18 @@ public class UserBulkUploadService {
                         } else {
                             invalidErrList.add("Invalid value for External System ID column type. Expecting string/number format");
                         }
+                        if (ProjectUtil.validatesNewLine(userRegistration.getExternalSystemId())) {
+                            invalidErrList.add("Invalid External System ID: External System ID contains newline characters");
+                        }
                     }
                     if (nextRow.getCell(12) != null && !StringUtils.isBlank(nextRow.getCell(12).toString())) {
                         if (nextRow.getCell(12).getCellType() == CellType.STRING) {
                             userRegistration.setExternalSystem(nextRow.getCell(12).getStringCellValue().trim());
                             if (!ProjectUtil.validateExternalSystem(userRegistration.getExternalSystem())) {
                                 invalidErrList.add("Invalid External System Name : External System Name can contain only alphabets and alphanumeric and can have a max length of 255");
+                            }
+                            if (ProjectUtil.validatesNewLine(userRegistration.getExternalSystem())) {
+                                invalidErrList.add("Invalid External System Name: External System Name contains newline characters");
                             }
                         } else {
                             invalidErrList.add("Invalid value for External System Name column type. Expecting string format");

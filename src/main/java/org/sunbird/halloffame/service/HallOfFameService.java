@@ -8,6 +8,14 @@ import java.util.Map;
  * @author mahesh.vakkund
  */
 public interface HallOfFameService {
-    public Map<String, Object> fetchHallOfFameData() ;
-    public SBApiResponse learnerLeaderBoard(String rootOrgId, String authToken) ;
+    public Map<String, Object> fetchHallOfFameData();
+
+    public SBApiResponse learnerLeaderBoard(String rootOrgId, String authToken);
+
+    public SBApiResponse fetchingTop10Learners(String ministryOrgId, String authToken);
+
+    public SBApiResponse getUserLeaderBoard(String OrgId);
+
+    public SBApiResponse getMdoLeaderBoard();
+
 }

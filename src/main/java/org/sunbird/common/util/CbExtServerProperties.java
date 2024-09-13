@@ -774,6 +774,54 @@ public class CbExtServerProperties {
 	@Value(("${sb.tags.delimiter}"))
 	private String tagsDelimiter;
 
+	@Value("${assessment.questionset.hierarchy}")
+	private String questionSetHierarchy;
+
+	@Value("${assessment.questionset.create}")
+	private String questionSetCreate;
+
+	@Value("${assessment.questionset.read}")
+	private String questionSetRead;
+
+	@Value("${assessment.questionset.hierarchy.update}")
+	private String questionSetHierarchyUpdate;
+
+	@Value("${assessment.questionset.hierarchy.index}")
+	private String questionSetHierarchyIndex;
+
+	@Value("${cios.cloud.container.name}")
+	private String ciosCloudContainerName;
+
+	@Value("${cios.cloud.folder.name}")
+	private String ciosCloudFolderName;
+
+	@Value("${cios.cloud.icon.folder.name}")
+	private String ciosCloudIconFolderName;
+
+	@Value("${questionSet.publish}")
+	private String questionSetPublish;
+
+	public String getCiosCloudIconFolderName() {
+		return ciosCloudIconFolderName;
+	}
+	@Value("${kcm.framework.name}")
+	private String kcmFrameworkName;
+
+	@Value("${framework.read.endpoint}")
+	private String frameworkReadEndpoint;
+
+	@Value("${competencyV6.composite.search.course.category.filter}")
+	private String competencyV6SearchPrimaryCategoryFilter;
+
+	@Value("${spv.full.report.folder.name}")
+	private String spvFullReportReportFolderName;
+
+	@Value("${spv.full.report.file.name}")
+	private String spvFullReportFileName;
+
+	@Value("${sb.update.org.path}")
+	private String updateOrgPath;
+
 	public boolean qListFromCacheEnabled() {
 		return qListFromCacheEnabled;
 	}
@@ -2709,6 +2757,18 @@ public class CbExtServerProperties {
 		this.insightsMappingKey = insightsMappingKey;
 	}
 
+	public String getCiosCloudContainerName() {
+		return ciosCloudContainerName;
+	}
+
+	public String getCiosCloudFolderName() {
+		return ciosCloudFolderName;
+	}
+
+	public void setCiosCloudContainerName(String ciosCloudContainerName) {
+		this.ciosCloudContainerName = ciosCloudContainerName;
+	}
+
 	public String getSbSearchServiceHost() {
 		return sbSearchServiceHost;
 	}
@@ -2725,6 +2785,7 @@ public class CbExtServerProperties {
 		this.sbCompositeV4Search = sbCompositeV4Search;
 	}
 
+
 	public char getCsvDelimiter() {
 		return csvDelimiter;
 	}
@@ -2740,4 +2801,78 @@ public class CbExtServerProperties {
 	public void setTagsDelimiter(String tagsDelimiter) {
 		this.tagsDelimiter = tagsDelimiter;
 	}
+
+	public String getQuestionSetHierarchy() {
+		return questionSetHierarchy;
+	}
+
+	public void setQuestionSetHierarchy(String questionSetHierarchy) {
+		this.questionSetHierarchy = questionSetHierarchy;
+	}
+
+	public String getQuestionSetCreate() {
+		return questionSetCreate;
+	}
+
+	public void setQuestionSetCreate(String questionSetCreate) {
+		this.questionSetCreate = questionSetCreate;
+	}
+
+	public String getQuestionSetRead() {
+		return questionSetRead;
+	}
+
+	public void setQuestionSetRead(String questionSetRead) {
+		this.questionSetRead = questionSetRead;
+	}
+
+	public String getQuestionSetHierarchyUpdate() {
+		return questionSetHierarchyUpdate;
+	}
+
+	public void setQuestionSetHierarchyUpdate(String questionSetHierarchyUpdate) {
+		this.questionSetHierarchyUpdate = questionSetHierarchyUpdate;
+	}
+
+	public String getQuestionSetHierarchyIndex() {
+		return questionSetHierarchyIndex;
+	}
+
+	public void setQuestionSetHierarchyIndex(String questionSetHierarchyIndex) {
+		this.questionSetHierarchyIndex = questionSetHierarchyIndex;
+	}
+	public String getQuestionSetPublish() { return questionSetPublish; }
+
+	public void setQuestionSetPublish(String questionSetPublish) { this.questionSetPublish = questionSetPublish; }
+	public String getKcmFrameworkName() {
+		return kcmFrameworkName;
+	}
+
+	public String getFrameworkReadEndpoint() {
+		return frameworkReadEndpoint;
+	}
+
+	public List<String> getCompetencyV6SearchPrimaryCategoryFilter() {
+		return Arrays.asList(competencyV6SearchPrimaryCategoryFilter.split(",", -1));
+  }
+  
+	public String getSpvFullReportReportFolderName() {
+		return spvFullReportReportFolderName;
+	}
+
+	public void setSpvFullReportReportFolderName(String spvFullReportReportFolderName) {
+		this.spvFullReportReportFolderName = spvFullReportReportFolderName;
+	}
+
+	public String getSpvFullReportFileName() {
+		return spvFullReportFileName;
+	}
+
+	public void setSpvFullReportFileName(String spvFullReportFileName) {
+		this.spvFullReportFileName = spvFullReportFileName;
+	}
+
+	public String getUpdateOrgPath() { return updateOrgPath; }
+
+	public void setUpdateOrgPath(String updateOrgPath) { this.updateOrgPath = updateOrgPath; }
 }

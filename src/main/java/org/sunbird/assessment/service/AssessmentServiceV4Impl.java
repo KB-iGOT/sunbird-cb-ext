@@ -92,6 +92,8 @@ public class AssessmentServiceV4Impl implements AssessmentServiceV4 {
             
             if (serverProperties.isAssessmentRetakeCountVerificationEnabled()) {
                 retakeAttemptsConsumed = calculateAssessmentRetakeCount(userId, assessmentIdentifier);
+                // if(retakeAttemptsConsumed > 0)
+                    retakeAttemptsConsumed = retakeAttemptsConsumed-1;
             }
         } catch (Exception e) {
             errMsg = String.format("Error while calculating retake assessment. Exception: %s", e.getMessage());
@@ -595,6 +597,8 @@ public class AssessmentServiceV4Impl implements AssessmentServiceV4 {
                 }
             }
             List<Map<String, Object>> questions = (List<Map<String, Object>>) section.get(Constants.CHILDREN);
+            // Shuffle the list of questions
+            Collections.shuffle(questions);
             int maxQuestions = (int) section.getOrDefault(Constants.MAX_QUESTIONS, questions.size());
             List<String> childNodeList = questions.stream()
                     .map(question -> (String) question.get(Constants.IDENTIFIER))

@@ -16,6 +16,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.util.ObjectUtils;
 import org.sunbird.assessment.repo.AssessmentRepository;
+import org.sunbird.cassandra.utils.CassandraOperation;
 import org.sunbird.common.model.SBApiResponse;
 import org.sunbird.common.service.OutboundRequestHandlerServiceImpl;
 import org.sunbird.common.util.AccessTokenValidator;
@@ -55,6 +56,9 @@ public class AssessmentServiceV5Impl implements AssessmentServiceV5 {
 
     @Autowired
     AccessTokenValidator accessTokenValidator;
+
+    @Autowired
+    CassandraOperation cassandraOperation;
 
     @Override
     public SBApiResponse retakeAssessment(String assessmentIdentifier, String token,Boolean editMode) {
@@ -238,7 +242,7 @@ public class AssessmentServiceV5Impl implements AssessmentServiceV5 {
             String assessmentIdFromRequest = (String) requestBody.get(Constants.ASSESSMENT_ID_KEY);
             Map<String, Object> questionsMap = assessUtilServ.readQListfromCache(identifierList,assessmentIdFromRequest,editMode,authUserToken);
             for (String questionId : identifierList) {
-                questionList.add(assessUtilServ.filterQuestionMapDetail((Map<String, Object>) questionsMap.get(questionId),
+                questionList.add(assessUtilServ.filterQuestionMapDetailV2((Map<String, Object>) questionsMap.get(questionId),
                         result.get(Constants.PRIMARY_CATEGORY)));
             }
             if (errMsg.isEmpty() && identifierList.size() == questionList.size()) {
@@ -472,6 +476,7 @@ public class AssessmentServiceV5Impl implements AssessmentServiceV5 {
         List<String> sectionIdList = new ArrayList<>();
         List<String> sectionParams = serverProperties.getAssessmentSectionParams();
         List<Map<String, Object>> sections = (List<Map<String, Object>>) assessmentAllDetail.get(Constants.CHILDREN);
+        String assessmentType = (String) assessmentAllDetail.get(Constants.ASSESSMENT_TYPE);
         for (Map<String, Object> section : sections) {
             sectionIdList.add((String) section.get(Constants.IDENTIFIER));
             Map<String, Object> newSection = new HashMap<>();
@@ -481,11 +486,20 @@ public class AssessmentServiceV5Impl implements AssessmentServiceV5 {
                 }
             }
             List<Map<String, Object>> questions = (List<Map<String, Object>>) section.get(Constants.CHILDREN);
-            int maxQuestions = (int) section.getOrDefault(Constants.MAX_QUESTIONS, questions.size());
-            List<String> childNodeList = questions.stream()
-                    .map(question -> (String) question.get(Constants.IDENTIFIER))
-                    .limit(maxQuestions)
-                    .collect(toList());
+            List<String> childNodeList;
+            if (assessmentType.equalsIgnoreCase(Constants.QUESTION_WEIGHTAGE)) {
+                List<Map<String, Object>> selectedQuestionsList = processRandomizationForQuestions((Map<String, Map<String, Object>>) section.get(Constants.SECTION_LEVEL_DEFINITION), questions);
+                childNodeList = selectedQuestionsList.stream()
+                        .map(question -> (String) question.get(Constants.IDENTIFIER))
+                        .collect(toList());
+            } else {
+                int maxQuestions = (int) section.getOrDefault(Constants.MAX_QUESTIONS, questions.size());
+                List<Map<String, Object>> shuffledQuestionsList = shuffleQuestions(questions);
+                childNodeList = shuffledQuestionsList.stream()
+                        .map(question -> (String) question.get(Constants.IDENTIFIER))
+                        .limit(maxQuestions)
+                        .collect(toList());
+            }
             Collections.shuffle(childNodeList);
             newSection.put(Constants.CHILD_NODES, childNodeList);
             sectionResponse.add(newSection);
@@ -820,7 +834,11 @@ public class AssessmentServiceV5Impl implements AssessmentServiceV5 {
                     totalMarks += (Integer) sectionChildren.get(Constants.TOTAL_MARKS);
                 }
             }
-            res.put(Constants.OVERALL_RESULT, ((double)correct / (double)(correct+inCorrect)) * 100);
+            if (correct > 0 && inCorrect > 0) {
+                res.put(Constants.OVERALL_RESULT, ((double) correct / (double) (correct + inCorrect)) * 100);
+            } else {
+                res.put(Constants.OVERALL_RESULT, 0);
+            }
             res.put(Constants.BLANK, blank);
             res.put(Constants.CORRECT, correct);
             res.put(Constants.INCORRECT, inCorrect);
@@ -1092,5 +1110,274 @@ public class AssessmentServiceV5Impl implements AssessmentServiceV5 {
             updateErrorDetails(response, errMsg, HttpStatus.INTERNAL_SERVER_ERROR);
         }
         return response;
+    }
+
+
+    /**
+     * Process randomization for selecting questions based on section level definitions and limits.
+     *
+     * @param sectionLevelDefinitionMap Map containing section level definitions with 'noOfQuestions' and 'noOfMaxQuestions'.
+     * @param questions                 List of questions to be processed.
+     * @return List of selected questions based on randomization and limits.
+     */
+    private List<Map<String, Object>> processRandomizationForQuestions(Map<String, Map<String, Object>> sectionLevelDefinitionMap, List<Map<String, Object>> questions) {
+        List<Map<String, Object>> shuffledQuestionsList = shuffleQuestions(questions);
+        List<Map<String, Object>> selectedQuestionsList = new ArrayList<>();
+        Map<String, Integer> noOfQuestionsMap = new HashMap<>();
+        Map<String, Integer> dupNoOfQuestionsMap = new HashMap<>();     // Duplicate map for tracking selected questions
+        boolean result = sectionLevelDefinitionMap.values().stream()
+                .anyMatch(proficiencyMap -> {
+                    Object maxNoOfQuestionsValue = proficiencyMap.get(Constants.NO_OF_QUESTIONS);
+                    if (maxNoOfQuestionsValue instanceof Integer) {
+                        return (Integer) maxNoOfQuestionsValue > 0;
+                    }
+                    return false;
+                });
+
+        if (!result) {
+            return questions;
+        } else {
+            // Populate noOfQuestionsMap and noOfMaxQuestionsMap from sectionLevelDefinitionMap
+            sectionLevelDefinitionMap.forEach((sectionLevelDefinitionKey, proficiencyMap) -> proficiencyMap.forEach((key, value) -> {
+                if (key.equalsIgnoreCase(Constants.NO_OF_QUESTIONS)) {
+                    noOfQuestionsMap.put(sectionLevelDefinitionKey, (Integer) value);
+                    dupNoOfQuestionsMap.put(sectionLevelDefinitionKey,0);
+                }
+            }));
+
+            // Process each question for randomization and limit checking
+            for (Map<String, Object> question : shuffledQuestionsList) {
+                String questionLevel = (String) question.get(Constants.QUESTION_LEVEL);
+                // Check if adding one more question of this level is within limits
+                if (dupNoOfQuestionsMap.getOrDefault(questionLevel, 0) < noOfQuestionsMap.getOrDefault(questionLevel, 0)) {
+                    // Add the question to selected list
+                    selectedQuestionsList.add(question);
+                    // Update dupNoOfQuestionsMap to track the count of selected questions for this level
+                    dupNoOfQuestionsMap.put(questionLevel, dupNoOfQuestionsMap.getOrDefault(questionLevel, 0) + 1);
+                }
+            }
+            return selectedQuestionsList;
+        }
+    }
+
+
+
+    /**
+     * Shuffles the list of questions maps.
+     *
+     * @param questions The list of questions maps to be shuffled.
+     * @return A new list containing the shuffled questions maps.
+     */
+    public static List<Map<String, Object>> shuffleQuestions(List<Map<String, Object>> questions) {
+        // Create a copy of the original list to avoid modifying the input list
+        List<Map<String, Object>> shuffledQnsList = new ArrayList<>(questions);
+        // Shuffle the list using Collections.shuffle()
+        Collections.shuffle(shuffledQnsList);
+        return shuffledQnsList;
+    }
+
+    @Override
+    public SBApiResponse autoPublish(String assessmentIdentifier, String token) {
+        SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.QUESTION_SET_AUTO_PUBLISH);
+        if (StringUtils.isBlank(assessmentIdentifier)) {
+            response.setResponseCode(HttpStatus.BAD_REQUEST);
+            response.getParams().setErrmsg(Constants.INVALID_ASSESSMENT_ID);
+            response.getParams().setStatus(Constants.FAILED);
+            return response;
+        }
+        try {
+            String userId = accessTokenValidator.fetchUserIdFromAccessToken(token);
+            if (StringUtils.isBlank(userId)) {
+                response.setResponseCode(HttpStatus.BAD_REQUEST);
+                response.getParams().setStatus(Constants.FAILED);
+                response.getParams().setErrmsg(Constants.INVALID_USER_TOKEN);
+                return response;
+            }
+            logger.info(Constants.QUESTION_SET_SENT_FOR_PUBLISH);
+
+            Map<String, Object> publishResponse = publish(assessmentIdentifier, token);
+            if (MapUtils.isEmpty(publishResponse) || !publishResponse.get(Constants.RESPONSE_CODE).equals(Constants.OK)) {
+                logger.info(Constants.FAILED_TO_PUBLISH);
+                updateErrorDetails(response, Constants.PUBLISH_QUESTION_SET_FAILED,
+                        HttpStatus.INTERNAL_SERVER_ERROR);
+                return response;
+            }
+            Map<String, Object> properyMap = new HashMap<>();
+            properyMap.put(Constants.USERID, userId);
+            List<String> fields = new ArrayList<>();
+            fields.add(Constants.ROOT_ORG_ID);
+            List<Map<String, Object>> cassandraResponse = cassandraOperation.getRecordsByPropertiesWithoutFiltering(Constants.KEYSPACE_SUNBIRD,
+                    Constants.TABLE_USER, properyMap, fields);
+            Map<String, Object> orgMap = cassandraResponse.get(0);
+            String rootOrgId = (String) orgMap.get(Constants.ROOT_ORG_ID);
+            Map<String, Object> updateRequest = new HashMap<>();
+            Map<String, Object> request = new HashMap<>();
+            Map<String, String> headerValues = new HashMap<>();
+            headerValues.put(Constants.X_AUTH_TOKEN, token);
+            request.put(Constants.ORGANIZATION_ID, rootOrgId);
+            request.put(Constants.CQF_ID, assessmentIdentifier);
+            updateRequest.put(Constants.REQUEST, request);
+            StringBuilder url = new StringBuilder(serverProperties.getSbUrl());
+            url.append(serverProperties.getUpdateOrgPath());
+            Object updateOrgResponse = outboundRequestHandlerService.fetchResultUsingPatch(
+                    String.valueOf(url), updateRequest, headerValues);
+            Map<String, Object> data = new ObjectMapper().convertValue(updateOrgResponse, Map.class);
+            if (MapUtils.isEmpty(data) || !data.get(Constants.RESPONSE_CODE).equals(Constants.OK)) {
+                updateErrorDetails(response, Constants.UPDATE_ORG_WITH_CQF_ID_FAILED,
+                        HttpStatus.INTERNAL_SERVER_ERROR);
+                return response;
+            }
+            response.setResponseCode(HttpStatus.OK);
+            response.setResult(publishResponse);
+            response.getParams().setStatus(Constants.SUCCESS);
+        } catch (Exception e) {
+            logger.error(Constants.AUTO_PUBLISH_FAILED + e);
+            updateErrorDetails(response, Constants.AUTO_PUBLISH_FAILED, HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+        return response;
+    }
+
+    public Map<String, Object> publish(String assessmentIdentifier, String token) {
+        Map<String, Object> questionMap = new HashMap<>();
+        Map<String, Object> requestMap = new HashMap<>();
+        requestMap.put(Constants.QUESTION, questionMap);
+        Map<String, Object> updateRequest = new HashMap<>();
+        updateRequest.put(Constants.REQUEST, requestMap);
+        Map<String, String> headerValues = new HashMap<>();
+        headerValues.put(Constants.X_AUTH_TOKEN, token);
+        StringBuilder serviceUrl = new StringBuilder();
+        serviceUrl.append(serverProperties.getQuestionSetPublish()).append(Constants.SLASH).append(assessmentIdentifier);
+        Object reviewResponse = outboundRequestHandlerService.fetchResultUsingPost(
+                serverProperties.getAssessmentHost() + serviceUrl, updateRequest, headerValues);
+        Map<String, Object> data = new ObjectMapper().convertValue(reviewResponse, Map.class);
+        return data;
+    }
+    
+    public SBApiResponse submitAssessmentAsyncV6(Map<String, Object> submitRequest, String userAuthToken,boolean editMode) {
+        logger.info("AssessmentServicev5Impl::submitAssessmentAsyncV6.. started");
+        SBApiResponse outgoingResponse = ProjectUtil.createDefaultResponse(Constants.API_SUBMIT_ASSESSMENT);
+        long assessmentCompletionTime= Calendar.getInstance().getTime().getTime();
+        try {
+            // Step-1 fetch userid
+            String userId = accessTokenValidator.fetchUserIdFromAccessToken(userAuthToken);
+            if (ObjectUtils.isEmpty(userId)) {
+                updateErrorDetails(outgoingResponse, Constants.USER_ID_DOESNT_EXIST, HttpStatus.BAD_REQUEST);
+                return outgoingResponse;
+            }
+            String assessmentIdFromRequest = (String) submitRequest.get(Constants.IDENTIFIER);
+            String errMsg;
+            List<Map<String, Object>> sectionListFromSubmitRequest = new ArrayList<>();
+            List<Map<String, Object>> hierarchySectionList = new ArrayList<>();
+            Map<String, Object> assessmentHierarchy = new HashMap<>();
+            Map<String, Object> existingAssessmentData = new HashMap<>();
+            //Confirm whether the submitted request sections and questions match.
+            errMsg = validateSubmitAssessmentRequest(submitRequest, userId, hierarchySectionList,
+                    sectionListFromSubmitRequest, assessmentHierarchy, existingAssessmentData,userAuthToken,editMode);
+            if (StringUtils.isNotBlank(errMsg)) {
+                updateErrorDetails(outgoingResponse, errMsg, HttpStatus.BAD_REQUEST);
+                return outgoingResponse;
+            }
+            int maxAssessmentRetakeAttempts = (Integer) assessmentHierarchy.get(Constants.MAX_ASSESSMENT_RETAKE_ATTEMPTS);
+            int retakeAttemptsConsumed = calculateAssessmentRetakeCount(userId, assessmentIdFromRequest);
+            String assessmentPrimaryCategory = (String) assessmentHierarchy.get(Constants.PRIMARY_CATEGORY);
+            String assessmentType=((String) assessmentHierarchy.get(Constants.ASSESSMENT_TYPE)).toLowerCase();
+            String scoreCutOffType ;
+            if(assessmentType.equalsIgnoreCase(Constants.QUESTION_WEIGHTAGE)){
+                scoreCutOffType= Constants.SECTION_LEVEL_SCORE_CUTOFF;
+            }else {
+                scoreCutOffType= Constants.ASSESSMENT_LEVEL_SCORE_CUTOFF;
+            }
+            List<Map<String, Object>> sectionLevelsResults = new ArrayList<>();
+            for (Map<String, Object> hierarchySection : hierarchySectionList) {
+                String hierarchySectionId = (String) hierarchySection.get(Constants.IDENTIFIER);
+                String userSectionId = "";
+                Map<String, Object> userSectionData = new HashMap<>();
+                for (Map<String, Object> sectionFromSubmitRequest : sectionListFromSubmitRequest) {
+                    userSectionId = (String) sectionFromSubmitRequest.get(Constants.IDENTIFIER);
+                    if (userSectionId.equalsIgnoreCase(hierarchySectionId)) {
+                        userSectionData = sectionFromSubmitRequest;
+                        break;
+                    }
+                }
+
+                hierarchySection.put(Constants.SCORE_CUTOFF_TYPE, scoreCutOffType);
+                List<Map<String, Object>> questionsListFromSubmitRequest = new ArrayList<>();
+                if (userSectionData.containsKey(Constants.CHILDREN)
+                        && !ObjectUtils.isEmpty(userSectionData.get(Constants.CHILDREN))) {
+                    questionsListFromSubmitRequest = (List<Map<String, Object>>) userSectionData
+                            .get(Constants.CHILDREN);
+                }
+                List<String> desiredKeys = Lists.newArrayList(Constants.IDENTIFIER);
+                List<Object> questionsList = questionsListFromSubmitRequest.stream()
+                        .flatMap(x -> desiredKeys.stream().filter(x::containsKey).map(x::get)).collect(toList());
+                List<String> questionsListFromAssessmentHierarchy = questionsList.stream()
+                        .map(object -> Objects.toString(object, null)).collect(toList());
+                Map<String, Object> result = new HashMap<>();
+                Map<String, Object> questionSetDetailsMap = getParamDetailsForQTypes(hierarchySection,assessmentHierarchy,hierarchySectionId);
+                switch (scoreCutOffType) {
+                    case Constants.ASSESSMENT_LEVEL_SCORE_CUTOFF: {
+                        result.putAll(createResponseMapWithProperStructure(hierarchySection,
+                                assessUtilServ.validateQumlAssessmentV3(questionSetDetailsMap,questionsListFromAssessmentHierarchy,
+                                        questionsListFromSubmitRequest,assessUtilServ.readQListfromCache(questionsListFromAssessmentHierarchy,assessmentIdFromRequest,editMode,userAuthToken))));
+                        Map<String, Object> finalRes= calculateAssessmentFinalResults(result);
+                        outgoingResponse.getResult().putAll(finalRes);
+                        outgoingResponse.getResult().put(Constants.PRIMARY_CATEGORY, assessmentPrimaryCategory);
+                        if (!Constants.PRACTICE_QUESTION_SET.equalsIgnoreCase(assessmentPrimaryCategory) && !editMode) {
+                            String questionSetFromAssessmentString = (String) existingAssessmentData
+                                    .get(Constants.ASSESSMENT_READ_RESPONSE_KEY);
+                            Map<String,Object> questionSetFromAssessment = null;
+                            if (StringUtils.isNotBlank(questionSetFromAssessmentString)) {
+                                questionSetFromAssessment = mapper.readValue(questionSetFromAssessmentString,
+                                        new TypeReference<Map<String, Object>>() {
+                                        });
+                            }
+                            writeDataToDatabaseAndTriggerKafkaEvent(submitRequest, userId, questionSetFromAssessment, finalRes,
+                                    (String) assessmentHierarchy.get(Constants.PRIMARY_CATEGORY));
+                        }
+                        return outgoingResponse;
+                    }
+                    case Constants.SECTION_LEVEL_SCORE_CUTOFF: {
+                        result.putAll(createResponseMapWithProperStructure(hierarchySection,
+                                assessUtilServ.validateQumlAssessmentV3(questionSetDetailsMap,questionsListFromAssessmentHierarchy,
+                                        questionsListFromSubmitRequest,assessUtilServ.readQListfromCache(questionsListFromAssessmentHierarchy,assessmentIdFromRequest,editMode,userAuthToken))));
+                        sectionLevelsResults.add(result);
+                    }
+                    break;
+                    default:
+                        break;
+                }
+            }
+            if (Constants.SECTION_LEVEL_SCORE_CUTOFF.equalsIgnoreCase(scoreCutOffType)) {
+                long assessmentStartTime = 0;
+                if (existingAssessmentData.get(Constants.START_TIME)!=null) {
+                    Date assessmentStart = (Date) existingAssessmentData.get(Constants.START_TIME);
+                    assessmentStartTime = assessmentStart.getTime();
+                }
+                Map<String, Object> result = calculateSectionFinalResults(sectionLevelsResults,assessmentStartTime,assessmentCompletionTime,maxAssessmentRetakeAttempts,retakeAttemptsConsumed);
+                outgoingResponse.getResult().putAll(result);
+                outgoingResponse.getParams().setStatus(Constants.SUCCESS);
+                outgoingResponse.setResponseCode(HttpStatus.OK);
+                outgoingResponse.getResult().put(Constants.PRIMARY_CATEGORY, assessmentPrimaryCategory);
+                if (!Constants.PRACTICE_QUESTION_SET.equalsIgnoreCase(assessmentPrimaryCategory) && !editMode) {
+                    String questionSetFromAssessmentString = (String) existingAssessmentData
+                            .get(Constants.ASSESSMENT_READ_RESPONSE_KEY);
+                    Map<String,Object> questionSetFromAssessment = null;
+                    if (StringUtils.isNotBlank(questionSetFromAssessmentString)) {
+                        questionSetFromAssessment = mapper.readValue(questionSetFromAssessmentString,
+                                new TypeReference<Map<String, Object>>() {
+                                });
+                    }
+                    writeDataToDatabaseAndTriggerKafkaEvent(submitRequest, userId, questionSetFromAssessment, result,
+                            (String) assessmentHierarchy.get(Constants.PRIMARY_CATEGORY));
+                }
+                return outgoingResponse;
+            }
+
+        } catch (Exception e) {
+            String errMsg = String.format("Failed to process assessment submit request. Exception: ", e.getMessage());
+            logger.error(errMsg, e);
+            updateErrorDetails(outgoingResponse, errMsg, HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+        return outgoingResponse;
     }
 }

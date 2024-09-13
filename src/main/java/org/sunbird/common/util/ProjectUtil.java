@@ -27,7 +27,7 @@ public class ProjectUtil {
 
 	public static CbExtLogger logger = new CbExtLogger(ProjectUtil.class.getName());
 
-	public static String DEFAULT_BULK_UPLOAD_VERIFICATION_REGEX = "^[a-zA-Z\\s,]+$";
+	public static String DEFAULT_BULK_UPLOAD_VERIFICATION_REGEX ="^(?!.*\\n)[a-zA-Z\\s,]+$";
 
 	/**
 	 * This method will check incoming value is null or empty it will do empty check
@@ -209,5 +209,9 @@ public class ProjectUtil {
 
 	public static Boolean validatePinCode(String regex) {
 		return regex.matches("^[0-9]{6}$");
+	}
+
+	public static Boolean validatesNewLine(String value) {
+		return value.matches(".*\\n.*");
 	}
 }
