@@ -510,11 +510,6 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
 
         Map<String, Object> assessmentData = readAssessmentLevelData(assessmentAllDetail);
         response.getResult().put(Constants.QUESTION_SET, assessmentData);
-
-        if (Boolean.FALSE.equals(updateAssessmentDataToDB(cqfAssessmentModel, assessmentData))) {
-            updateErrorDetails(response, Constants.ASSESSMENT_DATA_START_TIME_NOT_UPDATED);
-        }
-
         return response;
     }
 
