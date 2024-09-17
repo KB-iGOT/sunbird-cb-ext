@@ -1241,7 +1241,7 @@ public class OrgDesignationCompetencyMappingServiceImpl implements OrgDesignatio
     private boolean validateUserOrgId(String orgId, String userId) {
         Map<String, Map<String, String>> userInfoMap = new HashMap<>();
         userUtilityService.getUserDetailsFromDB(Arrays.asList(userId), Arrays.asList(Constants.USER_ID, Constants.ROOT_ORG_ID, Constants.CHANNEL), userInfoMap);
-        if (MapUtils.isEmpty(userInfoMap)) {
+        if (MapUtils.isNotEmpty(userInfoMap)) {
             String rootOrgId = userInfoMap.get(userId).get(Constants.ROOT_ORG_ID);
             String channel = userInfoMap.get(userId).get(Constants.CHANNEL);
 
