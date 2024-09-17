@@ -163,20 +163,13 @@ public class OrgDesignationCompetencyMappingServiceImpl implements OrgDesignatio
             uploadedFile.put(Constants.FILE_PATH, uploadResponse.getResult().get(Constants.URL));
             uploadedFile.put(Constants.DATE_CREATED_ON, new Timestamp(System.currentTimeMillis()));
             uploadedFile.put(Constants.STATUS, Constants.INITIATED_CAPITAL);
-            uploadedFile.put(Constants.FRAMEWORK_ID, frameworkId);
             uploadedFile.put(Constants.CREATED_BY, userId);
 
-            HashMap<String, String> inputMap = new HashMap<>();
-            inputMap.put(Constants.ROOT_ORG_ID, rootOrgId);
-            inputMap.put(Constants.IDENTIFIER, UUID.randomUUID().toString());
-            inputMap.put(Constants.FRAMEWORK_ID, frameworkId);
-            inputMap.put(Constants.CREATED_BY, null);
-            processBulkUpload(inputMap);
             SBApiResponse insertResponse = cassandraOperation.insertRecord(Constants.DATABASE,
                     Constants.TABLE_COMPETENCY_DESIGNATION_MAPPING_BULK_UPLOAD, uploadedFile);
 
             if (!Constants.SUCCESS.equalsIgnoreCase((String) insertResponse.get(Constants.RESPONSE))) {
-                setErrorData(response, "Failed to update database with user bulk upload file details.", HttpStatus.INTERNAL_SERVER_ERROR);
+                setErrorData(response, "Failed to update database with org competency Designation bulk details.", HttpStatus.INTERNAL_SERVER_ERROR);
                 return response;
             }
 
@@ -184,6 +177,7 @@ public class OrgDesignationCompetencyMappingServiceImpl implements OrgDesignatio
             response.setResponseCode(HttpStatus.OK);
             response.getResult().putAll(uploadedFile);
             uploadedFile.put(Constants.X_AUTH_TOKEN, userAuthToken);
+            uploadedFile.put(Constants.FRAMEWORK_ID, frameworkId);
             kafkaProducer.pushWithKey(serverProperties.getCompetencyDesignationBulkUploadTopic(), uploadedFile, rootOrgId);
         } catch (Exception e) {
             setErrorData(response,
