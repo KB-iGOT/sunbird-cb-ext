@@ -33,7 +33,7 @@ public class OrgDesignationCompetencyMappingController {
         return new ResponseEntity<>(uploadResponse, uploadResponse.getResponseCode());
     }
 
-    @GetMapping("/v1/competencyDesignationMappings/bulkUpload/{orgId}")
+    @GetMapping("/v1/competencyDesignationMappings/bulkUpload/details/{orgId}")
     public ResponseEntity<?> getBulkUploadDetails(@PathVariable(Constants.ORG_ID) String orgId,
                                                   @RequestHeader(Constants.X_AUTH_USER_ORG_ID) String rootOrgId,
                                                   @RequestHeader(Constants.X_AUTH_TOKEN) String userAuthToken) {
