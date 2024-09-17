@@ -815,9 +815,6 @@ public class UserBulkUploadService {
         if (StringUtils.isEmpty(inputDataMap.get(Constants.FILE_NAME))) {
             errList.add("Filename is not present");
         }
-        if (StringUtils.isEmpty(inputDataMap.get(Constants.ORG_NAME))) {
-            errList.add("Orgname is not present");
-        }
         if (StringUtils.isEmpty(inputDataMap.get(Constants.X_AUTH_TOKEN))) {
             errList.add("User Token is not present");
         }
