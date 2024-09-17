@@ -1180,6 +1180,17 @@ public class Constants {
 	public static final String OVERALL_ASSESSMENT_SCORE = "overalAssessmentScore";
 	public static final String CQF_ID = "cqfId";
 	public static final String UPDATE_ORG_WITH_CQF_ID_FAILED = "update organisation with cqfId failed";
+	public static final String COMPETENCY_AREA_LOWERCASE = "competencyarea";
+	public static final String API_COMPETENCY_DESIGNATION_EVENT_BULK_UPLOAD = "api.competency.designation.bulk.upload";
+	public static final String FRAMEWORK_ID = "frameworkId";
+	public static final String COMPETENCY_AREA_NAME = "competencyAreaName";
+	public static final String COMPETENCY_THEME_NAME = "competencyThemeName";
+	public static final String COMPETENCY_SUB_THEME_NAME = "competencySubThemeName";
+	public static final String TIMESTAMP = "timeStamp";
+	public static final String SUBTHEME = "subtheme";
+	public static final String X_CHANNEL_ID = "X-Channel-Id";
+	public static final String TABLE_COMPETENCY_DESIGNATION_MAPPING_BULK_UPLOAD = "designation_competency_mapping_bulk_upload";
+	public static final String API_COMPETENCY_DESIGNATION_BULK_UPLOAD_STATUS = "api.competency.designation.bulk.upload.status";
 
 	private Constants() {
 		throw new IllegalStateException("Utility class");
