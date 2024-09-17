@@ -852,6 +852,12 @@ public class CbExtServerProperties {
 	@Value("${designation.competency.bulk.upload.update.threshold.value}")
 	private int bulkUploadThresholdValue;
 
+	@Value("${competency.selected.version}")
+	private String competencySelectedVersion;
+
+	@Value("#{${competency.selected.version.facets.map}}")
+	private Map<String, String> competencySelectedVersionFacetsMap;
+
 	public boolean qListFromCacheEnabled() {
 		return qListFromCacheEnabled;
 	}
@@ -2984,5 +2990,21 @@ public class CbExtServerProperties {
 
 	public void setBulkUploadThresholdValue(int bulkUploadThresholdValue) {
 		this.bulkUploadThresholdValue = bulkUploadThresholdValue;
+	}
+
+	public Map<String, String> getCompetencySelectedVersionFacetsMap() {
+		return competencySelectedVersionFacetsMap;
+	}
+
+	public void setCompetencySelectedVersionFacetsMap(Map<String, String> competencySelectedVersionFacetsMap) {
+		this.competencySelectedVersionFacetsMap = competencySelectedVersionFacetsMap;
+	}
+
+	public String getCompetencySelectedVersion() {
+		return competencySelectedVersion;
+	}
+
+	public void setCompetencySelectedVersion(String competencySelectedVersion) {
+		this.competencySelectedVersion = competencySelectedVersion;
 	}
 }
