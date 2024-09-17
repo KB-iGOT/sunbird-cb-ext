@@ -1180,7 +1180,7 @@ public class Constants {
 	public static final String OVERALL_ASSESSMENT_SCORE = "overalAssessmentScore";
 	public static final String CQF_ID = "cqfId";
 	public static final String UPDATE_ORG_WITH_CQF_ID_FAILED = "update organisation with cqfId failed";
-
+	public static final String API_NATIONAL_LEARNING_WEEK_INSIGHTS ="api.national-learning-week.insights";
 	private Constants() {
 		throw new IllegalStateException("Utility class");
 	}

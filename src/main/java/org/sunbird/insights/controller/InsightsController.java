@@ -27,4 +27,10 @@ public class InsightsController {
         SBApiResponse response = insightsService.readInsightsForOrganisation(requestBody,userId);
         return new ResponseEntity<>(response, response.getResponseCode());
     }
+
+    @GetMapping("/national/learning/week/insights")
+    public ResponseEntity<SBApiResponse> getNationalLearningWeekInsights() {
+        SBApiResponse response = insightsService.fetchNationalLearningData();
+        return new ResponseEntity<>(response, response.getResponseCode());
+    }
 }

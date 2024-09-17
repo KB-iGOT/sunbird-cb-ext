@@ -822,6 +822,15 @@ public class CbExtServerProperties {
 	@Value("${sb.update.org.path}")
 	private String updateOrgPath;
 
+	@Value("${national.learning.insights.fields}")
+	private String nationalLearningInsightsFields;
+
+	@Value("${national.learning.insights.property.fields}")
+	private String nationalLearningInsightsPropertyFields;
+
+	@Value("${national.learning.insights.redis.key.mapping}")
+	private String nationalLearningInsightsRedisKeyMapping;
+
 	public boolean qListFromCacheEnabled() {
 		return qListFromCacheEnabled;
 	}
@@ -2875,4 +2884,29 @@ public class CbExtServerProperties {
 	public String getUpdateOrgPath() { return updateOrgPath; }
 
 	public void setUpdateOrgPath(String updateOrgPath) { this.updateOrgPath = updateOrgPath; }
+
+	public String getNationalLearningInsightsFields() {
+		return nationalLearningInsightsFields;
+	}
+
+	public void setNationalLearningInsightsFields(String nationalLearningInsightsFields) {
+		this.nationalLearningInsightsFields = nationalLearningInsightsFields;
+	}
+
+	public String getNationalLearningInsightsPropertyFields() {
+		return nationalLearningInsightsPropertyFields;
+	}
+
+	public void setNationalLearningInsightsPropertyFields(String nationalLearningInsightsPropertyFields) {
+		this.nationalLearningInsightsPropertyFields = nationalLearningInsightsPropertyFields;
+	}
+
+	public String getNationalLearningInsightsRedisKeyMapping() {
+		return nationalLearningInsightsRedisKeyMapping;
+	}
+
+	public void setNationalLearningInsightsRedisKeyMapping(String nationalLearningInsightsRedisKeyMapping) {
+		this.nationalLearningInsightsRedisKeyMapping = nationalLearningInsightsRedisKeyMapping;
+	}
+
 }
