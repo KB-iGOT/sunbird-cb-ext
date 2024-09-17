@@ -448,9 +448,9 @@ public class SearchByService {
 
 		HashMap<String, Object> reqBody = new HashMap<>();
 		HashMap<String, Object> req = new HashMap<>();
-		req.put(Constants.FACETS, Arrays.asList(Constants.COMPETENCIES_V5 + "." + Constants.COMPETENCY_AREA,
-				Constants.COMPETENCIES_V5 + "." + Constants.SEARCH_COMPETENCY_THEMES,
-				Constants.COMPETENCIES_V5 + "." + Constants.SEARCH_COMPETENCY_SUB_THEMES));
+		String competencySelected = cbExtServerProperties.getCompetencySelectedVersion();
+		String facetsDetails = cbExtServerProperties.getCompetencySelectedVersionFacetsMap().get(competencySelected);
+		req.put(Constants.FACETS, Arrays.asList(facetsDetails.split(",", -1)));
 		Map<String, Object> filters = new HashMap<>();
 		filters.put(Constants.IDENTIFIER, identifiers);
 		filters.put(Constants.STATUS, Arrays.asList(Constants.LIVE));

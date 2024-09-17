@@ -557,10 +557,8 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
             }
             List<Map<String, Object>> questions = objectMapper.convertValue(section.get(Constants.CHILDREN), new TypeReference<List<Map<String, Object>>>() {
             });
-            int maxQuestions = (int) section.getOrDefault(Constants.MAX_QUESTIONS, questions.size());
             List<String> childNodeList = questions.stream()
                     .map(question -> (String) question.get(Constants.IDENTIFIER))
-                    .limit(maxQuestions)
                     .collect(Collectors.toList());
             newSection.put(Constants.CHILD_NODES, childNodeList);
             sectionResponse.add(newSection);
