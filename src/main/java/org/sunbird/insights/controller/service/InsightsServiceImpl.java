@@ -234,5 +234,47 @@ public class InsightsServiceImpl implements InsightsService {
            log.error("Not able to fetch Data from redis key for key: {} for organisation: {}", redisKey, organisationId);
        }
     }
+
+    @Override
+    public SBApiResponse fetchNationalLearningData() {
+        SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.API_NATIONAL_LEARNING_WEEK_INSIGHTS);
+        try {
+            String redisKeyMappingStr = serverProperties.getNationalLearningInsightsRedisKeyMapping();
+            String fieldIconsStr = serverProperties.getNationalLearningInsightsFields();
+            String uiPropertiesStr = serverProperties.getNationalLearningInsightsPropertyFields();
+
+            ObjectMapper objectMapper = new ObjectMapper();
+            Map<String, String> redisKeyMapping = objectMapper.readValue(redisKeyMappingStr, new TypeReference<Map<String, String>>() {
+            });
+            Map<String, String> fieldIcons = objectMapper.readValue(fieldIconsStr, new TypeReference<Map<String, String>>() {
+            });
+            Map<String, Object> uiProperties = objectMapper.readValue(uiPropertiesStr, new TypeReference<Map<String, Object>>() {
+            });
+
+            List<Map<String, Object>> insightsList = new ArrayList<>();
+            for (Map.Entry<String, String> entry : redisKeyMapping.entrySet()) {
+                String insightLabel = entry.getKey();
+                String redisKey = entry.getValue();
+                String redisData = redisCacheMgr.getCacheFromDataRedish(redisKey, serverProperties.getRedisInsightIndex());
+                Map<String, Object> insightData = new HashMap<>();
+                String iconUrl = fieldIcons.get(insightLabel);
+                insightData.put(ICON, iconUrl);
+                insightData.put(LABEL, insightLabel);
+                insightData.put(VALUE, redisData);
+                insightData.putAll(uiProperties);
+                insightsList.add(insightData);
+            }
+            response.getResult().put(DATA, insightsList);
+            response.getParams().setStatus(Constants.SUCCESS);
+            response.setResponseCode(HttpStatus.OK);
+            log.info("successfully fetching data from redis for National Learning week Insights");
+        } catch (Exception e) {
+            log.error("Error while fetching National Learning Week Insights", e);
+            response.getParams().setStatus(Constants.FAILED);
+            response.getParams().setErrmsg(e.getMessage());
+            response.setResponseCode(HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+        return response;
+    }
 }
 

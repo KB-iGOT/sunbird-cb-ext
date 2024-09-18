@@ -822,9 +822,6 @@ public class CbExtServerProperties {
 	@Value("${sb.update.org.path}")
 	private String updateOrgPath;
 
-	@Value("${master.competency.framework.name}")
-	private String masterCompetencyFrameworkName;
-
 	@Value("${bulk.upload.competency.your.workspace.name}")
 	private String bulkUploadCompetencyYourWorkSpaceName;
 
@@ -857,6 +854,18 @@ public class CbExtServerProperties {
 
 	@Value("#{${competency.selected.version.facets.map}}")
 	private Map<String, String> competencySelectedVersionFacetsMap;
+  
+	@Value("${national.learning.insights.fields}")
+	private String nationalLearningInsightsFields;
+
+	@Value("${national.learning.insights.property.fields}")
+	private String nationalLearningInsightsPropertyFields;
+
+	@Value("${national.learning.insights.redis.key.mapping}")
+	private String nationalLearningInsightsRedisKeyMapping;
+
+	@Value("${master.competency.framework.name}")
+	private String masterCompetencyFrameworkName;
 
 	public boolean qListFromCacheEnabled() {
 		return qListFromCacheEnabled;
@@ -3006,5 +3015,29 @@ public class CbExtServerProperties {
 
 	public void setCompetencySelectedVersion(String competencySelectedVersion) {
 		this.competencySelectedVersion = competencySelectedVersion;
+	}
+	
+        public String getNationalLearningInsightsFields() {
+		return nationalLearningInsightsFields;
+	}
+
+	public void setNationalLearningInsightsFields(String nationalLearningInsightsFields) {
+		this.nationalLearningInsightsFields = nationalLearningInsightsFields;
+	}
+
+	public String getNationalLearningInsightsPropertyFields() {
+		return nationalLearningInsightsPropertyFields;
+	}
+
+	public void setNationalLearningInsightsPropertyFields(String nationalLearningInsightsPropertyFields) {
+		this.nationalLearningInsightsPropertyFields = nationalLearningInsightsPropertyFields;
+	}
+
+	public String getNationalLearningInsightsRedisKeyMapping() {
+		return nationalLearningInsightsRedisKeyMapping;
+	}
+
+	public void setNationalLearningInsightsRedisKeyMapping(String nationalLearningInsightsRedisKeyMapping) {
+		this.nationalLearningInsightsRedisKeyMapping = nationalLearningInsightsRedisKeyMapping;
 	}
 }

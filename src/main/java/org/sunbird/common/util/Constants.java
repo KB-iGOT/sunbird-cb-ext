@@ -1191,7 +1191,8 @@ public class Constants {
 	public static final String X_CHANNEL_ID = "X-Channel-Id";
 	public static final String TABLE_COMPETENCY_DESIGNATION_MAPPING_BULK_UPLOAD = "designation_competency_mapping_bulk_upload";
 	public static final String API_COMPETENCY_DESIGNATION_BULK_UPLOAD_STATUS = "api.competency.designation.bulk.upload.status";
-
+        public static final String API_NATIONAL_LEARNING_WEEK_INSIGHTS ="api.national-learning-week.insights";
+  
 	private Constants() {
 		throw new IllegalStateException("Utility class");
 	}
