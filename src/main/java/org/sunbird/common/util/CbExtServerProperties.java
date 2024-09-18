@@ -3016,8 +3016,8 @@ public class CbExtServerProperties {
 	public void setCompetencySelectedVersion(String competencySelectedVersion) {
 		this.competencySelectedVersion = competencySelectedVersion;
 	}
-  
-  public String getNationalLearningInsightsFields() {
+	
+        public String getNationalLearningInsightsFields() {
 		return nationalLearningInsightsFields;
 	}
 
