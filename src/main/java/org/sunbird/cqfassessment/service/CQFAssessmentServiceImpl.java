@@ -937,6 +937,7 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
                     maxMarksForQn = maxMarksForQn + (int) maxMarksForQuestion.get(identifier);
                     achievedMarksForSection = achievedMarksForSection + achievedMarksPerQn;
                     totalMarksForSection = totalMarksForSection + maxMarksForQn;
+                    question.put(Constants.ACQUIRED_SCORE,achievedMarksPerQn);
                 }
             }
             overallSectionPercentageScore = totalMarksForSection * ((double) questionSetDetailsMap.get(Constants.SECTION_WEIGHTAGE) / 100);
@@ -1124,7 +1125,7 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
         String assessmentType = (String) assessmentHierarchy.get(Constants.ASSESSMENT_TYPE);
         questionSetDetailsMap.put(Constants.ASSESSMENT_TYPE, assessmentType);
         questionSetDetailsMap.put(Constants.MINIMUM_PASS_PERCENTAGE, assessmentHierarchy.get(Constants.MINIMUM_PASS_PERCENTAGE));
-        questionSetDetailsMap.put(Constants.SECTION_WEIGHTAGE, Double.parseDouble(assessmentHierarchy.get(Constants.SECTION_WEIGHTAGE).toString()));
+        questionSetDetailsMap.put(Constants.SECTION_WEIGHTAGE, Double.parseDouble(hierarchySection.get(Constants.SECTION_WEIGHTAGE).toString()));
         questionSetDetailsMap.put(Constants.TOTAL_MARKS, hierarchySection.get(Constants.TOTAL_MARKS));
         logger.info("Completed getParamDetailsForQTypes with result: {}", questionSetDetailsMap);
         return questionSetDetailsMap;

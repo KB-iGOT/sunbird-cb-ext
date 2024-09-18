@@ -1228,7 +1228,7 @@ public class AssessmentServiceV5Impl implements AssessmentServiceV5 {
                 return response;
             }
             response.setResponseCode(HttpStatus.OK);
-            response.setResult(publishResponse);
+            response.setResult((Map<String, Object>) publishResponse.get(Constants.RESULT));
             response.getParams().setStatus(Constants.SUCCESS);
         } catch (Exception e) {
             logger.error(Constants.AUTO_PUBLISH_FAILED + e);
