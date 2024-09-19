@@ -867,11 +867,11 @@ public class CbExtServerProperties {
 	@Value("${master.competency.framework.name}")
 	private String masterCompetencyFrameworkName;
 
-    	@Value("${cb.pores.service.host}")
-    	private String cbPoresServiceHost;
+    @Value("${cb.pores.service.host}")
+    private String cbPoresServiceHost;
 
-    	@Value("${cb.pores.master.designation.endpoint}")
-    	private String cbPoresMasterDesignationEndpoint;
+    @Value("${cb.pores.master.designation.endpoint}")
+    private String cbPoresMasterDesignationEndpoint;
 
 	@Value("${sample.file.master.designation.workspace.name}")
 	private String sampleFileMasterDesignationWorkSpaceName;
