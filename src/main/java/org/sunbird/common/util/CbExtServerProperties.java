@@ -867,6 +867,27 @@ public class CbExtServerProperties {
 	@Value("${master.competency.framework.name}")
 	private String masterCompetencyFrameworkName;
 
+    @Value("${cb.pores.service.host}")
+    private String cbPoresServiceHost;
+
+    @Value("${cb.pores.master.designation.endpoint}")
+    private String cbPoresMasterDesignationEndpoint;
+
+	@Value("${sample.file.master.designation.workspace.name}")
+	private String sampleFileMasterDesignationWorkSpaceName;
+
+	@Value("${sample.bulk.upload.designation.file.name}")
+	private String sampleBulkUploadCompetencyDesignationFileName;
+
+	@Value("${org.designation.bulk.upload.container.name}")
+	private String orgDesignationBulkUploadContainerName;
+
+	@Value("${kafka.topics.org.designation.bulk.upload.event}")
+	private String orgDesignationBulkUploadTopic;
+
+	@Value("${redis.master.data.read.timeout}")
+	private int redisMasterDataReadTimeOut;
+
 	public boolean qListFromCacheEnabled() {
 		return qListFromCacheEnabled;
 	}
@@ -3039,5 +3060,61 @@ public class CbExtServerProperties {
 
 	public void setNationalLearningInsightsRedisKeyMapping(String nationalLearningInsightsRedisKeyMapping) {
 		this.nationalLearningInsightsRedisKeyMapping = nationalLearningInsightsRedisKeyMapping;
+	}
+
+	public String getCbPoresMasterDesignationEndpoint() {
+		return cbPoresMasterDesignationEndpoint;
+	}
+
+	public void setCbPoresMasterDesignationEndpoint(String cbPoresMasterDesignationEndpoint) {
+		this.cbPoresMasterDesignationEndpoint = cbPoresMasterDesignationEndpoint;
+	}
+
+	public String getCbPoresServiceHost() {
+		return cbPoresServiceHost;
+	}
+
+	public void setCbPoresServiceHost(String cbPoresServiceHost) {
+		this.cbPoresServiceHost = cbPoresServiceHost;
+	}
+
+	public String getSampleFileMasterDesignationWorkSpaceName() {
+		return sampleFileMasterDesignationWorkSpaceName;
+	}
+
+	public void setSampleFileMasterDesignationWorkSpaceName(String sampleFileMasterDesignationWorkSpaceName) {
+		this.sampleFileMasterDesignationWorkSpaceName = sampleFileMasterDesignationWorkSpaceName;
+	}
+
+	public String getSampleBulkUploadCompetencyDesignationFileName() {
+		return sampleBulkUploadCompetencyDesignationFileName;
+	}
+
+	public void setSampleBulkUploadCompetencyDesignationFileName(String sampleBulkUploadCompetencyDesignationFileName) {
+		this.sampleBulkUploadCompetencyDesignationFileName = sampleBulkUploadCompetencyDesignationFileName;
+	}
+
+	public String getOrgDesignationBulkUploadContainerName() {
+		return orgDesignationBulkUploadContainerName;
+	}
+
+	public void setOrgDesignationBulkUploadContainerName(String orgDesignationBulkUploadContainerName) {
+		this.orgDesignationBulkUploadContainerName = orgDesignationBulkUploadContainerName;
+	}
+
+	public String getOrgDesignationBulkUploadTopic() {
+		return orgDesignationBulkUploadTopic;
+	}
+
+	public void setOrgDesignationBulkUploadTopic(String orgDesignationBulkUploadTopic) {
+		this.orgDesignationBulkUploadTopic = orgDesignationBulkUploadTopic;
+	}
+
+	public int getRedisMasterDataReadTimeOut() {
+		return redisMasterDataReadTimeOut;
+	}
+
+	public void setRedisMasterDataReadTimeOut(int redisMasterDataReadTimeOut) {
+		this.redisMasterDataReadTimeOut = redisMasterDataReadTimeOut;
 	}
 }

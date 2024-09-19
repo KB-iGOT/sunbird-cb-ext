@@ -29,10 +29,10 @@ public class OrgDesignationCompetencyBulkUploadConsumer {
                     orgDesignationCompetencyMappingService.initiateCompetencyDesignationBulkUploadProcess(data.value());
                 });
             } else {
-                logger.error("Error in Calendar Bulk Upload Consumer: Invalid Kafka Msg");
+                logger.error("Error in Org Competency Designation Mapping Bulk Upload Consumer: Invalid Kafka Msg");
             }
         } catch (Exception e) {
-            logger.error(String.format("Error in Calendar Bulk Upload Consumer: Error Msg :%s", e.getMessage()), e);
+            logger.error(String.format("Error in Competency Designation Bulk Upload Consumer: Error Msg :%s", e.getMessage()), e);
         }
     }
 }

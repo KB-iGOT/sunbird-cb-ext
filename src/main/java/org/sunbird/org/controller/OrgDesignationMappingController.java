@@ -6,47 +6,47 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.sunbird.common.model.SBApiResponse;
 import org.sunbird.common.util.Constants;
-import org.sunbird.org.service.OrgDesignationCompetencyMappingService;
+import org.sunbird.org.service.OrgDesignationMappingService;
 
 @RestController
-@RequestMapping("/organisation")
-public class OrgDesignationCompetencyMappingController {
+@RequestMapping("/designation")
+public class OrgDesignationMappingController {
 
     @Autowired
-    OrgDesignationCompetencyMappingService orgDesignationCompetencyMappingService;
+    OrgDesignationMappingService orgDesignationMappingService;
 
-    @GetMapping("/v1/getCompetencyMappingFile/sample/{frameworkId}")
-    public ResponseEntity<?> getSampleCompetencyMappingFileBulkUpload(@RequestHeader(Constants.X_AUTH_USER_ORG_ID) String rootOrgId,
+    @GetMapping("/v1/orgMapping/sample/{frameworkId}")
+    public ResponseEntity<?> getCompetencyMappingFile(@RequestHeader(Constants.X_AUTH_USER_ORG_ID) String rootOrgId,
                                                       @PathVariable(Constants.FRAMEWORK_ID) String frameworkId,
                                                       @RequestHeader(Constants.X_AUTH_TOKEN) String userAuthToken) {
 
-        return orgDesignationCompetencyMappingService.bulkUploadOrganisationCompetencyMapping(rootOrgId, userAuthToken, frameworkId);
+        return orgDesignationMappingService.getSampleFileForOrgDesignationMapping(rootOrgId, userAuthToken, frameworkId);
     }
 
-    @PostMapping("/v1/competencyDesignationMappings/bulkUpload/{frameworkId}")
+    @PostMapping("/v1/orgMapping/bulkUpload/{frameworkId}")
     public ResponseEntity<?> bulkUploadCompetencyDesignationMapping(@RequestHeader(Constants.X_AUTH_USER_ORG_ID) String rootOrgId,
                                                                     @RequestParam(value = "file", required = true) MultipartFile file,
                                                                     @PathVariable(Constants.FRAMEWORK_ID) String frameworkId,
                                                                     @RequestHeader(Constants.X_AUTH_TOKEN) String userAuthToken) {
 
-        SBApiResponse uploadResponse = orgDesignationCompetencyMappingService.bulkUploadCompetencyDesignationMapping(file, rootOrgId, userAuthToken, frameworkId);
+        SBApiResponse uploadResponse = orgDesignationMappingService.bulkUploadDesignationMapping(file, rootOrgId, userAuthToken, frameworkId);
         return new ResponseEntity<>(uploadResponse, uploadResponse.getResponseCode());
     }
 
-    @GetMapping("/v1/competencyDesignationMappings/progress/details/bulkUpload/{orgId}")
+    @GetMapping("/v1/orgMapping/progress/details/bulkUpload/{orgId}")
     public ResponseEntity<?> getBulkUploadDetails(@PathVariable(Constants.ORG_ID) String orgId,
                                                   @RequestHeader(Constants.X_AUTH_USER_ORG_ID) String rootOrgId,
                                                   @RequestHeader(Constants.X_AUTH_TOKEN) String userAuthToken) {
 
-        SBApiResponse response = orgDesignationCompetencyMappingService.getBulkUploadDetailsForCompetencyDesignationMapping(orgId, rootOrgId, userAuthToken);
+        SBApiResponse response = orgDesignationMappingService.getBulkUploadDetailsForOrgDesignationMapping(orgId, rootOrgId, userAuthToken);
         return new ResponseEntity<>(response, response.getResponseCode());
     }
 
-    @GetMapping("/v1/competencyDesignationMappings/download/{fileName}")
+    @GetMapping("/v1/orgMapping/download/{fileName}")
     public ResponseEntity<?> downloadFile(@PathVariable(Constants.FILE_NAME) String fileName,
                                           @RequestHeader(Constants.X_AUTH_USER_ORG_ID) String rootOrgId,
                                           @RequestHeader(Constants.X_AUTH_TOKEN) String userAuthToken) {
 
-        return orgDesignationCompetencyMappingService.downloadFile(fileName, rootOrgId, userAuthToken);
+        return orgDesignationMappingService.downloadFile(fileName, rootOrgId, userAuthToken);
     }
 }

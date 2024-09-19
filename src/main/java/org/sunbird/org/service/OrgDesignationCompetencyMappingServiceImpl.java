@@ -21,6 +21,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
+import org.sunbird.cache.RedisCacheMgr;
 import org.sunbird.cassandra.utils.CassandraOperation;
 import org.sunbird.common.model.SBApiResponse;
 import org.sunbird.common.service.OutboundRequestHandlerServiceImpl;
@@ -72,6 +73,8 @@ public class OrgDesignationCompetencyMappingServiceImpl implements OrgDesignatio
     @Autowired
     private UserUtilityService userUtilityService;
 
+    @Autowired
+    RedisCacheMgr redisCacheMgr;
 
     @Override
     public ResponseEntity<ByteArrayResource> bulkUploadOrganisationCompetencyMapping(String rootOrgId, String userAuthToken, String frameworkId) {
@@ -254,12 +257,12 @@ public class OrgDesignationCompetencyMappingServiceImpl implements OrgDesignatio
     }
 
 
-    private void populateReferenceSheetCompetency(Sheet sheet) {
+    private void populateReferenceSheetCompetency(Sheet sheet) throws IOException {
         Set<String> competencyAreaSet = new LinkedHashSet<>();
         Set<String> competencyThemeSet = new LinkedHashSet<>();
         Set<String> competencySubThemeSet = new LinkedHashSet<>();
         int rowIndex = 1; // Start after header row
-        List<Map<String, Object>> getAllCompetenciesMapping = populateDataFromFrameworkTerm(serverProperties.getMasterCompetencyFrameworkName());
+        List<Map<String, Object>> getAllCompetenciesMapping = getMasterCompetencyFrameworkData(serverProperties.getMasterCompetencyFrameworkName());
 
         if (CollectionUtils.isNotEmpty(getAllCompetenciesMapping)) {
             Map<String, Object> competencyAreaFrameworkObject = getAllCompetenciesMapping.stream().filter(n -> ((String) (n.get("code")))
@@ -638,7 +641,7 @@ public class OrgDesignationCompetencyMappingServiceImpl implements OrgDesignatio
         int totalNumberOfRecordInSheet = 0;
         int progressUpdateThresholdValue = 0;
         String status = "";
-        List<Map<String, Object>> getAllCompetenciesMapping = populateDataFromFrameworkTerm(serverProperties.getMasterCompetencyFrameworkName());
+        List<Map<String, Object>> getAllCompetenciesMapping = getMasterCompetencyFrameworkData(serverProperties.getMasterCompetencyFrameworkName());
         try {
             file = new File(Constants.LOCAL_BASE_PATH + inputDataMap.get(Constants.FILE_NAME));
             if (file.exists() && file.length() > 0) {
@@ -737,7 +740,7 @@ public class OrgDesignationCompetencyMappingServiceImpl implements OrgDesignatio
                     } else {
                         if (nextRow.getCell(0).getCellType() == CellType.STRING) {
                             String designation = nextRow.getCell(0).getStringCellValue().trim();
-                            if (orgDesignation.contains(designation)) {
+                            if (CollectionUtils.isNotEmpty(orgDesignation) && orgDesignation.contains(designation)) {
                                 competencyDesignationMappingInfoMap.put(Constants.DESIGNATION, designation);
                             } else {
                                 invalidErrList.add("Invalid designation for org: " + designation);
@@ -1052,6 +1055,7 @@ public class OrgDesignationCompetencyMappingServiceImpl implements OrgDesignatio
                     if (MapUtils.isNotEmpty(frameworkAssociationUpdateForCompetencyTheme)) {
                         Map<String, Object> result = publishFramework(frameworkId, new HashMap<>(), orgId);
                         if (MapUtils.isNotEmpty(result)) {
+                            logger.info("Publish is Success for frameworkId: " + frameworkId);
                         } else {
                             invalidErrList.add("Issue while publish the framework.");
                         }
@@ -1254,5 +1258,17 @@ public class OrgDesignationCompetencyMappingServiceImpl implements OrgDesignatio
             return (StringUtils.equalsIgnoreCase(serverProperties.getSpvChannelName(), channel) || StringUtils.equalsIgnoreCase(orgId, rootOrgId));
         }
         return false;
+    }
+
+    private List<Map<String, Object>> getMasterCompetencyFrameworkData(String frameworkId) throws IOException {
+        String masterDataCompetencies = redisCacheMgr.getCache(Constants.COMPETENCY_MASTER_DATA + "_" + frameworkId);
+        if (StringUtils.isEmpty(masterDataCompetencies)) {
+            List<Map<String, Object>> competenciesMasterData = populateDataFromFrameworkTerm(serverProperties.getMasterCompetencyFrameworkName());
+            redisCacheMgr.putCache(Constants.COMPETENCY_MASTER_DATA + "_" + frameworkId, competenciesMasterData, serverProperties.getRedisMasterDataReadTimeOut());
+        } else {
+            return objectMapper.readValue(masterDataCompetencies, new TypeReference<List<Map<String, Object>>>() {
+            });
+        }
+        return null;
     }
 }
