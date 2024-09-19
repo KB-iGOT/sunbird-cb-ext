@@ -14,7 +14,7 @@ public interface HallOfFameService {
 
     public SBApiResponse fetchingTop10Learners(String ministryOrgId, String authToken);
 
-    public SBApiResponse getUserLeaderBoard(String OrgId);
+    public SBApiResponse getUserLeaderBoard(String authToken);
 
     public SBApiResponse getMdoLeaderBoard();
 
