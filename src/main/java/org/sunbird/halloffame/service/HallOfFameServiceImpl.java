@@ -147,15 +147,15 @@ public class HallOfFameServiceImpl implements HallOfFameService {
     }
 
     @Override
-    public SBApiResponse getUserLeaderBoard(String orgId) {
+    public SBApiResponse getUserLeaderBoard(String authToken) {
         SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.API_HALL_OF_FAME_ORG_READ);
-        if (StringUtils.isBlank(orgId)) {
-            setBadRequestResponse(response, Constants.INVALID_ORG_ID);
+        String userId = validateAuthTokenAndFetchUserId(authToken);
+        if (StringUtils.isBlank(userId)) {
+            setBadRequestResponse(response, Constants.USER_ID_DOESNT_EXIST);
             return response;
         }
         Map<String, Object> propertyMap = new HashMap<>();
-        propertyMap.put(Constants.ORGID, orgId);
-        propertyMap.put(Constants.DB_COLUMN_ROW_NUM, Arrays.asList(1, 2, 3, 4, 5, 6, 7, 8, 9, 10));
+          propertyMap.put(Constants.USER_ID_LOWER,userId);
         try {
             List<Map<String, Object>> userLeaderBoard = cassandraOperation.getRecordsByPropertiesWithoutFiltering(
                     Constants.KEYSPACE_SUNBIRD, Constants.NLW_USER_LEADERBOARD, propertyMap, null);

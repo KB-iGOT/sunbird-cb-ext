@@ -1135,14 +1135,14 @@ public class Constants {
 	public static final String CADRE_BATCH_EXCLUSION_YR = "exculsionYearList";
 	public static final String NLW_USER_LEADERBOARD = "nlw_user_leaderboard";
 	public static final String NLW_MDO_LEADERBOARD= "nlw_mdo_leaderboard";
-	public static final String API_HALL_OF_FAME_ORG_READ = "api.v1.halloffame.org.read";
+	public static final String API_HALL_OF_FAME_ORG_READ = "api.v1.halloffame.user.read";
 	public static final String API_HALL_OF_FAME_MDO_LEADERBOARD = "api.v1.halloffame.mdoleaderboard";
 	public static final String USER_LEADERBOARD = "userLeaderBoard";
 	public static final String SIZE = "size";
 	public static final String INVALID_ORG_ID = "invalid organisation id";
 	public static final String MDO_LEADERBOARD = "mdoLeaderBoard";
 	public static final String NO_DATA_FOUND = "no data found";
-	public static final String NO_DATA_FOUND_FOR_THE_ORGANISATION = "no data found for the organisation";
+	public static final String NO_DATA_FOUND_FOR_THE_ORGANISATION = "no data found for the user";
 	public static final String ERROR_WHILE_PROCESSING_USER_LEADERBOARD = "error while processing userLeaderBoard";
 	public static final String ERROR_WHILE_PROCESSING_MDO_LEADERBOARD = "error while processing mdoLeaderBoard";
 	public static final String CQF_API_CREATE_ASSESSMENT = "api.create.cqfasssessment";
