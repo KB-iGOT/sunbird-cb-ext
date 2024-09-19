@@ -1265,10 +1265,10 @@ public class OrgDesignationCompetencyMappingServiceImpl implements OrgDesignatio
         if (StringUtils.isEmpty(masterDataCompetencies)) {
             List<Map<String, Object>> competenciesMasterData = populateDataFromFrameworkTerm(serverProperties.getMasterCompetencyFrameworkName());
             redisCacheMgr.putCache(Constants.COMPETENCY_MASTER_DATA + "_" + frameworkId, competenciesMasterData, serverProperties.getRedisMasterDataReadTimeOut());
+            return competenciesMasterData;
         } else {
             return objectMapper.readValue(masterDataCompetencies, new TypeReference<List<Map<String, Object>>>() {
             });
         }
-        return null;
     }
 }
