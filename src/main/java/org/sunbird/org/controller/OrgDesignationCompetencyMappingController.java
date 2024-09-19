@@ -17,8 +17,8 @@ public class OrgDesignationCompetencyMappingController {
 
     @GetMapping("/v1/getCompetencyMappingFile/sample/{frameworkId}")
     public ResponseEntity<?> getSampleCompetencyMappingFileBulkUpload(@RequestHeader(Constants.X_AUTH_USER_ORG_ID) String rootOrgId,
-                                                      @PathVariable(Constants.FRAMEWORK_ID) String frameworkId,
-                                                      @RequestHeader(Constants.X_AUTH_TOKEN) String userAuthToken) {
+                                                                      @PathVariable(Constants.FRAMEWORK_ID) String frameworkId,
+                                                                      @RequestHeader(Constants.X_AUTH_TOKEN) String userAuthToken) {
 
         return orgDesignationCompetencyMappingService.bulkUploadOrganisationCompetencyMapping(rootOrgId, userAuthToken, frameworkId);
     }

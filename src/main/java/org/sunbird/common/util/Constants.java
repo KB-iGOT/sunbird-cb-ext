@@ -1210,7 +1210,6 @@ public class Constants {
 	public static final String DESIGNATION_MASTER_DATA = "designation_master_data";
 	public static final String COMPETENCY_MASTER_DATA = "competency_master_data";
 
-
 	private Constants() {
 		throw new IllegalStateException("Utility class");
 	}
