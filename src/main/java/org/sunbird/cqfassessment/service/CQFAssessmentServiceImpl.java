@@ -942,7 +942,7 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
             }
             overallSectionPercentageScore = totalMarksForSection * ((double) questionSetDetailsMap.get(Constants.SECTION_WEIGHTAGE) / 100);
             achievedPercentageScore = achievedMarksForSection * ((double) questionSetDetailsMap.get(Constants.SECTION_WEIGHTAGE) / 100);
-            sectionLevelPercentage = (achievedMarksForSection/totalMarksForSection) *100;
+            sectionLevelPercentage = (achievedMarksForSection/totalMarksForSection) / 100;
             resultMap.put(Constants.OVERALL_SECTION_PERCENTAGE_SCORE, overallSectionPercentageScore);
             resultMap.put(Constants.ACHIEVED_PERCENTAGE_SCORE, achievedPercentageScore);
             resultMap.put(Constants.SECTION_LEVEL_PERCENTAGE, sectionLevelPercentage);
