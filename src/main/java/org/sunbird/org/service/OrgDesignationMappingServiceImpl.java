@@ -187,7 +187,7 @@ public class OrgDesignationMappingServiceImpl implements OrgDesignationMappingSe
             uploadedFile.put(Constants.X_AUTH_TOKEN, userAuthToken);
             uploadedFile.put(Constants.FRAMEWORK_ID, frameworkId);
 
-            kafkaProducer.pushWithKey(serverProperties.getCompetencyDesignationBulkUploadTopic(), uploadedFile, rootOrgId);
+            kafkaProducer.pushWithKey(serverProperties.getOrgDesignationBulkUploadTopic(), uploadedFile, rootOrgId);
         } catch (Exception e) {
             setErrorData(response,
                     String.format("Failed to process Org Designation bulk upload request. Error: ", e.getMessage()), HttpStatus.INTERNAL_SERVER_ERROR);
@@ -385,7 +385,7 @@ public class OrgDesignationMappingServiceImpl implements OrgDesignationMappingSe
 
     @Override
     public void initiateOrgDesignationBulkUploadProcess(String value) {
-        logger.info("CompetencyDesignationMapping:: initiateUserBulkUploadProcess: Started");
+        logger.info("OrgDesignationMapping:: initiateUserBulkUploadProcess: Started");
         long duration = 0;
         long startTime = System.currentTimeMillis();
         try {
