@@ -1193,6 +1193,7 @@ public class Constants {
 	public static final String API_COMPETENCY_DESIGNATION_BULK_UPLOAD_STATUS = "api.competency.designation.bulk.upload.status";
 	public static final String API_NATIONAL_LEARNING_WEEK_INSIGHTS ="api.national-learning-week.insights";
 	public static final String ACQUIRED_SCORE = "acquiredScore";
+	public static final String CQF_RESULTS = "cqfResults";
   
 	private Constants() {
 		throw new IllegalStateException("Utility class");

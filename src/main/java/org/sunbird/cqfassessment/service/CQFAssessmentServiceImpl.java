@@ -1162,24 +1162,42 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
                     }
             );
 
-            List<Map<String, Object>> existingDataList = readUserSubmittedAssessmentRecords(new CQFAssessmentModel(
-                    userId, requestBody.get(Constants.ASSESSMENT_ID_KEY).toString(), requestBody.get(Constants.CONTENT_ID_KEY).toString(), requestBody.get(Constants.VERSION_KEY).toString()));
+            Map<String, Object> propertyMap = new HashMap<>();
+            propertyMap.put(Constants.USER_ID, requestBody.get(Constants.USER_ID));
+            propertyMap.put(Constants.ASSESSMENT_ID_KEY, requestBody.get(Constants.ASSESSMENT_ID_KEY).toString());
+            propertyMap.put(Constants.CONTENT_ID_KEY, requestBody.get(Constants.CONTENT_ID_KEY).toString());
+            propertyMap.put(Constants.VERSION_KEY, requestBody.get(Constants.VERSION_KEY).toString());
+
+            List<Map<String, Object>> existingDataList = cassandraOperation.getRecordsByPropertiesWithoutFiltering(
+                    Constants.SUNBIRD_KEY_SPACE_NAME, Constants.TABLE_CQF_ASSESSMENT_DATA,
+                    propertyMap, null);
             if (existingDataList.isEmpty()) {
                 updateErrorDetails(response, Constants.USER_ASSESSMENT_DATA_NOT_PRESENT, HttpStatus.BAD_REQUEST);
                 return response;
             }
+            List<Map<String, Object>> cqfResults = new ArrayList<>();
+            Map<String, Object> resultMap = new HashMap<>();
 
-            String statusOfLatestObject = (String) existingDataList.get(0).get(Constants.STATUS);
-            if (!Constants.SUBMITTED.equalsIgnoreCase(statusOfLatestObject)) {
-                response.getResult().put(Constants.STATUS_IS_IN_PROGRESS, true);
-                return response;
+            for (Map<String, Object> data : existingDataList) {
+                if (!Constants.SUBMITTED.equalsIgnoreCase((String) data.get(Constants.STATUS))) {
+                    Map<String, Object> dataMap = new HashMap<>();
+                    dataMap.put(Constants.USER_ID, data.get(Constants.USER_ID));
+                    dataMap.put(Constants.STATUS_IS_IN_PROGRESS, true);
+                    cqfResults.add(dataMap);
+                } else {
+                    String submitResponse = (String) data.get(Constants.SUBMIT_ASSESSMENT_RESPONSE_KEY);
+                    if (StringUtils.isNotBlank(submitResponse)) {
+                        Map<String, Object> submitResponseMap = new HashMap<>();
+                        submitResponseMap.put(Constants.USER_ID, data.get(Constants.USER_ID));
+                        submitResponseMap.put(Constants.STATUS_IS_IN_PROGRESS, false);
+                        submitResponseMap.putAll(objectMapper.readValue(submitResponse, new TypeReference<Map<String, Object>>() {
+                        }));
+                        cqfResults.add(submitResponseMap);
+                    }
+                }
             }
-
-            String latestResponse = (String) existingDataList.get(0).get(Constants.SUBMIT_ASSESSMENT_RESPONSE_KEY);
-            if (StringUtils.isNotBlank(latestResponse)) {
-                response.putAll(objectMapper.readValue(latestResponse, new TypeReference<Map<String, Object>>() {
-                }));
-            }
+            resultMap.put(Constants.CQF_RESULTS, cqfResults);
+            response.setResult(resultMap);
         } catch (Exception e) {
             String errMsg = String.format("Failed to process Assessment read response. Excption: %s", e.getMessage());
             updateErrorDetails(response, errMsg, HttpStatus.INTERNAL_SERVER_ERROR);
