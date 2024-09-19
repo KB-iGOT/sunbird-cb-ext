@@ -40,9 +40,9 @@ public class HallOfFameController {
         return new ResponseEntity<>(response, response.getResponseCode());
     }
 
-    @GetMapping("v1/halloffame/org/read/{orgId}")
-    public ResponseEntity<SBApiResponse> getUserLeaderBoard(@PathVariable String orgId) {
-        SBApiResponse response = hallOfFameService.getUserLeaderBoard(orgId);
+    @GetMapping("v1/halloffame/user/read")
+    public ResponseEntity<SBApiResponse> getUserLeaderBoard(@RequestHeader(Constants.X_AUTH_TOKEN) String authToken) {
+        SBApiResponse response = hallOfFameService.getUserLeaderBoard(authToken);
         return new ResponseEntity<>(response, response.getResponseCode());
     }
 
