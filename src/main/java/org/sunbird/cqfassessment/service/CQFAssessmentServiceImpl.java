@@ -173,7 +173,7 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
         try {
             SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
             searchSourceBuilder.query(QueryBuilders.matchAllQuery());
-            searchResponse = indexerService.getEsResult(serverProperties.getQuestionSetHierarchyIndex(), serverConfig.getEsProfileIndexType(), searchSourceBuilder, true);
+            searchResponse = indexerService.getEsResult(serverProperties.getQuestionSetHierarchyIndex(), serverConfig.getEsProfileIndexType(), searchSourceBuilder, false);
             for (SearchHit hit : searchResponse.getHits()) {
                 result = hit.getSourceAsMap();
                 resultArray.add(result);
