@@ -387,6 +387,7 @@ public class StorageServiceImpl implements StorageService {
 		SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.API_FILE_DOWNLOAD);
 		try {
 			String objectKey = containerName + "/" + fileName;
+			logger.info("The object key is: " + objectKey);
 			storageService.download(serverProperties.getCloudContainerName(), objectKey, Constants.LOCAL_BASE_PATH,
 					Option.apply(Boolean.FALSE));
 			return response;
