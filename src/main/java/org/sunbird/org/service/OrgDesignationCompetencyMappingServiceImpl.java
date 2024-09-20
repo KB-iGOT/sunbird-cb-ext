@@ -189,7 +189,8 @@ public class OrgDesignationCompetencyMappingServiceImpl implements OrgDesignatio
         return response;
     }
 
-    private List<Map<String, Object>> populateDataFromFrameworkTerm(String frameworkId) {
+    private List<Map<String, Object>> populateDataFromFrameworkTerm(String frameworkId) throws Exception {
+        Thread.sleep(500);
         Map<String, String> headers = new HashMap<>();
         headers.put(Constants.AUTHORIZATION, serverProperties.getSbApiKey());
         String url = serverProperties.getKmBaseHost() + serverProperties.getKmFrameWorkPath() + "/" + frameworkId;
@@ -257,7 +258,7 @@ public class OrgDesignationCompetencyMappingServiceImpl implements OrgDesignatio
     }
 
 
-    private void populateReferenceSheetCompetency(Sheet sheet) throws IOException {
+    private void populateReferenceSheetCompetency(Sheet sheet) throws Exception {
         Set<String> competencyAreaSet = new LinkedHashSet<>();
         Set<String> competencyThemeSet = new LinkedHashSet<>();
         Set<String> competencySubThemeSet = new LinkedHashSet<>();
@@ -302,7 +303,7 @@ public class OrgDesignationCompetencyMappingServiceImpl implements OrgDesignatio
         }
     }
 
-    private void populateOrgDesignationMaster(Sheet sheet, String frameworkId) {
+    private void populateOrgDesignationMaster(Sheet sheet, String frameworkId) throws Exception {
         List<Map<String, Object>> getAllDesignationForOrg = populateDataFromFrameworkTerm(frameworkId);
         List<String> designations = getOrgAddedDesignation(getAllDesignationForOrg);
         for (int i = 0; i < designations.size(); i++) {
@@ -631,7 +632,7 @@ public class OrgDesignationCompetencyMappingServiceImpl implements OrgDesignatio
         }
     }
 
-    private void processBulkUpload(HashMap<String, String> inputDataMap) throws IOException {
+    private void processBulkUpload(HashMap<String, String> inputDataMap) throws Exception {
         File file = null;
         FileInputStream fis = null;
         XSSFWorkbook wb = null;
@@ -700,19 +701,6 @@ public class OrgDesignationCompetencyMappingServiceImpl implements OrgDesignatio
                     errorDetails.setCellValue("Error Details");
                 }
                 while (rowIterator.hasNext()) {
-                    List<Map<String, Object>> getAllDesignationForOrg = populateDataFromFrameworkTerm(frameworkId);
-                    Map<String, Object> designationFrameworkObject = null;
-                    Map<String, Object> competencyFrameworkObject = null;
-                    if (CollectionUtils.isNotEmpty(getAllDesignationForOrg)) {
-                        designationFrameworkObject = getAllDesignationForOrg.stream().filter(n -> ((String) (n.get("code")))
-                                .equalsIgnoreCase(Constants.DESIGNATION)).findFirst().orElse(null);
-                        competencyFrameworkObject = getAllDesignationForOrg.stream().filter(n -> ((String) (n.get("code")))
-                                .equalsIgnoreCase(Constants.COMPETENCY)).findFirst().orElse(null);
-                    }
-                    String orgId = inputDataMap.get(Constants.ROOT_ORG_ID);
-                    if (StringUtils.isNotEmpty(frameworkId)) {
-                        orgDesignation = getOrgAddedDesignation(getAllDesignationForOrg);
-                    }
                     Row nextRow = rowIterator.next();
                     boolean allColumnsEmpty = true;
                     for (int colIndex = 0; colIndex < 4; colIndex++) { // Only check the first 4 columns
@@ -729,6 +717,19 @@ public class OrgDesignationCompetencyMappingServiceImpl implements OrgDesignatio
                     }
                     if (allColumnsEmpty) continue;
                     logger.info("CompetencyDesignationMapping:: Record " + count++);
+                    List<Map<String, Object>> getAllDesignationForOrg = populateDataFromFrameworkTerm(frameworkId);
+                    Map<String, Object> designationFrameworkObject = null;
+                    Map<String, Object> competencyFrameworkObject = null;
+                    if (CollectionUtils.isNotEmpty(getAllDesignationForOrg)) {
+                        designationFrameworkObject = getAllDesignationForOrg.stream().filter(n -> ((String) (n.get("code")))
+                                .equalsIgnoreCase(Constants.DESIGNATION)).findFirst().orElse(null);
+                        competencyFrameworkObject = getAllDesignationForOrg.stream().filter(n -> ((String) (n.get("code")))
+                                .equalsIgnoreCase(Constants.COMPETENCY)).findFirst().orElse(null);
+                    }
+                    String orgId = inputDataMap.get(Constants.ROOT_ORG_ID);
+                    if (StringUtils.isNotEmpty(frameworkId)) {
+                        orgDesignation = getOrgAddedDesignation(getAllDesignationForOrg);
+                    }
                     long duration = 0;
                     long startTime = System.currentTimeMillis();
                     StringBuffer str = new StringBuffer();
@@ -1260,7 +1261,7 @@ public class OrgDesignationCompetencyMappingServiceImpl implements OrgDesignatio
         return false;
     }
 
-    private List<Map<String, Object>> getMasterCompetencyFrameworkData(String frameworkId) throws IOException {
+    private List<Map<String, Object>> getMasterCompetencyFrameworkData(String frameworkId) throws Exception, InterruptedException {
         String masterDataCompetencies = redisCacheMgr.getCache(Constants.COMPETENCY_MASTER_DATA + "_" + frameworkId);
         if (StringUtils.isEmpty(masterDataCompetencies)) {
             List<Map<String, Object>> competenciesMasterData = populateDataFromFrameworkTerm(serverProperties.getMasterCompetencyFrameworkName());

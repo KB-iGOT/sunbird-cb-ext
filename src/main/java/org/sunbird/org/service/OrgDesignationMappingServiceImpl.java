@@ -604,20 +604,6 @@ public class OrgDesignationMappingServiceImpl implements OrgDesignationMappingSe
                     errorDetails.setCellValue("Error Details");
                 }
                 while (rowIterator.hasNext()) {
-                    List<Map<String, Object>> getAllDesignationForOrg = populateDataFromFrameworkTerm(frameworkId);
-                    Map<String, Object> orgFrameworkObject = null;
-                    List<Map<String, Object>> orgFrameworkTerms = null;
-                    if (CollectionUtils.isNotEmpty(getAllDesignationForOrg)) {
-                        orgFrameworkObject = getAllDesignationForOrg.stream().filter(n -> ((String) (n.get("code")))
-                                .equalsIgnoreCase(Constants.ORG)).findFirst().orElse(null);
-                        if (MapUtils.isNotEmpty(orgFrameworkObject)) {
-                            orgFrameworkTerms = (List<Map<String, Object>>) orgFrameworkObject.get("terms");
-                        }
-                    }
-
-                    if (StringUtils.isNotEmpty(frameworkId)) {
-                        orgDesignation = getOrgAddedDesignation(getAllDesignationForOrg);
-                    }
                     Row nextRow = rowIterator.next();
                     boolean allColumnsEmpty = true;
                     for (int colIndex = 0; colIndex < 1; colIndex++) { // Only check the first 4 columns
@@ -634,6 +620,20 @@ public class OrgDesignationMappingServiceImpl implements OrgDesignationMappingSe
                     }
                     if (allColumnsEmpty) continue;
                     logger.info("CompetencyDesignationMapping:: Record " + count++);
+                    List<Map<String, Object>> getAllDesignationForOrg = populateDataFromFrameworkTerm(frameworkId);
+                    Map<String, Object> orgFrameworkObject = null;
+                    List<Map<String, Object>> orgFrameworkTerms = null;
+                    if (CollectionUtils.isNotEmpty(getAllDesignationForOrg)) {
+                        orgFrameworkObject = getAllDesignationForOrg.stream().filter(n -> ((String) (n.get("code")))
+                                .equalsIgnoreCase(Constants.ORG)).findFirst().orElse(null);
+                        if (MapUtils.isNotEmpty(orgFrameworkObject)) {
+                            orgFrameworkTerms = (List<Map<String, Object>>) orgFrameworkObject.get("terms");
+                        }
+                    }
+
+                    if (StringUtils.isNotEmpty(frameworkId)) {
+                        orgDesignation = getOrgAddedDesignation(getAllDesignationForOrg);
+                    }
                     long duration = 0;
                     long startTime = System.currentTimeMillis();
                     StringBuffer str = new StringBuffer();
@@ -677,13 +677,13 @@ public class OrgDesignationMappingServiceImpl implements OrgDesignationMappingSe
                         }
                     }
 
-                    Cell statusCell = nextRow.getCell(2);
-                    Cell errorDetails = nextRow.getCell(3);
+                    Cell statusCell = nextRow.getCell(1);
+                    Cell errorDetails = nextRow.getCell(2);
                     if (statusCell == null) {
-                        statusCell = nextRow.createCell(2);
+                        statusCell = nextRow.createCell(1);
                     }
                     if (errorDetails == null) {
-                        errorDetails = nextRow.createCell(3);
+                        errorDetails = nextRow.createCell(2);
                     }
                     if (totalRecordsCount == 0 && errList.size() == 1) {
                         setErrorDetails(str, errList, statusCell, errorDetails);
@@ -742,8 +742,8 @@ public class OrgDesignationMappingServiceImpl implements OrgDesignationMappingSe
                 }
                 if (totalRecordsCount == 0) {
                     XSSFRow row = sheet.createRow(sheet.getLastRowNum() + 1);
-                    Cell statusCell = row.createCell(4);
-                    Cell errorDetails = row.createCell(5);
+                    Cell statusCell = row.createCell(1);
+                    Cell errorDetails = row.createCell(2);
                     statusCell.setCellValue(Constants.FAILED_UPPERCASE);
                     errorDetails.setCellValue(Constants.EMPTY_FILE_FAILED);
 
@@ -773,7 +773,8 @@ public class OrgDesignationMappingServiceImpl implements OrgDesignationMappingSe
         }
     }
 
-    private List<Map<String, Object>> populateDataFromFrameworkTerm(String frameworkId) {
+    private List<Map<String, Object>> populateDataFromFrameworkTerm(String frameworkId) throws InterruptedException {
+        Thread.sleep(500);
         Map<String, String> headers = new HashMap<>();
         headers.put(Constants.AUTHORIZATION, serverProperties.getSbApiKey());
         String url = serverProperties.getKmBaseHost() + serverProperties.getKmFrameWorkPath() + "/" + frameworkId;
@@ -797,7 +798,8 @@ public class OrgDesignationMappingServiceImpl implements OrgDesignationMappingSe
             if (StringUtils.isEmpty(associationsIdentifier)) {
                 Map<String, Object> termCreateRespDesignation = createTermFrameworkObjectForDesignation(frameworkId, designationMappingInfoMap);
                 if (MapUtils.isNotEmpty(termCreateRespDesignation)) {
-                    nodeId = (List<String>) termCreateRespDesignation.get("node_id");
+                    nodeId.addAll((List<String>) termCreateRespDesignation.get("node_id"));
+                    logger.info("The NodeId for term create is: " + nodeId);
                 }
             } else {
                 nodeId.add(associationsIdentifier);
@@ -817,6 +819,8 @@ public class OrgDesignationMappingServiceImpl implements OrgDesignationMappingSe
                             nodeIdMap.put(Constants.IDENTIFIER, association);
                             createDesignationObject.add(nodeIdMap);
                         }
+                        logger.info("the Associated NodeId is:" );
+                        logger.info(objectMapper.writeValueAsString(associations));
                         Map<String, Object> frameworkAssociationUpdateForOrg = updateFrameworkTerm(frameworkId, updateRequestObject(createDesignationObject), Constants.ORG, (String) terms.get(Constants.CODE));
                         if (MapUtils.isNotEmpty(frameworkAssociationUpdateForOrg)) {
                             Map<String, Object> result = publishFramework(frameworkId, new HashMap<>(), orgId);
