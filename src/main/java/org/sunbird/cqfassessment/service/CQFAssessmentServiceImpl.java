@@ -1014,12 +1014,12 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
         for (Map.Entry<String, Object> entry : optionWeightages.entrySet()) {
             String identifier = entry.getKey();
             Map<String, Integer> weightages = objectMapper.convertValue(entry.getValue(), new TypeReference<Map<String, Integer>>() {});
-            for (Map.Entry<String, Integer> a : weightages.entrySet()) {
+            for (Map.Entry<String, Integer> marksMap : weightages.entrySet()) {
                 int marks = 0;
                 try {
-                    marks = Integer.parseInt(String.valueOf(a.getValue()));
+                    marks = Integer.parseInt(String.valueOf(marksMap.getValue()));
                 } catch (NumberFormatException e) {
-                    logger.info("Invalid integer value: " + a.getValue());
+                    logger.info("Invalid integer value: " + marksMap.getValue());
                 }
                 if (marks > maxMarks) {
                     maxMarks = marks;
