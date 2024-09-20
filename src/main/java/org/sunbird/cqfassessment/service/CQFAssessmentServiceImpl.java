@@ -906,7 +906,7 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
                                                      List<Map<String, Object>> userQuestionList, Map<String, Object> questionMap) {
         try {
             Integer blank = 0;
-            double achievedMarksPerQn = 0.0;
+            double achievedMarksPerQn;
             double achievedMarksForSection = 0.0;
             int maxMarksForQn = 0;
             int totalMarksForSection = 0;
@@ -923,7 +923,7 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
             }
             if (assessmentType.equalsIgnoreCase(Constants.QUESTION_OPTION_WEIGHTAGE)) {
                 optionWeightages = getOptionWeightages(originalQuestionList, questionMap);
-                maxMarksForQuestion = getMaxMarksForQustions(originalQuestionList, questionMap);
+                maxMarksForQuestion = getMaxMarksForQustions(optionWeightages);
             }
             for (Map<String, Object> question : userQuestionList) {
                 List<String> marked = new ArrayList<>();
@@ -932,9 +932,10 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
                     blank++;
                     question.put(Constants.RESULT, Constants.BLANK);
                 } else {
+                    achievedMarksPerQn = 0.0;
                     achievedMarksPerQn = calculateScoreForOptionWeightage(question, assessmentType, optionWeightages, achievedMarksPerQn, marked);
                     String identifier = question.get(Constants.IDENTIFIER).toString();
-                    maxMarksForQn = maxMarksForQn + (int) maxMarksForQuestion.get(identifier);
+                    maxMarksForQn =  (int) maxMarksForQuestion.get(identifier);
                     achievedMarksForSection = achievedMarksForSection + achievedMarksPerQn;
                     totalMarksForSection = totalMarksForSection + maxMarksForQn;
                     question.put(Constants.ACQUIRED_SCORE,achievedMarksPerQn);
@@ -942,7 +943,7 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
             }
             overallSectionPercentageScore = totalMarksForSection * ((double) questionSetDetailsMap.get(Constants.SECTION_WEIGHTAGE) / 100);
             achievedPercentageScore = achievedMarksForSection * ((double) questionSetDetailsMap.get(Constants.SECTION_WEIGHTAGE) / 100);
-            sectionLevelPercentage = (achievedMarksForSection/totalMarksForSection) / 100;
+            sectionLevelPercentage = (achievedMarksForSection/totalMarksForSection) * 100;
             resultMap.put(Constants.OVERALL_SECTION_PERCENTAGE_SCORE, overallSectionPercentageScore);
             resultMap.put(Constants.ACHIEVED_PERCENTAGE_SCORE, achievedPercentageScore);
             resultMap.put(Constants.SECTION_LEVEL_PERCENTAGE, sectionLevelPercentage);
@@ -999,34 +1000,32 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
     }
 
     /**
-     * Retrieves the maximum marks for a list of questions.
+     * Retrieves the maximum marks for each question based on the provided option weightages.
      * <p>
-     * This method takes a list of question IDs and a question map as input, and returns a map with the maximum marks for each question.
+     * This method iterates through the option weightages, parses the integer values, and keeps track of the maximum marks.
      *
-     * @param questions   The list of question IDs.
-     * @param questionMap The map of questions with their details.
-     * @return A map with the maximum marks for each question.
+     * @param optionWeightages A map of question identifiers to their corresponding weightages.
+     * @return A map of question identifiers to their maximum marks.
      */
-    private Map<String, Object> getMaxMarksForQustions(List<String> questions, Map<String, Object> questionMap) {
+    public Map<String, Object> getMaxMarksForQustions(Map<String, Object> optionWeightages) {
         logger.info("Retrieving max weightages for questions based on the questions...");
         Map<String, Object> ret = new HashMap<>();
-        for (String questionId : questions) {
-            int maxMarks = 0;
-            Map<String, Object> question = objectMapper.convertValue(questionMap.get(questionId), new TypeReference<Map<String, Object>>() {
-            });
-            if (question.containsKey(Constants.QUESTION_TYPE)) {
-                String questionType = ((String) question.get(Constants.QUESTION_TYPE)).toLowerCase();
-                switch (questionType) {
-                    case Constants.MCQ_SCA:
-                    case Constants.MCQ_MCA:
-                    case Constants.MCQ_MCA_W:
-                            maxMarks = (int) question.get(Constants.TOTAL_MARKS);
-                        break;
-                    default:
-                        break;
+        int maxMarks = 0;
+        for (Map.Entry<String, Object> entry : optionWeightages.entrySet()) {
+            String identifier = entry.getKey();
+            Map<String, Integer> weightages = objectMapper.convertValue(entry.getValue(), new TypeReference<Map<String, Integer>>() {});
+            for (Map.Entry<String, Integer> marksMap : weightages.entrySet()) {
+                int marks = 0;
+                try {
+                    marks = Integer.parseInt(String.valueOf(marksMap.getValue()));
+                } catch (NumberFormatException e) {
+                    logger.info("Invalid integer value: " + marksMap.getValue());
+                }
+                if (marks > maxMarks) {
+                    maxMarks = marks;
                 }
             }
-            ret.put(question.get(Constants.IDENTIFIER).toString(), maxMarks);
+            ret.put(identifier, maxMarks);
         }
         logger.info("max weightages retrieved successfully.");
         return ret;
