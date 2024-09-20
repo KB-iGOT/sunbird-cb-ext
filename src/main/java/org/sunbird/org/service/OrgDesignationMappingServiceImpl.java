@@ -717,7 +717,7 @@ public class OrgDesignationMappingServiceImpl implements OrgDesignationMappingSe
                             if (StringUtils.isNotEmpty(associationIdentifier)) {
                                 addUpdateDesignationMapping(frameworkId, designationMappingInfoMap, invalidErrList, orgId, associationIdentifier);
                             }
-                            if (CollectionUtils.isEmpty(invalidErrList)) {
+                            if (StringUtils.isEmpty(associationIdentifier) && CollectionUtils.isEmpty(invalidErrList)) {
                                 invalidErrList.add("The issue while fetching the framework for the org.");
                             }
                         }
@@ -819,8 +819,7 @@ public class OrgDesignationMappingServiceImpl implements OrgDesignationMappingSe
                             nodeIdMap.put(Constants.IDENTIFIER, association);
                             createDesignationObject.add(nodeIdMap);
                         }
-                        logger.info("the Associated NodeId is:" );
-                        logger.info(objectMapper.writeValueAsString(associations));
+                        logger.info("The associated size need to be updated: " + associations.size());
                         Map<String, Object> frameworkAssociationUpdateForOrg = updateFrameworkTerm(frameworkId, updateRequestObject(createDesignationObject), Constants.ORG, (String) terms.get(Constants.CODE));
                         if (MapUtils.isNotEmpty(frameworkAssociationUpdateForOrg)) {
                             Map<String, Object> result = publishFramework(frameworkId, new HashMap<>(), orgId);
