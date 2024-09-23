@@ -2024,17 +2024,18 @@ public class ProfileServiceImpl implements ProfileService {
 					isGroupOrDesignationUpdated = false;
 					existingProfileDetails.put(Constants.PROFILE_GROUP_STATUS, Constants.NOT_VERIFIED);
 					existingProfileDetails.put(Constants.PROFILE_DESIGNATION_STATUS, Constants.NOT_VERIFIED);
+					existingProfileDetails.remove(Constants.UPDATE_AS_NOT_MY_USER);
 				} else if (Constants.NOT_MY_USER.equalsIgnoreCase(updatedProfileStatus)) {
 					isGroupOrDesignationUpdated = false;
 					existingProfileDetails.put(Constants.PROFILE_GROUP_STATUS, Constants.NOT_VERIFIED);
 					existingProfileDetails.put(Constants.PROFILE_DESIGNATION_STATUS, Constants.NOT_VERIFIED);
-
+					existingProfileDetails.remove(Constants.UPDATE_AS_NOT_MY_USER);
 					LocalDateTime localDateTime = LocalDateTime.now();
 					ZoneId zoneId = ZoneId.of("UTC");
 
 					ZonedDateTime zonedDateTime = localDateTime.atZone(zoneId);
 
-					DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss:SSS+0000");
+					DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss:SSSZ");
 
 					String notMyUserUpdatedAt = zonedDateTime.format(formatter);
 
