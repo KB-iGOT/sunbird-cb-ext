@@ -173,10 +173,12 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
         try {
             SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
             searchSourceBuilder.query(QueryBuilders.matchAllQuery());
-            searchResponse = indexerService.getEsResult(serverProperties.getQuestionSetHierarchyIndex(), serverConfig.getEsProfileIndexType(), searchSourceBuilder, false);
-            for (SearchHit hit : searchResponse.getHits()) {
-                result = hit.getSourceAsMap();
-                resultArray.add(result);
+            if(indexerService.isIndexPresent(serverProperties.getQuestionSetHierarchyIndex())) {
+                searchResponse = indexerService.getEsResult(serverProperties.getQuestionSetHierarchyIndex(), serverConfig.getEsProfileIndexType(), searchSourceBuilder, false);
+                for (SearchHit hit : searchResponse.getHits()) {
+                    result = hit.getSourceAsMap();
+                    resultArray.add(result);
+                }
             }
         } catch (IOException e) {
             logger.error(String.format("Failed to process the cqfquestionList search. %s", e.getMessage()));
