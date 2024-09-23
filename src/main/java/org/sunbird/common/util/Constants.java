@@ -1209,6 +1209,7 @@ public class Constants {
 	public static final String PREVIOUS_TERM_CODE = "previousTermCode";
 	public static final String DESIGNATION_MASTER_DATA = "designation_master_data";
 	public static final String COMPETENCY_MASTER_DATA = "competency_master_data";
+	public static final String UPDATE_AS_NOT_MY_USER = "updatedAsNotMyUserOn";
 
 	private Constants() {
 		throw new IllegalStateException("Utility class");
