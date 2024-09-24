@@ -15,6 +15,7 @@ import org.sunbird.common.util.Constants;
 import org.sunbird.common.util.PropertiesCache;
 import org.sunbird.core.config.PropertiesConfig;
 import org.sunbird.migrate.service.UserMigrationService;
+import org.sunbird.profile.service.ProfileService;
 
 import java.text.SimpleDateFormat;
 import java.time.LocalDateTime;
@@ -36,6 +37,9 @@ public class UserMigrationServiceImpl implements UserMigrationService {
 
     @Autowired
     PropertiesConfig propertiesConfig;
+
+    @Autowired
+    ProfileService profileService;
 
     @Override
     public SBApiResponse migrateUsers() {
@@ -70,14 +74,9 @@ public class UserMigrationServiceImpl implements UserMigrationService {
                           } else {
                               log.info("Successfully migrated user ID '{}'.", userId);
                               Map<String, Object> profileDetails = (Map<String, Object>) user.get(Constants.PROFILE_DETAILS);
-                              Map<String, String> headerValues = new HashMap<>();
-                              headerValues.put(Constants.AUTH_TOKEN, "Bearer " + serverConfig.getSbApiKey());
-                              headerValues.put(Constants.CONTENT_TYPE, Constants.APPLICATION_JSON);
-                              StringBuilder userPatchUrl = new StringBuilder(serverConfig.getCbExtHost())
-                                      .append(serverConfig.getUserPatch());
-                              log.info("printing userPatchUrl: {}", userPatchUrl);
-
-                              Map<String, Object> userPatchResponse = outboundRequestHandlerService.fetchResultUsingPost(userPatchUrl.toString(), getUserExtPatchRequest(userId, profileDetails, targetOrgName), headerValues);
+                              Map<String,Object> userPatchRequest = getUserExtPatchRequest(userId, profileDetails, targetOrgName);
+                              SBApiResponse userPatchResponse = profileService.profileMDOAdminUpdate(userPatchRequest,null,null,null);
+                              log.info("userPatchResponse for user ID '{}'.", userPatchResponse);
                               if (Constants.OK.equalsIgnoreCase((String) userPatchResponse.get(Constants.RESPONSE_CODE))) {
                                   log.info("Successfully patched user ID '{}'. Response: {}", userId, userPatchResponse);
                                   Map<String, Object> requestBody = new HashMap<String, Object>() {{
