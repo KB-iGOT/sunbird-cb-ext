@@ -1210,6 +1210,9 @@ public class Constants {
 	public static final String DESIGNATION_MASTER_DATA = "designation_master_data";
 	public static final String COMPETENCY_MASTER_DATA = "competency_master_data";
 	public static final String UPDATE_AS_NOT_MY_USER = "updatedAsNotMyUserOn";
+	public static final String API_USER_MIGRATION = "api.user.migrated";
+	public static final String PROFILE_DETAILS_PROFILE_STATUS = "profileDetails.profileStatus";
+	public static final String PROFILE_DETAILS_UPDATEDAS_NOT_MY_USER_ON = "profileDetails.updatedAsNotMyUserOn";
 
 	private Constants() {
 		throw new IllegalStateException("Utility class");

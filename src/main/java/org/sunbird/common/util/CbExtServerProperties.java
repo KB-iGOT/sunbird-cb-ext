@@ -888,6 +888,15 @@ public class CbExtServerProperties {
 	@Value("${redis.master.data.read.timeout}")
 	private int redisMasterDataReadTimeOut;
 
+	@Value("${user.path.url}")
+	private String userPatch;
+
+	@Value("${cb.ext.host}")
+	private String cbExtHost;
+
+	@Value("${app.default.departmentId}")
+	private String fallbackDepartmentId;
+
 	public boolean qListFromCacheEnabled() {
 		return qListFromCacheEnabled;
 	}
@@ -3116,5 +3125,17 @@ public class CbExtServerProperties {
 
 	public void setRedisMasterDataReadTimeOut(int redisMasterDataReadTimeOut) {
 		this.redisMasterDataReadTimeOut = redisMasterDataReadTimeOut;
+	}
+
+	public String getUserPatch() {
+		return userPatch;
+	}
+
+	public String getCbExtHost() {
+		return cbExtHost;
+	}
+
+	public String getFallbackDepartmentId() {
+		return fallbackDepartmentId;
 	}
 }
