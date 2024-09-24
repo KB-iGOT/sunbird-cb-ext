@@ -2040,6 +2040,7 @@ public class ProfileServiceImpl implements ProfileService {
 					DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss:SSSZ");
 
 					String notMyUserUpdatedAt = zonedDateTime.format(formatter);
+
 					log.info("NOT MY USER status notMyUserUpdatedAt "+notMyUserUpdatedAt);
 					existingProfileDetails.put(Constants.UPDATE_AS_NOT_MY_USER, notMyUserUpdatedAt);
 					log.info("NOT MY USER existingProfileDetails "+existingProfileDetails);

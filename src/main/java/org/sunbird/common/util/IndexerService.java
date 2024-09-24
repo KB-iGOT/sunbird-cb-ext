@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
+import org.elasticsearch.client.indices.GetIndexRequest;
 import org.elasticsearch.action.bulk.BulkRequest;
 import org.elasticsearch.action.bulk.BulkResponse;
 import org.elasticsearch.action.get.GetRequest;
@@ -174,6 +175,16 @@ public class IndexerService {
 			return sbEsClient.search(searchRequest, RequestOptions.DEFAULT);
 		} else {
 			return esClient.search(searchRequest, RequestOptions.DEFAULT);
+		}
+	}
+
+	public boolean isIndexPresent(String indexName) {
+		try {
+			GetIndexRequest request = new GetIndexRequest(indexName);
+			return esClient.indices().exists(request, RequestOptions.DEFAULT);
+		} catch (IOException e) {
+			logger.error("Error checking if index exists", e);
+			return false;
 		}
 	}
 }
