@@ -888,9 +888,6 @@ public class CbExtServerProperties {
 	@Value("${redis.master.data.read.timeout}")
 	private int redisMasterDataReadTimeOut;
 
-	@Value("${app.default.departmentId}")
-	private String fallbackDepartmentId;
-
 	public boolean qListFromCacheEnabled() {
 		return qListFromCacheEnabled;
 	}
@@ -3119,8 +3116,5 @@ public class CbExtServerProperties {
 
 	public void setRedisMasterDataReadTimeOut(int redisMasterDataReadTimeOut) {
 		this.redisMasterDataReadTimeOut = redisMasterDataReadTimeOut;
-	}
-	public String getFallbackDepartmentId() {
-		return fallbackDepartmentId;
 	}
 }

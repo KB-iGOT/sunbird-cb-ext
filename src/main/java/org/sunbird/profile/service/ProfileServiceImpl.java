@@ -2084,8 +2084,8 @@ public class ProfileServiceImpl implements ProfileService {
 				}
 
 				HashMap<String, String> headerValue = new HashMap<>();
-				headerValues.put(Constants.AUTH_TOKEN, authToken);
-				headerValues.put(Constants.CONTENT_TYPE, Constants.APPLICATION_JSON);
+				headerValue.put(Constants.AUTH_TOKEN, authToken);
+				headerValue.put(Constants.CONTENT_TYPE, Constants.APPLICATION_JSON);
 				String updatedUrl = serverConfig.getSbUrl() + serverConfig.getLmsUserUpdatePrivatePath();
 				Map<String, Object> updateRequestValue = requestData;
 				updateRequestValue.put(Constants.PROFILE_DETAILS, existingProfileDetails);

@@ -42,129 +42,148 @@ public class UserMigrationServiceImpl implements UserMigrationService {
     ProfileService profileService;
 
     @Override
-    public SBApiResponse migrateUsers() {
+    public SBApiResponse migrateUsers(String authToken) {
         SBApiResponse response = new SBApiResponse(Constants.API_USER_MIGRATION);
         StringBuilder url = new StringBuilder(propertiesConfig.getLmsServiceHost()).append(propertiesConfig.getLmsUserSearchEndPoint());
-        log.info("printing user search Url: {}", url);
+        log.info("Printing user search URL: {}", url);
 
-      try {
-          Map<String, Object> request = userSearchRequestBody();
-          Map<String, Object> updateResponse = outboundRequestHandlerService.fetchResultUsingPatch(url.toString(), request, null);
+        int offset = 0;
+        int limit = 250;
+        boolean allOperationsSuccessful = true;
+        String custodianOrgName = serverConfig.getCustodianOrgName();
+        String custodianOrgId   = serverConfig.getCustodianOrgId();
 
-          if (Constants.OK.equalsIgnoreCase((String) updateResponse.get(Constants.RESPONSE_CODE))) {
-              Map<String, Object> result = (Map<String, Object>) updateResponse.get(Constants.RESULT);
-              Map<String, Object> responseData = (Map<String, Object>) result.get(Constants.RESPONSE);
-              List<Map<String, Object>> users = (List<Map<String, Object>>) responseData.get(Constants.CONTENT);
-              String targetOrgName = Constants.IGOT;
-              boolean orgFound = false;
-              boolean allOperationsSuccessful = true;
+        try {
+            while (true) {
+                Map<String, Object> request = userSearchRequestBody(offset, limit);
+                Map<String,String> headerMap = createHeaderMap(authToken);
+                Map<String, Object> updateResponse = outboundRequestHandlerService.fetchResultUsingPost(url.toString(), request, headerMap);
 
-              for (Map<String, Object> user : users) {
-                  List<Map<String, Object>> organisations = (List<Map<String, Object>>) user.get(Constants.ORGANISATIONS);
-                  String userId = (String) user.get(Constants.USER_ID);
-                  if (organisations != null) {
-                      orgFound = organisations.stream()
-                              .anyMatch(organisation -> targetOrgName.equalsIgnoreCase((String) organisation.get(Constants.ORG_NAME)));
-                      if (!orgFound) {
-                          log.info("Organization '{}' not found for user ID '{}'. Initiating migration API call.", targetOrgName, userId);
-                          String errMsg = executeMigrateUser(getUserMigrateRequest(userId, targetOrgName, false), null);
-                          if (StringUtils.isNotEmpty(errMsg)) {
-                              log.info("Migration failed for user ID '{}'. Error: {}", userId, errMsg);
-                              allOperationsSuccessful = false;
-                          } else {
-                              log.info("Successfully migrated user ID '{}'.", userId);
-                              Map<String, Object> profileDetails = (Map<String, Object>) user.get(Constants.PROFILE_DETAILS);
-                              Map<String,Object> userPatchRequest = getUserExtPatchRequest(userId, profileDetails, targetOrgName);
-                              SBApiResponse userPatchResponse = profileService.profileMDOAdminUpdate(userPatchRequest,null,null,null);
-                              log.info("userPatchResponse for user ID '{}'.", userPatchResponse);
-                              if (Constants.OK.equalsIgnoreCase((String) userPatchResponse.get(Constants.RESPONSE_CODE))) {
-                                  log.info("Successfully patched user ID '{}'. Response: {}", userId, userPatchResponse);
-                                  Map<String, Object> requestBody = new HashMap<String, Object>() {{
-                                      put(Constants.ORGANIZATION_ID, serverConfig.getFallbackDepartmentId());
-                                      put(Constants.USER_ID, userId);
-                                      put(Constants.ROLES, Arrays.asList(Constants.PUBLIC));
-                                  }};
-                                  StringBuilder assignRoleUrl = new StringBuilder(serverConfig.getSbUrl()).append(serverConfig.getSbAssignRolePath());
-                                  log.info("printing assignRoleUrl: {}", assignRoleUrl);
-                                  Map<String, Object> assignRole = outboundRequestHandlerService.fetchResultUsingPost(assignRoleUrl.toString(), requestBody, null);
+                if (Constants.OK.equalsIgnoreCase((String) updateResponse.get(Constants.RESPONSE_CODE))) {
+                    Map<String, Object> result = (Map<String, Object>) updateResponse.get(Constants.RESULT);
+                    Map<String, Object> responseData = (Map<String, Object>) result.get(Constants.RESPONSE);
+                    List<Map<String, Object>> users = (List<Map<String, Object>>) responseData.get(Constants.CONTENT);
 
-                                  if (Constants.OK.equalsIgnoreCase((String) assignRole.get(Constants.RESPONSE_CODE))) {
-                                      log.info("Successfully assigned public role for user ID '{}'. Response: {}", userId, assignRole);
-                                  } else {
-                                      String assignRoleErrorMessage = (String) assignRole.get(Constants.ERROR_MESSAGE);
-                                      log.info("Failed to assign 'PUBLIC' role for user ID '{}'. Response: {}. Error: {}", userId, assignRole, assignRoleErrorMessage);
-                                      allOperationsSuccessful = false; // Update success flag
-                                  }
-                              } else {
-                                  log.info("Patch failed for user ID '{}'. Response: {}", userId, userPatchResponse);
-                                  allOperationsSuccessful = false; // Update success flag
-                              }
-                          }
-                      } else {
-                          log.info("Organization '{}' found for user ID '{}'. No migration needed.", targetOrgName, userId);
-                      }
-                  }
-                  orgFound = false;
-              }
+                    if (users.isEmpty()) {
+                        log.info("No more users found. Exiting pagination.");
+                        break;
+                    }
 
-              if (allOperationsSuccessful) {
-                  response.setResponseCode(HttpStatus.OK);
-                  response.getParams().setStatus(Constants.SUCCESS);
-              } else {
-                  response.setResponseCode(HttpStatus.INTERNAL_SERVER_ERROR);
-                  response.getParams().setStatus(Constants.FAILED);
-              }
+                    for (Map<String, Object> user : users) {
+                        List<Map<String, Object>> organisations = (List<Map<String, Object>>) user.get(Constants.ORGANISATIONS);
+                        String userId = (String) user.get(Constants.USER_ID);
+                        boolean orgFound = false;
 
-          } else {
-              // Handle error response
-              if (updateResponse != null && Constants.CLIENT_ERROR.equalsIgnoreCase((String) updateResponse.get(Constants.RESPONSE_CODE))) {
-                  Map<String, Object> responseParams = (Map<String, Object>) updateResponse.get(Constants.PARAMS);
-                  if (MapUtils.isNotEmpty(responseParams)) {
-                      String errorMessage = (String) responseParams.get(Constants.ERROR_MESSAGE);
-                      response.getParams().setErrmsg(errorMessage);
-                  }
-                  response.setResponseCode(HttpStatus.BAD_REQUEST);
-              } else {
-                  response.setResponseCode(HttpStatus.INTERNAL_SERVER_ERROR);
-              }
-              response.getParams().setStatus(Constants.FAILED);
-              String errMsg = response.getParams().getErrmsg();
-              if (StringUtils.isEmpty(errMsg)) {
-                  errMsg = (String) ((Map<String, Object>) updateResponse.get(Constants.PARAMS)).get(Constants.ERROR_MESSAGE);
-                  errMsg = PropertiesCache.getInstance().readCustomError(errMsg);
-                  response.getParams().setErrmsg(errMsg);
-              }
-              log.error(errMsg, new Exception(errMsg));
-              return response;
-          }
-      } catch (Exception e) {
-          log.error("Error during user migration: {}", e.getMessage(), e);
-          response.setResponseCode(HttpStatus.INTERNAL_SERVER_ERROR);
-          response.getParams().setStatus(Constants.FAILED);
-          response.getParams().setErrmsg(e.getMessage());
-      }
+                        if (organisations != null) {
+                            orgFound = organisations.stream()
+                                    .anyMatch(organisation -> custodianOrgName.equalsIgnoreCase((String) organisation.get(Constants.ORG_NAME)));
+
+                            if (!orgFound) {
+                                log.info("Organization '{}' not found for user ID '{}'. Initiating migration API call.", custodianOrgName, userId);
+                                Map<String,String> migrageHeaders = createHeaderMap(authToken);
+                                String errMsg = executeMigrateUser(getUserMigrateRequest(userId, custodianOrgName, false), migrageHeaders);
+                                if (StringUtils.isNotEmpty(errMsg)) {
+                                    log.info("Migration failed for user ID '{}'. Error: {}", userId, errMsg);
+                                    allOperationsSuccessful = false;
+                                } else {
+                                    log.info("Successfully migrated user ID '{}'.", userId);
+                                    Map<String, Object> userPatchRequest = getUserExtPatchRequest(userId, custodianOrgName);
+                                    SBApiResponse userPatchResponse = profileService.profileMDOAdminUpdate(userPatchRequest, authToken, serverConfig.getSbApiKey(), null);
+                                    log.info("userPatchResponse for user ID '{}'.", userPatchResponse);
+                                    if (userPatchResponse.getResponseCode().is2xxSuccessful()) {
+                                        log.info("Successfully patched user ID '{}'. Response: {}", userId, userPatchResponse);
+                                        Map<String, Object> requestBody = new HashMap<String, Object>() {{
+                                            put(Constants.ORGANIZATION_ID, custodianOrgId);
+                                            put(Constants.USER_ID, userId);
+                                            put(Constants.ROLES, Arrays.asList(Constants.PUBLIC));
+                                        }};
+                                        Map<String, Object> roleRequest = new HashMap<String, Object>() {{
+                                            put("request", requestBody);
+                                        }};
+                                        StringBuilder assignRoleUrl = new StringBuilder(serverConfig.getSbUrl()).append(serverConfig.getSbAssignRolePath());
+                                        log.info("printing assignRoleUrl: {}", assignRoleUrl);
+                                        Map<String,String> assignRoleHeaders = createHeaderMap(authToken);
+                                        Map<String, Object> assignRole = outboundRequestHandlerService.fetchResultUsingPost(assignRoleUrl.toString(), roleRequest, assignRoleHeaders);
+
+                                        if (Constants.OK.equalsIgnoreCase((String) assignRole.get(Constants.RESPONSE_CODE))) {
+                                            log.info("Successfully assigned public role for user ID '{}'. Response: {}", userId, assignRole);
+                                        } else {
+                                            String assignRoleErrorMessage = (String) assignRole.get(Constants.ERROR_MESSAGE);
+                                            log.info("Failed to assign 'PUBLIC' role for user ID '{}'. Response: {}. Error: {}", userId, assignRole, assignRoleErrorMessage);
+                                            allOperationsSuccessful = false;
+                                        }
+                                    } else {
+                                        log.info("Patch failed for user ID '{}'. Response: {}", userId, userPatchResponse);
+                                        allOperationsSuccessful = false;
+                                    }
+                                }
+                            } else {
+                                log.info("Organization '{}' found for user ID '{}'. No migration needed.", custodianOrgName, userId);
+                            }
+                        }
+                    }
+
+                    offset += users.size();
+                } else {
+                    handleErrorResponse(updateResponse, response);
+                    return response;
+                }
+            }
+
+            if (allOperationsSuccessful) {
+                response.setResponseCode(HttpStatus.OK);
+                response.getParams().setStatus(Constants.SUCCESS);
+            } else {
+                response.setResponseCode(HttpStatus.INTERNAL_SERVER_ERROR);
+                response.getParams().setStatus(Constants.FAILED);
+            }
+
+        } catch (Exception e) {
+            log.error("Error during user migration: {}", e.getMessage(), e);
+            response.setResponseCode(HttpStatus.INTERNAL_SERVER_ERROR);
+            response.getParams().setStatus(Constants.FAILED);
+            response.getParams().setErrmsg(e.getMessage());
+        }
 
         return response;
     }
 
-
-    private Map<String, Object> userSearchRequestBody() {
+    private void handleErrorResponse(Map<String, Object> updateResponse, SBApiResponse response) {
+        // Handle error response
+        if (updateResponse != null && Constants.CLIENT_ERROR.equalsIgnoreCase((String) updateResponse.get(Constants.RESPONSE_CODE))) {
+            Map<String, Object> responseParams = (Map<String, Object>) updateResponse.get(Constants.PARAMS);
+            if (MapUtils.isNotEmpty(responseParams)) {
+                String errorMessage = (String) responseParams.get(Constants.ERROR_MESSAGE);
+                response.getParams().setErrmsg(errorMessage);
+            }
+            response.setResponseCode(HttpStatus.BAD_REQUEST);
+        } else {
+            response.setResponseCode(HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+        response.getParams().setStatus(Constants.FAILED);
+        String errMsg = response.getParams().getErrmsg();
+        if (StringUtils.isEmpty(errMsg)) {
+            errMsg = (String) ((Map<String, Object>) updateResponse.get(Constants.PARAMS)).get(Constants.ERROR_MESSAGE);
+            errMsg = PropertiesCache.getInstance().readCustomError(errMsg);
+            response.getParams().setErrmsg(errMsg);
+        }
+        log.error(errMsg, new Exception(errMsg));
+    }
+    private Map<String, Object> userSearchRequestBody(int offset, int limit) {
         ZoneId zoneId = ZoneId.of("UTC");
 
-        // Get the current time in UTC
         ZonedDateTime currentTime = ZonedDateTime.now(zoneId);
 
-        // Format the current time to the desired string format
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss:SSS'+'0000");
         String formattedCurrentTime = currentTime.format(formatter);
 
-        // Get yesterday's date at 1 AM in UTC
+
         ZonedDateTime yesterdayAtOneAM = currentTime
                 .minusDays(1) // Subtract one day to get yesterday
                 .withHour(1)  // Set the hour to 1 AM
                 .withMinute(0)
                 .withSecond(0)
-                .withNano(0); // No need to set zone again as it's already in UTC
+                .withNano(0);
 
         // Format yesterday's time
         String formattedYesterdayAtOneAM = yesterdayAtOneAM.format(formatter);
@@ -178,9 +197,13 @@ public class UserMigrationServiceImpl implements UserMigrationService {
         innerFilter.put("<=", formattedCurrentTime);
         innerFilter.put(">=", formattedYesterdayAtOneAM);
         filters.put(Constants.PROFILE_DETAILS_UPDATEDAS_NOT_MY_USER_ON, innerFilter);
+        List<String> fields = Arrays.asList("userId", "profileDetails", "organisations");
 
         Map<String, Object> request = new HashMap<>();
         request.put(Constants.FILTERS, filters);
+        request.put("offset", offset);
+        request.put("limit", limit);
+        request.put("fields", fields);
 
         Map<String, Object> body = new HashMap<>();
         body.put(Constants.REQUEST, request);
@@ -221,26 +244,28 @@ public class UserMigrationServiceImpl implements UserMigrationService {
         return errMsg;
     }
 
-
-    private Map<String, Object> getUserExtPatchRequest(String userId, Map<String, Object> profileDetails, String defaultDepartment) {
-
-        Map<String, Object> employmentDetails = (Map<String, Object>) profileDetails.get("employmentDetails");
-        if (employmentDetails == null) {
-            employmentDetails = new HashMap<>();
-        }
-
+    private Map<String, Object> getUserExtPatchRequest(String userId, String defaultDepartment) {
+        Map<String, Object> employmentDetails = new HashMap<>();
         employmentDetails.put("departmentName", defaultDepartment);
 
-        Map<String, Object> requestBody = new HashMap<String, Object>() {{
-            put("userId", userId);
-            put("profileDetails", profileDetails);
-        }};
+        Map<String, Object> newProfileDetails = new HashMap<>();
+        newProfileDetails.put("employmentDetails", employmentDetails);
 
-        profileDetails.put("employmentDetails", employmentDetails);
+        Map<String, Object> requestBody = new HashMap<>();
+        requestBody.put("userId", userId);
+        requestBody.put("profileDetails", newProfileDetails);
 
         return new HashMap<String, Object>() {{
             put("request", requestBody);
         }};
+
+    }
+    private Map<String, String> createHeaderMap(String authToken) {
+        HashMap<String, String> headerValue = new HashMap<>();
+        headerValue.put(Constants.AUTHORIZATION,serverConfig.getSbApiKey());
+        headerValue.put(Constants.AUTH_TOKEN, authToken);
+        headerValue.put(Constants.CONTENT_TYPE, Constants.APPLICATION_JSON);
+        return headerValue;
     }
 
 

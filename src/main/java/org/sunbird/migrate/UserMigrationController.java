@@ -18,9 +18,9 @@ public class UserMigrationController {
     private UserMigrationService userMigrationService;
 
     @GetMapping("/initiate")
-    public ResponseEntity<?> initiateUserMigration() throws Exception {
+    public ResponseEntity<?> initiateUserMigration(@RequestHeader(Constants.X_AUTH_TOKEN) String authToken) throws Exception {
 
-        SBApiResponse response = userMigrationService.migrateUsers();
+        SBApiResponse response = userMigrationService.migrateUsers(authToken);
         return new ResponseEntity<>(response, response.getResponseCode());
     }
 }
