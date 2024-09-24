@@ -174,7 +174,7 @@ public class UserMigrationServiceImpl implements UserMigrationService {
 
         ZonedDateTime currentTime = ZonedDateTime.now(zoneId);
 
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss:SSS'+'0000");
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss:SSSZ");
         String formattedCurrentTime = currentTime.format(formatter);
 
 
