@@ -2026,9 +2026,11 @@ public class ProfileServiceImpl implements ProfileService {
 					existingProfileDetails.put(Constants.PROFILE_DESIGNATION_STATUS, Constants.NOT_VERIFIED);
 					existingProfileDetails.remove(Constants.UPDATE_AS_NOT_MY_USER);
 				} else if (Constants.NOT_MY_USER.equalsIgnoreCase(updatedProfileStatus)) {
+					log.info("profile status is NOT MY USER");
 					isGroupOrDesignationUpdated = false;
 					existingProfileDetails.put(Constants.PROFILE_GROUP_STATUS, Constants.NOT_VERIFIED);
 					existingProfileDetails.put(Constants.PROFILE_DESIGNATION_STATUS, Constants.NOT_VERIFIED);
+					log.info("NOT MY USER existingProfileDetails before removing date "+existingProfileDetails);
 					existingProfileDetails.remove(Constants.UPDATE_AS_NOT_MY_USER);
 					LocalDateTime localDateTime = LocalDateTime.now();
 					ZoneId zoneId = ZoneId.of("UTC");
@@ -2039,7 +2041,9 @@ public class ProfileServiceImpl implements ProfileService {
 
 					String notMyUserUpdatedAt = zonedDateTime.format(formatter);
 
+					log.info("NOT MY USER status notMyUserUpdatedAt "+notMyUserUpdatedAt);
 					existingProfileDetails.put(Constants.UPDATE_AS_NOT_MY_USER, notMyUserUpdatedAt);
+					log.info("NOT MY USER existingProfileDetails "+existingProfileDetails);
 				}
 				if (isGroupOrDesignationUpdated) {
 					if (StringUtils.isNotBlank(updatedGroupVal)) {
@@ -2080,8 +2084,8 @@ public class ProfileServiceImpl implements ProfileService {
 				}
 
 				HashMap<String, String> headerValue = new HashMap<>();
-				headerValues.put(Constants.AUTH_TOKEN, authToken);
-				headerValues.put(Constants.CONTENT_TYPE, Constants.APPLICATION_JSON);
+				headerValue.put(Constants.AUTH_TOKEN, authToken);
+				headerValue.put(Constants.CONTENT_TYPE, Constants.APPLICATION_JSON);
 				String updatedUrl = serverConfig.getSbUrl() + serverConfig.getLmsUserUpdatePrivatePath();
 				Map<String, Object> updateRequestValue = requestData;
 				updateRequestValue.put(Constants.PROFILE_DETAILS, existingProfileDetails);
