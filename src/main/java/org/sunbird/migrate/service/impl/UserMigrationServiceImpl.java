@@ -12,6 +12,7 @@ import org.sunbird.common.model.SBApiResponse;
 import org.sunbird.common.service.OutboundRequestHandlerServiceImpl;
 import org.sunbird.common.util.CbExtServerProperties;
 import org.sunbird.common.util.Constants;
+import org.sunbird.common.util.ProjectUtil;
 import org.sunbird.common.util.PropertiesCache;
 import org.sunbird.core.config.PropertiesConfig;
 import org.sunbird.migrate.service.UserMigrationService;
@@ -42,8 +43,8 @@ public class UserMigrationServiceImpl implements UserMigrationService {
     ProfileService profileService;
 
     @Override
-    public SBApiResponse migrateUsers(String authToken) {
-        SBApiResponse response = new SBApiResponse(Constants.API_USER_MIGRATION);
+    public SBApiResponse migrateUsers() {
+        SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.API_USER_MIGRATION);
         StringBuilder url = new StringBuilder(propertiesConfig.getLmsServiceHost()).append(propertiesConfig.getLmsUserSearchEndPoint());
         log.info("Printing user search URL: {}", url);
 
@@ -52,12 +53,10 @@ public class UserMigrationServiceImpl implements UserMigrationService {
         boolean allOperationsSuccessful = true;
         String custodianOrgName = serverConfig.getCustodianOrgName();
         String custodianOrgId   = serverConfig.getCustodianOrgId();
-
         try {
             while (true) {
                 Map<String, Object> request = userSearchRequestBody(offset, limit);
-                Map<String,String> headerMap = createHeaderMap(authToken);
-                Map<String, Object> updateResponse = outboundRequestHandlerService.fetchResultUsingPost(url.toString(), request, headerMap);
+                Map<String, Object> updateResponse = outboundRequestHandlerService.fetchResultUsingPost(url.toString(), request, null);
 
                 if (Constants.OK.equalsIgnoreCase((String) updateResponse.get(Constants.RESPONSE_CODE))) {
                     Map<String, Object> result = (Map<String, Object>) updateResponse.get(Constants.RESULT);
@@ -70,25 +69,21 @@ public class UserMigrationServiceImpl implements UserMigrationService {
                     }
 
                     for (Map<String, Object> user : users) {
-                        List<Map<String, Object>> organisations = (List<Map<String, Object>>) user.get(Constants.ORGANISATIONS);
                         String userId = (String) user.get(Constants.USER_ID);
                         boolean orgFound = false;
-
-                        if (organisations != null) {
-                            orgFound = organisations.stream()
-                                    .anyMatch(organisation -> custodianOrgName.equalsIgnoreCase((String) organisation.get(Constants.ORG_NAME)));
-
+                        String rootOrgName = (String) user.get("rootOrgName");
+                        if (rootOrgName != null) {
+                            orgFound = rootOrgName.equalsIgnoreCase(custodianOrgName);
                             if (!orgFound) {
                                 log.info("Organization '{}' not found for user ID '{}'. Initiating migration API call.", custodianOrgName, userId);
-                                Map<String,String> migrageHeaders = createHeaderMap(authToken);
-                                String errMsg = executeMigrateUser(getUserMigrateRequest(userId, custodianOrgName, false), migrageHeaders);
+                                String errMsg = executeMigrateUser(getUserMigrateRequest(userId, custodianOrgName, false), null);
                                 if (StringUtils.isNotEmpty(errMsg)) {
                                     log.info("Migration failed for user ID '{}'. Error: {}", userId, errMsg);
                                     allOperationsSuccessful = false;
                                 } else {
                                     log.info("Successfully migrated user ID '{}'.", userId);
                                     Map<String, Object> userPatchRequest = getUserExtPatchRequest(userId, custodianOrgName);
-                                    SBApiResponse userPatchResponse = profileService.profileMDOAdminUpdate(userPatchRequest, authToken, serverConfig.getSbApiKey(), null);
+                                    SBApiResponse userPatchResponse = profileService.profileMDOAdminUpdate(userPatchRequest, null, serverConfig.getSbApiKey(), null);
                                     log.info("userPatchResponse for user ID '{}'.", userPatchResponse);
                                     if (userPatchResponse.getResponseCode().is2xxSuccessful()) {
                                         log.info("Successfully patched user ID '{}'. Response: {}", userId, userPatchResponse);
@@ -102,8 +97,7 @@ public class UserMigrationServiceImpl implements UserMigrationService {
                                         }};
                                         StringBuilder assignRoleUrl = new StringBuilder(serverConfig.getSbUrl()).append(serverConfig.getSbAssignRolePath());
                                         log.info("printing assignRoleUrl: {}", assignRoleUrl);
-                                        Map<String,String> assignRoleHeaders = createHeaderMap(authToken);
-                                        Map<String, Object> assignRole = outboundRequestHandlerService.fetchResultUsingPost(assignRoleUrl.toString(), roleRequest, assignRoleHeaders);
+                                        Map<String, Object> assignRole = outboundRequestHandlerService.fetchResultUsingPost(assignRoleUrl.toString(), roleRequest, null);
 
                                         if (Constants.OK.equalsIgnoreCase((String) assignRole.get(Constants.RESPONSE_CODE))) {
                                             log.info("Successfully assigned public role for user ID '{}'. Response: {}", userId, assignRole);
@@ -180,10 +174,8 @@ public class UserMigrationServiceImpl implements UserMigrationService {
 
         ZonedDateTime yesterdayAtOneAM = currentTime
                 .minusDays(1) // Subtract one day to get yesterday
-                .withHour(1)  // Set the hour to 1 AM
-                .withMinute(0)
-                .withSecond(0)
-                .withNano(0);
+                .toLocalDate()
+                .atStartOfDay(zoneId);
 
         // Format yesterday's time
         String formattedYesterdayAtOneAM = yesterdayAtOneAM.format(formatter);
@@ -192,12 +184,15 @@ public class UserMigrationServiceImpl implements UserMigrationService {
         Map<String, Object> filters = new HashMap<>();
         filters.put(Constants.PROFILE_DETAILS_PROFILE_STATUS, Constants.NOT_MY_USER);
 
+        log.info("printing formattedYesterdayAtOneAM "+formattedYesterdayAtOneAM);
+        log.info("printing formattedCurrentTime "+formattedCurrentTime);
+
         // Create a separate HashMap for the inner filter
         Map<String, String> innerFilter = new HashMap<>();
         innerFilter.put("<=", formattedCurrentTime);
         innerFilter.put(">=", formattedYesterdayAtOneAM);
         filters.put(Constants.PROFILE_DETAILS_UPDATEDAS_NOT_MY_USER_ON, innerFilter);
-        List<String> fields = Arrays.asList("userId", "profileDetails", "organisations");
+        List<String> fields = Arrays.asList("userId", "profileDetails", "organisations", "rootOrgName");
 
         Map<String, Object> request = new HashMap<>();
         request.put(Constants.FILTERS, filters);
@@ -260,13 +255,4 @@ public class UserMigrationServiceImpl implements UserMigrationService {
         }};
 
     }
-    private Map<String, String> createHeaderMap(String authToken) {
-        HashMap<String, String> headerValue = new HashMap<>();
-        headerValue.put(Constants.AUTHORIZATION,serverConfig.getSbApiKey());
-        headerValue.put(Constants.AUTH_TOKEN, authToken);
-        headerValue.put(Constants.CONTENT_TYPE, Constants.APPLICATION_JSON);
-        return headerValue;
-    }
-
-
 }
