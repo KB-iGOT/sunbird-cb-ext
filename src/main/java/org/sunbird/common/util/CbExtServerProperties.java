@@ -891,6 +891,9 @@ public class CbExtServerProperties {
 	@Value("${kafka.topics.cqf.assessment.postpublish}")
 	private String cqfAssessmentPostPublishTopic;
 
+	@Value("${cqf.listentry.size}")
+	private Integer cqfEntryListSize;
+
 	public boolean qListFromCacheEnabled() {
 		return qListFromCacheEnabled;
 	}
@@ -3129,4 +3132,11 @@ public class CbExtServerProperties {
 		this.cqfAssessmentPostPublishTopic = cqfAssessmentPostPublishTopic;
 	}
 
+	public Integer getCqfEntryListSize() {
+		return cqfEntryListSize;
+	}
+
+	public void setCqfEntryListSize(Integer cqfEntryListSize) {
+		this.cqfEntryListSize = cqfEntryListSize;
+	}
 }
