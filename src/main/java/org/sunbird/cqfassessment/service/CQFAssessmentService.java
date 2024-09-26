@@ -100,4 +100,13 @@ public interface CQFAssessmentService {
     SBApiResponse updateCQFQuestionSet(String authToken, @Valid Map<String, Object> requestBody);
 
     SBApiResponse readQuestionList(@Valid Map<String, Object> requestBody, String authUserToken, boolean edit);
+
+
+    /**
+     * Process CQF post-publish event by updating the question set hierarchy in the Elasticsearch index.
+     *
+     * @param assessmentId the ID of the assessment
+     */
+    void processCQFPostPublish(String assessmentId);
+
 }

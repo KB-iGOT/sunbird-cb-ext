@@ -60,6 +60,10 @@ public class AssessmentServiceV5Impl implements AssessmentServiceV5 {
     @Autowired
     CassandraOperation cassandraOperation;
 
+    @Autowired
+    private Producer producer;
+
+
     @Override
     public SBApiResponse retakeAssessment(String assessmentIdentifier, String token,Boolean editMode) {
         logger.info("AssessmentServicev5Impl::retakeAssessment... Started");
@@ -1230,6 +1234,8 @@ public class AssessmentServiceV5Impl implements AssessmentServiceV5 {
             response.setResponseCode(HttpStatus.OK);
             response.setResult((Map<String, Object>) publishResponse.get(Constants.RESULT));
             response.getParams().setStatus(Constants.SUCCESS);
+            logger.info("Post publishing the assessment updating the data " + assessmentIdentifier+ "to elastic search using the topic {}" +serverProperties.getCqfAssessmentPostPublishTopic());
+            producer.push(serverProperties.getCqfAssessmentPostPublishTopic(), assessmentIdentifier);
         } catch (Exception e) {
             logger.error(Constants.AUTO_PUBLISH_FAILED + e);
             updateErrorDetails(response, Constants.AUTO_PUBLISH_FAILED, HttpStatus.INTERNAL_SERVER_ERROR);

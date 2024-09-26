@@ -1617,4 +1617,33 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
         }
         return Collections.emptyList();
     }
+
+    /**
+     * Process CQF post-publish event by updating the question set hierarchy in the Elasticsearch index.
+     *
+     * @param assessmentId the ID of the assessment
+     */
+    @Override
+    public void processCQFPostPublish(String assessmentId) {
+        logger.info("Inside the processCQFPostPublish method of CQFAssessmentServiceImpl");
+        // Get the CQF assessment data from the Elasticsearch index
+        Map<String, Object> esCQFAssessmentMap = getCQFAssessmentsByIds(assessmentId);
+        // Get the question set hierarchy data from the Elasticsearch index
+        Map<String, Object> questionsetMap = readQuestionSetHierarchy(assessmentId);
+        // Convert the question set hierarchy data to lowercase
+        Map<String, Object> lowerCaseMap = questionsetMap.entrySet().stream()
+                .collect(Collectors.toMap(entry -> entry.getKey().toLowerCase(), Map.Entry::getValue));
+        // Extract the question set data from the lowercase map
+        Map<String, Object> questionSetMap = objectMapper.convertValue(lowerCaseMap.get(Constants.QUESTION_SET_LOWER_CASE), new TypeReference<Map<String, Object>>() {
+        });
+        // Check if the CQF assessment exists in the Elasticsearch index
+        boolean isCQFAssessmentExist = !ObjectUtils.isEmpty(esCQFAssessmentMap);
+        // Update or add the question set data to the Elasticsearch index
+        RestStatus status = updateOrAddEntity(serverProperties.getQuestionSetHierarchyIndex(), serverConfig.getEsProfileIndexType(), assessmentId, questionSetMap, isCQFAssessmentExist);
+        if (status.equals(RestStatus.CREATED) || status.equals(RestStatus.OK)) {
+            logger.info("Updated the question set hierarchy in the Elasticsearch index successfully.");
+        } else {
+            logger.info("There is a issue while updating the question set hierarchy in the Elasticsearch index.");
+        }
+    }
 }

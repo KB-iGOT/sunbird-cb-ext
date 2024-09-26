@@ -888,6 +888,9 @@ public class CbExtServerProperties {
 	@Value("${redis.master.data.read.timeout}")
 	private int redisMasterDataReadTimeOut;
 
+	@Value("${kafka.topics.cqf.assessment.postpublish}")
+	private String cqfAssessmentPostPublishTopic;
+
 	public boolean qListFromCacheEnabled() {
 		return qListFromCacheEnabled;
 	}
@@ -3117,4 +3120,13 @@ public class CbExtServerProperties {
 	public void setRedisMasterDataReadTimeOut(int redisMasterDataReadTimeOut) {
 		this.redisMasterDataReadTimeOut = redisMasterDataReadTimeOut;
 	}
+
+	public String getCqfAssessmentPostPublishTopic() {
+		return cqfAssessmentPostPublishTopic;
+	}
+
+	public void setCqfAssessmentPostPublishTopic(String cqfAssessmentPostPublishTopic) {
+		this.cqfAssessmentPostPublishTopic = cqfAssessmentPostPublishTopic;
+	}
+
 }
