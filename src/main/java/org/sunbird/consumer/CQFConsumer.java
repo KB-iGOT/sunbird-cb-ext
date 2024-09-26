@@ -30,7 +30,7 @@ public class CQFConsumer {
     private CQFAssessmentService cqfAssessmentService;
 
 
-    @KafkaListener(groupId = "${kafka.topics.user.assessment.async.submit.handler.group}", topics = "${kafka.topics.cqf.assessment.postpublish}")
+    @KafkaListener(groupId = "${kafka.groupId.cqf.assessment.postpublish}", topics = "${kafka.topics.cqf.assessment.postpublish}")
     public void processMessage(ConsumerRecord<String, String> data) {
         try {
             if (StringUtils.isNoneBlank(data.value())) {
