@@ -1638,6 +1638,29 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
         });
         // Check if the CQF assessment exists in the Elasticsearch index
         boolean isCQFAssessmentExist = !ObjectUtils.isEmpty(esCQFAssessmentMap);
+        // Get the 'children' ArrayList
+        ArrayList<Object> children = (ArrayList<Object>) questionSetMap.get("children");
+        // Iterate over the 'children' ArrayList
+        for (Object child : children) {
+            // Get the 'children' ArrayList of the current child
+            ArrayList<Object> childChildren = (ArrayList<Object>) ((HashMap) child).get("children");
+            // Iterate over the 'children' ArrayList of the current child
+            for (Object grandChild : childChildren) {
+                // Get the 'choices' string
+                String choices = (String) ((HashMap) grandChild).get("choices");
+                // Convert the 'choices' string to a HashMap using ObjectMapper
+                try {
+                    HashMap<String, Object> choicesMap = objectMapper.convertValue(objectMapper.readTree(choices), HashMap.class);
+                    // Replace the 'choices' string with the HashMap
+                    ((HashMap) grandChild).put("choices", choicesMap);
+                } catch (Exception e) {
+                    // Log the error message
+                    logger.error("Error converting choices to HashMap: {}", e.getMessage());
+                }
+
+            }
+        }
+        questionSetMap.put("children", children);
         // Update or add the question set data to the Elasticsearch index
         RestStatus status = updateOrAddEntity(serverProperties.getQuestionSetHierarchyIndex(), serverConfig.getEsProfileIndexType(), assessmentId, questionSetMap, isCQFAssessmentExist);
         if (status.equals(RestStatus.CREATED) || status.equals(RestStatus.OK)) {
