@@ -18,4 +18,6 @@ public interface OperationalReportService {
     public SBApiResponse getFileInfo(String authToken);
 
     public SBApiResponse readGrantAccess(String authToken, boolean isAdminAPI);
+
+    ResponseEntity<InputStreamResource> downloadIndividualReport(String rootOrgId, String authToken, Map<String, Object> requestBody);
 }

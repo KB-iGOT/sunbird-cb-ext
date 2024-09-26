@@ -1148,6 +1148,7 @@ public class Constants {
 	public static final String COMMON_BATCH_START_YR = "commonBatchStartYear";
 	public static final String COMMON_BATCH_END_YR = "commonBatchEndYear";
 	public static final String COMMON_BATCH_EXCLUSION_YR = "commonBatchExclusionYearList";
+	public static final String CHILD_ID = "childId";
 
 	private Constants() {
 		throw new IllegalStateException("Utility class");
