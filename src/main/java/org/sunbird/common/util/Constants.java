@@ -1213,6 +1213,7 @@ public class Constants {
 	public static final String API_USER_MIGRATION = "api.user.migrated";
 	public static final String PROFILE_DETAILS_PROFILE_STATUS = "profileDetails.profileStatus";
 	public static final String PROFILE_DETAILS_UPDATEDAS_NOT_MY_USER_ON = "profileDetails.updatedAsNotMyUserOn";
+	public static final String NOT_APPLICABLE = "Not Applicable";
 
 	private Constants() {
 		throw new IllegalStateException("Utility class");

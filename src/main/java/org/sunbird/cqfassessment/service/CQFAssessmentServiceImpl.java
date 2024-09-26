@@ -939,16 +939,20 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
                     String identifier = question.get(Constants.IDENTIFIER).toString();
                     maxMarksForQn =  (int) maxMarksForQuestion.get(identifier);
                     achievedMarksForSection = achievedMarksForSection + achievedMarksPerQn;
-                    totalMarksForSection = totalMarksForSection + maxMarksForQn;
+                    if(!marked.get(0).equalsIgnoreCase(Constants.NOT_APPLICABLE)) {
+                        totalMarksForSection = totalMarksForSection + maxMarksForQn;
+                    }
                     question.put(Constants.ACQUIRED_SCORE,achievedMarksPerQn);
                 }
             }
             overallSectionPercentageScore = totalMarksForSection * ((double) questionSetDetailsMap.get(Constants.SECTION_WEIGHTAGE) / 100);
             achievedPercentageScore = achievedMarksForSection * ((double) questionSetDetailsMap.get(Constants.SECTION_WEIGHTAGE) / 100);
-            sectionLevelPercentage = (achievedMarksForSection/totalMarksForSection) * 100;
+            if (totalMarksForSection >= 0) {
+                sectionLevelPercentage = (achievedMarksForSection / totalMarksForSection) * 100;
+                resultMap.put(Constants.SECTION_LEVEL_PERCENTAGE, sectionLevelPercentage);
+            }
             resultMap.put(Constants.OVERALL_SECTION_PERCENTAGE_SCORE, overallSectionPercentageScore);
             resultMap.put(Constants.ACHIEVED_PERCENTAGE_SCORE, achievedPercentageScore);
-            resultMap.put(Constants.SECTION_LEVEL_PERCENTAGE, sectionLevelPercentage);
             resultMap.put(Constants.ACHIEVED_MARKS_FOR_SECTION,achievedMarksForSection);
             resultMap.put(Constants.TOTAL_MARKS_FOR_SECTION,totalMarksForSection);
             resultMap.put(Constants.CHILDREN, userQuestionList);
