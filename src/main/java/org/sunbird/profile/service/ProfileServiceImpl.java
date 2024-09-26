@@ -1042,7 +1042,7 @@ public class ProfileServiceImpl implements ProfileService {
 			List<Map<String, Object>> profDetails = (List<Map<String, Object>>) requestProfile
 					.get(Constants.PROFESSIONAL_DETAILS);
 			if (profDetails.get(0).containsKey(Constants.NAME)) {
-				requestDeptName = (String) profDetails.get(0).get(Constants.NAME);
+				requestDeptName = (String) profDetails.get(0).get(Constants.DESIGNATION);
 			}
 		}
 		return requestDeptName;
