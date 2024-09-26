@@ -1012,9 +1012,9 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
     public Map<String, Object> getMaxMarksForQustions(Map<String, Object> optionWeightages) {
         logger.info("Retrieving max weightages for questions based on the questions...");
         Map<String, Object> ret = new HashMap<>();
-        int maxMarks = 0;
         for (Map.Entry<String, Object> entry : optionWeightages.entrySet()) {
             String identifier = entry.getKey();
+            int maxMarks = 0;
             Map<String, Integer> weightages = objectMapper.convertValue(entry.getValue(), new TypeReference<Map<String, Integer>>() {});
             for (Map.Entry<String, Integer> marksMap : weightages.entrySet()) {
                 int marks = 0;
