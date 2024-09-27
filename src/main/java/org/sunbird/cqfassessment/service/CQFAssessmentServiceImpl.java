@@ -1150,7 +1150,7 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
                     Constants.SUNBIRD_KEY_SPACE_NAME, Constants.TABLE_CQF_ASSESSMENT_DATA,
                     propertyMap, null);
             if (existingDataList.isEmpty()) {
-                response.put(Constants.CQF_ASSESSMENT_DATA, new HashMap<>());
+                response.put(Constants.CQF_RESULTS, new HashMap<>());
                 return response;
             }
             List<Map<String, Object>> cqfResults = new ArrayList<>();
