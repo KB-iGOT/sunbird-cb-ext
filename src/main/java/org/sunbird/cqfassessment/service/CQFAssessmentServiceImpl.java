@@ -7,7 +7,6 @@ import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import org.apache.commons.collections.MapUtils;
 import org.apache.commons.lang.StringUtils;
-import org.apache.tomcat.util.bcel.Const;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.rest.RestStatus;
@@ -30,7 +29,6 @@ import org.sunbird.common.service.OutboundRequestHandlerServiceImpl;
 import org.sunbird.common.util.*;
 import org.sunbird.cqfassessment.model.CQFAssessmentModel;
 
-import javax.validation.Valid;
 import java.io.IOException;
 import java.sql.Timestamp;
 import java.util.*;
@@ -927,6 +925,7 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
             Map<String, Object> resultMap = new HashMap<>();
             Map<String, Object> optionWeightages = new HashMap<>();
             Map<String, Object> maxMarksForQuestion = new HashMap<>();
+            Map<String,Integer> optionValueNotApplicableForQuestion = new HashMap<>();
             int minimumPassPercentage = 0;
             if (questionSetDetailsMap.get(Constants.MINIMUM_PASS_PERCENTAGE) != null) {
                 minimumPassPercentage = (int) questionSetDetailsMap.get(Constants.MINIMUM_PASS_PERCENTAGE);
@@ -934,6 +933,7 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
             if (assessmentType.equalsIgnoreCase(Constants.QUESTION_OPTION_WEIGHTAGE)) {
                 optionWeightages = getOptionWeightages(originalQuestionList, questionMap);
                 maxMarksForQuestion = getMaxMarksForQustions(optionWeightages);
+                processNotApplicableValueInOptions(questionMap, optionValueNotApplicableForQuestion);
             }
             for (Map<String, Object> question : userQuestionList) {
                 List<String> marked = new ArrayList<>();
@@ -947,7 +947,7 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
                     String identifier = question.get(Constants.IDENTIFIER).toString();
                     maxMarksForQn =  (int) maxMarksForQuestion.get(identifier);
                     achievedMarksForSection = achievedMarksForSection + achievedMarksPerQn;
-                    if(!marked.get(0).equalsIgnoreCase(Constants.NOT_APPLICABLE)) {
+                    if(!marked.get(0).equalsIgnoreCase(optionValueNotApplicableForQuestion.get(identifier).toString())) {
                         totalMarksForSection = totalMarksForSection + maxMarksForQn;
                     }
                     question.put(Constants.ACQUIRED_SCORE,achievedMarksPerQn);
@@ -1681,4 +1681,45 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
             logger.info("There is a issue while updating the question set hierarchy in the Elasticsearch index.");
         }
     }
+
+
+    /**
+     * Processes the 'Not Applicable' options in the question map and updates the indexValueNotApplicableForQnsMap map.
+     *
+     * @param questionMap                   the question map to process
+     * @param indexValueNotApplicableForQnsMap the map to store the index of 'Not Applicable' options
+     */
+    private void processNotApplicableValueInOptions(Map<String, Object> questionMap, Map<String, Integer> indexValueNotApplicableForQnsMap) {
+        logger.info("Processing 'Not Applicable' options in the question map.");
+        for (Map.Entry<String, Object> entry : questionMap.entrySet()) {
+            Map<String, Object> questionsMap = (Map<String, Object>) entry.getValue();
+            if (questionsMap.containsKey(Constants.CHOICES)) {
+                Map<String, Object> choicesMap = (Map<String, Object>) questionsMap.get(Constants.CHOICES);
+                List<Map<String, Object>> optionsList = (List<Map<String, Object>>) choicesMap.get(Constants.OPTIONS);
+                findNotApplicableValueOption(optionsList, entry.getKey(), indexValueNotApplicableForQnsMap);
+            }
+        }
+        logger.info("Finished processing 'Not Applicable' options in the question map.");
+    }
+
+    /**
+     * Finds the index of the "Not Applicable" option in the given options list and updates the indexNotApplicableForQuestion map.
+     *
+     * @param optionsList                   the list of options to search
+     * @param questionKey                   the key of the question being processed
+     * @param indexNotApplicableForQuestion the map to store the index of "Not Applicable" options
+     */
+    private void findNotApplicableValueOption(List<Map<String, Object>> optionsList, String questionKey, Map<String, Integer> indexNotApplicableForQuestion) {
+        for (int i = 0; i < optionsList.size(); i++) {
+            Map<String, Object> optionMap = optionsList.get(i);
+            Map<String, Object> valueMap = (Map<String, Object>) optionMap.get(Constants.VALUE);
+            String body = (String) valueMap.get(Constants.BODY);
+            if (body.contains(Constants.NOT_APPLICABLE)) {
+                indexNotApplicableForQuestion.put(questionKey, i);
+                break;
+            }
+        }
+    }
+
+
 }
