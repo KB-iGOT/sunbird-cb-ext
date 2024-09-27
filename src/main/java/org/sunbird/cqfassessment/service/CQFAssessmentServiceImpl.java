@@ -30,7 +30,6 @@ import org.sunbird.common.util.*;
 import org.sunbird.cqfassessment.model.CQFAssessmentModel;
 
 import java.io.IOException;
-import java.sql.Timestamp;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -392,7 +391,7 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
         if (existingDataList.isEmpty()) {
             return handleFirstTimeAssessment(assessmentAllDetail, response, cqfAssessmentModel);
         } else {
-            return handleExistingAssessment(assessmentAllDetail,  response, existingDataList, cqfAssessmentModel);
+            return handleExistingAssessment(assessmentAllDetail,  response, existingDataList);
         }
     }
 
@@ -414,30 +413,6 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
             updateErrorDetails(response, Constants.ASSESSMENT_DATA_START_TIME_NOT_UPDATED);
         }
         return response;
-    }
-
-
-    /**
-     * Checks if the assessment duration is valid by verifying that the expected duration is a positive integer.
-     *
-     * @param assessmentAllDetail A map containing all the details of the assessment.
-     * @return True if the assessment duration is valid, false otherwise.
-     */
-    private boolean isValidAssessmentDuration(Map<String, Object> assessmentAllDetail) {
-        return assessmentAllDetail.get(Constants.EXPECTED_DURATION) != null;
-    }
-
-    private Timestamp calculateAssessmentSubmitTime(int expectedDuration, Timestamp assessmentStartTime,
-                                                    int bufferTime) {
-        Calendar cal = Calendar.getInstance();
-        cal.setTimeInMillis(assessmentStartTime.getTime());
-        if (bufferTime > 0) {
-            cal.add(Calendar.SECOND,
-                    expectedDuration + Integer.parseInt(serverProperties.getUserAssessmentSubmissionDuration()));
-        } else {
-            cal.add(Calendar.SECOND, expectedDuration);
-        }
-        return new Timestamp(cal.getTime().getTime());
     }
 
 
@@ -472,16 +447,15 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
      * @param assessmentAllDetail A map containing all the details of the assessment.
      * @param response            The SBApiResponse object to be populated with the assessment results.
      * @param existingDataList    A list of maps containing the existing assessment data.
-     * @param cqfAssessmentModel  A CQFAssessmentModel object representing the assessment.
      * @return The SBApiResponse object containing the assessment results, or null if the assessment is not handled.
      */
-    private SBApiResponse handleExistingAssessment(Map<String, Object> assessmentAllDetail, SBApiResponse response, List<Map<String, Object>> existingDataList, CQFAssessmentModel cqfAssessmentModel) {
+    private SBApiResponse handleExistingAssessment(Map<String, Object> assessmentAllDetail, SBApiResponse response, List<Map<String, Object>> existingDataList) {
         logger.info("Assessment read... user has details... ");
         String status = (String) existingDataList.get(0).get(Constants.STATUS);
         if (isAssessmentStillOngoing(status)) {
             return handleOngoingAssessment(existingDataList, response);
         }else{
-            return handleAssessmentRetryOrExpired(assessmentAllDetail, response, cqfAssessmentModel);
+            return handleAssessmentRetryOrExpired(assessmentAllDetail, response);
         }
     }
 
@@ -513,7 +487,7 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
 
 
 
-    private SBApiResponse handleAssessmentRetryOrExpired(Map<String, Object> assessmentAllDetail, SBApiResponse response, CQFAssessmentModel cqfAssessmentModel) {
+    private SBApiResponse handleAssessmentRetryOrExpired(Map<String, Object> assessmentAllDetail, SBApiResponse response) {
         logger.info("Incase the assessment is submitted before the end time, or the endtime has exceeded, read assessment freshly ");
 
         Map<String, Object> assessmentData = readAssessmentLevelData(assessmentAllDetail);
@@ -663,14 +637,7 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
             }
             Map<String, Object> result = calculateSectionFinalResults(sectionLevelsResults);
             outgoingResponse.getResult().putAll(result);
-            String questionSetFromAssessmentString = (String) cqfAssessmentModel.getExistingAssessmentData().get(Constants.ASSESSMENT_READ_RESPONSE_KEY);
-            Map<String, Object> questionSetFromAssessment = null;
-            if (StringUtils.isNotBlank(questionSetFromAssessmentString)) {
-                questionSetFromAssessment = objectMapper.readValue(questionSetFromAssessmentString,
-                        new TypeReference<Map<String, Object>>() {
-                        });
-            }
-            writeDataToDatabase(submitRequest, userId, questionSetFromAssessment, result);
+            writeDataToDatabase(submitRequest, userId, result);
             return outgoingResponse;
         } catch (Exception e) {
             errMsg = String.format("Failed to process assessment submit request. Exception: ", e.getMessage());
@@ -688,11 +655,10 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
      *
      * @param submitRequest The request object containing the submitted assessment data
      * @param userId The ID of the user who submitted the assessment
-     * @param questionSetFromAssessment The question set from the assessment
      * @param result The result of the assessment submission
      */
     private void writeDataToDatabase(Map<String, Object> submitRequest, String userId,
-                                     Map<String, Object> questionSetFromAssessment, Map<String, Object> result) {
+                                     Map<String, Object> result) {
         try {
             Map<String, Object> paramsMap = new HashMap<>();
             paramsMap.put(Constants.USER_ID, userId);
@@ -719,9 +685,8 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
      * @param token              The token for the assessment.
      * @param editMode           Whether the assessment is in edit mode.
      * @return An error message if the validation fails, otherwise an empty string.
-     * @throws Exception If an error occurs during validation.
      */
-    private String validateSubmitAssessmentRequest(Map<String, Object> submitRequest, String userId, CQFAssessmentModel cqfAssessmentModel, String token, boolean editMode) throws Exception {
+    private String validateSubmitAssessmentRequest(Map<String, Object> submitRequest, String userId, CQFAssessmentModel cqfAssessmentModel, String token, boolean editMode) {
         submitRequest.put(Constants.USER_ID, userId);
         if (StringUtils.isEmpty((String) submitRequest.get(Constants.IDENTIFIER))) {
             return Constants.INVALID_ASSESSMENT_ID;
@@ -1185,7 +1150,7 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
                     Constants.SUNBIRD_KEY_SPACE_NAME, Constants.TABLE_CQF_ASSESSMENT_DATA,
                     propertyMap, null);
             if (existingDataList.isEmpty()) {
-                updateErrorDetails(response, Constants.USER_ASSESSMENT_DATA_NOT_PRESENT, HttpStatus.BAD_REQUEST);
+                response.put(Constants.CQF_ASSESSMENT_DATA, new HashMap<>());
                 return response;
             }
             List<Map<String, Object>> cqfResults = new ArrayList<>();
@@ -1651,20 +1616,20 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
         // Check if the CQF assessment exists in the Elasticsearch index
         boolean isCQFAssessmentExist = !ObjectUtils.isEmpty(esCQFAssessmentMap);
         // Get the 'children' ArrayList
-        ArrayList<Object> children = (ArrayList<Object>) questionSetMap.get("children");
+        ArrayList<Object> children = (ArrayList<Object>) questionSetMap.get(Constants.CHILDREN);
         // Iterate over the 'children' ArrayList
         for (Object child : children) {
             // Get the 'children' ArrayList of the current child
-            ArrayList<Object> childChildren = (ArrayList<Object>) ((HashMap) child).get("children");
+            ArrayList<Object> childChildren = (ArrayList<Object>) ((HashMap) child).get(Constants.CHILDREN);
             // Iterate over the 'children' ArrayList of the current child
             for (Object grandChild : childChildren) {
                 // Get the 'choices' string
-                String choices = (String) ((HashMap) grandChild).get("choices");
+                String choices = (String) ((HashMap) grandChild).get(Constants.CHOICES);
                 // Convert the 'choices' string to a HashMap using ObjectMapper
                 try {
                     HashMap<String, Object> choicesMap = objectMapper.convertValue(objectMapper.readTree(choices), HashMap.class);
                     // Replace the 'choices' string with the HashMap
-                    ((HashMap) grandChild).put("choices", choicesMap);
+                    ((HashMap) grandChild).put(Constants.CHOICES, choicesMap);
                 } catch (Exception e) {
                     // Log the error message
                     logger.error("Error converting choices to HashMap: {}", e.getMessage());
@@ -1672,7 +1637,7 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
 
             }
         }
-        questionSetMap.put("children", children);
+        questionSetMap.put(Constants.CHILDREN, children);
         // Update or add the question set data to the Elasticsearch index
         RestStatus status = updateOrAddEntity(serverProperties.getQuestionSetHierarchyIndex(), serverConfig.getEsProfileIndexType(), assessmentId, questionSetMap, isCQFAssessmentExist);
         if (status.equals(RestStatus.CREATED) || status.equals(RestStatus.OK)) {
@@ -1720,6 +1685,4 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
             }
         }
     }
-
-
 }
