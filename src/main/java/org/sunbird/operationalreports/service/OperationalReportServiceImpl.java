@@ -503,7 +503,6 @@ public class OperationalReportServiceImpl implements OperationalReportService {
                 throw new Exception("RequestBody is not proper.");
             }
             List<String> childIds = (List<String>) request.get(Constants.CHILD_ID);
-
             List<OrgHierarchy> orgHierarchyList = orgHierarchyRepository.findAllBySbOrgId(Collections.singletonList(rootOrgId));
             String mapId = "";
             if (CollectionUtils.isNotEmpty(orgHierarchyList)) {
@@ -651,8 +650,8 @@ public class OperationalReportServiceImpl implements OperationalReportService {
             logger.error("Issue while generating the file source Folder path:" + sourceFolderPath, e);
             throw new Exception("Not able to get the input Stream");
         }
-
     }
+
     private String getZipProtectPassword() {
         int passwordLength = serverProperties.getZipFilePasswordLength();
         return generateAlphanumericPassword(passwordLength);
