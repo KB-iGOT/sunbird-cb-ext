@@ -42,10 +42,11 @@ public interface CQFAssessmentService {
     /**
      * Lists all CQF Assessments.
      *
-     * @param authToken the authentication token for the request
+     * @param authToken   the authentication token for the request
+     * @param requestBody  Request body of the request
      * @return the API response containing the list of assessments
      */
-    SBApiResponse listCQFAssessments(String authToken);
+    SBApiResponse listCQFAssessments(String authToken, @Valid Map<String, Object> requestBody);
 
     /**
      * Reads an assessment from the API.

@@ -1214,6 +1214,7 @@ public class Constants {
 	public static final String PROFILE_DETAILS_PROFILE_STATUS = "profileDetails.profileStatus";
 	public static final String PROFILE_DETAILS_UPDATEDAS_NOT_MY_USER_ON = "profileDetails.updatedAsNotMyUserOn";
 	public static final String NOT_APPLICABLE = "Not Applicable";
+	public static final String CURRENT_PAGE = "currentPage";
 
 	private Constants() {
 		throw new IllegalStateException("Utility class");

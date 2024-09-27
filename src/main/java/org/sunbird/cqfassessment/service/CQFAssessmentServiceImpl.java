@@ -7,11 +7,14 @@ import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import org.apache.commons.collections.MapUtils;
 import org.apache.commons.lang.StringUtils;
+import org.apache.tomcat.util.bcel.Const;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.rest.RestStatus;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
+import org.elasticsearch.search.sort.FieldSortBuilder;
+import org.elasticsearch.search.sort.SortOrder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,6 +30,7 @@ import org.sunbird.common.service.OutboundRequestHandlerServiceImpl;
 import org.sunbird.common.util.*;
 import org.sunbird.cqfassessment.model.CQFAssessmentModel;
 
+import javax.validation.Valid;
 import java.io.IOException;
 import java.sql.Timestamp;
 import java.util.*;
@@ -154,11 +158,12 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
     /**
      * Lists all CQF Assessments.
      *
-     * @param authToken the authentication token for the request
+     * @param authToken   the authentication token for the request
+     * @param requestBody Request body of the request
      * @return the API response containing the list of assessments
      */
     @Override
-    public SBApiResponse listCQFAssessments(String authToken) {
+    public SBApiResponse listCQFAssessments(String authToken,  Map<String, Object> requestBody) {
         logger.info("CQFAssessmentServiceImpl::listCQFAssessments... Started");
         List<Map<String, Object>> resultArray = new ArrayList<>();
         Map<String, Object> result;
@@ -173,6 +178,9 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
         try {
             SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
             searchSourceBuilder.query(QueryBuilders.matchAllQuery());
+            searchSourceBuilder.sort(new FieldSortBuilder(requestBody.get(Constants.LAST_UPDATED_ON).toString()).order(SortOrder.DESC));
+            searchSourceBuilder.from((Integer.parseInt(requestBody.get(Constants.CURRENT_PAGE).toString()) - 1) * Integer.parseInt(requestBody.get(Constants.PAGE_SIZE).toString()));
+            searchSourceBuilder.size(Integer.parseInt(requestBody.get(Constants.PAGE_SIZE).toString()));
             if(indexerService.isIndexPresent(serverProperties.getQuestionSetHierarchyIndex())) {
                 searchResponse = indexerService.getEsResult(serverProperties.getQuestionSetHierarchyIndex(), serverConfig.getEsProfileIndexType(), searchSourceBuilder, false);
                 for (SearchHit hit : searchResponse.getHits()) {
