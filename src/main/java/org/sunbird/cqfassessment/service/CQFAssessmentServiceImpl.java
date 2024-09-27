@@ -178,7 +178,7 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
         try {
             SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
             searchSourceBuilder.query(QueryBuilders.matchAllQuery());
-            searchSourceBuilder.sort(new FieldSortBuilder(requestBody.get(Constants.LAST_UPDATED_ON).toString()).order(SortOrder.DESC));
+            searchSourceBuilder.sort(new FieldSortBuilder(requestBody.get(Constants.FIELD).toString()).order(SortOrder.DESC));
             searchSourceBuilder.from((Integer.parseInt(requestBody.get(Constants.CURRENT_PAGE).toString()) - 1) * Integer.parseInt(requestBody.get(Constants.PAGE_SIZE).toString()));
             searchSourceBuilder.size(Integer.parseInt(requestBody.get(Constants.PAGE_SIZE).toString()));
             if(indexerService.isIndexPresent(serverProperties.getQuestionSetHierarchyIndex())) {
