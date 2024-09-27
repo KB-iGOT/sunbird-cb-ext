@@ -195,21 +195,18 @@ public class OperationalReportServiceImpl implements OperationalReportService {
             String channel = userDetailsMap.get(Constants.CHANNEL);
             InputStreamResource inputStreamResource = null;
             String reportFileName = "";
+            sourceFolderPath = String.format("%s/%s/%s/", Constants.LOCAL_BASE_PATH, rootOrg, UUID.randomUUID());
             if (serverProperties.getSpvChannelName().equalsIgnoreCase(channel)) {
                 logger.info("This is under spv: " + channel);
                 reportFileName = serverProperties.getSpvFullReportFileName();
                 String objectKey = serverProperties.getReportDownloadFolderName() + "/" + serverProperties.getSpvFullReportReportFolderName() + "/"
                         + serverProperties.getSpvFullReportFileName();
-                sourceFolderPath = String.format("%s/%s/%s/%s", Constants.LOCAL_BASE_PATH, rootOrg,
-                        Constants.OUTPUT_PATH, UUID.randomUUID());
                 inputStreamResource = getInputStreamForZip(reportFileName, objectKey, headers, sourceFolderPath, rootOrg);
             } else {
                 logger.info("This is under mdo: " + channel + " rootOrgId: " + rootOrg);
                 reportFileName = serverProperties.getOperationReportFileName();
                 String objectKey = serverProperties.getOperationalReportFolderName() + "/mdoid=" + rootOrg + "/"
                         + serverProperties.getOperationReportFileName();
-                sourceFolderPath = String.format("%s/%s/%s/%s", Constants.LOCAL_BASE_PATH, rootOrg,
-                        Constants.OUTPUT_PATH, UUID.randomUUID());
                 inputStreamResource = getInputStreamForZip(reportFileName, objectKey, headers, sourceFolderPath, rootOrg);
             }
 
@@ -506,9 +503,6 @@ public class OperationalReportServiceImpl implements OperationalReportService {
                 throw new Exception("RequestBody is not proper.");
             }
             List<String> childIds = (List<String>) request.get(Constants.CHILD_ID);
-            if (CollectionUtils.isEmpty(childIds)) {
-                throw new Exception("childIds is not proper.");
-            }
 
             List<OrgHierarchy> orgHierarchyList = orgHierarchyRepository.findAllBySbOrgId(Collections.singletonList(rootOrgId));
             String mapId = "";
@@ -521,28 +515,31 @@ public class OperationalReportServiceImpl implements OperationalReportService {
                 throw new Exception("Issue while fetching orgHierarchy for orgId: " + rootOrgId);
             }
             String reportFileName = serverProperties.getOperationReportFileName();
+            sourceFolderPath = String.format("%s/%s/%s/", Constants.LOCAL_BASE_PATH, rootOrgId, UUID.randomUUID());
+            String outputPath = sourceFolderPath +  Constants.OUTPUT_PATH;
             for (String childId : childIds) {
                 boolean isChildPresent = orgHierarchyRepository.isChildOrgPresent(mapId, childId);
                 if (isChildPresent) {
                     logger.info("This is under mdo: " + childId + " rootOrgId: " + rootOrgId);
                     String objectKey = serverProperties.getOperationalReportFolderName() + "/mdoid=" + childId + "/"
                             + serverProperties.getOperationReportFileName();
-                    sourceFolderPath = String.format("%s/%s/%s/%s", Constants.LOCAL_BASE_PATH, rootOrgId,
-                            Constants.OUTPUT_PATH, UUID.randomUUID());
-                    createTheZipAndStoreForOrg(reportFileName, objectKey, rootOrgId);
+                    createTheZipAndStoreForOrg(reportFileName, objectKey, sourceFolderPath);
                 } else {
                     logger.error("ChildId is not proper for orgId: " + rootOrgId);
+                    if (childIds.size() == 1) {
+                        throw new Exception("ChildId is not proper for orgId:: " + rootOrgId);
+                    }
                 }
             }
-            String objectKey = serverProperties.getOperationalReportFolderName() + "/mdoid=" + rootOrgId + "/"
-                    + serverProperties.getOperationReportFileName();
-            sourceFolderPath = String.format("%s/%s/%s/%s", Constants.LOCAL_BASE_PATH, rootOrgId,
-                    Constants.OUTPUT_PATH, UUID.randomUUID());
-            createTheZipAndStoreForOrg(reportFileName, objectKey, rootOrgId);
-            inputStreamResource = getPasswordProtectedInputStream(serverProperties.getOperationReportFileName(),  headers, rootOrgId + Constants.UNZIP_PATH, rootOrgId);
+            if (CollectionUtils.isEmpty(childIds)) {
+                String objectKey = serverProperties.getOperationalReportFolderName() + "/mdoid=" + rootOrgId + "/"
+                        + serverProperties.getOperationReportFileName();
+                createTheZipAndStoreForOrg(reportFileName, objectKey, sourceFolderPath);
+            }
+            inputStreamResource = getPasswordProtectedInputStream(serverProperties.getOperationReportFileName(),  headers, outputPath, rootOrgId);
             return ResponseEntity.ok()
                     .headers(headers)
-                    .contentLength(Files.size(Paths.get(sourceFolderPath + "/" + serverProperties.getOperationReportFileName())))
+                    .contentLength(Files.size(Paths.get(outputPath + "/" + serverProperties.getOperationReportFileName())))
                     .body(inputStreamResource);
         } catch (Exception e) {
             logger.error("Failed to read the downloaded file: " + serverProperties.getOperationReportFileName()
@@ -588,9 +585,9 @@ public class OperationalReportServiceImpl implements OperationalReportService {
         logger.info("The fileName is" + fileName);
         logger.info("The ObjectKey is" + objectKey);
         storageService.download(serverProperties.getReportDownloadContainerName(), objectKey,
-                Constants.LOCAL_BASE_PATH + rootOrgId, Option.apply(Boolean.FALSE));
+                sourceFolderPath + Constants.INPUT_PATH, Option.apply(Boolean.FALSE));
         // Set the file path
-        Path filePath = Paths.get(Constants.LOCAL_BASE_PATH + fileName);
+        Path filePath = Paths.get(sourceFolderPath + Constants.INPUT_PATH + fileName);
         // Set headers for the response
         headers.add(HttpHeaders.CONTENT_DISPOSITION,
                 "attachment; filename=\"" + fileName + "\"");
@@ -600,7 +597,7 @@ public class OperationalReportServiceImpl implements OperationalReportService {
         String password = getZipProtectPassword();
         headers.add(Constants.PASSWORD, password);
         // Unzip the downloaded file
-        String destinationFolderPath = sourceFolderPath + Constants.UNZIP_PATH;
+        String destinationFolderPath = sourceFolderPath + Constants.OUTPUT_PATH + Constants.UNZIP_PATH;
         String zipFilePath = String.valueOf(filePath);
         unlockZipFolder(zipFilePath, destinationFolderPath, serverProperties.getUnZipFilePassword());
         // Encrypt the unzipped files and create a new zip file
@@ -610,41 +607,51 @@ public class OperationalReportServiceImpl implements OperationalReportService {
                 .newInputStream(Paths.get(sourceFolderPath + "/" + fileName)));
     }
 
-    private void createTheZipAndStoreForOrg(String fileName, String objectKey, String rootOrgId) {
-        logger.info("The fileName is" + fileName);
-        logger.info("The ObjectKey is" + objectKey);
-        storageService.download(serverProperties.getReportDownloadContainerName(), objectKey,
-                Constants.LOCAL_BASE_PATH + rootOrgId, Option.apply(Boolean.FALSE));
-        // Set the file path
-        Path filePath = Paths.get(Constants.LOCAL_BASE_PATH + rootOrgId + fileName);
+    private void createTheZipAndStoreForOrg(String fileName, String objectKey, String sourceFolderPath) {
+        try {
+            logger.info("The fileName is" + fileName);
+            logger.info("The ObjectKey is" + objectKey);
+            storageService.download(serverProperties.getReportDownloadContainerName(), objectKey,
+                    sourceFolderPath + Constants.INPUT_PATH, Option.apply(Boolean.FALSE));
+            // Set the file path
+            Path filePath = Paths.get(sourceFolderPath + Constants.INPUT_PATH + fileName);
 
-        String destinationFolderPath = rootOrgId + Constants.UNZIP_PATH;
-        String zipFilePath = String.valueOf(filePath);
-        unlockZipFolder(zipFilePath, destinationFolderPath, serverProperties.getUnZipFilePassword());
+            String destinationFolderPath = sourceFolderPath + Constants.OUTPUT_PATH + Constants.UNZIP_PATH;
+            String zipFilePath = String.valueOf(filePath);
+            unlockZipFolder(zipFilePath, destinationFolderPath, serverProperties.getUnZipFilePassword());
+        } catch (Exception e) {
+            logger.error("The data is not present for the objectKey:" + objectKey, e);
+        }
     }
 
-    private InputStreamResource getPasswordProtectedInputStream(String fileName, HttpHeaders headers, String sourceFolderPath, String rootOrgId) throws IOException {
-        logger.info("The fileName is" + fileName);
-        logger.info("The sourceFolderPath is" + sourceFolderPath + "rootOrgId: " + rootOrgId);
-        headers.add(HttpHeaders.CONTENT_DISPOSITION,
-                "attachment; filename=\"" + fileName + "\"");
-        headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
-        // Prepare password for encryption
+    private InputStreamResource getPasswordProtectedInputStream(String fileName, HttpHeaders headers, String sourceFolderPath, String rootOrgId) throws Exception {
+        try {
+            logger.info("The fileName is" + fileName);
+            logger.info("The sourceFolderPath is" + sourceFolderPath + "rootOrgId: " + rootOrgId);
+            headers.add(HttpHeaders.CONTENT_DISPOSITION,
+                    "attachment; filename=\"" + fileName + "\"");
+            headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
+            // Prepare password for encryption
 
-        String password = redisCacheMgr.getCache(rootOrgId + Constants.UNDER_SCORE + Constants.PASSWORD);
-        if (StringUtils.isNotBlank(password)) {
-            headers.add(Constants.PASSWORD, password);
-        } else {
-            password = getZipProtectPassword();
-            headers.add(Constants.PASSWORD, password);
-            redisCacheMgr.putCache(rootOrgId + Constants.UNDER_SCORE + Constants.PASSWORD, password);
+            String password = redisCacheMgr.getCache(rootOrgId + Constants.UNDER_SCORE + Constants.PASSWORD);
+            if (StringUtils.isNotBlank(password)) {
+                headers.add(Constants.PASSWORD, password);
+            } else {
+                password = getZipProtectPassword();
+                headers.add(Constants.PASSWORD, password);
+                redisCacheMgr.putStringInCache(rootOrgId + Constants.UNDER_SCORE + Constants.PASSWORD, password, (int)serverConfig.getCacheMaxTTL());
+            }
+
+            // Encrypt the unzipped files and create a new zip file
+            createZipFolder(sourceFolderPath, fileName, password);
+            // Prepare InputStreamResource for the file to be downloaded
+            return new InputStreamResource(Files
+                    .newInputStream(Paths.get(sourceFolderPath + "/" + fileName)));
+        } catch(Exception e) {
+            logger.error("Issue while generating the file source Folder path:" + sourceFolderPath, e);
+            throw new Exception("Not able to get the input Stream");
         }
 
-        // Encrypt the unzipped files and create a new zip file
-        createZipFolder(sourceFolderPath, fileName, password);
-        // Prepare InputStreamResource for the file to be downloaded
-        return new InputStreamResource(Files
-                .newInputStream(Paths.get(sourceFolderPath + "/" + fileName)));
     }
     private String getZipProtectPassword() {
         int passwordLength = serverProperties.getZipFilePasswordLength();
