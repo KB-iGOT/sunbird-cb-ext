@@ -201,13 +201,13 @@ public class OperationalReportServiceImpl implements OperationalReportService {
                 reportFileName = serverProperties.getSpvFullReportFileName();
                 String objectKey = serverProperties.getReportDownloadFolderName() + "/" + serverProperties.getSpvFullReportReportFolderName() + "/"
                         + serverProperties.getSpvFullReportFileName();
-                inputStreamResource = getInputStreamForZip(reportFileName, objectKey, headers, sourceFolderPath, rootOrg);
+                inputStreamResource = getInputStreamForZip(reportFileName, objectKey, headers, sourceFolderPath);
             } else {
                 logger.info("This is under mdo: " + channel + " rootOrgId: " + rootOrg);
                 reportFileName = serverProperties.getOperationReportFileName();
                 String objectKey = serverProperties.getOperationalReportFolderName() + "/mdoid=" + rootOrg + "/"
                         + serverProperties.getOperationReportFileName();
-                inputStreamResource = getInputStreamForZip(reportFileName, objectKey, headers, sourceFolderPath, rootOrg);
+                inputStreamResource = getInputStreamForZip(reportFileName, objectKey, headers, sourceFolderPath);
             }
 
             // Return ResponseEntity with the file for download
@@ -580,7 +580,7 @@ public class OperationalReportServiceImpl implements OperationalReportService {
         return Date.from(offsetDateTime.toInstant());
     }
 
-    private InputStreamResource getInputStreamForZip(String fileName, String objectKey, HttpHeaders headers, String sourceFolderPath, String rootOrgId) throws IOException {
+    private InputStreamResource getInputStreamForZip(String fileName, String objectKey, HttpHeaders headers, String sourceFolderPath) throws IOException {
         logger.info("The fileName is" + fileName);
         logger.info("The ObjectKey is" + objectKey);
         storageService.download(serverProperties.getReportDownloadContainerName(), objectKey,
