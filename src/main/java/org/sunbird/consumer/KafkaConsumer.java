@@ -2,11 +2,10 @@ package org.sunbird.consumer;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.apache.batik.transcoder.Transcoder;
 import org.apache.batik.transcoder.TranscoderInput;
 import org.apache.batik.transcoder.TranscoderOutput;
 import org.apache.batik.transcoder.image.PNGTranscoder;
-import org.apache.fop.svg.PDFTranscoder;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.jcodings.exception.TranscoderException;
 import org.slf4j.Logger;
@@ -75,22 +74,28 @@ public class KafkaConsumer {
             Map<String, Object> dbData = listOfMasterData.get(0);
             JsonNode jsonNode = mapper.convertValue(dbData, JsonNode.class);
             String certificateId = "";
-            if (jsonNode.path("issued_certificates").get("certificateid") != null) {
-                certificateId = jsonNode.get("issued_certificates").get("certificateid").asText();
-                logger.info("certificate id of the user {}", certificateId);
-            } else {
-                certificateId = "5d37353b-ae0a-46c1-a5eb-45ceb3aa6e92";
+            JsonNode issuedCertificates = jsonNode.path("issued_certificates");
+            if (issuedCertificates.isArray() && issuedCertificates.size() > 0) {
+                JsonNode firstCertificate = issuedCertificates.get(0).path(Constants.IDENTIFIER);
+                if (!firstCertificate.isMissingNode() && !firstCertificate.isNull()) {
+                    certificateId = firstCertificate.asText();
+                    logger.info("Certificate id of the user: {}", certificateId);
+                }
             }
-            propertyMap.put(Constants.START_TIME, dbData.get(Constants.START_TIME));
-            String certlink = publicUserCertificateDownload(certificateId);
-            Map<String, Object> updatedMap = new HashMap<>();
-            updatedMap.put(Constants.CERT_PUBLICURL, certlink);
-            cassandraOperation.updateRecord(Constants.KEYSPACE_SUNBIRD, serverProperties.getPublicUserAssessmentTableName(), updatedMap, propertyMap);
-            Map<String, Object> notificationInput = new HashMap<>();
-            notificationInput.put(Constants.PUBLIC_USER_ID, email);
-            notificationInput.put(Constants.PUBLIC_CONTEXT_ID, userCourseEnrollMap.get(Constants.PUBLIC_CONTEXT_ID));
-            notificationInput.put(Constants.PUBLIC_ASSESSMENT_ID, userCourseEnrollMap.get(Constants.PUBLIC_ASSESSMENT_ID));
-            kafkaProducer.push(serverProperties.getSpringKafkaPublicAssessmentNotificationTopicName(), notificationInput);
+            if (StringUtils.isNotBlank(certificateId)) {
+                propertyMap.put(Constants.START_TIME, dbData.get(Constants.START_TIME));
+                String certlink = publicUserCertificateDownload(certificateId);
+                Map<String, Object> updatedMap = new HashMap<>();
+                updatedMap.put(Constants.CERT_PUBLICURL, certlink);
+                cassandraOperation.updateRecord(Constants.KEYSPACE_SUNBIRD, serverProperties.getPublicUserAssessmentTableName(), updatedMap, propertyMap);
+                Map<String, Object> notificationInput = new HashMap<>();
+                notificationInput.put(Constants.PUBLIC_USER_ID, email);
+                notificationInput.put(Constants.PUBLIC_CONTEXT_ID, userCourseEnrollMap.get(Constants.PUBLIC_CONTEXT_ID));
+                notificationInput.put(Constants.PUBLIC_ASSESSMENT_ID, userCourseEnrollMap.get(Constants.PUBLIC_ASSESSMENT_ID));
+                kafkaProducer.push(serverProperties.getSpringKafkaPublicAssessmentNotificationTopicName(), notificationInput);
+            } else {
+                logger.error("The certificateId is not present for kafka event : " + data);
+            }
         }
     }
 

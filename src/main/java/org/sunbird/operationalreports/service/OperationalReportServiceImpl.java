@@ -600,7 +600,7 @@ public class OperationalReportServiceImpl implements OperationalReportService {
         String zipFilePath = String.valueOf(filePath);
         unlockZipFolder(zipFilePath, destinationFolderPath, serverProperties.getUnZipFilePassword());
         // Encrypt the unzipped files and create a new zip file
-        createZipFolder(sourceFolderPath, fileName, password);
+        createZipFolder(sourceFolderPath + Constants.OUTPUT_PATH, fileName, password);
         // Prepare InputStreamResource for the file to be downloaded
         return new InputStreamResource(Files
                 .newInputStream(Paths.get(sourceFolderPath + "/" + fileName)));
