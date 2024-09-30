@@ -1034,7 +1034,7 @@ public class AssessmentServiceV4Impl implements AssessmentServiceV4 {
         req.put("contents", contents);
 
         Map<String, Object> apiResponse = outboundRequestHandlerService.fetchResultUsingPatch(
-                cbExtServerProperties.getCourseServiceHost() + cbExtServerProperties.getProgressReadEndPoint(),
+                cbExtServerProperties.getCourseServiceHost() + cbExtServerProperties.getProgressUpdateEndPoint(),
                 req, headers);
 
         if ("OK".equals(apiResponse.get("responseCode"))) {
