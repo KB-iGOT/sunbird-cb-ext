@@ -8,10 +8,13 @@ import com.google.gson.reflect.TypeToken;
 import org.apache.commons.collections.MapUtils;
 import org.apache.commons.lang.StringUtils;
 import org.elasticsearch.action.search.SearchResponse;
+import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.rest.RestStatus;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
+import org.elasticsearch.search.sort.FieldSortBuilder;
+import org.elasticsearch.search.sort.SortOrder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,7 +31,6 @@ import org.sunbird.common.util.*;
 import org.sunbird.cqfassessment.model.CQFAssessmentModel;
 
 import java.io.IOException;
-import java.sql.Timestamp;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -154,11 +156,12 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
     /**
      * Lists all CQF Assessments.
      *
-     * @param authToken the authentication token for the request
+     * @param authToken   the authentication token for the request
+     * @param requestBody Request body of the request
      * @return the API response containing the list of assessments
      */
     @Override
-    public SBApiResponse listCQFAssessments(String authToken) {
+    public SBApiResponse listCQFAssessments(String authToken,  Map<String, Object> requestBody) {
         logger.info("CQFAssessmentServiceImpl::listCQFAssessments... Started");
         List<Map<String, Object>> resultArray = new ArrayList<>();
         Map<String, Object> result;
@@ -172,7 +175,24 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
         SearchResponse searchResponse;
         try {
             SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
-            searchSourceBuilder.query(QueryBuilders.matchAllQuery());
+            BoolQueryBuilder boolQueryBuilder = QueryBuilders.boolQuery();
+            boolQueryBuilder.must(QueryBuilders.matchAllQuery());
+            // Check if filter is present in the request body
+            if (requestBody.containsKey(Constants.FILTER)) {
+                List<Map<String, Object>> filterColumns = (List<Map<String, Object>>) requestBody.get(Constants.FILTER);
+                // Iterate over each filter column and add it to the bool query builder
+                for (Map<String, Object> filter : filterColumns) {
+                    BoolQueryBuilder filterQueryBuilder = QueryBuilders.boolQuery();
+                    for (Map.Entry<String, Object> entry : filter.entrySet()) {
+                        filterQueryBuilder.must(QueryBuilders.termQuery(entry.getKey(), entry.getValue()));
+                    }
+                    boolQueryBuilder.must(filterQueryBuilder);
+                }
+            }
+            searchSourceBuilder.query(boolQueryBuilder);
+            searchSourceBuilder.sort(new FieldSortBuilder(requestBody.get(Constants.FIELD).toString()).order(SortOrder.DESC));
+            searchSourceBuilder.from((Integer.parseInt(requestBody.get(Constants.CURRENT_PAGE).toString()) - 1) * Integer.parseInt(requestBody.get(Constants.PAGE_SIZE).toString()));
+            searchSourceBuilder.size(Integer.parseInt(requestBody.get(Constants.PAGE_SIZE).toString()));
             if(indexerService.isIndexPresent(serverProperties.getQuestionSetHierarchyIndex())) {
                 searchResponse = indexerService.getEsResult(serverProperties.getQuestionSetHierarchyIndex(), serverConfig.getEsProfileIndexType(), searchSourceBuilder, false);
                 for (SearchHit hit : searchResponse.getHits()) {
@@ -386,7 +406,7 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
         if (existingDataList.isEmpty()) {
             return handleFirstTimeAssessment(assessmentAllDetail, response, cqfAssessmentModel);
         } else {
-            return handleExistingAssessment(assessmentAllDetail,  response, existingDataList, cqfAssessmentModel);
+            return handleExistingAssessment(assessmentAllDetail,  response, existingDataList);
         }
     }
 
@@ -408,30 +428,6 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
             updateErrorDetails(response, Constants.ASSESSMENT_DATA_START_TIME_NOT_UPDATED);
         }
         return response;
-    }
-
-
-    /**
-     * Checks if the assessment duration is valid by verifying that the expected duration is a positive integer.
-     *
-     * @param assessmentAllDetail A map containing all the details of the assessment.
-     * @return True if the assessment duration is valid, false otherwise.
-     */
-    private boolean isValidAssessmentDuration(Map<String, Object> assessmentAllDetail) {
-        return assessmentAllDetail.get(Constants.EXPECTED_DURATION) != null;
-    }
-
-    private Timestamp calculateAssessmentSubmitTime(int expectedDuration, Timestamp assessmentStartTime,
-                                                    int bufferTime) {
-        Calendar cal = Calendar.getInstance();
-        cal.setTimeInMillis(assessmentStartTime.getTime());
-        if (bufferTime > 0) {
-            cal.add(Calendar.SECOND,
-                    expectedDuration + Integer.parseInt(serverProperties.getUserAssessmentSubmissionDuration()));
-        } else {
-            cal.add(Calendar.SECOND, expectedDuration);
-        }
-        return new Timestamp(cal.getTime().getTime());
     }
 
 
@@ -466,16 +462,15 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
      * @param assessmentAllDetail A map containing all the details of the assessment.
      * @param response            The SBApiResponse object to be populated with the assessment results.
      * @param existingDataList    A list of maps containing the existing assessment data.
-     * @param cqfAssessmentModel  A CQFAssessmentModel object representing the assessment.
      * @return The SBApiResponse object containing the assessment results, or null if the assessment is not handled.
      */
-    private SBApiResponse handleExistingAssessment(Map<String, Object> assessmentAllDetail, SBApiResponse response, List<Map<String, Object>> existingDataList, CQFAssessmentModel cqfAssessmentModel) {
+    private SBApiResponse handleExistingAssessment(Map<String, Object> assessmentAllDetail, SBApiResponse response, List<Map<String, Object>> existingDataList) {
         logger.info("Assessment read... user has details... ");
         String status = (String) existingDataList.get(0).get(Constants.STATUS);
         if (isAssessmentStillOngoing(status)) {
             return handleOngoingAssessment(existingDataList, response);
         }else{
-            return handleAssessmentRetryOrExpired(assessmentAllDetail, response, cqfAssessmentModel);
+            return handleAssessmentRetryOrExpired(assessmentAllDetail, response);
         }
     }
 
@@ -507,7 +502,7 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
 
 
 
-    private SBApiResponse handleAssessmentRetryOrExpired(Map<String, Object> assessmentAllDetail, SBApiResponse response, CQFAssessmentModel cqfAssessmentModel) {
+    private SBApiResponse handleAssessmentRetryOrExpired(Map<String, Object> assessmentAllDetail, SBApiResponse response) {
         logger.info("Incase the assessment is submitted before the end time, or the endtime has exceeded, read assessment freshly ");
 
         Map<String, Object> assessmentData = readAssessmentLevelData(assessmentAllDetail);
@@ -657,14 +652,7 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
             }
             Map<String, Object> result = calculateSectionFinalResults(sectionLevelsResults);
             outgoingResponse.getResult().putAll(result);
-            String questionSetFromAssessmentString = (String) cqfAssessmentModel.getExistingAssessmentData().get(Constants.ASSESSMENT_READ_RESPONSE_KEY);
-            Map<String, Object> questionSetFromAssessment = null;
-            if (StringUtils.isNotBlank(questionSetFromAssessmentString)) {
-                questionSetFromAssessment = objectMapper.readValue(questionSetFromAssessmentString,
-                        new TypeReference<Map<String, Object>>() {
-                        });
-            }
-            writeDataToDatabase(submitRequest, userId, questionSetFromAssessment, result);
+            writeDataToDatabase(submitRequest, userId, result);
             return outgoingResponse;
         } catch (Exception e) {
             errMsg = String.format("Failed to process assessment submit request. Exception: ", e.getMessage());
@@ -682,11 +670,10 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
      *
      * @param submitRequest The request object containing the submitted assessment data
      * @param userId The ID of the user who submitted the assessment
-     * @param questionSetFromAssessment The question set from the assessment
      * @param result The result of the assessment submission
      */
     private void writeDataToDatabase(Map<String, Object> submitRequest, String userId,
-                                     Map<String, Object> questionSetFromAssessment, Map<String, Object> result) {
+                                     Map<String, Object> result) {
         try {
             Map<String, Object> paramsMap = new HashMap<>();
             paramsMap.put(Constants.USER_ID, userId);
@@ -713,9 +700,8 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
      * @param token              The token for the assessment.
      * @param editMode           Whether the assessment is in edit mode.
      * @return An error message if the validation fails, otherwise an empty string.
-     * @throws Exception If an error occurs during validation.
      */
-    private String validateSubmitAssessmentRequest(Map<String, Object> submitRequest, String userId, CQFAssessmentModel cqfAssessmentModel, String token, boolean editMode) throws Exception {
+    private String validateSubmitAssessmentRequest(Map<String, Object> submitRequest, String userId, CQFAssessmentModel cqfAssessmentModel, String token, boolean editMode) {
         submitRequest.put(Constants.USER_ID, userId);
         if (StringUtils.isEmpty((String) submitRequest.get(Constants.IDENTIFIER))) {
             return Constants.INVALID_ASSESSMENT_ID;
@@ -919,6 +905,7 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
             Map<String, Object> resultMap = new HashMap<>();
             Map<String, Object> optionWeightages = new HashMap<>();
             Map<String, Object> maxMarksForQuestion = new HashMap<>();
+            Map<String,Integer> optionValueNotApplicableForQuestion = new HashMap<>();
             int minimumPassPercentage = 0;
             if (questionSetDetailsMap.get(Constants.MINIMUM_PASS_PERCENTAGE) != null) {
                 minimumPassPercentage = (int) questionSetDetailsMap.get(Constants.MINIMUM_PASS_PERCENTAGE);
@@ -926,6 +913,7 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
             if (assessmentType.equalsIgnoreCase(Constants.QUESTION_OPTION_WEIGHTAGE)) {
                 optionWeightages = getOptionWeightages(originalQuestionList, questionMap);
                 maxMarksForQuestion = getMaxMarksForQustions(optionWeightages);
+                processNotApplicableValueInOptions(questionMap, optionValueNotApplicableForQuestion);
             }
             for (Map<String, Object> question : userQuestionList) {
                 List<String> marked = new ArrayList<>();
@@ -939,16 +927,20 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
                     String identifier = question.get(Constants.IDENTIFIER).toString();
                     maxMarksForQn =  (int) maxMarksForQuestion.get(identifier);
                     achievedMarksForSection = achievedMarksForSection + achievedMarksPerQn;
-                    totalMarksForSection = totalMarksForSection + maxMarksForQn;
+                    if(!marked.get(0).equalsIgnoreCase(optionValueNotApplicableForQuestion.get(identifier).toString())) {
+                        totalMarksForSection = totalMarksForSection + maxMarksForQn;
+                    }
                     question.put(Constants.ACQUIRED_SCORE,achievedMarksPerQn);
                 }
             }
             overallSectionPercentageScore = totalMarksForSection * ((double) questionSetDetailsMap.get(Constants.SECTION_WEIGHTAGE) / 100);
             achievedPercentageScore = achievedMarksForSection * ((double) questionSetDetailsMap.get(Constants.SECTION_WEIGHTAGE) / 100);
-            sectionLevelPercentage = (achievedMarksForSection/totalMarksForSection) * 100;
+            if (totalMarksForSection >= 0) {
+                sectionLevelPercentage = (achievedMarksForSection / totalMarksForSection) * 100;
+                resultMap.put(Constants.SECTION_LEVEL_PERCENTAGE, sectionLevelPercentage);
+            }
             resultMap.put(Constants.OVERALL_SECTION_PERCENTAGE_SCORE, overallSectionPercentageScore);
             resultMap.put(Constants.ACHIEVED_PERCENTAGE_SCORE, achievedPercentageScore);
-            resultMap.put(Constants.SECTION_LEVEL_PERCENTAGE, sectionLevelPercentage);
             resultMap.put(Constants.ACHIEVED_MARKS_FOR_SECTION,achievedMarksForSection);
             resultMap.put(Constants.TOTAL_MARKS_FOR_SECTION,totalMarksForSection);
             resultMap.put(Constants.CHILDREN, userQuestionList);
@@ -1012,9 +1004,9 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
     public Map<String, Object> getMaxMarksForQustions(Map<String, Object> optionWeightages) {
         logger.info("Retrieving max weightages for questions based on the questions...");
         Map<String, Object> ret = new HashMap<>();
-        int maxMarks = 0;
         for (Map.Entry<String, Object> entry : optionWeightages.entrySet()) {
             String identifier = entry.getKey();
+            int maxMarks = 0;
             Map<String, Integer> weightages = objectMapper.convertValue(entry.getValue(), new TypeReference<Map<String, Integer>>() {});
             for (Map.Entry<String, Integer> marksMap : weightages.entrySet()) {
                 int marks = 0;
@@ -1173,7 +1165,7 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
                     Constants.SUNBIRD_KEY_SPACE_NAME, Constants.TABLE_CQF_ASSESSMENT_DATA,
                     propertyMap, null);
             if (existingDataList.isEmpty()) {
-                updateErrorDetails(response, Constants.USER_ASSESSMENT_DATA_NOT_PRESENT, HttpStatus.BAD_REQUEST);
+                response.put(Constants.CQF_RESULTS, new HashMap<>());
                 return response;
             }
             List<Map<String, Object>> cqfResults = new ArrayList<>();
@@ -1616,5 +1608,96 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
             logger.error(String.format("Failed to process the questionList request body. %s", e.getMessage()));
         }
         return Collections.emptyList();
+    }
+
+    /**
+     * Process CQF post-publish event by updating the question set hierarchy in the Elasticsearch index.
+     *
+     * @param assessmentId the ID of the assessment
+     */
+    @Override
+    public void processCQFPostPublish(String assessmentId) {
+        logger.info("Inside the processCQFPostPublish method of CQFAssessmentServiceImpl");
+        // Get the CQF assessment data from the Elasticsearch index
+        Map<String, Object> esCQFAssessmentMap = getCQFAssessmentsByIds(assessmentId);
+        // Get the question set hierarchy data from the Elasticsearch index
+        Map<String, Object> questionsetMap = readQuestionSetHierarchy(assessmentId);
+        // Convert the question set hierarchy data to lowercase
+        Map<String, Object> lowerCaseMap = questionsetMap.entrySet().stream()
+                .collect(Collectors.toMap(entry -> entry.getKey().toLowerCase(), Map.Entry::getValue));
+        // Extract the question set data from the lowercase map
+        Map<String, Object> questionSetMap = objectMapper.convertValue(lowerCaseMap.get(Constants.QUESTION_SET_LOWER_CASE), new TypeReference<Map<String, Object>>() {
+        });
+        // Check if the CQF assessment exists in the Elasticsearch index
+        boolean isCQFAssessmentExist = !ObjectUtils.isEmpty(esCQFAssessmentMap);
+        // Get the 'children' ArrayList
+        ArrayList<Object> children = (ArrayList<Object>) questionSetMap.get(Constants.CHILDREN);
+        // Iterate over the 'children' ArrayList
+        for (Object child : children) {
+            // Get the 'children' ArrayList of the current child
+            ArrayList<Object> childChildren = (ArrayList<Object>) ((HashMap) child).get(Constants.CHILDREN);
+            // Iterate over the 'children' ArrayList of the current child
+            for (Object grandChild : childChildren) {
+                // Get the 'choices' string
+                String choices = (String) ((HashMap) grandChild).get(Constants.CHOICES);
+                // Convert the 'choices' string to a HashMap using ObjectMapper
+                try {
+                    HashMap<String, Object> choicesMap = objectMapper.convertValue(objectMapper.readTree(choices), HashMap.class);
+                    // Replace the 'choices' string with the HashMap
+                    ((HashMap) grandChild).put(Constants.CHOICES, choicesMap);
+                } catch (Exception e) {
+                    // Log the error message
+                    logger.error("Error converting choices to HashMap: {}", e.getMessage());
+                }
+
+            }
+        }
+        questionSetMap.put(Constants.CHILDREN, children);
+        // Update or add the question set data to the Elasticsearch index
+        RestStatus status = updateOrAddEntity(serverProperties.getQuestionSetHierarchyIndex(), serverConfig.getEsProfileIndexType(), assessmentId, questionSetMap, isCQFAssessmentExist);
+        if (status.equals(RestStatus.CREATED) || status.equals(RestStatus.OK)) {
+            logger.info("Updated the question set hierarchy in the Elasticsearch index successfully.");
+        } else {
+            logger.info("There is a issue while updating the question set hierarchy in the Elasticsearch index.");
+        }
+    }
+
+
+    /**
+     * Processes the 'Not Applicable' options in the question map and updates the indexValueNotApplicableForQnsMap map.
+     *
+     * @param questionMap                   the question map to process
+     * @param indexValueNotApplicableForQnsMap the map to store the index of 'Not Applicable' options
+     */
+    private void processNotApplicableValueInOptions(Map<String, Object> questionMap, Map<String, Integer> indexValueNotApplicableForQnsMap) {
+        logger.info("Processing 'Not Applicable' options in the question map.");
+        for (Map.Entry<String, Object> entry : questionMap.entrySet()) {
+            Map<String, Object> questionsMap = (Map<String, Object>) entry.getValue();
+            if (questionsMap.containsKey(Constants.CHOICES)) {
+                Map<String, Object> choicesMap = (Map<String, Object>) questionsMap.get(Constants.CHOICES);
+                List<Map<String, Object>> optionsList = (List<Map<String, Object>>) choicesMap.get(Constants.OPTIONS);
+                findNotApplicableValueOption(optionsList, entry.getKey(), indexValueNotApplicableForQnsMap);
+            }
+        }
+        logger.info("Finished processing 'Not Applicable' options in the question map.");
+    }
+
+    /**
+     * Finds the index of the "Not Applicable" option in the given options list and updates the indexNotApplicableForQuestion map.
+     *
+     * @param optionsList                   the list of options to search
+     * @param questionKey                   the key of the question being processed
+     * @param indexNotApplicableForQuestion the map to store the index of "Not Applicable" options
+     */
+    private void findNotApplicableValueOption(List<Map<String, Object>> optionsList, String questionKey, Map<String, Integer> indexNotApplicableForQuestion) {
+        for (int i = 0; i < optionsList.size(); i++) {
+            Map<String, Object> optionMap = optionsList.get(i);
+            Map<String, Object> valueMap = (Map<String, Object>) optionMap.get(Constants.VALUE);
+            String body = (String) valueMap.get(Constants.BODY);
+            if (body.contains(Constants.NOT_APPLICABLE)) {
+                indexNotApplicableForQuestion.put(questionKey, i);
+                break;
+            }
+        }
     }
 }
