@@ -604,7 +604,7 @@ public class OperationalReportServiceImpl implements OperationalReportService {
         createZipFolder(sourceFolderPath + Constants.OUTPUT_PATH, fileName, password);
         // Prepare InputStreamResource for the file to be downloaded
         return new InputStreamResource(Files
-                .newInputStream(Paths.get(sourceFolderPath + "/" + fileName)));
+                .newInputStream(Paths.get(sourceFolderPath + Constants.OUTPUT_PATH + "/" + fileName)));
     }
 
     private void createTheZipAndStoreForOrg(String fileName, String objectKey, String sourceFolderPath) {
