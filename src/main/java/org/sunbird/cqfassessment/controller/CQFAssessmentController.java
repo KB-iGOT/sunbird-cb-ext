@@ -45,9 +45,10 @@ public class CQFAssessmentController {
         return ResponseEntity.ok(assessment);
     }
 
-    @GetMapping("/list")
-    public ResponseEntity<SBApiResponse> listCQFAssessments(@RequestHeader(Constants.X_AUTH_TOKEN) String authToken) {
-        SBApiResponse assessments = cqfAssessmentService.listCQFAssessments(authToken);
+    @PostMapping("/list")
+    public ResponseEntity<SBApiResponse> listCQFAssessments(@RequestHeader(Constants.X_AUTH_TOKEN) String authToken,
+                                                            @Valid @RequestBody Map<String, Object> requestBody) {
+        SBApiResponse assessments = cqfAssessmentService.listCQFAssessments(authToken,requestBody);
         return ResponseEntity.ok(assessments);
     }
 
