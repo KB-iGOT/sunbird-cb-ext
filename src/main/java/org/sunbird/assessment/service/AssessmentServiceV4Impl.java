@@ -1004,6 +1004,7 @@ public class AssessmentServiceV4Impl implements AssessmentServiceV4 {
             headers.put(Constants.AUTHORIZATION, cbExtServerProperties.getSbApiKey());
 
             Map<String, Object> req = new HashMap<>();
+            Map<String, Object> request = new HashMap<>();
             List<Map<String, Object>> contents = new ArrayList<>();
 
             Map<String, Object> reqObj = new HashMap<>();
@@ -1018,14 +1019,20 @@ public class AssessmentServiceV4Impl implements AssessmentServiceV4 {
 
             req.put(Constants.USER_ID, userId);
             req.put("contents", contents);
+            request.put(Constants.REQUEST,req);
+            System.out.println("Request Map: " + req);
 
             Map<String, Object> apiResponse = outboundRequestHandlerService.fetchResultUsingPatch(
                     cbExtServerProperties.getCourseServiceHost() + cbExtServerProperties.getProgressUpdateEndPoint(),
-                    req, headers);
+                    request, headers);
 
             if ("OK".equals(apiResponse.get("responseCode"))) {
                 response = Constants.SUCCESS;
+                logger.info(String.format("Successfully updated progress for user : %s, for assessment : %s, of course :%s", userId,
+                        reqBody.get("identifier"),reqBody.get("courseId")));
             } else {
+                logger.error(String.format("Failed to update progress for user : %s, for assessment : %s, of course :%s", userId,
+                        reqBody.get("identifier"),reqBody.get("courseId")));
                 outgoingResponse.setResult(null);
                 updateErrorDetails(outgoingResponse, "Failed to update progress of assessment", HttpStatus.INTERNAL_SERVER_ERROR);
             }
