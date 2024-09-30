@@ -1,8 +1,7 @@
 package org.sunbird.assessment.service;
 
 import static java.util.stream.Collectors.toList;
-import static org.sunbird.common.util.Constants.API_USER_INSIGHTS;
-import static org.sunbird.common.util.Constants.RESPONSE;
+import static org.sunbird.common.util.Constants.*;
 
 import java.io.IOException;
 import java.sql.Timestamp;
@@ -367,8 +366,10 @@ public class AssessmentServiceV4Impl implements AssessmentServiceV4 {
                                     assessUtilServ.validateQumlAssessment(questionsListFromAssessmentHierarchy,
                                             questionsListFromSubmitRequest,assessUtilServ.readQListfromCache(questionsListFromAssessmentHierarchy,assessmentIdFromRequest,editMode,userAuthToken))));
                             Map<String, Object> finalRes= calculateAssessmentFinalResults(result);
-                            if (!Constants.PRACTICE_QUESTION_SET.equalsIgnoreCase(assessmentPrimaryCategory) && !editMode) {
-
+                            outgoingResponse.getResult().putAll(finalRes);
+                            outgoingResponse.getResult().put(Constants.PRIMARY_CATEGORY, assessmentPrimaryCategory);
+                            progressUpdateAPIRespone = updateContentProgress(userAuthToken,submitRequest,userId,outgoingResponse);
+                            if (!Constants.PRACTICE_QUESTION_SET.equalsIgnoreCase(assessmentPrimaryCategory) && !editMode && Constants.SUCCESS.equalsIgnoreCase(progressUpdateAPIRespone)) {
                                 String questionSetFromAssessmentString = (String) existingAssessmentData
                                         .get(Constants.ASSESSMENT_READ_RESPONSE_KEY);
                                 Map<String,Object> questionSetFromAssessment = null;
@@ -379,15 +380,6 @@ public class AssessmentServiceV4Impl implements AssessmentServiceV4 {
                                 }
                                 writeDataToDatabaseAndTriggerKafkaEvent(submitRequest, userId, questionSetFromAssessment, finalRes,
                                         (String) assessmentHierarchy.get(Constants.PRIMARY_CATEGORY));
-                            }
-                           progressUpdateAPIRespone = updateContentProgress(userAuthToken,submitRequest,userId);
-                            if (Constants.SUCCESS.equalsIgnoreCase(progressUpdateAPIRespone)) {
-                                outgoingResponse.getResult().putAll(finalRes);
-                                outgoingResponse.getResult().put(Constants.PRIMARY_CATEGORY, assessmentPrimaryCategory);
-                            } else {
-                                outgoingResponse.getParams().setStatus(Constants.FAILED);
-                                outgoingResponse.setResponseCode(HttpStatus.INTERNAL_SERVER_ERROR);
-                                outgoingResponse.getParams().setErrmsg("Failed to update progress of assessment");
                             }
                             return outgoingResponse;
                         }
@@ -404,7 +396,12 @@ public class AssessmentServiceV4Impl implements AssessmentServiceV4 {
                 }
                 if (Constants.SECTION_LEVEL_SCORE_CUTOFF.equalsIgnoreCase(scoreCutOffType)) {
                     Map<String, Object> result = calculateSectionFinalResults(sectionLevelsResults);
-                    if (!Constants.PRACTICE_QUESTION_SET.equalsIgnoreCase(assessmentPrimaryCategory) && !editMode) {
+                    outgoingResponse.getResult().putAll(result);
+                    outgoingResponse.getParams().setStatus(Constants.SUCCESS);
+                    outgoingResponse.setResponseCode(HttpStatus.OK);
+                    outgoingResponse.getResult().put(Constants.PRIMARY_CATEGORY, assessmentPrimaryCategory);
+                    progressUpdateAPIRespone = updateContentProgress(userAuthToken,submitRequest,userId,outgoingResponse);
+                    if (!Constants.PRACTICE_QUESTION_SET.equalsIgnoreCase(assessmentPrimaryCategory) && !editMode && Constants.SUCCESS.equalsIgnoreCase(progressUpdateAPIRespone)) {
                         String questionSetFromAssessmentString = (String) existingAssessmentData
                                 .get(Constants.ASSESSMENT_READ_RESPONSE_KEY);
                         Map<String,Object> questionSetFromAssessment = null;
@@ -415,17 +412,6 @@ public class AssessmentServiceV4Impl implements AssessmentServiceV4 {
                         }
                         writeDataToDatabaseAndTriggerKafkaEvent(submitRequest, userId, questionSetFromAssessment, result,
                                 (String) assessmentHierarchy.get(Constants.PRIMARY_CATEGORY));
-                    }
-                    progressUpdateAPIRespone = updateContentProgress(userAuthToken,submitRequest,userId);
-                    if (Constants.SUCCESS.equalsIgnoreCase(progressUpdateAPIRespone)) {
-                        outgoingResponse.getResult().putAll(result);
-                        outgoingResponse.getParams().setStatus(Constants.SUCCESS);
-                        outgoingResponse.setResponseCode(HttpStatus.OK);
-                        outgoingResponse.getResult().put(Constants.PRIMARY_CATEGORY, assessmentPrimaryCategory);
-                    } else {
-                        outgoingResponse.getParams().setStatus(Constants.FAILED);
-                        outgoingResponse.setResponseCode(HttpStatus.INTERNAL_SERVER_ERROR);
-                        outgoingResponse.getParams().setErrmsg("Failed to update progress of assessment");
                     }
                     return outgoingResponse;
                 }
@@ -1009,38 +995,47 @@ public class AssessmentServiceV4Impl implements AssessmentServiceV4 {
         return response;
     }
 
-    public String updateContentProgress(String userAuthToken, Map<String, Object> reqBody, String userId) {
+    public String updateContentProgress(String userAuthToken, Map<String, Object> reqBody, String userId, SBApiResponse outgoingResponse) {
         String response = "";
+        try {
+            Map<String, String> headers = new HashMap<>();
+            headers.put(Constants.CONTENT_TYPE, Constants.APPLICATION_JSON);
+            headers.put(Constants.X_AUTH_TOKEN, userAuthToken);
+            headers.put(Constants.AUTHORIZATION, cbExtServerProperties.getSbApiKey());
 
-        Map<String, String> headers = new HashMap<>();
-        headers.put("Content-Type", "application/json");
-        headers.put(Constants.X_AUTH_TOKEN, userAuthToken);
-        headers.put(Constants.AUTHORIZATION, cbExtServerProperties.getSbApiKey());
+            Map<String, Object> req = new HashMap<>();
+            List<Map<String, Object>> contents = new ArrayList<>();
 
-        Map<String, Object> req = new HashMap<>();
-        List<Map<String, Object>> contents = new ArrayList<>();
+            Map<String, Object> reqObj = new HashMap<>();
+            reqObj.put(Constants.CONTENT_ID_KEY, reqBody.get(Constants.IDENTIFIER));
+            reqObj.put(Constants.COURSE_ID, reqBody.get(Constants.COURSE_ID));
+            reqObj.put(Constants.BATCH_ID, reqBody.get(Constants.BATCH_ID));
+            reqObj.put(Constants.STATUS, 2);
+            reqObj.put("lastAccessTime", new SimpleDateFormat("yyyy-MM-dd HH:mm:ss:SSSZ").format(new Date()));
+            reqObj.put(Constants.COMPLETION_PERCENTAGE, 100);
 
-        Map<String, Object> reqObj = new HashMap<>();
-        reqObj.put("contentId", reqBody.get("identifier"));
-        reqObj.put("courseId", reqBody.get("courseId"));
-        reqObj.put("batchId", reqBody.get("batchId"));
-        reqObj.put("status", 2);
-        reqObj.put("lastAccessTime", new SimpleDateFormat("yyyy-MM-dd HH:mm:ss:SSSZ").format(new Date()));
-        reqObj.put("completionPercentage",100);
+            contents.add(reqObj);
 
-        contents.add(reqObj);
+            req.put(Constants.USER_ID, userId);
+            req.put("contents", contents);
 
-        req.put("userId", userId);
-        req.put("contents", contents);
+            Map<String, Object> apiResponse = outboundRequestHandlerService.fetchResultUsingPatch(
+                    cbExtServerProperties.getCourseServiceHost() + cbExtServerProperties.getProgressUpdateEndPoint(),
+                    req, headers);
 
-        Map<String, Object> apiResponse = outboundRequestHandlerService.fetchResultUsingPatch(
-                cbExtServerProperties.getCourseServiceHost() + cbExtServerProperties.getProgressUpdateEndPoint(),
-                req, headers);
+            if ("OK".equals(apiResponse.get("responseCode"))) {
+                response = Constants.SUCCESS;
+            } else {
+                outgoingResponse.setResult(null);
+                updateErrorDetails(outgoingResponse, "Failed to update progress of assessment", HttpStatus.INTERNAL_SERVER_ERROR);
+            }
 
-        if ("OK".equals(apiResponse.get("responseCode"))) {
-            response = Constants.SUCCESS;
+        } catch (Exception e) {
+            logger.error(String.format("Failed to update progress for user : %s, for assessment : %s, of course :%s", userId,
+                    reqBody.get("identifier"),reqBody.get("courseId")));
+            outgoingResponse.setResult(null);
+            updateErrorDetails(outgoingResponse, "Failed to update progress of assessment", HttpStatus.INTERNAL_SERVER_ERROR);
         }
-
         return response;
     }
 }
