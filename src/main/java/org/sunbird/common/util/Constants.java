@@ -1209,6 +1209,7 @@ public class Constants {
 	public static final String PREVIOUS_TERM_CODE = "previousTermCode";
 	public static final String DESIGNATION_MASTER_DATA = "designation_master_data";
 	public static final String COMPETENCY_MASTER_DATA = "competency_master_data";
+	public static final String FAILED_TO_UPDATE_PROGRESS = "Failed to update progress of assessment using content state update API";
 
 	private Constants() {
 		throw new IllegalStateException("Utility class");

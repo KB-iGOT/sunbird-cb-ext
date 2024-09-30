@@ -1020,7 +1020,6 @@ public class AssessmentServiceV4Impl implements AssessmentServiceV4 {
             req.put(Constants.USER_ID, userId);
             req.put("contents", contents);
             request.put(Constants.REQUEST,req);
-            System.out.println("Request Map: " + req);
 
             Map<String, Object> apiResponse = outboundRequestHandlerService.fetchResultUsingPatch(
                     cbExtServerProperties.getCourseServiceHost() + cbExtServerProperties.getProgressUpdateEndPoint(),
@@ -1029,19 +1028,19 @@ public class AssessmentServiceV4Impl implements AssessmentServiceV4 {
             if ("OK".equals(apiResponse.get("responseCode"))) {
                 response = Constants.SUCCESS;
                 logger.info(String.format("Successfully updated progress for user : %s, for assessment : %s, of course :%s", userId,
-                        reqBody.get("identifier"),reqBody.get("courseId")));
+                        reqBody.get(Constants.IDENTIFIER),reqBody.get(Constants.COURSE_ID)));
             } else {
                 logger.error(String.format("Failed to update progress for user : %s, for assessment : %s, of course :%s", userId,
-                        reqBody.get("identifier"),reqBody.get("courseId")));
+                        reqBody.get(Constants.IDENTIFIER),reqBody.get(Constants.COURSE_ID)));
                 outgoingResponse.setResult(null);
-                updateErrorDetails(outgoingResponse, "Failed to update progress of assessment", HttpStatus.INTERNAL_SERVER_ERROR);
+                updateErrorDetails(outgoingResponse, Constants.FAILED_TO_UPDATE_PROGRESS, HttpStatus.INTERNAL_SERVER_ERROR);
             }
 
         } catch (Exception e) {
-            logger.error(String.format("Failed to update progress for user : %s, for assessment : %s, of course :%s", userId,
-                    reqBody.get("identifier"),reqBody.get("courseId")));
+            logger.error(String.format("Failed to update progress for user: %s, for assessment: %s, of course: %s. Exception: %s",
+                    userId, reqBody.get(Constants.IDENTIFIER),reqBody.get(Constants.COURSE_ID), e.getMessage()), e);
             outgoingResponse.setResult(null);
-            updateErrorDetails(outgoingResponse, "Failed to update progress of assessment", HttpStatus.INTERNAL_SERVER_ERROR);
+            updateErrorDetails(outgoingResponse, Constants.FAILED_TO_UPDATE_PROGRESS, HttpStatus.INTERNAL_SERVER_ERROR);
         }
         return response;
     }
