@@ -196,6 +196,7 @@ public class OperationalReportServiceImpl implements OperationalReportService {
             InputStreamResource inputStreamResource = null;
             String reportFileName = "";
             sourceFolderPath = String.format("%s/%s/%s/", Constants.LOCAL_BASE_PATH, rootOrg, UUID.randomUUID());
+            String outputPath = sourceFolderPath +  Constants.OUTPUT_PATH;
             if (serverProperties.getSpvChannelName().equalsIgnoreCase(channel)) {
                 logger.info("This is under spv: " + channel);
                 reportFileName = serverProperties.getSpvFullReportFileName();
@@ -213,7 +214,7 @@ public class OperationalReportServiceImpl implements OperationalReportService {
             // Return ResponseEntity with the file for download
             return ResponseEntity.ok()
                     .headers(headers)
-                    .contentLength(Files.size(Paths.get(sourceFolderPath + "/" + serverProperties.getOperationReportFileName())))
+                    .contentLength(Files.size(Paths.get(outputPath + "/" + serverProperties.getOperationReportFileName())))
                     .body(inputStreamResource);
         } catch (Exception e) {
             logger.error("Failed to read the downloaded file: " + serverProperties.getOperationReportFileName()
