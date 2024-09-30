@@ -61,41 +61,46 @@ public class KafkaConsumer {
 
     @KafkaListener(topics = "${spring.kafka.public.assessment.topic.name}", groupId = "${spring.kafka.public.assessment.consumer.group.id}")
     public void publicAssessmentCertificateEmailNotification(ConsumerRecord<String, String> data) throws IOException {
-        logger.info("KafkaConsumer::publicAssessmentCertificateEmailNotification:topic name: {} and recievedData: {}", data.topic(), data.value());
-        Map<String, Object> userCourseEnrollMap = mapper.readValue(data.value(), HashMap.class);
-        String email = userCourseEnrollMap.get(Constants.PUBLIC_USER_ID).toString();
-        String encryptedEmail = encryptionService.encryptData(email);
-        Map<String, Object> propertyMap = new HashMap<>();
-        propertyMap.put(Constants.PUBLIC_USER_ID, encryptedEmail);
-        propertyMap.put(Constants.PUBLIC_CONTEXT_ID, userCourseEnrollMap.get(Constants.COURSE_ID_LOWER));
-        propertyMap.put(Constants.PUBLIC_ASSESSMENT_ID, userCourseEnrollMap.get(Constants.PUBLIC_ASSESSMENT_ID));
-        List<Map<String, Object>> listOfMasterData = cassandraOperation.getRecordsByPropertiesWithoutFiltering(Constants.KEYSPACE_SUNBIRD, serverProperties.getPublicUserAssessmentTableName(), propertyMap, null, 1);
-        if (!CollectionUtils.isEmpty(listOfMasterData)) {
-            Map<String, Object> dbData = listOfMasterData.get(0);
-            JsonNode jsonNode = mapper.convertValue(dbData, JsonNode.class);
-            String certificateId = "";
-            JsonNode issuedCertificates = jsonNode.path("issued_certificates");
-            if (issuedCertificates.isArray() && issuedCertificates.size() > 0) {
-                JsonNode firstCertificate = issuedCertificates.get(0).path(Constants.IDENTIFIER);
-                if (!firstCertificate.isMissingNode() && !firstCertificate.isNull()) {
-                    certificateId = firstCertificate.asText();
-                    logger.info("Certificate id of the user: {}", certificateId);
+        try {
+            logger.info("KafkaConsumer::publicAssessmentCertificateEmailNotification:topic name: {} and recievedData: {}", data.topic(), data.value());
+            Map<String, Object> userCourseEnrollMap = mapper.readValue(data.value(), HashMap.class);
+
+            String email = userCourseEnrollMap.get(Constants.PUBLIC_USER_ID).toString();
+            String encryptedEmail = encryptionService.encryptData(email);
+            Map<String, Object> propertyMap = new HashMap<>();
+            propertyMap.put(Constants.PUBLIC_USER_ID, encryptedEmail);
+            propertyMap.put(Constants.PUBLIC_CONTEXT_ID, userCourseEnrollMap.get(Constants.COURSE_ID_LOWER));
+            propertyMap.put(Constants.PUBLIC_ASSESSMENT_ID, userCourseEnrollMap.get(Constants.PUBLIC_ASSESSMENT_ID));
+            List<Map<String, Object>> listOfMasterData = cassandraOperation.getRecordsByPropertiesWithoutFiltering(Constants.KEYSPACE_SUNBIRD, serverProperties.getPublicUserAssessmentTableName(), propertyMap, null, 1);
+            if (!CollectionUtils.isEmpty(listOfMasterData)) {
+                Map<String, Object> dbData = listOfMasterData.get(0);
+                JsonNode jsonNode = mapper.convertValue(dbData, JsonNode.class);
+                String certificateId = "";
+                JsonNode issuedCertificates = jsonNode.path("issuedCertificates");
+                if (issuedCertificates.isArray() && issuedCertificates.size() > 0) {
+                    JsonNode firstCertificate = issuedCertificates.get(0).path(Constants.IDENTIFIER);
+                    if (!firstCertificate.isMissingNode() && !firstCertificate.isNull()) {
+                        certificateId = firstCertificate.asText();
+                        logger.info("Certificate id of the user: {}", certificateId);
+                    }
+                }
+                if (StringUtils.isNotBlank(certificateId)) {
+                    propertyMap.put(Constants.START_TIME, dbData.get(Constants.START_TIME));
+                    String certlink = publicUserCertificateDownload(certificateId);
+                    Map<String, Object> updatedMap = new HashMap<>();
+                    updatedMap.put(Constants.CERT_PUBLICURL, certlink);
+                    cassandraOperation.updateRecord(Constants.KEYSPACE_SUNBIRD, serverProperties.getPublicUserAssessmentTableName(), updatedMap, propertyMap);
+                    Map<String, Object> notificationInput = new HashMap<>();
+                    notificationInput.put(Constants.PUBLIC_USER_ID, email);
+                    notificationInput.put(Constants.PUBLIC_CONTEXT_ID, userCourseEnrollMap.get(Constants.COURSE_ID_LOWER));
+                    notificationInput.put(Constants.PUBLIC_ASSESSMENT_ID, userCourseEnrollMap.get(Constants.PUBLIC_ASSESSMENT_ID));
+                    kafkaProducer.push(serverProperties.getSpringKafkaPublicAssessmentNotificationTopicName(), notificationInput);
+                } else {
+                    logger.error("The certificateId is not present for kafka event : " + data);
                 }
             }
-            if (StringUtils.isNotBlank(certificateId)) {
-                propertyMap.put(Constants.START_TIME, dbData.get(Constants.START_TIME));
-                String certlink = publicUserCertificateDownload(certificateId);
-                Map<String, Object> updatedMap = new HashMap<>();
-                updatedMap.put(Constants.CERT_PUBLICURL, certlink);
-                cassandraOperation.updateRecord(Constants.KEYSPACE_SUNBIRD, serverProperties.getPublicUserAssessmentTableName(), updatedMap, propertyMap);
-                Map<String, Object> notificationInput = new HashMap<>();
-                notificationInput.put(Constants.PUBLIC_USER_ID, email);
-                notificationInput.put(Constants.PUBLIC_CONTEXT_ID, userCourseEnrollMap.get(Constants.COURSE_ID_LOWER));
-                notificationInput.put(Constants.PUBLIC_ASSESSMENT_ID, userCourseEnrollMap.get(Constants.PUBLIC_ASSESSMENT_ID));
-                kafkaProducer.push(serverProperties.getSpringKafkaPublicAssessmentNotificationTopicName(), notificationInput);
-            } else {
-                logger.error("The certificateId is not present for kafka event : " + data);
-            }
+        } catch (Exception e) {
+            logger.error("Error while processing the kafka event : " + data);
         }
     }
 
@@ -104,7 +109,7 @@ public class KafkaConsumer {
         File mFile = null;
         try {
             String data = callCertRegistryApi(certificateid);
-            String outputPath = "/tmp/" + certificateid + "_certificate.png";
+            String outputPath = "/tmp/" + certificateid + "_certificate.pdf";
             generatePdfFromSvg(data, "pdf", outputPath);
             mFile = new File(outputPath);
             if (mFile != null && mFile.exists()) {
