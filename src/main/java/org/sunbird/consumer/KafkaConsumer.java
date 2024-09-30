@@ -67,7 +67,7 @@ public class KafkaConsumer {
         String encryptedEmail = encryptionService.encryptData(email);
         Map<String, Object> propertyMap = new HashMap<>();
         propertyMap.put(Constants.PUBLIC_USER_ID, encryptedEmail);
-        propertyMap.put(Constants.PUBLIC_CONTEXT_ID, userCourseEnrollMap.get(Constants.PUBLIC_CONTEXT_ID));
+        propertyMap.put(Constants.PUBLIC_CONTEXT_ID, userCourseEnrollMap.get(Constants.COURSE_ID_LOWER));
         propertyMap.put(Constants.PUBLIC_ASSESSMENT_ID, userCourseEnrollMap.get(Constants.PUBLIC_ASSESSMENT_ID));
         List<Map<String, Object>> listOfMasterData = cassandraOperation.getRecordsByPropertiesWithoutFiltering(Constants.KEYSPACE_SUNBIRD, serverProperties.getPublicUserAssessmentTableName(), propertyMap, null, 1);
         if (!CollectionUtils.isEmpty(listOfMasterData)) {
@@ -90,7 +90,7 @@ public class KafkaConsumer {
                 cassandraOperation.updateRecord(Constants.KEYSPACE_SUNBIRD, serverProperties.getPublicUserAssessmentTableName(), updatedMap, propertyMap);
                 Map<String, Object> notificationInput = new HashMap<>();
                 notificationInput.put(Constants.PUBLIC_USER_ID, email);
-                notificationInput.put(Constants.PUBLIC_CONTEXT_ID, userCourseEnrollMap.get(Constants.PUBLIC_CONTEXT_ID));
+                notificationInput.put(Constants.PUBLIC_CONTEXT_ID, userCourseEnrollMap.get(Constants.COURSE_ID_LOWER));
                 notificationInput.put(Constants.PUBLIC_ASSESSMENT_ID, userCourseEnrollMap.get(Constants.PUBLIC_ASSESSMENT_ID));
                 kafkaProducer.push(serverProperties.getSpringKafkaPublicAssessmentNotificationTopicName(), notificationInput);
             } else {

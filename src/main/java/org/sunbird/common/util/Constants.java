@@ -1154,6 +1154,7 @@ public class Constants {
 	public static final String CERT_PUBLICURL = "cert_publicurl";
   	public static final String CHILD_ID = "childId";
 	public static final String INPUT_PATH = "input/";
+	public static final String COURSE_ID_LOWER = "courseid";
 
 	private Constants() {
 		throw new IllegalStateException("Utility class");
