@@ -30,6 +30,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.ObjectUtils;
 import org.sunbird.assessment.repo.AssessmentRepository;
 import org.sunbird.common.model.SBApiResponse;
+import org.sunbird.common.service.ContentService;
 import org.sunbird.common.service.OutboundRequestHandlerServiceImpl;
 import org.sunbird.common.util.*;
 import org.sunbird.core.producer.Producer;
@@ -67,7 +68,7 @@ public class AssessmentServiceV4Impl implements AssessmentServiceV4 {
     AccessTokenValidator accessTokenValidator;
 
     @Autowired
-    CbExtServerProperties cbExtServerProperties;
+    ContentService contentService;
 
     @Override
     public SBApiResponse retakeAssessment(String assessmentIdentifier, String token,Boolean editMode) {
@@ -368,7 +369,7 @@ public class AssessmentServiceV4Impl implements AssessmentServiceV4 {
                             Map<String, Object> finalRes= calculateAssessmentFinalResults(result);
                             outgoingResponse.getResult().putAll(finalRes);
                             outgoingResponse.getResult().put(Constants.PRIMARY_CATEGORY, assessmentPrimaryCategory);
-                            progressUpdateAPIRespone = updateContentProgress(userAuthToken,submitRequest,userId,outgoingResponse);
+                            progressUpdateAPIRespone = contentService.updateContentProgress(userAuthToken,submitRequest,userId,outgoingResponse);
                             if (!Constants.PRACTICE_QUESTION_SET.equalsIgnoreCase(assessmentPrimaryCategory) && !editMode && Constants.SUCCESS.equalsIgnoreCase(progressUpdateAPIRespone)) {
 
                                 String questionSetFromAssessmentString = (String) existingAssessmentData
@@ -402,7 +403,7 @@ public class AssessmentServiceV4Impl implements AssessmentServiceV4 {
                     outgoingResponse.getParams().setStatus(Constants.SUCCESS);
                     outgoingResponse.setResponseCode(HttpStatus.OK);
                     outgoingResponse.getResult().put(Constants.PRIMARY_CATEGORY, assessmentPrimaryCategory);
-                    progressUpdateAPIRespone = updateContentProgress(userAuthToken,submitRequest,userId,outgoingResponse);
+                    progressUpdateAPIRespone = contentService.updateContentProgress(userAuthToken,submitRequest,userId,outgoingResponse);
                     if (!Constants.PRACTICE_QUESTION_SET.equalsIgnoreCase(assessmentPrimaryCategory) && !editMode && Constants.SUCCESS.equalsIgnoreCase(progressUpdateAPIRespone)) {
                         String questionSetFromAssessmentString = (String) existingAssessmentData
                                 .get(Constants.ASSESSMENT_READ_RESPONSE_KEY);
@@ -997,53 +998,4 @@ public class AssessmentServiceV4Impl implements AssessmentServiceV4 {
         return response;
     }
 
-    public String updateContentProgress(String userAuthToken, Map<String, Object> reqBody, String userId, SBApiResponse outgoingResponse) {
-        String response = "";
-        try {
-            Map<String, String> headers = new HashMap<>();
-            headers.put(Constants.CONTENT_TYPE, Constants.APPLICATION_JSON);
-            headers.put(Constants.X_AUTH_TOKEN, userAuthToken);
-            headers.put(Constants.AUTHORIZATION, cbExtServerProperties.getSbApiKey());
-
-            Map<String, Object> req = new HashMap<>();
-            Map<String, Object> request = new HashMap<>();
-            List<Map<String, Object>> contents = new ArrayList<>();
-
-            Map<String, Object> reqObj = new HashMap<>();
-            reqObj.put(Constants.CONTENT_ID_KEY, reqBody.get(Constants.IDENTIFIER));
-            reqObj.put(Constants.COURSE_ID, reqBody.get(Constants.COURSE_ID));
-            reqObj.put(Constants.BATCH_ID, reqBody.get(Constants.BATCH_ID));
-            reqObj.put(Constants.STATUS, 2);
-            reqObj.put("lastAccessTime", new SimpleDateFormat("yyyy-MM-dd HH:mm:ss:SSSZ").format(new Date()));
-            reqObj.put(Constants.COMPLETION_PERCENTAGE, 100);
-
-            contents.add(reqObj);
-
-            req.put(Constants.USER_ID, userId);
-            req.put("contents", contents);
-            request.put(Constants.REQUEST,req);
-
-            Map<String, Object> apiResponse = outboundRequestHandlerService.fetchResultUsingPatch(
-                    cbExtServerProperties.getCourseServiceHost() + cbExtServerProperties.getProgressUpdateEndPoint(),
-                    request, headers);
-
-            if ("OK".equals(apiResponse.get("responseCode"))) {
-                response = Constants.SUCCESS;
-                logger.info(String.format("Successfully updated progress for user : %s, for assessment : %s, of course :%s", userId,
-                        reqBody.get(Constants.IDENTIFIER),reqBody.get(Constants.COURSE_ID)));
-            } else {
-                logger.error(String.format("Failed to update progress for user : %s, for assessment : %s, of course :%s", userId,
-                        reqBody.get(Constants.IDENTIFIER),reqBody.get(Constants.COURSE_ID)));
-                outgoingResponse.setResult(null);
-                updateErrorDetails(outgoingResponse, Constants.FAILED_TO_UPDATE_PROGRESS, HttpStatus.INTERNAL_SERVER_ERROR);
-            }
-
-        } catch (Exception e) {
-            logger.error(String.format("Failed to update progress for user: %s, for assessment: %s, of course: %s. Exception: %s",
-                    userId, reqBody.get(Constants.IDENTIFIER),reqBody.get(Constants.COURSE_ID), e.getMessage()), e);
-            outgoingResponse.setResult(null);
-            updateErrorDetails(outgoingResponse, Constants.FAILED_TO_UPDATE_PROGRESS, HttpStatus.INTERNAL_SERVER_ERROR);
-        }
-        return response;
-    }
 }

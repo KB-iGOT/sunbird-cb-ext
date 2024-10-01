@@ -1,15 +1,18 @@
 package org.sunbird.common.service;
 
+import java.text.SimpleDateFormat;
 import java.util.*;
 
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.collections4.MapUtils;
 import org.codehaus.plexus.util.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.util.ObjectUtils;
 import org.sunbird.cache.DataCacheMgr;
 import org.sunbird.cache.RedisCacheMgr;
+import org.sunbird.common.model.SBApiResponse;
 import org.sunbird.common.model.SunbirdApiHierarchyResultBatch;
 import org.sunbird.common.model.SunbirdApiResp;
 import org.sunbird.common.model.SunbirdApiUserCourseListResp;
@@ -41,6 +44,9 @@ public class ContentServiceImpl implements ContentService {
 
 	@Autowired
 	DataCacheMgr dataCacheMgr;
+
+	@Autowired
+	CbExtServerProperties cbExtServerProperties;
 
 	public SunbirdApiResp getHeirarchyResponse(String contentId) {
 		StringBuilder url = new StringBuilder();
@@ -453,5 +459,61 @@ public class ContentServiceImpl implements ContentService {
 		}
 		
 		return responseData;
+	}
+
+	public String updateContentProgress(String userAuthToken, Map<String, Object> reqBody, String userId, SBApiResponse outgoingResponse) {
+		String response = "";
+		try {
+			Map<String, String> headers = new HashMap<>();
+			headers.put(Constants.CONTENT_TYPE, Constants.APPLICATION_JSON);
+			headers.put(Constants.X_AUTH_TOKEN, userAuthToken);
+			headers.put(Constants.AUTHORIZATION, cbExtServerProperties.getSbApiKey());
+
+			Map<String, Object> req = new HashMap<>();
+			Map<String, Object> request = new HashMap<>();
+			List<Map<String, Object>> contents = new ArrayList<>();
+
+			Map<String, Object> reqObj = new HashMap<>();
+			reqObj.put(Constants.CONTENT_ID_KEY, reqBody.get(Constants.IDENTIFIER));
+			reqObj.put(Constants.COURSE_ID, reqBody.get(Constants.COURSE_ID));
+			reqObj.put(Constants.BATCH_ID, reqBody.get(Constants.BATCH_ID));
+			reqObj.put(Constants.STATUS, 2);
+			reqObj.put("lastAccessTime", new SimpleDateFormat("yyyy-MM-dd HH:mm:ss:SSSZ").format(new Date()));
+			reqObj.put(Constants.COMPLETION_PERCENTAGE, 100);
+
+			contents.add(reqObj);
+
+			req.put(Constants.USER_ID, userId);
+			req.put("contents", contents);
+			request.put(Constants.REQUEST,req);
+
+			Map<String, Object> apiResponse = outboundRequestHandlerService.fetchResultUsingPatch(
+					cbExtServerProperties.getCourseServiceHost() + cbExtServerProperties.getProgressUpdateEndPoint(),
+					request, headers);
+
+			if ("OK".equals(apiResponse.get("responseCode"))) {
+				response = Constants.SUCCESS;
+				logger.info(String.format("Successfully updated progress for user : %s, for assessment : %s, of course :%s", userId,
+						reqBody.get(Constants.IDENTIFIER),reqBody.get(Constants.COURSE_ID)));
+			} else {
+				logger.info(String.format("Failed to update progress for user : %s, for assessment : %s, of course :%s", userId,
+						reqBody.get(Constants.IDENTIFIER),reqBody.get(Constants.COURSE_ID)));
+				outgoingResponse.setResult(null);
+				updateErrorDetails(outgoingResponse, Constants.FAILED_TO_UPDATE_PROGRESS, HttpStatus.INTERNAL_SERVER_ERROR);
+			}
+
+		} catch (Exception e) {
+			logger.error(String.format("Failed to update progress for user: %s, for assessment: %s, of course: %s. Exception: %s",
+					userId, reqBody.get(Constants.IDENTIFIER),reqBody.get(Constants.COURSE_ID), e.getMessage()), e);
+			outgoingResponse.setResult(null);
+			updateErrorDetails(outgoingResponse, Constants.FAILED_TO_UPDATE_PROGRESS, HttpStatus.INTERNAL_SERVER_ERROR);
+		}
+		return response;
+	}
+
+	private void updateErrorDetails(SBApiResponse response, String errMsg, HttpStatus responseCode) {
+		response.getParams().setStatus(Constants.FAILED);
+		response.getParams().setErrmsg(errMsg);
+		response.setResponseCode(responseCode);
 	}
 }
