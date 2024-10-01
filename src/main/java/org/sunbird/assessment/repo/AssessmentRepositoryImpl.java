@@ -21,6 +21,7 @@ import org.sunbird.core.logger.CbExtLogger;
 
 import com.datastax.driver.core.utils.UUIDs;
 import com.google.gson.Gson;
+import org.sunbird.cqfassessment.model.CQFAssessmentModel;
 
 @Service
 public class AssessmentRepositoryImpl implements AssessmentRepository {
@@ -186,4 +187,62 @@ public class AssessmentRepositoryImpl implements AssessmentRepository {
 		return true;
 	}
 
+
+	/**
+	 * Adds the user's CQF assessment data to the database.
+	 *
+	 * @param cqfAssessmentModel The CQFAssessmentModel object representing the assessment.
+	 * @param questionSet        The map containing the question set data.
+	 * @param status             The status of the assessment.
+	 * @return True if the assessment data was added successfully, false otherwise.
+	 */
+	@Override
+	public boolean addUserCQFAssesmentDataToDB(CQFAssessmentModel cqfAssessmentModel, Map<String, Object> questionSet, String status) {
+		Map<String, Object> request = new HashMap<>();
+		request.put(Constants.USER_ID, cqfAssessmentModel.getUserId());
+		request.put(Constants.ASSESSMENT_ID_KEY, cqfAssessmentModel.getAssessmentIdentifier());
+		request.put(Constants.ASSESSMENT_READ_RESPONSE, new Gson().toJson(questionSet));
+		request.put(Constants.STATUS, status);
+		request.put(Constants.CONTENT_ID_KEY, cqfAssessmentModel.getContentId());
+		request.put(Constants.VERSION_KEY, cqfAssessmentModel.getVersionKey());
+		SBApiResponse resp = cassandraOperation.insertRecord(Constants.KEYSPACE_SUNBIRD,
+				Constants.TABLE_CQF_ASSESSMENT_DATA, request);
+		return resp.get(Constants.RESPONSE).equals(Constants.SUCCESS);
+	}
+
+
+	/**
+	 * Updates CQF assessment data to the database.
+	 *
+	 * @param paramsMap                   A map of parameters required for the update operation.
+	 * @param submitAssessmentRequest     The request object containing assessment data to be updated.
+	 * @param submitAssessmentResponse    The response object containing the result of the assessment submission.
+	 * @param status                      The status of the assessment submission (e.g. "passed", "failed", etc.).
+	 * @param saveSubmitAssessmentRequest A map of request data to be saved along with the assessment submission.
+	 */
+	@Override
+	public void updateCQFAssesmentDataToDB(Map<String, Object> paramsMap,
+										   Map<String, Object> submitAssessmentRequest, Map<String, Object> submitAssessmentResponse, String status,
+										   Map<String, Object> saveSubmitAssessmentRequest) {
+		Map<String, Object> compositeKeys = new HashMap<>();
+		compositeKeys.put(Constants.USER_ID, paramsMap.get(Constants.USER_ID));
+		compositeKeys.put(Constants.ASSESSMENT_ID_KEY, paramsMap.get(Constants.ASSESSMENT_IDENTIFIER));
+		compositeKeys.put(Constants.CONTENT_ID_KEY, paramsMap.get(Constants.CONTENT_ID_KEY));
+		compositeKeys.put(Constants.VERSION_KEY, paramsMap.get(Constants.VERSION_KEY));
+		Map<String, Object> fieldsToBeUpdated = new HashMap<>();
+		if (MapUtils.isNotEmpty(submitAssessmentRequest)) {
+			fieldsToBeUpdated.put("submitassessmentrequest", new Gson().toJson(submitAssessmentRequest));
+		}
+		if (MapUtils.isNotEmpty(submitAssessmentResponse)) {
+			fieldsToBeUpdated.put("submitassessmentresponse", new Gson().toJson(submitAssessmentResponse));
+		}
+		if (StringUtils.isNotBlank(status)) {
+			fieldsToBeUpdated.put(Constants.STATUS, status);
+		}
+		if (MapUtils.isNotEmpty(saveSubmitAssessmentRequest)) {
+			fieldsToBeUpdated.put("savepointsubmitreq", new Gson().toJson(saveSubmitAssessmentRequest));
+		}
+		cassandraOperation.updateRecord(Constants.KEYSPACE_SUNBIRD, Constants.TABLE_CQF_ASSESSMENT_DATA,
+				fieldsToBeUpdated, compositeKeys);
+	}
 }

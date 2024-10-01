@@ -795,7 +795,7 @@ public class CbExtServerProperties {
 
 	@Value("${sb.composite.v4.search}")
 	private String sbCompositeV4Search;
-
+  
 	@Value("${kcm.framework.name}")
 	private String kcmFrameworkName;
 
@@ -811,6 +811,115 @@ public class CbExtServerProperties {
 	@Value("${spv.full.report.file.name}")
 	private String spvFullReportFileName;
 
+	@Value("${sb.update.org.path}")
+	private String updateOrgPath;
+
+	@Value("${bulk.upload.competency.your.workspace.name}")
+	private String bulkUploadCompetencyYourWorkSpaceName;
+
+	@Value("${bulk.upload.competency.reference.workspace.name}")
+	private String bulkUploadCompetencyReferenceWorkSpaceName;
+
+	@Value("${bulk.upload.master.designation.workspace.name}")
+	private String bulkUploadMasterDesignationWorkSpaceName;
+
+	@Value("${bulk.upload.competency.designation.file.name}")
+	private String bulkUploadCompetencyDesignationFileName;
+
+	@Value("${competency.designation.bulk.upload.container.name}")
+	private String competencyDesignationBulkUploadContainerName;
+
+	@Value("${kafka.topics.competency.designation.bulk.upload.event}")
+	private String competencyDesignationBulkUploadTopic;
+
+	@Value("${km.framework.term.update.path}")
+	private String kmFrameworkTermUpdatePath;
+
+	@Value("${km.framework.publish.path}")
+	private String kmFrameworkPublishPath;
+
+	@Value("${designation.competency.bulk.upload.update.threshold.value}")
+	private int bulkUploadThresholdValue;
+
+	@Value("${competency.selected.version}")
+	private String competencySelectedVersion;
+
+	@Value("#{${competency.selected.version.facets.map}}")
+	private Map<String, String> competencySelectedVersionFacetsMap;
+  
+	@Value("${national.learning.insights.fields}")
+	private String nationalLearningInsightsFields;
+
+	@Value("${national.learning.insights.property.fields}")
+	private String nationalLearningInsightsPropertyFields;
+
+	@Value("${national.learning.insights.redis.key.mapping}")
+	private String nationalLearningInsightsRedisKeyMapping;
+
+	@Value("${master.competency.framework.name}")
+	private String masterCompetencyFrameworkName;
+
+    @Value("${cb.pores.service.host}")
+    private String cbPoresServiceHost;
+
+    @Value("${cb.pores.master.designation.endpoint}")
+    private String cbPoresMasterDesignationEndpoint;
+
+	@Value("${sample.file.master.designation.workspace.name}")
+	private String sampleFileMasterDesignationWorkSpaceName;
+
+	@Value("${sample.bulk.upload.designation.file.name}")
+	private String sampleBulkUploadCompetencyDesignationFileName;
+
+	@Value("${org.designation.bulk.upload.container.name}")
+	private String orgDesignationBulkUploadContainerName;
+
+	@Value("${kafka.topics.org.designation.bulk.upload.event}")
+	private String orgDesignationBulkUploadTopic;
+
+	@Value("${redis.master.data.read.timeout}")
+	private int redisMasterDataReadTimeOut;
+
+	@Value("${kafka.topics.cqf.assessment.postpublish}")
+	private String cqfAssessmentPostPublishTopic;
+
+  @Value("${sb.csv.delimiter}")
+	private char csvDelimiter;
+
+	@Value(("${sb.tags.delimiter}"))
+	private String tagsDelimiter;
+
+	@Value("${assessment.questionset.hierarchy}")
+	private String questionSetHierarchy;
+
+	@Value("${assessment.questionset.create}")
+	private String questionSetCreate;
+
+	@Value("${assessment.questionset.read}")
+	private String questionSetRead;
+
+	@Value("${assessment.questionset.hierarchy.update}")
+	private String questionSetHierarchyUpdate;
+
+	@Value("${assessment.questionset.hierarchy.index}")
+	private String questionSetHierarchyIndex;
+
+	@Value("${cios.cloud.container.name}")
+	private String ciosCloudContainerName;
+
+	@Value("${cios.cloud.folder.name}")
+	private String ciosCloudFolderName;
+
+	@Value("${cios.cloud.icon.folder.name}")
+	private String ciosCloudIconFolderName;
+
+	@Value("${questionSet.publish}")
+	private String questionSetPublish;
+
+	public String getCiosCloudIconFolderName() {
+		return ciosCloudIconFolderName;
+	}
+  
 	public boolean qListFromCacheEnabled() {
 		return qListFromCacheEnabled;
 	}
@@ -2746,6 +2855,18 @@ public class CbExtServerProperties {
 		this.insightsMappingKey = insightsMappingKey;
 	}
 
+	public String getCiosCloudContainerName() {
+		return ciosCloudContainerName;
+	}
+
+	public String getCiosCloudFolderName() {
+		return ciosCloudFolderName;
+	}
+
+	public void setCiosCloudContainerName(String ciosCloudContainerName) {
+		this.ciosCloudContainerName = ciosCloudContainerName;
+	}
+
 	public String getSbSearchServiceHost() {
 		return sbSearchServiceHost;
 	}
@@ -2761,6 +2882,65 @@ public class CbExtServerProperties {
 	public void setSbCompositeV4Search(String sbCompositeV4Search) {
 		this.sbCompositeV4Search = sbCompositeV4Search;
 	}
+
+	public char getCsvDelimiter() {
+		return csvDelimiter;
+	}
+
+	public void setCsvDelimiter(char csvDelimiter) {
+		this.csvDelimiter = csvDelimiter;
+	}
+
+	public String getTagsDelimiter() {
+		return tagsDelimiter;
+	}
+
+	public void setTagsDelimiter(String tagsDelimiter) {
+		this.tagsDelimiter = tagsDelimiter;
+	}
+
+	public String getQuestionSetHierarchy() {
+		return questionSetHierarchy;
+	}
+
+	public void setQuestionSetHierarchy(String questionSetHierarchy) {
+		this.questionSetHierarchy = questionSetHierarchy;
+	}
+
+	public String getQuestionSetCreate() {
+		return questionSetCreate;
+	}
+
+	public void setQuestionSetCreate(String questionSetCreate) {
+		this.questionSetCreate = questionSetCreate;
+	}
+
+	public String getQuestionSetRead() {
+		return questionSetRead;
+	}
+
+	public void setQuestionSetRead(String questionSetRead) {
+		this.questionSetRead = questionSetRead;
+	}
+
+	public String getQuestionSetHierarchyUpdate() {
+		return questionSetHierarchyUpdate;
+	}
+
+	public void setQuestionSetHierarchyUpdate(String questionSetHierarchyUpdate) {
+		this.questionSetHierarchyUpdate = questionSetHierarchyUpdate;
+	}
+
+	public String getQuestionSetHierarchyIndex() {
+		return questionSetHierarchyIndex;
+	}
+
+	public void setQuestionSetHierarchyIndex(String questionSetHierarchyIndex) {
+		this.questionSetHierarchyIndex = questionSetHierarchyIndex;
+	}
+	public String getQuestionSetPublish() { return questionSetPublish; }
+
+	public void setQuestionSetPublish(String questionSetPublish) { this.questionSetPublish = questionSetPublish; }
 
 	public String getKcmFrameworkName() {
 		return kcmFrameworkName;
@@ -2789,4 +2969,193 @@ public class CbExtServerProperties {
 	public void setSpvFullReportFileName(String spvFullReportFileName) {
 		this.spvFullReportFileName = spvFullReportFileName;
 	}
+
+	public String getUpdateOrgPath() { return updateOrgPath; }
+
+	public void setUpdateOrgPath(String updateOrgPath) { this.updateOrgPath = updateOrgPath; }
+
+	public String getMasterCompetencyFrameworkName() {
+		return masterCompetencyFrameworkName;
+	}
+
+	public void setMasterCompetencyFrameworkName(String masterCompetencyFrameworkName) {
+		this.masterCompetencyFrameworkName = masterCompetencyFrameworkName;
+	}
+
+	public String getBulkUploadCompetencyYourWorkSpaceName() {
+		return bulkUploadCompetencyYourWorkSpaceName;
+	}
+
+	public void setBulkUploadCompetencyYourWorkSpaceName(String bulkUploadCompetencyYourWorkSpaceName) {
+		this.bulkUploadCompetencyYourWorkSpaceName = bulkUploadCompetencyYourWorkSpaceName;
+	}
+
+	public String getBulkUploadCompetencyReferenceWorkSpaceName() {
+		return bulkUploadCompetencyReferenceWorkSpaceName;
+	}
+
+	public void setBulkUploadCompetencyReferenceWorkSpaceName(String bulkUploadCompetencyReferenceWorkSpaceName) {
+		this.bulkUploadCompetencyReferenceWorkSpaceName = bulkUploadCompetencyReferenceWorkSpaceName;
+	}
+
+	public String getBulkUploadMasterDesignationWorkSpaceName() {
+		return bulkUploadMasterDesignationWorkSpaceName;
+	}
+
+	public void setBulkUploadMasterDesignationWorkSpaceName(String bulkUploadMasterDesignationWorkSpaceName) {
+		this.bulkUploadMasterDesignationWorkSpaceName = bulkUploadMasterDesignationWorkSpaceName;
+	}
+
+	public String getBulkUploadCompetencyDesignationFileName() {
+		return bulkUploadCompetencyDesignationFileName;
+	}
+
+	public void setBulkUploadCompetencyDesignationFileName(String bulkUploadCompetencyDesignationFileName) {
+		this.bulkUploadCompetencyDesignationFileName = bulkUploadCompetencyDesignationFileName;
+	}
+
+	public String getCompetencyDesignationBulkUploadContainerName() {
+		return competencyDesignationBulkUploadContainerName;
+	}
+
+	public void setCompetencyDesignationBulkUploadContainerName(String competencyDesignationBulkUploadContainerName) {
+		this.competencyDesignationBulkUploadContainerName = competencyDesignationBulkUploadContainerName;
+	}
+
+	public String getCompetencyDesignationBulkUploadTopic() {
+		return competencyDesignationBulkUploadTopic;
+	}
+
+	public void setCompetencyDesignationBulkUploadTopic(String competencyDesignationBulkUploadTopic) {
+		this.competencyDesignationBulkUploadTopic = competencyDesignationBulkUploadTopic;
+	}
+
+	public String getKmFrameworkTermUpdatePath() {
+		return kmFrameworkTermUpdatePath;
+	}
+
+	public void setKmFrameworkTermUpdatePath(String kmFrameworkTermUpdatePath) {
+		this.kmFrameworkTermUpdatePath = kmFrameworkTermUpdatePath;
+	}
+
+	public String getKmFrameworkPublishPath() {
+		return kmFrameworkPublishPath;
+	}
+
+	public void setKmFrameworkPublishPath(String kmFrameworkPublishPath) {
+		this.kmFrameworkPublishPath = kmFrameworkPublishPath;
+	}
+
+	public int getBulkUploadThresholdValue() {
+		return bulkUploadThresholdValue;
+	}
+
+	public void setBulkUploadThresholdValue(int bulkUploadThresholdValue) {
+		this.bulkUploadThresholdValue = bulkUploadThresholdValue;
+	}
+
+	public Map<String, String> getCompetencySelectedVersionFacetsMap() {
+		return competencySelectedVersionFacetsMap;
+	}
+
+	public void setCompetencySelectedVersionFacetsMap(Map<String, String> competencySelectedVersionFacetsMap) {
+		this.competencySelectedVersionFacetsMap = competencySelectedVersionFacetsMap;
+	}
+
+	public String getCompetencySelectedVersion() {
+		return competencySelectedVersion;
+	}
+
+	public void setCompetencySelectedVersion(String competencySelectedVersion) {
+		this.competencySelectedVersion = competencySelectedVersion;
+	}
+	
+        public String getNationalLearningInsightsFields() {
+		return nationalLearningInsightsFields;
+	}
+
+	public void setNationalLearningInsightsFields(String nationalLearningInsightsFields) {
+		this.nationalLearningInsightsFields = nationalLearningInsightsFields;
+	}
+
+	public String getNationalLearningInsightsPropertyFields() {
+		return nationalLearningInsightsPropertyFields;
+	}
+
+	public void setNationalLearningInsightsPropertyFields(String nationalLearningInsightsPropertyFields) {
+		this.nationalLearningInsightsPropertyFields = nationalLearningInsightsPropertyFields;
+	}
+
+	public String getNationalLearningInsightsRedisKeyMapping() {
+		return nationalLearningInsightsRedisKeyMapping;
+	}
+
+	public void setNationalLearningInsightsRedisKeyMapping(String nationalLearningInsightsRedisKeyMapping) {
+		this.nationalLearningInsightsRedisKeyMapping = nationalLearningInsightsRedisKeyMapping;
+	}
+
+	public String getCbPoresMasterDesignationEndpoint() {
+		return cbPoresMasterDesignationEndpoint;
+	}
+
+	public void setCbPoresMasterDesignationEndpoint(String cbPoresMasterDesignationEndpoint) {
+		this.cbPoresMasterDesignationEndpoint = cbPoresMasterDesignationEndpoint;
+	}
+
+	public String getCbPoresServiceHost() {
+		return cbPoresServiceHost;
+	}
+
+	public void setCbPoresServiceHost(String cbPoresServiceHost) {
+		this.cbPoresServiceHost = cbPoresServiceHost;
+	}
+
+	public String getSampleFileMasterDesignationWorkSpaceName() {
+		return sampleFileMasterDesignationWorkSpaceName;
+	}
+
+	public void setSampleFileMasterDesignationWorkSpaceName(String sampleFileMasterDesignationWorkSpaceName) {
+		this.sampleFileMasterDesignationWorkSpaceName = sampleFileMasterDesignationWorkSpaceName;
+	}
+
+	public String getSampleBulkUploadCompetencyDesignationFileName() {
+		return sampleBulkUploadCompetencyDesignationFileName;
+	}
+
+	public void setSampleBulkUploadCompetencyDesignationFileName(String sampleBulkUploadCompetencyDesignationFileName) {
+		this.sampleBulkUploadCompetencyDesignationFileName = sampleBulkUploadCompetencyDesignationFileName;
+	}
+
+	public String getOrgDesignationBulkUploadContainerName() {
+		return orgDesignationBulkUploadContainerName;
+	}
+
+	public void setOrgDesignationBulkUploadContainerName(String orgDesignationBulkUploadContainerName) {
+		this.orgDesignationBulkUploadContainerName = orgDesignationBulkUploadContainerName;
+	}
+
+	public String getOrgDesignationBulkUploadTopic() {
+		return orgDesignationBulkUploadTopic;
+	}
+
+	public void setOrgDesignationBulkUploadTopic(String orgDesignationBulkUploadTopic) {
+		this.orgDesignationBulkUploadTopic = orgDesignationBulkUploadTopic;
+	}
+
+	public int getRedisMasterDataReadTimeOut() {
+		return redisMasterDataReadTimeOut;
+	}
+
+	public void setRedisMasterDataReadTimeOut(int redisMasterDataReadTimeOut) {
+		this.redisMasterDataReadTimeOut = redisMasterDataReadTimeOut;
+	}
+
+	public String getCqfAssessmentPostPublishTopic() {
+		return cqfAssessmentPostPublishTopic;
+	}
+
+	public void setCqfAssessmentPostPublishTopic(String cqfAssessmentPostPublishTopic) {
+		this.cqfAssessmentPostPublishTopic = cqfAssessmentPostPublishTopic;
+	}
+
 }

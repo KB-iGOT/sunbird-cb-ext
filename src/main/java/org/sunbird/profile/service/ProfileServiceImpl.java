@@ -57,6 +57,9 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.sql.Timestamp;
 import java.text.SimpleDateFormat;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.Map.Entry;
 import java.util.concurrent.TimeUnit;
@@ -64,6 +67,8 @@ import java.util.stream.Collectors;
 import io.jsonwebtoken.*;
 
 import static java.util.stream.Collectors.toList;
+
+import java.time.ZonedDateTime;
 
 @Service
 @SuppressWarnings({ "unchecked" })
@@ -2014,12 +2019,31 @@ public class ProfileServiceImpl implements ProfileService {
 					existingProfileDetails.put(Constants.PROFILE_GROUP_STATUS, Constants.VERIFIED);
 					existingProfileDetails.put(Constants.PROFILE_DESIGNATION_STATUS, Constants.VERIFIED);
 					isGroupOrDesignationUpdated = true;
-				} else if (Constants.NOT_VERIFIED.equalsIgnoreCase(updatedProfileStatus)
-						|| Constants.NOT_MY_USER.equalsIgnoreCase(updatedProfileStatus)) {
+				} else if (Constants.NOT_VERIFIED.equalsIgnoreCase(updatedProfileStatus)) {
 					//If marked as "NOT-VERIFIED" then no need to change the details.
 					isGroupOrDesignationUpdated = false;
 					existingProfileDetails.put(Constants.PROFILE_GROUP_STATUS, Constants.NOT_VERIFIED);
 					existingProfileDetails.put(Constants.PROFILE_DESIGNATION_STATUS, Constants.NOT_VERIFIED);
+					existingProfileDetails.remove(Constants.UPDATE_AS_NOT_MY_USER);
+				} else if (Constants.NOT_MY_USER.equalsIgnoreCase(updatedProfileStatus)) {
+					log.info("profile status is NOT MY USER");
+					isGroupOrDesignationUpdated = false;
+					existingProfileDetails.put(Constants.PROFILE_GROUP_STATUS, Constants.NOT_VERIFIED);
+					existingProfileDetails.put(Constants.PROFILE_DESIGNATION_STATUS, Constants.NOT_VERIFIED);
+					log.info("NOT MY USER existingProfileDetails before removing date "+existingProfileDetails);
+					existingProfileDetails.remove(Constants.UPDATE_AS_NOT_MY_USER);
+					LocalDateTime localDateTime = LocalDateTime.now();
+					ZoneId zoneId = ZoneId.of("UTC");
+
+					ZonedDateTime zonedDateTime = localDateTime.atZone(zoneId);
+
+					DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss:SSSZ");
+
+					String notMyUserUpdatedAt = zonedDateTime.format(formatter);
+
+					log.info("NOT MY USER status notMyUserUpdatedAt "+notMyUserUpdatedAt);
+					existingProfileDetails.put(Constants.UPDATE_AS_NOT_MY_USER, notMyUserUpdatedAt);
+					log.info("NOT MY USER existingProfileDetails "+existingProfileDetails);
 				}
 				if (isGroupOrDesignationUpdated) {
 					if (StringUtils.isNotBlank(updatedGroupVal)) {
@@ -2060,8 +2084,8 @@ public class ProfileServiceImpl implements ProfileService {
 				}
 
 				HashMap<String, String> headerValue = new HashMap<>();
-				headerValues.put(Constants.AUTH_TOKEN, authToken);
-				headerValues.put(Constants.CONTENT_TYPE, Constants.APPLICATION_JSON);
+				headerValue.put(Constants.AUTH_TOKEN, authToken);
+				headerValue.put(Constants.CONTENT_TYPE, Constants.APPLICATION_JSON);
 				String updatedUrl = serverConfig.getSbUrl() + serverConfig.getLmsUserUpdatePrivatePath();
 				Map<String, Object> updateRequestValue = requestData;
 				updateRequestValue.put(Constants.PROFILE_DETAILS, existingProfileDetails);

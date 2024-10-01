@@ -6,6 +6,9 @@ import java.util.List;
 import java.util.Map;
 
 import org.sunbird.assessment.dto.AssessmentSubmissionDTO;
+import org.sunbird.common.model.SBApiResponse;
+import org.sunbird.common.util.Constants;
+import org.sunbird.cqfassessment.model.CQFAssessmentModel;
 
 public interface AssessmentRepository {
 
@@ -57,4 +60,28 @@ public interface AssessmentRepository {
 	Boolean updateUserAssesmentDataToDB(String userId, String assessmentIdentifier,
 										Map<String, Object> submitAssessmentRequest, Map<String, Object> submitAssessmentResponse, String status,
 										Date startTime,Map<String, Object> saveSubmitAssessmentRequest);
+
+	/**
+	 * Adds the user's CQF assessment data to the database.
+	 *
+	 * @param cqfAssessmentModel The CQFAssessmentModel object representing the assessment.
+	 * @param questionSet        The map containing the question set data.
+	 * @param status             The status of the assessment.
+	 * @return True if the assessment data was added successfully, false otherwise.
+	 */
+	boolean addUserCQFAssesmentDataToDB(CQFAssessmentModel cqfAssessmentModel, Map<String, Object> questionSet, String status);
+
+	/**
+	 * Updates CQF assessment data to the database.
+	 *
+	 * @param paramsMap                   A map of parameters required for the update operation.
+	 * @param submitAssessmentRequest     The request object containing assessment data to be updated.
+	 * @param submitAssessmentResponse    The response object containing the result of the assessment submission.
+	 * @param status                      The status of the assessment submission (e.g. "passed", "failed", etc.).
+	 * @param saveSubmitAssessmentRequest A map of request data to be saved along with the assessment submission.
+	 */
+	void updateCQFAssesmentDataToDB(Map<String, Object> paramsMap,
+									Map<String, Object> submitAssessmentRequest, Map<String, Object> submitAssessmentResponse, String status,
+									Map<String, Object> saveSubmitAssessmentRequest);
+
 }

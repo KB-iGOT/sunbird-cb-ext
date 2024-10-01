@@ -39,6 +39,7 @@ import java.nio.file.StandardCopyOption;
 import java.sql.Timestamp;
 import java.text.SimpleDateFormat;
 import java.util.*;
+import java.util.regex.Pattern;
 
 @Service
 public class UserBulkUploadService {
@@ -484,7 +485,9 @@ public class UserBulkUploadService {
            file = new File(Constants.LOCAL_BASE_PATH + inputDataMap.get(Constants.FILE_NAME));
             if (file.exists() && file.length() > 0) {
                 BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream(file), StandardCharsets.UTF_8));
-                csvParser = new CSVParser(reader, CSVFormat.INFORMIX_UNLOAD.withFirstRecordAsHeader());
+                char csvDelimiter = serverProperties.getCsvDelimiter();
+                String tagsDelimiter =  serverProperties.getTagsDelimiter();
+                csvParser = new CSVParser(reader,CSVFormat.newFormat(csvDelimiter).withFirstRecordAsHeader());
 
                 List<CSVRecord> csvRecords = csvParser.getRecords();
                 List<Map<String, String>> updatedRecords = new ArrayList<>();
@@ -499,6 +502,15 @@ public class UserBulkUploadService {
                 }
 
                 for (CSVRecord record : csvRecords) {
+                    if (record.size() > headers.size() - 2) {
+                        Map<String, String> errorRecord = new LinkedHashMap<>(record.toMap());
+                        errorRecord.put("Status", "FAILED");
+                        errorRecord.put("Error Details", "Number of fields in the record exceeds expected number. Please check your data.");
+                        updatedRecords.add(errorRecord);
+                        totalRecordsCount++;
+                        failedRecordsCount++;
+                        continue;
+                    }
                    Map<String, String> updatedRecord = new LinkedHashMap<>(record.toMap());
                     List<String> errList = new ArrayList<>();
                     List<String> invalidErrList = new ArrayList<>();
@@ -634,14 +646,14 @@ public class UserBulkUploadService {
                         String tagStr = record.get(13).trim();
                         List<String> tagList = new ArrayList<>();
                         if (!StringUtils.isEmpty(tagStr)) {
-                            String[] tagStrList = tagStr.split("&", -1);
+                            String[] tagStrList = record.get(13).trim().split(Pattern.quote(tagsDelimiter), -1);
                             for (String tag : tagStrList) {
                                 tagList.add(tag.trim());
                             }
                         }
                         userRegistration.setTag(tagList);
                         if (!ProjectUtil.validateTag(userRegistration.getTag())) {
-                            invalidErrList.add("Invalid Tag: Tags are separated by '&' and can contain only alphabets with spaces. e.g., Bihar Circle&Patna Division");
+                            invalidErrList.add("Invalid Tag: Tags are separated by '|' and can contain only alphabets with spaces. e.g., Bihar Circle|Patna Division");
                         }
                     }
                     userRegistration.setOrgName(inputDataMap.get(Constants.ORG_NAME));
@@ -689,7 +701,7 @@ public class UserBulkUploadService {
                 // Write back updated records to the same CSV file
                  fileWriter = new FileWriter(file);
                 bufferedWriter = new BufferedWriter(fileWriter);
-                 csvPrinter = new CSVPrinter(bufferedWriter, CSVFormat.INFORMIX_UNLOAD.withHeader(headers.toArray(new String[0])));
+                csvPrinter = new CSVPrinter(bufferedWriter,CSVFormat.newFormat(csvDelimiter).withHeader(headers.toArray(new String[0])).withRecordSeparator(System.lineSeparator()));
 
 
                 for (Map<String, String> record : updatedRecords) {
