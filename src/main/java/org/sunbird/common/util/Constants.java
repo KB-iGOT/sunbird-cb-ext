@@ -1155,6 +1155,7 @@ public class Constants {
   	public static final String CHILD_ID = "childId";
 	public static final String INPUT_PATH = "input/";
 	public static final String COURSE_ID_LOWER = "courseid";
+	public static final String FAILED_TO_UPDATE_PROGRESS = "Failed to update progress of assessment using content state update API";
 
 	private Constants() {
 		throw new IllegalStateException("Utility class");
