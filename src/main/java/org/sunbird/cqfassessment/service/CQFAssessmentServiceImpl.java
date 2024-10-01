@@ -184,7 +184,7 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
                 for (Map<String, Object> filter : filterColumns) {
                     BoolQueryBuilder filterQueryBuilder = QueryBuilders.boolQuery();
                     for (Map.Entry<String, Object> entry : filter.entrySet()) {
-                        filterQueryBuilder.must(QueryBuilders.termQuery(entry.getKey(), entry.getValue()));
+                        filterQueryBuilder.must(QueryBuilders.matchQuery(entry.getKey(), entry.getValue()));
                     }
                     boolQueryBuilder.must(filterQueryBuilder);
                 }
@@ -195,10 +195,16 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
             searchSourceBuilder.size(Integer.parseInt(requestBody.get(Constants.PAGE_SIZE).toString()));
             if(indexerService.isIndexPresent(serverProperties.getQuestionSetHierarchyIndex())) {
                 searchResponse = indexerService.getEsResult(serverProperties.getQuestionSetHierarchyIndex(), serverConfig.getEsProfileIndexType(), searchSourceBuilder, false);
+                long totalCount = searchResponse.getHits().getTotalHits();
+                int pageSize = Integer.parseInt(requestBody.get(Constants.PAGE_SIZE).toString());
+                int totalPages = (int) Math.ceil((double) totalCount / pageSize);
                 for (SearchHit hit : searchResponse.getHits()) {
                     result = hit.getSourceAsMap();
                     resultArray.add(result);
                 }
+                resultResp.put(Constants.CQF_ASSESSMENT_DATA, resultArray);
+                resultResp.put(Constants.TOTAL_COUNT, totalCount);
+                resultResp.put("totalPages", totalPages);
             }
         } catch (IOException e) {
             logger.error(String.format("Failed to process the cqfquestionList search. %s", e.getMessage()));
