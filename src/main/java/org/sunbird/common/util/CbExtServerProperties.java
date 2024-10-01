@@ -883,7 +883,7 @@ public class CbExtServerProperties {
 	@Value("${kafka.topics.cqf.assessment.postpublish}")
 	private String cqfAssessmentPostPublishTopic;
 
-  @Value("${sb.csv.delimiter}")
+  	@Value("${sb.csv.delimiter}")
 	private char csvDelimiter;
 
 	@Value(("${sb.tags.delimiter}"))
