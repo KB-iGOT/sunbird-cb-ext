@@ -1216,8 +1216,7 @@ public class Constants {
 	public static final String NOT_APPLICABLE = "Not Applicable";
 	public static final String CURRENT_PAGE = "currentPage";
 	public static final String FILTER = "filter";
-	public static final String FAILED_TO_UPDATE_PROGRESS = "Failed to update progress of assessment using content state update API";
-  
+
 	private Constants() {
 		throw new IllegalStateException("Utility class");
 	}
