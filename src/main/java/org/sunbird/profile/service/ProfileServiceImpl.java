@@ -148,39 +148,31 @@ public class ProfileServiceImpl implements ProfileService {
 			List<String> approvalFieldList = approvalFields();
 			String newDeptName = checkDepartment(profileDetailsMap);
 			Map<String, Object> transitionData = new HashMap<>();
-			String mainKey="";
+			String mainKey = "";
+			List<String> mainKeys = new ArrayList<>();
 			for (String approvalField : approvalFieldList) {
 				String[] fieldParts = approvalField.split("\\.");
 				if (fieldParts.length > 0) {
 					mainKey = fieldParts[0];
 					String subKey = fieldParts.length > 1 ? fieldParts[1] : null;
-
 					if (profileDetailsMap.containsKey(mainKey)) {
+						mainKeys.add(mainKey);
 						Object value = profileDetailsMap.get(mainKey);
-
 						if (value instanceof List) {
+							List<Map<String, Object>> listValue = (List<Map<String, Object>>) value;
 							List<Map<String, Object>> filteredList = new ArrayList<>();
-							List<?> listValue = (List<?>) value;
-
-							for (Object obj : listValue) {
-								if (obj instanceof Map) {
-									Map<String, Object> detailMap = (Map<String, Object>) obj;
-									Map<String, Object> filteredMap = new HashMap<>();
-									for (String key : detailMap.keySet()) {
-										if (subKey == null || key.equals(subKey)) {
-											filteredMap.put(key, detailMap.get(key));
-										}
-									}
-
-									if (!filteredMap.isEmpty()) {
-										filteredList.add(filteredMap);
+							for (Map<String, Object> detailMap : listValue) {
+								Map<String, Object> combinedMap = new LinkedHashMap<>();
+								for (String key : detailMap.keySet()) {
+									if (approvalFieldList.contains(mainKey + "." + key)) {
+										combinedMap.put(key, detailMap.get(key));
 									}
 								}
+								if (!combinedMap.isEmpty()) {
+									filteredList.add(combinedMap);
+								}
 							}
-							if (transitionData.containsKey(mainKey)) {
-								List<Map<String, Object>> existingList = (List<Map<String, Object>>) transitionData.get(mainKey);
-								existingList.addAll(filteredList);
-							} else {
+							if (!filteredList.isEmpty()) {
 								transitionData.put(mainKey, filteredList);
 							}
 						} else if (subKey == null) {
@@ -192,8 +184,10 @@ public class ProfileServiceImpl implements ProfileService {
 				}
 			}
 
-			if (StringUtils.isNotEmpty(mainKey)) {
-				profileDetailsMap.remove(mainKey);
+			if (CollectionUtils.isNotEmpty(mainKeys)) {
+				for (String key : mainKeys) {
+					profileDetailsMap.remove(key);
+				}
 			}
 
 			Map<String, Object> responseMap = userUtilityService.getUsersReadData(userId, StringUtils.EMPTY,
@@ -2452,31 +2446,21 @@ public class ProfileServiceImpl implements ProfileService {
 	}
 
 	private boolean keyExistsInProfileDetails(Object value, String key) {
-		if (value == null) {
-			throw new IllegalArgumentException("Value cannot be null.");
-		}
-
 		if (value instanceof Map) {
-			Map<?, ?> mapValue = (Map<?, ?>) value;
-			if (!mapValue.containsKey(key)) {
-				throw new IllegalArgumentException("Unidentified key value configured in the approval field: " + key);
-			}
-			return true;
+			Map<String, Object> mapValue = (Map<String, Object>) value;
+			return mapValue.containsKey(key);
 		} else if (value instanceof List) {
 			List<?> listValue = (List<?>) value;
 			for (Object obj : listValue) {
-				if (obj instanceof Map<?, ?>) {
-					Map<?, ?> mapObj = (Map<?, ?>) obj;
-					if (mapObj.containsKey(key)) {
-						return true;
-					}
+				if (obj instanceof Map && ((Map<?, ?>) obj).containsKey(key)) {
+					return true;
 				}
 			}
-			throw new IllegalArgumentException("Unidentified key value configured in the approval field: " + key);
+		} else {
+			throw new IllegalArgumentException("Unidentified value type received for key field: " + key);
 		}
-		throw new IllegalArgumentException("Value must be a Map or List.");
+		return false;
 	}
-
 }
 
 
