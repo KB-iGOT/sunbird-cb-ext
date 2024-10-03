@@ -148,10 +148,21 @@ public class ProfileServiceImpl implements ProfileService {
 			List<String> approvalFieldList = approvalFields();
 			String newDeptName = checkDepartment(profileDetailsMap);
 			Map<String, Object> transitionData = new HashMap<>();
-			for (String approvalList : approvalFieldList) {
-				if (profileDetailsMap.containsKey(approvalList)) {
-					transitionData.put(approvalList, profileDetailsMap.get(approvalList));
-					profileDetailsMap.remove(approvalList);
+			String mainKey="";
+			for (String approvalField : approvalFieldList) {
+				String[] fieldParts = approvalField.split("\\.");
+				if (fieldParts.length == 2) {
+					mainKey = fieldParts[0];
+					String subKey = fieldParts[1];
+					if (profileDetailsMap.containsKey(mainKey)) {
+						List<Map<String, Object>> nestedList = (List<Map<String, Object>>) profileDetailsMap.get(mainKey);
+						if (!nestedList.isEmpty()) {
+							Map<String, Object> nestedMap = nestedList.get(0);
+							if (nestedMap.containsKey(subKey)) {
+								transitionData.put(mainKey, profileDetailsMap.get(mainKey));
+							}
+						}
+					}
 				}
 			}
 			Map<String, Object> responseMap = userUtilityService.getUsersReadData(userId, StringUtils.EMPTY,
@@ -995,10 +1006,10 @@ public class ProfileServiceImpl implements ProfileService {
 
 	public List<String> approvalFields() {
 		List<String> approvalFields = (List<String>) dataCacheMgr
-				.getObjectFromCache(Constants.PROFILE_APPROVAL_FIELDS_KEY);
+				.getObjectFromCache(Constants.PROFILE_APPROVAL_FIELDS_KEY_V1);
 		if (CollectionUtils.isEmpty(approvalFields)) {
 			Map<String, Object> searchRequest = new HashMap<String, Object>();
-			searchRequest.put(Constants.ID, Constants.PROFILE_APPROVAL_FIELDS_KEY);
+			searchRequest.put(Constants.ID, Constants.PROFILE_APPROVAL_FIELDS_KEY_V1);
 
 			List<Map<String, Object>> existingDataList = cassandraOperation.getRecordsByPropertiesWithoutFiltering(
 					Constants.KEYSPACE_SUNBIRD, Constants.TABLE_SYSTEM_SETTINGS, searchRequest, null);
@@ -1009,7 +1020,7 @@ public class ProfileServiceImpl implements ProfileService {
 				if (StringUtils.isNotBlank(strApprovalFields)) {
 					String strArray[] = strApprovalFields.split(",", -1);
 					approvalFields = Arrays.asList(strArray);
-					dataCacheMgr.putObjectInCache(Constants.PROFILE_APPROVAL_FIELDS_KEY, approvalFields);
+					dataCacheMgr.putObjectInCache(Constants.PROFILE_APPROVAL_FIELDS_KEY_V1, approvalFields);
 					return approvalFields;
 				}
 			}
