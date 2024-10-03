@@ -24,15 +24,12 @@ import org.sunbird.consumer.security.EncryptionService;
 import org.sunbird.storage.service.StorageService;
 
 import java.io.*;
-import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
 
 @Component
 public class KafkaConsumer {
@@ -63,8 +60,21 @@ public class KafkaConsumer {
     public void publicAssessmentCertificateEmailNotification(ConsumerRecord<String, String> data) throws IOException {
         try {
             logger.info("KafkaConsumer::publicAssessmentCertificateEmailNotification:topic name: {} and recievedData: {}", data.topic(), data.value());
-            Map<String, Object> userCourseEnrollMap = mapper.readValue(data.value(), HashMap.class);
+            if (StringUtils.isNoneBlank(data.value())) {
+                CompletableFuture.runAsync(() -> {
+                    initiatePublicAssessmentCertificateEmailNotification(data.value());
+                });
+            } else {
+                logger.error("Error in publicAssessmentCertificateEmailNotification: Invalid Kafka Msg");
+            }
+        } catch (Exception e) {
+            logger.error("Error while processing the kafka event : " + data);
+        }
+    }
 
+    private void initiatePublicAssessmentCertificateEmailNotification(String data) {
+        try {
+            Map<String, Object> userCourseEnrollMap = mapper.readValue(data, HashMap.class);
             String email = userCourseEnrollMap.get(Constants.PUBLIC_USER_ID).toString();
             String encryptedEmail = encryptionService.encryptData(email);
             Map<String, Object> propertyMap = new HashMap<>();
@@ -84,19 +94,24 @@ public class KafkaConsumer {
                         logger.info("Certificate id of the user: {}", certificateId);
                     }
                 }
-                if (StringUtils.isNotBlank(certificateId)) {
-                    propertyMap.put(Constants.START_TIME, dbData.get(Constants.START_TIME));
-                    String certlink = publicUserCertificateDownload(certificateId);
-                    Map<String, Object> updatedMap = new HashMap<>();
-                    updatedMap.put(Constants.CERT_PUBLICURL, certlink);
-                    cassandraOperation.updateRecord(Constants.KEYSPACE_SUNBIRD, serverProperties.getPublicUserAssessmentTableName(), updatedMap, propertyMap);
-                    Map<String, Object> notificationInput = new HashMap<>();
-                    notificationInput.put(Constants.PUBLIC_USER_ID, email);
-                    notificationInput.put(Constants.PUBLIC_CONTEXT_ID, userCourseEnrollMap.get(Constants.COURSE_ID_LOWER));
-                    notificationInput.put(Constants.PUBLIC_ASSESSMENT_ID, userCourseEnrollMap.get(Constants.PUBLIC_ASSESSMENT_ID));
-                    kafkaProducer.push(serverProperties.getSpringKafkaPublicAssessmentNotificationTopicName(), notificationInput);
+                String certPublicUrl = (String) dbData.get(Constants.CERT_PUBLICURL);
+                if (StringUtils.isBlank(certPublicUrl)) {
+                    if (StringUtils.isNotBlank(certificateId)) {
+                        propertyMap.put(Constants.START_TIME, dbData.get(Constants.START_TIME));
+                        String certLink = publicUserCertificateDownload(certificateId);
+                        Map<String, Object> updatedMap = new HashMap<>();
+                        updatedMap.put(Constants.CERT_PUBLICURL, certLink);
+                        cassandraOperation.updateRecord(Constants.KEYSPACE_SUNBIRD, serverProperties.getPublicUserAssessmentTableName(), updatedMap, propertyMap);
+                        Map<String, Object> notificationInput = new HashMap<>();
+                        notificationInput.put(Constants.PUBLIC_USER_ID, email);
+                        notificationInput.put(Constants.PUBLIC_CONTEXT_ID, userCourseEnrollMap.get(Constants.COURSE_ID_LOWER));
+                        notificationInput.put(Constants.PUBLIC_ASSESSMENT_ID, userCourseEnrollMap.get(Constants.PUBLIC_ASSESSMENT_ID));
+                        kafkaProducer.push(serverProperties.getSpringKafkaPublicAssessmentNotificationTopicName(), notificationInput);
+                    } else {
+                        logger.error("The certificateId is not present for kafka event : " + data);
+                    }
                 } else {
-                    logger.error("The certificateId is not present for kafka event : " + data);
+                    logger.error("The certPublicUrl is already present for kafka event : " + data);
                 }
             }
         } catch (Exception e) {
