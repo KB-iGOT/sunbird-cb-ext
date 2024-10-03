@@ -156,7 +156,6 @@ public class HallOfFameServiceImpl implements HallOfFameService {
         }
         Map<String, Object> propertyMap = new HashMap<>();
         propertyMap.put(Constants.USER_ID_LOWER,userId);
-        propertyMap.put(Constants.DB_COLUMN_ROW_NUM, Arrays.asList(1, 2, 3, 4, 5, 6, 7, 8, 9, 10));
         try {
             List<Map<String, Object>> userLeaderBoard = cassandraOperation.getRecordsByPropertiesWithoutFiltering(
                     Constants.KEYSPACE_SUNBIRD, Constants.NLW_USER_LEADERBOARD, propertyMap, null);
@@ -166,7 +165,7 @@ public class HallOfFameServiceImpl implements HallOfFameService {
                 response.setResponseCode(HttpStatus.OK);
             } else {
                 response.getParams().setStatus(Constants.SUCCESS);
-                response.put(Constants.USER_LEADERBOARD, userLeaderBoard);
+                response.put(Constants.USER_LEADERBOARD, userLeaderBoard.get(0));
                 response.setResponseCode(HttpStatus.OK);
             }
         } catch (Exception e) {
