@@ -157,9 +157,35 @@ public class ProfileServiceImpl implements ProfileService {
 
 					if (profileDetailsMap.containsKey(mainKey)) {
 						Object value = profileDetailsMap.get(mainKey);
-						if (subKey != null && keyExistsInProfileDetails(value, subKey)) {
-							transitionData.put(mainKey, value);
+
+						if (value instanceof List) {
+							List<Map<String, Object>> filteredList = new ArrayList<>();
+							List<?> listValue = (List<?>) value;
+
+							for (Object obj : listValue) {
+								if (obj instanceof Map) {
+									Map<String, Object> detailMap = (Map<String, Object>) obj;
+									Map<String, Object> filteredMap = new HashMap<>();
+									for (String key : detailMap.keySet()) {
+										if (subKey == null || key.equals(subKey)) {
+											filteredMap.put(key, detailMap.get(key));
+										}
+									}
+
+									if (!filteredMap.isEmpty()) {
+										filteredList.add(filteredMap);
+									}
+								}
+							}
+							if (transitionData.containsKey(mainKey)) {
+								List<Map<String, Object>> existingList = (List<Map<String, Object>>) transitionData.get(mainKey);
+								existingList.addAll(filteredList);
+							} else {
+								transitionData.put(mainKey, filteredList);
+							}
 						} else if (subKey == null) {
+							transitionData.put(mainKey, value);
+						} else if (keyExistsInProfileDetails(value, subKey)) {
 							transitionData.put(mainKey, value);
 						}
 					}
@@ -2426,18 +2452,29 @@ public class ProfileServiceImpl implements ProfileService {
 	}
 
 	private boolean keyExistsInProfileDetails(Object value, String key) {
+		if (value == null) {
+			throw new IllegalArgumentException("Value cannot be null.");
+		}
+
 		if (value instanceof Map) {
-			Map<String, Object> mapValue = (Map<String, Object>) value;
-			return mapValue.containsKey(key);
+			Map<?, ?> mapValue = (Map<?, ?>) value;
+			if (!mapValue.containsKey(key)) {
+				throw new IllegalArgumentException("Unidentified key value configured in the approval field: " + key);
+			}
+			return true;
 		} else if (value instanceof List) {
 			List<?> listValue = (List<?>) value;
 			for (Object obj : listValue) {
-				if (obj instanceof Map && ((Map<?, ?>) obj).containsKey(key)) {
-					return true;
+				if (obj instanceof Map<?, ?>) {
+					Map<?, ?> mapObj = (Map<?, ?>) obj;
+					if (mapObj.containsKey(key)) {
+						return true;
+					}
 				}
 			}
+			throw new IllegalArgumentException("Unidentified key value configured in the approval field: " + key);
 		}
-		return false;
+		throw new IllegalArgumentException("Value must be a Map or List.");
 	}
 
 }
