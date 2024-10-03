@@ -151,20 +151,25 @@ public class ProfileServiceImpl implements ProfileService {
 			String mainKey="";
 			for (String approvalField : approvalFieldList) {
 				String[] fieldParts = approvalField.split("\\.");
-				if (fieldParts.length == 2) {
+				if (fieldParts.length > 0) {
 					mainKey = fieldParts[0];
-					String subKey = fieldParts[1];
+					String subKey = fieldParts.length > 1 ? fieldParts[1] : null;
+
 					if (profileDetailsMap.containsKey(mainKey)) {
-						List<Map<String, Object>> nestedList = (List<Map<String, Object>>) profileDetailsMap.get(mainKey);
-						if (!nestedList.isEmpty()) {
-							Map<String, Object> nestedMap = nestedList.get(0);
-							if (nestedMap.containsKey(subKey)) {
-								transitionData.put(mainKey, profileDetailsMap.get(mainKey));
-							}
+						Object value = profileDetailsMap.get(mainKey);
+						if (subKey != null && keyExistsInProfileDetails(value, subKey)) {
+							transitionData.put(mainKey, value);
+						} else if (subKey == null) {
+							transitionData.put(mainKey, value);
 						}
 					}
 				}
 			}
+
+			if (StringUtils.isNotEmpty(mainKey)) {
+				profileDetailsMap.remove(mainKey);
+			}
+
 			Map<String, Object> responseMap = userUtilityService.getUsersReadData(userId, StringUtils.EMPTY,
 					StringUtils.EMPTY);
 			String deptName = (String) responseMap.get(Constants.CHANNEL);
@@ -2418,6 +2423,21 @@ public class ProfileServiceImpl implements ProfileService {
 					String.format("Failed to process user bulk upload request. Error: ", e.getMessage()));
 		}
 		return response;
+	}
+
+	private boolean keyExistsInProfileDetails(Object value, String key) {
+		if (value instanceof Map) {
+			Map<String, Object> mapValue = (Map<String, Object>) value;
+			return mapValue.containsKey(key);
+		} else if (value instanceof List) {
+			List<?> listValue = (List<?>) value;
+			for (Object obj : listValue) {
+				if (obj instanceof Map && ((Map<?, ?>) obj).containsKey(key)) {
+					return true;
+				}
+			}
+		}
+		return false;
 	}
 
 }
