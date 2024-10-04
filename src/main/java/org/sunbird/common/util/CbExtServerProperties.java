@@ -891,6 +891,9 @@ public class CbExtServerProperties {
 	@Value("${kafka.topics.cqf.assessment.postpublish}")
 	private String cqfAssessmentPostPublishTopic;
 
+	@Value("${cios.logs.cloud.folder.name}")
+	private String ciosFileLogsCloudFolderName;
+
 	public boolean qListFromCacheEnabled() {
 		return qListFromCacheEnabled;
 	}
@@ -3127,6 +3130,12 @@ public class CbExtServerProperties {
 
 	public void setCqfAssessmentPostPublishTopic(String cqfAssessmentPostPublishTopic) {
 		this.cqfAssessmentPostPublishTopic = cqfAssessmentPostPublishTopic;
+	}
+	public String getCiosFileLogsCloudFolderName() {
+		return ciosFileLogsCloudFolderName;
+	}
+	public void setCiosFileLogsCloudFolderName(String ciosFileLogsCloudFolderName) {
+		this.ciosFileLogsCloudFolderName = ciosFileLogsCloudFolderName;
 	}
 
 }

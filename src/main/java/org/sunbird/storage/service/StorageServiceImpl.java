@@ -1,6 +1,7 @@
 package org.sunbird.storage.service;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -509,5 +510,76 @@ public class StorageServiceImpl implements StorageService {
 
 	}
 
+	@Override
+	public SBApiResponse uploadCiosLogsFile(String logFilePath, String fileName, String containerName, String cloudFolderName) {
+		SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.API_FILE_UPLOAD);
+		File file = null;
+		try {
+			file = new File(logFilePath);
+			if (!file.exists()) {
+				response.getParams().setStatus(Constants.FAILED);
+				response.getParams().setErrmsg("Log file not found at the specified path: " + logFilePath);
+				logger.error("Log file not found at the specified path: {}" + logFilePath);
+				response.setResponseCode(HttpStatus.NOT_FOUND);
+				return response;
+			}
+			File tempFile = new File(System.currentTimeMillis() + "_" + fileName);
+			tempFile.createNewFile();
+			try (FileInputStream fis = new FileInputStream(file);
+				 FileOutputStream fos = new FileOutputStream(tempFile)) {
+				byte[] buffer = new byte[1024];
+				int length;
+				while ((length = fis.read(buffer)) > 0) {
+					fos.write(buffer, 0, length);
+				}
+			}
+			SBApiResponse uploadResponse = uploadFile(tempFile, cloudFolderName, containerName);
+			if (uploadResponse.getParams().getStatus().equals(Constants.FAILED)) {
+				throw new IOException("Failed to upload log file to GCP bucket.");
+			}
+			response = uploadResponse;
+		} catch (Exception e) {
+			logger.error("Failed to upload log file. Exception: ", e);
+			response.getParams().setStatus(Constants.FAILED);
+			response.getParams().setErrmsg("Failed to upload log file. Exception: " + e.getMessage());
+			response.setResponseCode(HttpStatus.INTERNAL_SERVER_ERROR);
+		} finally {
+			if (file != null && file.exists()) {
+				file.delete();
+			}
+		}
+
+		return response;
+	}
+
+	@Override
+	public ResponseEntity<?> downloadCiosLogsFile(String fileName) {
+		try {
+			String objectKey = serverProperties.getCiosFileLogsCloudFolderName() + "/" + fileName;
+			storageService.download(serverProperties.getCiosCloudContainerName(), objectKey, Constants.LOCAL_BASE_PATH,
+					Option.apply(Boolean.FALSE));
+			Path tmpPath = Paths.get(Constants.LOCAL_BASE_PATH + fileName);
+			ByteArrayResource resource = new ByteArrayResource(Files.readAllBytes(tmpPath));
+			HttpHeaders headers = new HttpHeaders();
+			headers.add(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + fileName + "\"");
+			return ResponseEntity.ok()
+					.headers(headers)
+					.contentLength(tmpPath.toFile().length())
+					.contentType(MediaType.parseMediaType(MediaType.MULTIPART_FORM_DATA_VALUE))
+					.body(resource);
+		} catch (Exception e) {
+			logger.error("Failed to read the downloaded file: " + fileName + ", Exception: ", e);
+			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+		} finally {
+			try {
+				File file = new File(Constants.LOCAL_BASE_PATH + fileName);
+				if (file.exists()) {
+					file.delete();
+				}
+			} catch (Exception e1) {
+			}
+		}
+
+	}
 
 }

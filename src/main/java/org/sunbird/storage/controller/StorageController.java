@@ -1,5 +1,6 @@
 package org.sunbird.storage.controller;
 
+import java.io.File;
 import java.io.IOException;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -98,4 +99,17 @@ public class StorageController {
 	public ResponseEntity<?> downloadCiosContractFile(@PathVariable("fileName") String fileName) {
 		return storageService.downloadCiosContractFile(fileName);
 	}
+
+	@PostMapping("/v1/uploadCiosLogsFile")
+	public ResponseEntity<?> uploadCiosLogsFile(@RequestParam String logFilePath) {
+		String fileName = new File(logFilePath).getName();
+		SBApiResponse uploadResponse = storageService.uploadCiosLogsFile(logFilePath, fileName, serverConfig.getCiosCloudContainerName(), serverConfig.getCiosFileLogsCloudFolderName());
+		return new ResponseEntity<>(uploadResponse, uploadResponse.getResponseCode());
+	}
+
+	@GetMapping("/v1/downloadCiosLogs/{fileName}")
+	public ResponseEntity<?> downloadCiosLogsFile(@PathVariable("fileName") String fileName) {
+		return storageService.downloadCiosLogsFile(fileName);
+	}
+
 }
