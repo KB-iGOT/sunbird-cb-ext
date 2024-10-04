@@ -18,6 +18,7 @@ import org.springframework.util.ObjectUtils;
 import org.sunbird.assessment.repo.AssessmentRepository;
 import org.sunbird.cassandra.utils.CassandraOperation;
 import org.sunbird.common.model.SBApiResponse;
+import org.sunbird.common.service.ContentService;
 import org.sunbird.common.service.OutboundRequestHandlerServiceImpl;
 import org.sunbird.common.util.AccessTokenValidator;
 import org.sunbird.common.util.CbExtServerProperties;
@@ -58,11 +59,13 @@ public class AssessmentServiceV5Impl implements AssessmentServiceV5 {
     AccessTokenValidator accessTokenValidator;
 
     @Autowired
+    ContentService contentService;
+  
+    @Autowired
     CassandraOperation cassandraOperation;
 
     @Autowired
     private Producer producer;
-
 
     @Override
     public SBApiResponse retakeAssessment(String assessmentIdentifier, String token,Boolean editMode) {
@@ -309,6 +312,7 @@ public class AssessmentServiceV5Impl implements AssessmentServiceV5 {
     public SBApiResponse submitAssessmentAsync(Map<String, Object> submitRequest, String userAuthToken,boolean editMode) {
         logger.info("AssessmentServicev5Impl::submitAssessmentAsync.. started");
         SBApiResponse outgoingResponse = ProjectUtil.createDefaultResponse(Constants.API_SUBMIT_ASSESSMENT);
+        String progressUpdateAPIRespone = "";
         long assessmentCompletionTime= Calendar.getInstance().getTime().getTime();
         try {
             // Step-1 fetch userid
@@ -375,7 +379,8 @@ public class AssessmentServiceV5Impl implements AssessmentServiceV5 {
                             Map<String, Object> finalRes= calculateAssessmentFinalResults(result);
                             outgoingResponse.getResult().putAll(finalRes);
                             outgoingResponse.getResult().put(Constants.PRIMARY_CATEGORY, assessmentPrimaryCategory);
-                            if (!Constants.PRACTICE_QUESTION_SET.equalsIgnoreCase(assessmentPrimaryCategory) && !editMode) {
+                            progressUpdateAPIRespone = contentService.updateContentProgress(userAuthToken,submitRequest,userId,outgoingResponse);
+                            if (!Constants.PRACTICE_QUESTION_SET.equalsIgnoreCase(assessmentPrimaryCategory) && !editMode  && Constants.SUCCESS.equalsIgnoreCase(progressUpdateAPIRespone)) {
                                 String questionSetFromAssessmentString = (String) existingAssessmentData
                                         .get(Constants.ASSESSMENT_READ_RESPONSE_KEY);
                                 Map<String,Object> questionSetFromAssessment = null;
@@ -411,7 +416,8 @@ public class AssessmentServiceV5Impl implements AssessmentServiceV5 {
                     outgoingResponse.getParams().setStatus(Constants.SUCCESS);
                     outgoingResponse.setResponseCode(HttpStatus.OK);
                     outgoingResponse.getResult().put(Constants.PRIMARY_CATEGORY, assessmentPrimaryCategory);
-                    if (!Constants.PRACTICE_QUESTION_SET.equalsIgnoreCase(assessmentPrimaryCategory) && !editMode) {
+                    progressUpdateAPIRespone = contentService.updateContentProgress(userAuthToken,submitRequest,userId,outgoingResponse);
+                    if (!Constants.PRACTICE_QUESTION_SET.equalsIgnoreCase(assessmentPrimaryCategory) && !editMode  && Constants.SUCCESS.equalsIgnoreCase(progressUpdateAPIRespone)) {
                         String questionSetFromAssessmentString = (String) existingAssessmentData
                                 .get(Constants.ASSESSMENT_READ_RESPONSE_KEY);
                         Map<String,Object> questionSetFromAssessment = null;
@@ -1262,6 +1268,7 @@ public class AssessmentServiceV5Impl implements AssessmentServiceV5 {
     public SBApiResponse submitAssessmentAsyncV6(Map<String, Object> submitRequest, String userAuthToken,boolean editMode) {
         logger.info("AssessmentServicev5Impl::submitAssessmentAsyncV6.. started");
         SBApiResponse outgoingResponse = ProjectUtil.createDefaultResponse(Constants.API_SUBMIT_ASSESSMENT);
+        String progressUpdateAPIRespone = "";
         long assessmentCompletionTime= Calendar.getInstance().getTime().getTime();
         try {
             // Step-1 fetch userid
@@ -1328,7 +1335,8 @@ public class AssessmentServiceV5Impl implements AssessmentServiceV5 {
                         Map<String, Object> finalRes= calculateAssessmentFinalResults(result);
                         outgoingResponse.getResult().putAll(finalRes);
                         outgoingResponse.getResult().put(Constants.PRIMARY_CATEGORY, assessmentPrimaryCategory);
-                        if (!Constants.PRACTICE_QUESTION_SET.equalsIgnoreCase(assessmentPrimaryCategory) && !editMode) {
+                        progressUpdateAPIRespone = contentService.updateContentProgress(userAuthToken,submitRequest,userId,outgoingResponse);
+                        if (!Constants.PRACTICE_QUESTION_SET.equalsIgnoreCase(assessmentPrimaryCategory) && !editMode  && Constants.SUCCESS.equalsIgnoreCase(progressUpdateAPIRespone)) {
                             String questionSetFromAssessmentString = (String) existingAssessmentData
                                     .get(Constants.ASSESSMENT_READ_RESPONSE_KEY);
                             Map<String,Object> questionSetFromAssessment = null;
@@ -1364,7 +1372,8 @@ public class AssessmentServiceV5Impl implements AssessmentServiceV5 {
                 outgoingResponse.getParams().setStatus(Constants.SUCCESS);
                 outgoingResponse.setResponseCode(HttpStatus.OK);
                 outgoingResponse.getResult().put(Constants.PRIMARY_CATEGORY, assessmentPrimaryCategory);
-                if (!Constants.PRACTICE_QUESTION_SET.equalsIgnoreCase(assessmentPrimaryCategory) && !editMode) {
+                progressUpdateAPIRespone = contentService.updateContentProgress(userAuthToken,submitRequest,userId,outgoingResponse);
+                if (!Constants.PRACTICE_QUESTION_SET.equalsIgnoreCase(assessmentPrimaryCategory) && !editMode  && Constants.SUCCESS.equalsIgnoreCase(progressUpdateAPIRespone)) {
                     String questionSetFromAssessmentString = (String) existingAssessmentData
                             .get(Constants.ASSESSMENT_READ_RESPONSE_KEY);
                     Map<String,Object> questionSetFromAssessment = null;

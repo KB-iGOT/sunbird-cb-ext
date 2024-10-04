@@ -60,6 +60,9 @@ public class Constants {
 	public static final String CONTENT_ID = "content_id";
 	public static final String BATCH_ID = "batchId";
 	public static final String COURSE_ID = "courseId";
+	public static final String PUBLIC_CONTEXT_ID = "contextid";
+	public static final String PUBLIC_USER_ID = "userid";
+	public static final String PUBLIC_ASSESSMENT_ID = "assessmentid";
 	public static final String ENROLMENT_TYPE = "enrollmenttype";
 	public static final String IDENTIFIER = "identifier";
 	public static final String START_DATE = "startDate";
@@ -991,8 +994,8 @@ public class Constants {
 	public static final String ISSUED_USER_CERTIFICATE = "issuedCertificates";
 	public static final String DOC_TYPE = "docType";
 	public static final String LEARNER_LEADER_BOARD = "learnerLeaderBoard";
-  public static final String PRIMARY_CATEGORY_TAG = "#primaryCategory";
-  public static final String PASSWORD = "password";
+  	public static final String PRIMARY_CATEGORY_TAG = "#primaryCategory";
+  	public static final String PASSWORD = "password";
 	public static final String STRING_FORMAT_UNZIP="%s/%s/%s/%s";
 	public static final String UNZIP_PATH="/unzippath";
 	public static final String OUTPUT_PATH="output";
@@ -1172,6 +1175,11 @@ public class Constants {
 	public static final String COMMON_BATCH_START_YR = "commonBatchStartYear";
 	public static final String COMMON_BATCH_END_YR = "commonBatchEndYear";
 	public static final String COMMON_BATCH_EXCLUSION_YR = "commonBatchExclusionYearList";
+	public static final String CERT_PUBLICURL = "cert_publicurl";
+  	public static final String CHILD_ID = "childId";
+	public static final String INPUT_PATH = "input/";
+	public static final String COURSE_ID_LOWER = "courseid";
+	public static final String FAILED_TO_UPDATE_PROGRESS = "Failed to update progress of assessment using content state update API";
 	public static final String OVERALL_SECTION_PERCENTAGE_SCORE = "overallSectionPercentageScore";
 	public static final String ACHIEVED_PERCENTAGE_SCORE = "achievedPercentageScore";
 	public static final String SECTION_LEVEL_PERCENTAGE = "sectionLevelPercentage";

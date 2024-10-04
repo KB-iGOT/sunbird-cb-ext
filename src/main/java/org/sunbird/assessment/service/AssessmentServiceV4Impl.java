@@ -6,6 +6,7 @@ import static org.sunbird.common.util.Constants.RESPONSE;
 
 import java.io.IOException;
 import java.sql.Timestamp;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collections;
@@ -29,6 +30,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.ObjectUtils;
 import org.sunbird.assessment.repo.AssessmentRepository;
 import org.sunbird.common.model.SBApiResponse;
+import org.sunbird.common.service.ContentService;
 import org.sunbird.common.service.OutboundRequestHandlerServiceImpl;
 import org.sunbird.common.util.*;
 import org.sunbird.core.producer.Producer;
@@ -64,6 +66,9 @@ public class AssessmentServiceV4Impl implements AssessmentServiceV4 {
 
     @Autowired
     AccessTokenValidator accessTokenValidator;
+
+    @Autowired
+    ContentService contentService;
 
     @Override
     public SBApiResponse retakeAssessment(String assessmentIdentifier, String token,Boolean editMode) {
@@ -306,6 +311,7 @@ public class AssessmentServiceV4Impl implements AssessmentServiceV4 {
     public SBApiResponse submitAssessmentAsync(Map<String, Object> submitRequest, String userAuthToken,boolean editMode) {
         logger.info("AssessmentServiceV4Impl::submitAssessmentAsync.. started");
         SBApiResponse outgoingResponse = ProjectUtil.createDefaultResponse(Constants.API_SUBMIT_ASSESSMENT);
+        String progressUpdateAPIRespone = "";
         try {
             String userId = accessTokenValidator.fetchUserIdFromAccessToken(userAuthToken);
             if (ObjectUtils.isEmpty(userId)) {
@@ -363,7 +369,8 @@ public class AssessmentServiceV4Impl implements AssessmentServiceV4 {
                             Map<String, Object> finalRes= calculateAssessmentFinalResults(result);
                             outgoingResponse.getResult().putAll(finalRes);
                             outgoingResponse.getResult().put(Constants.PRIMARY_CATEGORY, assessmentPrimaryCategory);
-                            if (!Constants.PRACTICE_QUESTION_SET.equalsIgnoreCase(assessmentPrimaryCategory) && !editMode) {
+                            progressUpdateAPIRespone = contentService.updateContentProgress(userAuthToken,submitRequest,userId,outgoingResponse);
+                            if (!Constants.PRACTICE_QUESTION_SET.equalsIgnoreCase(assessmentPrimaryCategory) && !editMode && Constants.SUCCESS.equalsIgnoreCase(progressUpdateAPIRespone)) {
 
                                 String questionSetFromAssessmentString = (String) existingAssessmentData
                                         .get(Constants.ASSESSMENT_READ_RESPONSE_KEY);
@@ -396,7 +403,8 @@ public class AssessmentServiceV4Impl implements AssessmentServiceV4 {
                     outgoingResponse.getParams().setStatus(Constants.SUCCESS);
                     outgoingResponse.setResponseCode(HttpStatus.OK);
                     outgoingResponse.getResult().put(Constants.PRIMARY_CATEGORY, assessmentPrimaryCategory);
-                    if (!Constants.PRACTICE_QUESTION_SET.equalsIgnoreCase(assessmentPrimaryCategory) && !editMode) {
+                    progressUpdateAPIRespone = contentService.updateContentProgress(userAuthToken,submitRequest,userId,outgoingResponse);
+                    if (!Constants.PRACTICE_QUESTION_SET.equalsIgnoreCase(assessmentPrimaryCategory) && !editMode && Constants.SUCCESS.equalsIgnoreCase(progressUpdateAPIRespone)) {
                         String questionSetFromAssessmentString = (String) existingAssessmentData
                                 .get(Constants.ASSESSMENT_READ_RESPONSE_KEY);
                         Map<String,Object> questionSetFromAssessment = null;
@@ -989,4 +997,5 @@ public class AssessmentServiceV4Impl implements AssessmentServiceV4 {
         }
         return response;
     }
+
 }

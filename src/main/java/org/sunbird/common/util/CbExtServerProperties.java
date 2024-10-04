@@ -666,6 +666,34 @@ public class CbExtServerProperties {
 	@Value("${cert-registry-certificate-download-url}")
 	private String certRegistryCertificateDownloadUrl;
 
+	@Value("${public.assessment.encryption.key}")
+	private String publicAssessmentEncryptionKey;
+
+	@Value("${spring.kafka.public.assessment.notification.topic.name}")
+	private String springKafkaPublicAssessmentNotificationTopicName;
+
+	@Value("${public.user.assessment.table.name}")
+	private String publicUserAssessmentTableName;
+
+	public String getPublicUserAssessmentTableName() {
+		return publicUserAssessmentTableName;
+	}
+
+	public String getSpringKafkaPublicAssessmentNotificationTopicName() {
+		return springKafkaPublicAssessmentNotificationTopicName;
+	}
+
+	public String getPublicAssessmentEncryptionKey() {
+		return publicAssessmentEncryptionKey;
+	}
+
+	public String getPublicAssessmentCloudCertificateFolderName() {
+		return publicAssessmentCloudCertificateFolderName;
+	}
+
+	@Value("${public.assessment.cloud.certificate.folder.name}")
+	private String publicAssessmentCloudCertificateFolderName;
+
 	@Value("${digilocker-issuer-id}")
 	private String digiLockerIssuerId;
 
@@ -767,43 +795,7 @@ public class CbExtServerProperties {
 
 	@Value("${sb.composite.v4.search}")
 	private String sbCompositeV4Search;
-
-	@Value("${sb.csv.delimiter}")
-	private char csvDelimiter;
-
-	@Value(("${sb.tags.delimiter}"))
-	private String tagsDelimiter;
-
-	@Value("${assessment.questionset.hierarchy}")
-	private String questionSetHierarchy;
-
-	@Value("${assessment.questionset.create}")
-	private String questionSetCreate;
-
-	@Value("${assessment.questionset.read}")
-	private String questionSetRead;
-
-	@Value("${assessment.questionset.hierarchy.update}")
-	private String questionSetHierarchyUpdate;
-
-	@Value("${assessment.questionset.hierarchy.index}")
-	private String questionSetHierarchyIndex;
-
-	@Value("${cios.cloud.container.name}")
-	private String ciosCloudContainerName;
-
-	@Value("${cios.cloud.folder.name}")
-	private String ciosCloudFolderName;
-
-	@Value("${cios.cloud.icon.folder.name}")
-	private String ciosCloudIconFolderName;
-
-	@Value("${questionSet.publish}")
-	private String questionSetPublish;
-
-	public String getCiosCloudIconFolderName() {
-		return ciosCloudIconFolderName;
-	}
+  
 	@Value("${kcm.framework.name}")
 	private String kcmFrameworkName;
 
@@ -891,9 +883,46 @@ public class CbExtServerProperties {
 	@Value("${kafka.topics.cqf.assessment.postpublish}")
 	private String cqfAssessmentPostPublishTopic;
 
-	@Value("${cios.logs.cloud.folder.name}")
+  @Value("${sb.csv.delimiter}")
+	private char csvDelimiter;
+
+	@Value(("${sb.tags.delimiter}"))
+	private String tagsDelimiter;
+
+	@Value("${assessment.questionset.hierarchy}")
+	private String questionSetHierarchy;
+
+	@Value("${assessment.questionset.create}")
+	private String questionSetCreate;
+
+	@Value("${assessment.questionset.read}")
+	private String questionSetRead;
+
+	@Value("${assessment.questionset.hierarchy.update}")
+	private String questionSetHierarchyUpdate;
+
+	@Value("${assessment.questionset.hierarchy.index}")
+	private String questionSetHierarchyIndex;
+
+	@Value("${cios.cloud.container.name}")
+	private String ciosCloudContainerName;
+
+	@Value("${cios.cloud.folder.name}")
+	private String ciosCloudFolderName;
+
+	@Value("${cios.cloud.icon.folder.name}")
+	private String ciosCloudIconFolderName;
+
+	@Value("${questionSet.publish}")
+	private String questionSetPublish;
+  
+  @Value("${cios.logs.cloud.folder.name}")
 	private String ciosFileLogsCloudFolderName;
 
+	public String getCiosCloudIconFolderName() {
+		return ciosCloudIconFolderName;
+	}
+  
 	public boolean qListFromCacheEnabled() {
 		return qListFromCacheEnabled;
 	}
@@ -2857,7 +2886,6 @@ public class CbExtServerProperties {
 		this.sbCompositeV4Search = sbCompositeV4Search;
 	}
 
-
 	public char getCsvDelimiter() {
 		return csvDelimiter;
 	}
@@ -2916,6 +2944,7 @@ public class CbExtServerProperties {
 	public String getQuestionSetPublish() { return questionSetPublish; }
 
 	public void setQuestionSetPublish(String questionSetPublish) { this.questionSetPublish = questionSetPublish; }
+
 	public String getKcmFrameworkName() {
 		return kcmFrameworkName;
 	}

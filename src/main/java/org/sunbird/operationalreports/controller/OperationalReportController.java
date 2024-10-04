@@ -9,12 +9,7 @@ import java.util.Map;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import org.sunbird.common.model.SBApiResponse;
 import org.sunbird.common.util.Constants;
 import org.sunbird.operationalreports.service.OperationalReportService;
@@ -56,5 +51,11 @@ public class OperationalReportController {
             @RequestHeader(Constants.X_AUTH_TOKEN) String authToken) throws Exception {
         SBApiResponse response = operationalReport.readGrantAccess(authToken, false);
         return new ResponseEntity<>(response, response.getResponseCode());
+    }
+
+    @PostMapping("/v2/download/{rootOrgId}")
+    public ResponseEntity<?> downloadIndividualReport(@PathVariable("rootOrgId") String rootOrgId,
+            @RequestHeader(Constants.X_AUTH_TOKEN) String authToken, @RequestBody Map<String, Object> requestBody) throws Exception {
+        return operationalReport.downloadIndividualReport(rootOrgId, authToken, requestBody);
     }
 }
