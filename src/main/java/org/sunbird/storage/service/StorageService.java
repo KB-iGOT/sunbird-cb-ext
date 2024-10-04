@@ -36,4 +36,8 @@ public interface StorageService {
 	SBApiResponse ciosContentContractUpload(MultipartFile file, String containerName, String cloudFolderName);
 
 	ResponseEntity<?> downloadCiosContractFile(String fileName);
+
+	SBApiResponse uploadCiosLogsFile(String logFilePath,String fileName, String containerName, String cloudFolderName);
+
+	ResponseEntity<?> downloadCiosLogsFile(String fileName);
 }
