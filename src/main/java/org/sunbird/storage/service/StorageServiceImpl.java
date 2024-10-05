@@ -559,27 +559,27 @@ public class StorageServiceImpl implements StorageService {
 	@Override
 	public ResponseEntity<?> downloadCiosLogsFile(String fileName) {
 		Path tmpPath = Paths.get(Constants.LOCAL_BASE_PATH + fileName);
-		File file = null;
 		try {
 			String objectKey = serverProperties.getCiosFileLogsCloudFolderName() + "/" + fileName;
 			storageService.download(serverProperties.getCiosCloudContainerName(), objectKey, Constants.LOCAL_BASE_PATH,
 					Option.apply(Boolean.FALSE));
 
-			file = tmpPath.toFile();
 			ByteArrayResource resource = new ByteArrayResource(Files.readAllBytes(tmpPath));
 			HttpHeaders headers = new HttpHeaders();
 			headers.add(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + fileName + "\"");
 			return ResponseEntity.ok()
 					.headers(headers)
-					.contentLength(file.length())
+					.contentLength(tmpPath.toFile().length())
 					.contentType(MediaType.parseMediaType(MediaType.MULTIPART_FORM_DATA_VALUE))
 					.body(resource);
 		} catch (Exception e) {
 			logger.error("Failed to read the downloaded file: " + fileName + ", Exception: ", e);
 			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
 		} finally {
-			if (file != null && file.exists()) {
-				file.delete();
+			try {
+				Files.deleteIfExists(tmpPath);
+			} catch (IOException e) {
+				logger.error("Failed to delete the temporary file: " + fileName + ", Exception: ", e);
 			}
 		}
 	}
