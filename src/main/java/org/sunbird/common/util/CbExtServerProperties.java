@@ -666,6 +666,34 @@ public class CbExtServerProperties {
 	@Value("${cert-registry-certificate-download-url}")
 	private String certRegistryCertificateDownloadUrl;
 
+	@Value("${public.assessment.encryption.key}")
+	private String publicAssessmentEncryptionKey;
+
+	@Value("${spring.kafka.public.assessment.notification.topic.name}")
+	private String springKafkaPublicAssessmentNotificationTopicName;
+
+	@Value("${public.user.assessment.table.name}")
+	private String publicUserAssessmentTableName;
+
+	public String getPublicUserAssessmentTableName() {
+		return publicUserAssessmentTableName;
+	}
+
+	public String getSpringKafkaPublicAssessmentNotificationTopicName() {
+		return springKafkaPublicAssessmentNotificationTopicName;
+	}
+
+	public String getPublicAssessmentEncryptionKey() {
+		return publicAssessmentEncryptionKey;
+	}
+
+	public String getPublicAssessmentCloudCertificateFolderName() {
+		return publicAssessmentCloudCertificateFolderName;
+	}
+
+	@Value("${public.assessment.cloud.certificate.folder.name}")
+	private String publicAssessmentCloudCertificateFolderName;
+
 	@Value("${digilocker-issuer-id}")
 	private String digiLockerIssuerId;
 

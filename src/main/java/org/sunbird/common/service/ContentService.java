@@ -4,6 +4,7 @@ package org.sunbird.common.service;
 import java.util.List;
 import java.util.Map;
 
+import org.sunbird.common.model.SBApiResponse;
 import org.sunbird.common.model.SunbirdApiResp;
 import org.sunbird.common.model.SunbirdApiUserCourseListResp;
 
@@ -45,5 +46,7 @@ public interface ContentService {
 	public Map<String, Object> readContent(String contentId, List<String> fields);
 
 	public Map<String, Object> readContentFromCache(String contentId, List<String> fields);
+
+	public String updateContentProgress(String userAuthToken, Map<String, Object> reqBody, String userId, SBApiResponse outgoingResponse);
 
 }

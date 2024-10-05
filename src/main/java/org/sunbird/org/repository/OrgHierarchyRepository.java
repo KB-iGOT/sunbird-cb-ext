@@ -53,4 +53,10 @@ public interface OrgHierarchyRepository extends JpaRepository<OrgHierarchy, Inte
 
     @Query(value = "SELECT * from org_hierarchy_v4 where sborgid in (?1)", nativeQuery = true)
     List<OrgHierarchy> findAllBySbOrgId(List<String> sbOrgIdList);
+
+    @Query(value = "SELECT CASE WHEN COUNT(*) > 0 THEN TRUE ELSE FALSE END " +
+            "FROM org_hierarchy_v4 " +
+            "WHERE sborgid = :childId " +
+            "AND (:mapId IN (l1MapId, l2MapId, l3MapId))", nativeQuery = true)
+    boolean isChildOrgPresent(String mapId, String childId);
 }
