@@ -148,12 +148,56 @@ public class ProfileServiceImpl implements ProfileService {
 			List<String> approvalFieldList = approvalFields();
 			String newDeptName = checkDepartment(profileDetailsMap);
 			Map<String, Object> transitionData = new HashMap<>();
-			for (String approvalList : approvalFieldList) {
-				if (profileDetailsMap.containsKey(approvalList)) {
-					transitionData.put(approvalList, profileDetailsMap.get(approvalList));
-					profileDetailsMap.remove(approvalList);
+			String mainKey = "";
+			List<String> mainKeys = new ArrayList<>();
+
+			for (String approvalField : approvalFieldList) {
+				String[] fieldParts = approvalField.split("\\.");
+
+				if (fieldParts.length > 0) {
+					mainKey = fieldParts[0];
+					String subKey = fieldParts.length > 1 ? fieldParts[1] : null;
+
+					if (profileDetailsMap.containsKey(mainKey)) {
+						mainKeys.add(mainKey);
+						Object value = profileDetailsMap.get(mainKey);
+
+						if (value instanceof List) {
+							List<Map<String, Object>> listValue = (List<Map<String, Object>>) value;
+							List<Map<String, Object>> filteredList = new ArrayList<>();
+
+							for (Map<String, Object> detailMap : listValue) {
+								Map<String, Object> combinedMap = new LinkedHashMap<>();
+
+								for (String key : detailMap.keySet()) {
+									if (approvalFieldList.contains(mainKey + "." + key)) {
+										combinedMap.put(key, detailMap.get(key));
+									}
+								}
+
+								if (!combinedMap.isEmpty()) {
+									filteredList.add(combinedMap);
+								}
+							}
+
+							if (!filteredList.isEmpty()) {
+								transitionData.put(mainKey, filteredList);
+							}
+						} else if (subKey == null) {
+							transitionData.put(mainKey, value);
+						} else if (keyExistsInProfileDetails(value, subKey)) {
+							transitionData.put(mainKey, value);
+						}
+					}
 				}
 			}
+
+			if (CollectionUtils.isNotEmpty(mainKeys)) {
+				for (String key : mainKeys) {
+					profileDetailsMap.remove(key);
+				}
+			}
+
 			Map<String, Object> responseMap = userUtilityService.getUsersReadData(userId, StringUtils.EMPTY,
 					StringUtils.EMPTY);
 			String deptName = (String) responseMap.get(Constants.CHANNEL);
@@ -2408,6 +2452,24 @@ public class ProfileServiceImpl implements ProfileService {
 		}
 		return response;
 	}
+
+	private boolean keyExistsInProfileDetails(Object value, String key) {
+		if (value instanceof Map) {
+			Map<String, Object> mapValue = (Map<String, Object>) value;
+			return mapValue.containsKey(key);
+		} else if (value instanceof List) {
+			List<?> listValue = (List<?>) value;
+			for (Object obj : listValue) {
+				if (obj instanceof Map && ((Map<?, ?>) obj).containsKey(key)) {
+					return true;
+				}
+			}
+		} else {
+			throw new IllegalArgumentException("Unidentified value type received for key field: " + key);
+		}
+		return false;
+	}
+
 
 }
 
