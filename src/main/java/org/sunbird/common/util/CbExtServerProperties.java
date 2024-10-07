@@ -1907,7 +1907,7 @@ public class CbExtServerProperties {
 	}
 
 	public void setSbEsHostList(String sbEsHost) {
-		this.sbEsHostList = sbEsHostList;
+		this.sbEsHostList = sbEsHost;
 	}
 
 	public String getSbEsUser() {
@@ -2524,10 +2524,6 @@ public class CbExtServerProperties {
 
 	public String getEhrmsDetailUrl() {
 		return ehrmsDetailUrl;
-	}
-
-	public void setEhrmsDetailUrl(SBApiResponse response) {
-		this.ehrmsDetailUrl = ehrmsDetailUrl;
 	}
 
 	public void setEhrmsDetailUrl(String ehrmsDetailUrl) {

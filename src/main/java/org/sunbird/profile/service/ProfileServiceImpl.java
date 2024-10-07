@@ -1219,6 +1219,9 @@ public class ProfileServiceImpl implements ProfileService {
 				try {
 					Thread.sleep(1000);
 				} catch (Exception e) {
+					// Preserve the interrupt status
+					Thread.currentThread().interrupt();
+					log.error("Thread sleep interrupted", e);
 				}
 				errMsg = executeSelfMigrateUser(requestBody);
 			} else {
