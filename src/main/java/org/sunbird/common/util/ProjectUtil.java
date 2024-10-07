@@ -194,7 +194,7 @@ public class ProjectUtil {
 			Date date = dateFormat.parse(dateString);
 			return date.after(pastDate) && (date.before(todaysDate) || date.equals(todaysDate));
 		} catch (ParseException e) {
-			e.printStackTrace();
+			logger.error("Invalid date format: " + dateString + " Exception: ", e);
 		}
 		return false;
 	}
