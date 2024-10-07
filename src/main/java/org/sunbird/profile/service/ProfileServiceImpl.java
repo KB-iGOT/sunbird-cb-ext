@@ -1039,10 +1039,10 @@ public class ProfileServiceImpl implements ProfileService {
 
 	public List<String> approvalFields() {
 		List<String> approvalFields = (List<String>) dataCacheMgr
-				.getObjectFromCache(Constants.PROFILE_APPROVAL_FIELDS_KEY);
+				.getObjectFromCache(Constants.PROFILE_APPROVAL_FIELDS_KEY_V1);
 		if (CollectionUtils.isEmpty(approvalFields)) {
 			Map<String, Object> searchRequest = new HashMap<String, Object>();
-			searchRequest.put(Constants.ID, Constants.PROFILE_APPROVAL_FIELDS_KEY);
+			searchRequest.put(Constants.ID, Constants.PROFILE_APPROVAL_FIELDS_KEY_V1);
 
 			List<Map<String, Object>> existingDataList = cassandraOperation.getRecordsByPropertiesWithoutFiltering(
 					Constants.KEYSPACE_SUNBIRD, Constants.TABLE_SYSTEM_SETTINGS, searchRequest, null);
@@ -1053,7 +1053,7 @@ public class ProfileServiceImpl implements ProfileService {
 				if (StringUtils.isNotBlank(strApprovalFields)) {
 					String strArray[] = strApprovalFields.split(",", -1);
 					approvalFields = Arrays.asList(strArray);
-					dataCacheMgr.putObjectInCache(Constants.PROFILE_APPROVAL_FIELDS_KEY, approvalFields);
+					dataCacheMgr.putObjectInCache(Constants.PROFILE_APPROVAL_FIELDS_KEY_V1, approvalFields);
 					return approvalFields;
 				}
 			}
