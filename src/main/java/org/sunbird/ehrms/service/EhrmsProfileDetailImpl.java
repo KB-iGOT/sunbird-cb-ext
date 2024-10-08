@@ -13,6 +13,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.RestTemplate;
 import org.sunbird.cache.RedisCacheMgr;
 import org.sunbird.cassandra.utils.CassandraOperation;
@@ -85,8 +86,16 @@ public class EhrmsProfileDetailImpl implements EhrmsService {
                 String ehrmsAuthPassword = serverConfig.getEhrmsAuthPassword();
                 String jwtToken = redisCacheMgr.getCache(Constants.EHRMS_USER_TOKEN);
                 if (StringUtils.isEmpty(jwtToken)) {
-                    jwtToken = fetchJwtToken(ehrmsAuthUrl, ehrmsAuthUsername, ehrmsAuthPassword).replace("\"", "");
-                    redisCacheMgr.putCache(Constants.EHRMS_USER_TOKEN, jwtToken, serverConfig.getRedisEhrmsTokenTimeOut());
+                    jwtToken = fetchJwtToken(ehrmsAuthUrl, ehrmsAuthUsername, ehrmsAuthPassword);
+                    if (StringUtils.isNotEmpty(jwtToken)) {
+                        // Removing unwanted quotes and storing the token in cache
+                        jwtToken = jwtToken.replace("\"", "");
+                        redisCacheMgr.putCache(Constants.EHRMS_USER_TOKEN, jwtToken, serverConfig.getRedisEhrmsTokenTimeOut());
+                    } else {
+                        // Logging and handling null or empty token case
+                        logger.error("Failed to fetch JWT token. The token returned is null or empty.");
+                        throw new RuntimeException("Failed to fetch JWT token.");
+                    }
                 }
                 Map<String, Object> fetchEhrmsUserDetails = fetchEhrmsUserDetails(serverConfig.getEhrmsDetailUrl(), externalSystemId, jwtToken);
                 response.setResult(fetchEhrmsUserDetails);
@@ -112,8 +121,18 @@ public class EhrmsProfileDetailImpl implements EhrmsService {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         HttpEntity entity = new HttpEntity(body, headers);
-        ResponseEntity<String> response = restTemplate.exchange(ehrmsAuthUrl, HttpMethod.POST, entity, String.class);
-        return response.getBody();
+        try {
+            logger.info("Attempting to fetch JWT token from {}", ehrmsAuthUrl);
+            ResponseEntity<String> response = restTemplate.exchange(ehrmsAuthUrl, HttpMethod.POST, entity, String.class);
+            logger.info("Successfully fetched JWT token. Status code: {}", response.getStatusCode());
+            return response.getBody();
+        } catch (HttpClientErrorException | HttpServerErrorException e) {
+            logger.error("HTTP error while fetching JWT token. Status code: {}, Error message: {}", e.getStatusCode(), e.getResponseBodyAsString(), e);
+            throw e;
+        } catch (Exception e) {
+            logger.error("Unexpected error while fetching JWT token.", e);
+            throw e;
+        }
     }
 
     private Map<String, Object> fetchEhrmsUserDetails(String ehrmsAuthUrl, String externalSystemId, String jwtToken) {
