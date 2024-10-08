@@ -150,53 +150,34 @@ public class ProfileServiceImpl implements ProfileService {
 			Map<String, Object> transitionData = new HashMap<>();
 			String mainKey = "";
 			List<String> mainKeys = new ArrayList<>();
-
+			Map<String, Object> filteredSubKeys = new LinkedHashMap<>();
 			for (String approvalField : approvalFieldList) {
 				String[] fieldParts = approvalField.split("\\.");
-
 				if (fieldParts.length > 0) {
 					mainKey = fieldParts[0];
 					String subKey = fieldParts.length > 1 ? fieldParts[1] : null;
-
 					if (profileDetailsMap.containsKey(mainKey)) {
 						mainKeys.add(mainKey);
 						Object value = profileDetailsMap.get(mainKey);
-
-						if (value instanceof List) {
-							List<Map<String, Object>> listValue = (List<Map<String, Object>>) value;
-							List<Map<String, Object>> filteredList = new ArrayList<>();
-
-							for (Map<String, Object> detailMap : listValue) {
-								Map<String, Object> combinedMap = new LinkedHashMap<>();
-
-								for (String key : detailMap.keySet()) {
-									if (approvalFieldList.contains(mainKey + "." + key)) {
-										combinedMap.put(key, detailMap.get(key));
-									}
-								}
-
-								if (!combinedMap.isEmpty()) {
-									filteredList.add(combinedMap);
-								}
+						if (subKey == null) {
+							if (keyExistsInProfileDetails(mainKey,mainKey,filteredSubKeys)) {
+								transitionData.put(mainKey, value);
 							}
-
-							if (!filteredList.isEmpty()) {
-								transitionData.put(mainKey, filteredList);
+						} else if (keyExistsInProfileDetails(value, subKey, filteredSubKeys)) {
+								if (!transitionData.containsKey(mainKey)) {
+									transitionData.put(mainKey, new ArrayList<Map<String, Object>>());
+								}
+							List<Map<String, Object>> detailsList = (List<Map<String, Object>>) transitionData.get(mainKey);
+							Map<String, Object> existingMap = detailsList.isEmpty() ? new LinkedHashMap<>() : detailsList.get(0);
+							existingMap.putAll(filteredSubKeys);
+							if (detailsList.isEmpty()) {
+								detailsList.add(existingMap);
 							}
-						} else if (subKey == null) {
-							transitionData.put(mainKey, value);
-						} else if (keyExistsInProfileDetails(value, subKey)) {
-							transitionData.put(mainKey, value);
 						}
 					}
 				}
 			}
-
-			if (CollectionUtils.isNotEmpty(mainKeys)) {
-				for (String key : mainKeys) {
-					profileDetailsMap.remove(key);
-				}
-			}
+			removeApprovedFields(profileDetailsMap, approvalFieldList, mainKeys);
 
 			Map<String, Object> responseMap = userUtilityService.getUsersReadData(userId, StringUtils.EMPTY,
 					StringUtils.EMPTY);
@@ -2453,16 +2434,28 @@ public class ProfileServiceImpl implements ProfileService {
 		return response;
 	}
 
-	private boolean keyExistsInProfileDetails(Object value, String key) {
+	private boolean keyExistsInProfileDetails(Object value, String key, Map<String, Object> filteredSubKeys) {
 		if (value instanceof Map) {
 			Map<String, Object> mapValue = (Map<String, Object>) value;
-			return mapValue.containsKey(key);
+			if (mapValue.containsKey(key)) {
+				filteredSubKeys.put(key, mapValue.get(key));
+				return true;
+			}
 		} else if (value instanceof List) {
 			List<?> listValue = (List<?>) value;
 			for (Object obj : listValue) {
-				if (obj instanceof Map && ((Map<?, ?>) obj).containsKey(key)) {
-					return true;
+				if (obj instanceof Map) {
+					Map<?, ?> objMap = (Map<?, ?>) obj;
+					if (objMap.containsKey(key)) {
+						filteredSubKeys.put(key, objMap.get(key));
+						return true;
+					}
 				}
+			}
+		} else if (value instanceof String || value instanceof Boolean) {
+			if (key != null) {
+				filteredSubKeys.put(key, value);
+				return true;
 			}
 		} else {
 			throw new IllegalArgumentException("Unidentified value type received for key field: " + key);
@@ -2470,7 +2463,44 @@ public class ProfileServiceImpl implements ProfileService {
 		return false;
 	}
 
+	private void removeApprovedFields(Map<String, Object> profileDetailsMap, List<String> approvalFieldList, List<String> mainKeys) {
 
+		for (String mainKey : mainKeys) {
+			if (profileDetailsMap.containsKey(mainKey)) {
+				Object mainValue = profileDetailsMap.get(mainKey);
+				if (mainValue instanceof Map) {
+					Map<String, Object> subMap = (Map<String, Object>) mainValue;
+
+					for (String approvalField : approvalFieldList) {
+						String[] fieldParts = approvalField.split("\\.");
+						if (fieldParts.length > 1 && fieldParts[0].equals(mainKey)) {
+							subMap.remove(fieldParts[1]); // Remove specific subKey
+						}
+					}
+				} else if (mainValue instanceof List) {
+					List<?> listValue = (List<?>) mainValue;
+					for (Object obj : listValue) {
+						if (obj instanceof Map) {
+							Map<?, ?> objMap = (Map<?, ?>) obj;
+							for (String approvalField : approvalFieldList) {
+								String[] fieldParts = approvalField.split("\\.");
+								if (fieldParts.length > 1 && fieldParts[0].equals(mainKey)) {
+									objMap.remove(fieldParts[1]); // Remove specific subKey
+								}
+							}
+						}
+					}
+				} else {
+					for (String approvalField : approvalFieldList) {
+						String[] fieldParts = approvalField.split("\\.");
+						if (fieldParts.length == 1 && fieldParts[0].equals(mainKey)) {
+							profileDetailsMap.remove(mainKey);
+						}
+					}
+				}
+			}
+		}
+	}
 }
 
 
