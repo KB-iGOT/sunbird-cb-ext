@@ -1224,6 +1224,7 @@ public class Constants {
 	public static final String NOT_APPLICABLE = "Not Applicable";
 	public static final String CURRENT_PAGE = "currentPage";
 	public static final String FILTER = "filter";
+	public static final String API_ORG_V2_LIST = "api.org.v2.list";
 
 	private Constants() {
 		throw new IllegalStateException("Utility class");

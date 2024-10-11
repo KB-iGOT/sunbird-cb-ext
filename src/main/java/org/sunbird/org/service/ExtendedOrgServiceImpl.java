@@ -808,4 +808,35 @@ public class ExtendedOrgServiceImpl implements ExtendedOrgService {
 		}
 		return response;
 	}
+
+	@Override
+	public SBApiResponse listAllOrg(String parentMapId) {
+		SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.API_ORG_V2_LIST);
+		if (StringUtils.isEmpty(parentMapId)) {
+			parentMapId = Constants.SPV;
+		}
+
+		List<OrgHierarchy> orgHierarchyList = null;
+		if (Constants.MINISTRY.equalsIgnoreCase(parentMapId)
+				|| Constants.STATE.equalsIgnoreCase(parentMapId)) {
+			orgHierarchyList = orgRepository.findAllBySbOrgType(parentMapId);
+		} else {
+			orgHierarchyList = orgRepository.findAllOrgByParentMapId(parentMapId);
+		}
+
+		if (CollectionUtils.isNotEmpty(orgHierarchyList)) {
+			Map<String, Object> responseMap = new HashMap<String, Object>();
+			responseMap.put(Constants.CONTENT, orgHierarchyList);
+			responseMap.put(Constants.COUNT, orgHierarchyList.size());
+			response.put(Constants.RESPONSE, responseMap);
+		} else {
+			Map<String, Object> responseMap = new HashMap<>();
+			responseMap.put(Constants.CONTENT, orgHierarchyList);
+			responseMap.put(Constants.COUNT, orgHierarchyList.size());
+			response.put(Constants.RESPONSE, responseMap);
+			response.getParams().setErrmsg("No child org found for Id: " + parentMapId);
+		}
+
+		return response;
+	}
 }

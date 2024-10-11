@@ -51,4 +51,10 @@ public class ExtendedOrgController {
 		SBApiResponse response = orgService.orgExtSearchV2(request);
 		return new ResponseEntity<>(response, response.getResponseCode());
 	}
+
+	@GetMapping("/org/v2/list/{parentMapId}")
+	public ResponseEntity<SBApiResponse> listAllOrg(@PathVariable("parentMapId") String parentMapId) {
+		SBApiResponse response = orgService.listAllOrg(parentMapId);
+		return new ResponseEntity<>(response, response.getResponseCode());
+	}
 }
