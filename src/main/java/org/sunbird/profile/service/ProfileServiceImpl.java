@@ -2025,7 +2025,12 @@ public class ProfileServiceImpl implements ProfileService {
 						getModifiedPersonalDetails(profileDetailsMap.get(changedObj), requestData);
 					}
 				}
-
+				String profileStatus = (String) existingProfileDetails.get(Constants.PROFILE_STATUS);
+				if (StringUtils.isBlank(updatedProfileStatus) && (Constants.NOT_VERIFIED.equalsIgnoreCase(profileStatus))) {
+					if (StringUtils.isNotBlank(updatedDesignationVal) && StringUtils.isNotBlank(updatedGroupVal)) {
+						updatedProfileStatus = Constants.VERIFIED;
+					}
+				}
 				if (Constants.VERIFIED.equalsIgnoreCase(updatedProfileStatus)) {
 					existingProfileDetails.put(Constants.PROFILE_GROUP_STATUS, Constants.VERIFIED);
 					existingProfileDetails.put(Constants.PROFILE_DESIGNATION_STATUS, Constants.VERIFIED);
