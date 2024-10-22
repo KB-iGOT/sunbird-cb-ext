@@ -212,7 +212,8 @@ public class PublicUserEventBulkonboardConsumer {
             return updatedRecord;
         }
 
-        certificateService.generateCertificateEventAndPushToKafka(userId, eventId, batchId, 100);
+        double completionPercentage = 100.0;
+        certificateService.generateCertificateEventAndPushToKafka(userId, eventId, batchId, completionPercentage);
         logger.info("Successfully enrolled user: userId = {}, email = {}", userId, email);
         return updatedRecord;
     }

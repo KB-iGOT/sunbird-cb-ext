@@ -1,5 +1,7 @@
 package org.sunbird.nlw.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -20,6 +22,8 @@ public class CertificateServiceImpl {
 
     private boolean pushTokafkaEnabled = true;
 
+    ObjectMapper mapper = new ObjectMapper();
+
     public void generateCertificateEventAndPushToKafka(String userId, String eventId, String batchId, double completionPercentage) throws IOException {
         List<String> userIds = Collections.singletonList(userId);
         String eventJson = generateIssueCertificateEvent(batchId, eventId, userIds, completionPercentage, userId);
@@ -29,32 +33,28 @@ public class CertificateServiceImpl {
         }
     }
 
-    public static String generateIssueCertificateEvent(String batchId, String eventId, List<String> userIds, double eventCompletionPercentage, String userId) {
+    public String generateIssueCertificateEvent(String batchId, String eventId, List<String> userIds, double eventCompletionPercentage, String userId) throws JsonProcessingException {
         // Generate current timestamp (in milliseconds)
         long ets = System.currentTimeMillis();
 
         // Generate a UUID for the message ID
         String mid = UUID.randomUUID().toString();
 
-        // Create the event object as a JSONObject
-        JSONObject event = new JSONObject();
+        Map<String, Object> event = new HashMap<>();
 
-        // Construct "actor"
-        JSONObject actor = new JSONObject();
+        Map<String, Object> actor = new HashMap<>();
         actor.put("id", "Issue Certificate Generator");
         actor.put("type", "System");
         event.put("actor", actor);
 
-        // Construct "context"
-        JSONObject context = new JSONObject();
+        Map<String, Object> context = new HashMap<>();
         JSONObject pdata = new JSONObject();
         pdata.put("version", "1.0");
         pdata.put("id", "org.sunbird.learning.platform");
         context.put("pdata", pdata);
         event.put("context", context);
 
-        // Construct "edata"
-        JSONObject edata = new JSONObject();
+        Map<String, Object> edata = new HashMap<>();
         edata.put("action", "issue-event-certificate");
         edata.put("eventType", "offline"); // Add mode here
         edata.put("batchId", batchId);
@@ -63,18 +63,15 @@ public class CertificateServiceImpl {
         edata.put("eventCompletionPercentage", eventCompletionPercentage);
         event.put("edata", edata);
 
-        // Add other attributes
         event.put("eid", "BE_JOB_REQUEST");
         event.put("ets", ets);
         event.put("mid", mid);
 
-        // Construct "object"
-        JSONObject object = new JSONObject();
+        Map<String, Object> object = new HashMap<>();
         object.put("id", userId);
         object.put("type", "IssueCertificate");
         event.put("object", object);
 
-        // Return the event as a JSON string
-        return event.toString();
+        return mapper.writeValueAsString(event);
     }
 }
