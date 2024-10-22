@@ -487,13 +487,6 @@ public class UserBulkUploadService {
                 BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream(file), StandardCharsets.UTF_8));
                 char csvDelimiter = serverProperties.getCsvDelimiter();
                 String tagsDelimiter =  serverProperties.getTagsDelimiter();
-                String headerLine = reader.readLine();
-
-                if (headerLine == null) {
-                    logger.error("Headers is empty.");
-                    throw new IllegalArgumentException("CSV file is empty.");
-                }
-
                 csvParser = new CSVParser(reader,CSVFormat.newFormat(csvDelimiter).withFirstRecordAsHeader());
 
                 List<CSVRecord> csvRecords = csvParser.getRecords();
