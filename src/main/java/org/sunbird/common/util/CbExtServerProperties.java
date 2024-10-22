@@ -919,6 +919,21 @@ public class CbExtServerProperties {
 	@Value("${cios.logs.cloud.folder.name}")
 	private String ciosFileLogsCloudFolderName;
 
+	@Value("${public.user.event.bulk.onboard.topic}")
+	private String publicUserEventBulkOnboardTopic;
+
+	@Value("${public.user.event.bulk.onboard.container.name}")
+	private String eventBulkOnboardContainerName;
+
+	@Value("${user.issue.certificate.for.event.topic}")
+	private String userIssueCertificateForEventTopic;
+
+	@Value("${user.event.enrolment.table}")
+	private String userEventEnrolmentTable;
+
+	@Value("${public.user.event.bulkonboard.table}")
+	private String publicUserEventBulkOnboardTable;
+
 	public String getCiosCloudIconFolderName() {
 		return ciosCloudIconFolderName;
 	}
@@ -3165,4 +3180,43 @@ public class CbExtServerProperties {
 		this.ciosFileLogsCloudFolderName = ciosFileLogsCloudFolderName;
 	}
 
+	public String getEventBulkOnboardContainerName() {
+		return eventBulkOnboardContainerName;
+	}
+
+	public void setEventBulkOnboardContainerName(String eventBulkOnboardContainerName) {
+		this.eventBulkOnboardContainerName = eventBulkOnboardContainerName;
+	}
+
+	public String getPublicUserEventBulkOnboardTopic() {
+		return publicUserEventBulkOnboardTopic;
+	}
+
+	public void setPublicUserEventBulkOnboardTopic(String publicUserEventBulkOnboardTopic) {
+		this.publicUserEventBulkOnboardTopic = publicUserEventBulkOnboardTopic;
+	}
+
+	public String getUserIssueCertificateForEventTopic() {
+		return userIssueCertificateForEventTopic;
+	}
+
+	public void setUserIssueCertificateForEventTopic(String userIssueCertificateForEventTopic) {
+		this.userIssueCertificateForEventTopic = userIssueCertificateForEventTopic;
+	}
+
+	public String getUserEventEnrolmentTable() {
+		return userEventEnrolmentTable;
+	}
+
+	public void setUserEventEnrolmentTable(String userEventEnrolmentTable) {
+		this.userEventEnrolmentTable = userEventEnrolmentTable;
+	}
+
+	public String getPublicUserEventBulkOnboardTable() {
+		return publicUserEventBulkOnboardTable;
+	}
+
+	public void setPublicUserEventBulkOnboardTable(String publicUserEventBulkOnboardTable) {
+		this.publicUserEventBulkOnboardTable = publicUserEventBulkOnboardTable;
+	}
 }

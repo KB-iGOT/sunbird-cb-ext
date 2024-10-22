@@ -1225,6 +1225,10 @@ public class Constants {
 	public static final String CURRENT_PAGE = "currentPage";
 	public static final String FILTER = "filter";
 	public static final String API_ORG_V2_LIST = "api.org.v2.list";
+	public static final String PUBLIC_USER_EVENT_BULKONBOARD = "api.public.user.event.bulkonboard";
+	public static final String EVENT_ID = "eventId";
+	public static final String ENROLLED_DATE_KEY_LOWER = "enrolled_date";
+	public static final String DATE_TIME = "dateTime";
 
 	private Constants() {
 		throw new IllegalStateException("Utility class");
