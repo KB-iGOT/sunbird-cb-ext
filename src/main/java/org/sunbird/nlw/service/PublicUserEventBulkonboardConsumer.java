@@ -1,5 +1,6 @@
 package org.sunbird.nlw.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.collections.CollectionUtils;
@@ -352,7 +353,7 @@ public class PublicUserEventBulkonboardConsumer {
         return emailUserIdMap;
     }
 
-    private SBApiResponse enrollNLWEvent(String userId, String eventId, String batchId, Map<String, Object> eventDetails) {
+    private SBApiResponse enrollNLWEvent(String userId, String eventId, String batchId, Map<String, Object> eventDetails) throws JsonProcessingException {
 
         int defaultStatus = 2;
         int defaultProgress = 100;
@@ -370,6 +371,7 @@ public class PublicUserEventBulkonboardConsumer {
         request.put(Constants.ENROLLED_DATE_KEY_LOWER, eventDetails.get(Constants.START_DATE));
         request.put(Constants.DATE_TIME, eventDetails.get(Constants.START_DATE));
         request.put(Constants.COMPLETED_ON, eventDetails.get(Constants.END_DATE));
+        request.put(Constants.LRC_PROGRESS_DETAILS_COLUMN, prepareLrcProgressDetails(eventDetails));
 
         logger.info("Attempting to enroll user: userId = {}, eventId = {}, batchId = {}", userId, eventId, batchId);
 
@@ -468,6 +470,9 @@ public class PublicUserEventBulkonboardConsumer {
                 });
                 eventDetails.put(Constants.START_DATE, prepareEventDateTime((Date) eventBatch.get(Constants.START_DATE_COLUMN), (String) batchAttributes.get(Constants.START_TIME_KEY)));
                 eventDetails.put(Constants.END_DATE, prepareEventDateTime((Date) eventBatch.get(Constants.END_DATE_COLUMN), (String) batchAttributes.get(Constants.END_TIME_KEY)));
+
+                long durationInSec = ((long) batchAttributes.get(Constants.DURATION)) * 60;
+                eventDetails.put(Constants.DURATION, durationInSec);
             } else {
                 logger.warn("No event batch details found for eventId: {} and batchId: {}", eventId, batchId);
             }
@@ -499,6 +504,17 @@ public class PublicUserEventBulkonboardConsumer {
 
         Timestamp resultTimestamp = Timestamp.from(combinedDateTime.toInstant());
         return new Date(resultTimestamp.getTime()); // Convert Timestamp to Date
+    }
+
+    private String prepareLrcProgressDetails(Map<String, Object> eventDetails) throws JsonProcessingException {
+        Map<String, Object> result = new HashMap<>();
+        result.put("max_size", eventDetails.get(Constants.DURATION));
+        result.put("duration", eventDetails.get(Constants.DURATION));
+        result.put("mimeType", "application/html");
+        result.put("stateMetaData", eventDetails.get(Constants.DURATION));
+        result.put("current", Arrays.asList(0));
+
+        return objectMapper.writeValueAsString(result);
     }
 
 }
