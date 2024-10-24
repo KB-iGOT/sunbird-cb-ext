@@ -1,5 +1,6 @@
 package org.sunbird.halloffame.service;
 
+import org.apache.commons.collections.ListUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -86,7 +87,8 @@ public class HallOfFameServiceImpl implements HallOfFameService {
             );
 
             if (userRowNum == null || userRowNum.isEmpty()) {
-                setNotFoundResponse(response, Constants.USER_ID_DOESNT_EXIST);
+                response.put(Constants.RESULT, ListUtils.EMPTY_LIST);
+                response.put(Constants.COUNT, 0);
                 return response;
             }
 
@@ -104,6 +106,7 @@ public class HallOfFameServiceImpl implements HallOfFameService {
             );
 
             response.put(Constants.RESULT, result);
+            response.put(Constants.COUNT, result == null ? 0 : result.size());
             return response;
 
         } catch (Exception e) {
@@ -207,12 +210,6 @@ public class HallOfFameServiceImpl implements HallOfFameService {
         response.getParams().setStatus(Constants.FAILED);
         response.getParams().setErrmsg(errMsg);
         response.setResponseCode(HttpStatus.BAD_REQUEST);
-    }
-
-    private void setNotFoundResponse(SBApiResponse response, String errMsg) {
-        response.getParams().setStatus(Constants.FAILED);
-        response.getParams().setErrmsg(errMsg);
-        response.setResponseCode(HttpStatus.NOT_FOUND);
     }
 
     private void setInternalServerErrorResponse(SBApiResponse response) {
