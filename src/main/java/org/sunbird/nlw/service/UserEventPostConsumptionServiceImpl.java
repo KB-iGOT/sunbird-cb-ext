@@ -57,6 +57,8 @@ public class UserEventPostConsumptionServiceImpl implements UserEventPostConsump
 
     private boolean pushTokafkaEnabled = true;
 
+    private Map<String, Date> endDateCache = new HashMap<>();
+
     @Override
     public SBApiResponse processEventUsersForCertificateAndKarmaPoints(MultipartFile multipartFile) {
         SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.USER_EVENT_CONSUMPTION);
@@ -104,9 +106,7 @@ public class UserEventPostConsumptionServiceImpl implements UserEventPostConsump
                 keyMap.put(Constants.BATCH_ID, batchid);
                 Map<String, Object> resp = cassandraOperation.updateRecord(Constants.SUNBIRD_COURSES_KEY_SPACE_NAME, serverProperties.getUserEventEnrolmentTable(),updateEnrollmentRecords,keyMap);
                 if (resp.get(Constants.RESPONSE).equals(Constants.SUCCESS)) {
-                    String eventJson = generateIssueCertificateEvent(batchid, contentid, Arrays.asList(userid), 100.0, userid, completedon);
-                    String topic = serverProperties.getUserIssueCertificateForEventTopic();
-                    kafkaTemplate.send(topic, userid, eventJson);
+                    generateIssueCertificateEvent(batchid,contentid, Arrays.asList(userid), 100.0, userid, completedon);
                     generateKarmaPointEventAndPushToKafka(userid, contentid, batchid, completedon);
                 } else {
                     logger.info("failed to update records with updated details");
@@ -130,7 +130,7 @@ public class UserEventPostConsumptionServiceImpl implements UserEventPostConsump
 
     }
 
-    public String generateIssueCertificateEvent(String batchId, String eventId, List<String> userIds, double eventCompletionPercentage, String userId, Date completedon) throws JsonProcessingException {
+    public void generateIssueCertificateEvent(String batchId, String eventId, List<String> userIds, double eventCompletionPercentage, String userId, Date completedon) throws JsonProcessingException {
         long ets = completedon.getTime() - 10 * 1000;
         // Generate a UUID for the message ID
         String mid = UUID.randomUUID().toString();
@@ -163,7 +163,7 @@ public class UserEventPostConsumptionServiceImpl implements UserEventPostConsump
         object.put("id", userId);
         object.put("type", "IssueCertificate");
         event.put("object", object);
-        return objectMapper.writeValueAsString(event);
+        producer.push(serverProperties.getUserIssueCertificateForEventTopic(),event);
     }
 
     private List<Map<String, Object>> fetchEnrolmentRecordsForUser(String userId, String eventId, String batchId) {
@@ -190,6 +190,33 @@ public class UserEventPostConsumptionServiceImpl implements UserEventPostConsump
 
             Map<String, Object> updatedRecord = new HashMap<>();
             updatedRecord.put("lrc_progressdetails", objectMapper.writeValueAsString(lrcProgressdetailsMap));
+            Date completedOn = (Date) enrolmentRecord.get("completedon");
+            if (completedOn == null) {
+                String contentId = (String) enrolmentRecord.get("contentId");
+                String batchId = (String) enrolmentRecord.get("batchId");
+                String cacheKey = contentId + "-" + batchId;
+                if (endDateCache.containsKey(cacheKey)) {
+                    completedOn = endDateCache.get(cacheKey);
+                    updatedRecord.put("completedon", completedOn);
+                } else {
+                    Map<String, Object> keyMap = new HashMap<>();
+                    keyMap.put("eventid", contentId);
+                    keyMap.put("batchid", batchId);
+                    List<Map<String, Object>> eventData = cassandraOperation.getRecordsByPropertiesWithoutFiltering(Constants.SUNBIRD_COURSES_KEY_SPACE_NAME, Constants.EVENT_BATCH_TABLE_NAME, keyMap, Arrays.asList("end_date"));
+                    if (!eventData.isEmpty()) {
+                        completedOn = (Date) eventData.get(0).get("end_date");
+                        endDateCache.put(cacheKey, completedOn);
+                        if (completedOn != null) {
+                            updatedRecord.put("completedon", completedOn);
+                            logger.info("Updated completedOn with event end_date: " + completedOn);
+                        } else {
+                            logger.info("End date is null in the event_batch table record.");
+                        }
+                    } else {
+                        logger.info("No matching event_batch record found for the specified eventid and batchid.");
+                    }
+                }
+            }
             updatedRecord.put("status", 2);
             updatedRecord.put("completionpercentage", 100.0f);
             updatedRecord.put("progress", 100);
