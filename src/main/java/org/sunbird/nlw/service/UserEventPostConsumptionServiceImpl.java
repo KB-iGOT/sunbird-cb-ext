@@ -2,7 +2,9 @@ package org.sunbird.nlw.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jnr.ffi.annotations.In;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
@@ -10,10 +12,15 @@ import org.apache.commons.csv.CSVRecord;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
+import org.sunbird.cassandra.utils.CassandraOperation;
 import org.sunbird.common.model.SBApiResponse;
 import org.sunbird.common.util.CbExtServerProperties;
+import org.sunbird.common.util.Constants;
+import org.sunbird.common.util.ProjectUtil;
 import org.sunbird.consumer.CQFConsumer;
 import org.sunbird.core.producer.Producer;
 import org.json.JSONObject;
@@ -28,6 +35,7 @@ import java.util.*;
 /**
  * @author mahesh.vakkund
  */
+@Service
 public class UserEventPostConsumptionServiceImpl implements UserEventPostConsumptionService {
 
     @Autowired
@@ -41,6 +49,9 @@ public class UserEventPostConsumptionServiceImpl implements UserEventPostConsump
     @Autowired
     KafkaTemplate<String, String> kafkaTemplate;
 
+    @Autowired
+    CassandraOperation cassandraOperation;
+
     Logger logger = LogManager.getLogger(CQFConsumer.class);
 
 
@@ -48,46 +59,58 @@ public class UserEventPostConsumptionServiceImpl implements UserEventPostConsump
 
     @Override
     public SBApiResponse processEventUsersForCertificateAndKarmaPoints(MultipartFile multipartFile) {
+        SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.USER_EVENT_CONSUMPTION);
         List<String> headers;
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(multipartFile.getInputStream(), StandardCharsets.UTF_8));
              CSVParser csvParser = new CSVParser(reader, CSVFormat.newFormat(serverProperties.getCsvDelimiter()).withFirstRecordAsHeader())) {
-
-            headers = new ArrayList<>(csvParser.getHeaderNames());
-            cleanHeaders(headers);
-            try (CSVParser csvParser2 = new CSVParser(new BufferedReader(new InputStreamReader(multipartFile.getInputStream(), StandardCharsets.UTF_8)),
-                    CSVFormat.newFormat(serverProperties.getCsvDelimiter()).withFirstRecordAsHeader())) {
-                for (CSVRecord record : csvParser2.getRecords()) {
-
+             headers = new ArrayList<>(csvParser.getHeaderNames());
+             cleanHeaders(headers);
+                for (CSVRecord record : csvParser.getRecords()) {
                     processRecord(record);
                 }
-            } catch (IOException e) {
-                logger.error("Error processing CSV records", e);
-
-            }
-
+            response.setResponseCode(HttpStatus.OK);
+            response.getResult().put(Constants.MESSAGE, "File processed successfully");
         } catch (IOException e) {
             logger.error("Error reading CSV file", e);
+            response.setResponseCode(HttpStatus.INTERNAL_SERVER_ERROR);
+            response.getParams().setErrmsg("Failed to process the file: " + e.getMessage());
+        } catch (Exception e) {
+            logger.error("An unexpected error occurred", e);
+            response.setResponseCode(HttpStatus.INTERNAL_SERVER_ERROR);
+            response.getParams().setErrmsg("An unexpected error occurred: " + e.getMessage());
         }
-        return null;
+        return response;
     }
 
     private void processRecord(CSVRecord record) throws IOException {
         String userid = record.get("userid");
         String contentid = record.get("contentid");
         String batchid = record.get("batchid");
-        String lrcProgressdetails = record.get("lrc_progressdetails");
-        Map<String, Object> lrcProgressdetailsMao = objectMapper.convertValue(lrcProgressdetails, new TypeReference<Map<String, Object>>() {
-        });
-        long duration = (long) lrcProgressdetailsMao.get("duration");
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSSSSSXXX");
-        LocalDateTime localDateTime = LocalDateTime.parse(record.get("completedon"), formatter);
-        Date completedon = Date.from(localDateTime.atZone(ZoneId.systemDefault()).toInstant());
-        if (duration >= 180) {
-            generateKarmaPointEventAndPushToKafka(userid, contentid, batchid, completedon);
-            String eventJson = generateIssueCertificateEvent(batchid, contentid, Arrays.asList(userid), 100.0, userid, completedon);
-            if (pushTokafkaEnabled) {
-                String topic = serverProperties.getUserIssueCertificateForEventTopic();
-                kafkaTemplate.send(topic, userid, eventJson);
+        List<Map<String, Object>> enrolmentRecords = fetchEnrolmentRecordsForUser(userid, contentid, batchid);
+        if (!enrolmentRecords.isEmpty()) {
+            Map<String, Object> enrolmentRecord = enrolmentRecords.get(0);
+            String lrcProgressdetails = (String) enrolmentRecord.get("lrc_progressdetails");
+            JsonNode lrcProgressdetailsMap = objectMapper.readTree(lrcProgressdetails);
+            long duration = lrcProgressdetailsMap.get("duration").asLong();
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSSSSSXXX");
+            LocalDateTime localDateTime = LocalDateTime.parse(record.get("completedon"), formatter);
+            Date completedon = Date.from(localDateTime.atZone(ZoneId.systemDefault()).toInstant());
+            if (duration >= 180) {
+                Map<String,Object> updateEnrollmentRecords = prepareUpdatedEnrollmentRecord(enrolmentRecord);
+                Map<String,Object> keyMap = new HashMap<>();
+                keyMap.put(Constants.USER_ID, userid);
+                keyMap.put(Constants.CONTENT_ID_KEY, contentid);
+                keyMap.put(Constants.CONTEXT_ID_CAMEL, contentid);
+                keyMap.put(Constants.BATCH_ID, batchid);
+                Map<String, Object> resp = cassandraOperation.updateRecord(Constants.SUNBIRD_COURSES_KEY_SPACE_NAME, serverProperties.getUserEventEnrolmentTable(),updateEnrollmentRecords,keyMap);
+                if (resp.get(Constants.RESPONSE).equals(Constants.SUCCESS)) {
+                    String eventJson = generateIssueCertificateEvent(batchid, contentid, Arrays.asList(userid), 100.0, userid, completedon);
+                    String topic = serverProperties.getUserIssueCertificateForEventTopic();
+                    kafkaTemplate.send(topic, userid, eventJson);
+                    generateKarmaPointEventAndPushToKafka(userid, contentid, batchid, completedon);
+                } else {
+                    logger.info("failed to update records with updated details");
+                }
             }
         }
     }
@@ -141,5 +164,36 @@ public class UserEventPostConsumptionServiceImpl implements UserEventPostConsump
         object.put("type", "IssueCertificate");
         event.put("object", object);
         return objectMapper.writeValueAsString(event);
+    }
+
+    private List<Map<String, Object>> fetchEnrolmentRecordsForUser(String userId, String eventId, String batchId) {
+
+        Map<String, Object> compositeKey = new HashMap<>();
+        compositeKey.put(Constants.USER_ID, userId);
+        compositeKey.put(Constants.CONTENT_ID_KEY, eventId);
+        compositeKey.put(Constants.CONTEXT_ID_CAMEL, eventId);
+        compositeKey.put(Constants.BATCH_ID, batchId);
+
+        List<Map<String, Object>> enrolmentRecords = cassandraOperation.getRecordsByProperties(Constants.SUNBIRD_COURSES_KEY_SPACE_NAME, serverProperties.getUserEventEnrolmentTable(), compositeKey, null);
+        return enrolmentRecords;
+    }
+
+    private Map<String, Object> prepareUpdatedEnrollmentRecord(Map<String, Object> enrolmentRecord) throws IOException {
+
+            String lrcProgressdetailsJson = (String) enrolmentRecord.get("lrc_progressdetails");
+            Map<String, Object> lrcProgressdetailsMap = objectMapper.readValue(lrcProgressdetailsJson, new TypeReference<Map<String, Object>>() {});
+
+            Integer maxSize = (Integer) lrcProgressdetailsMap.get("max_size");
+
+            lrcProgressdetailsMap.put("duration", maxSize);
+            lrcProgressdetailsMap.put("stateMetaData", maxSize);
+
+            Map<String, Object> updatedRecord = new HashMap<>();
+            updatedRecord.put("lrc_progressdetails", objectMapper.writeValueAsString(lrcProgressdetailsMap));
+            updatedRecord.put("status", 2);
+            updatedRecord.put("completionpercentage", 100.0f);
+            updatedRecord.put("progress", 100);
+            logger.info("Successfully prepared the updated fields");
+            return updatedRecord;
     }
 }

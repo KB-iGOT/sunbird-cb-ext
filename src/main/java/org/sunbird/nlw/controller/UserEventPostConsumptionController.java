@@ -19,7 +19,7 @@ public class UserEventPostConsumptionController {
     UserEventPostConsumptionService nlwService;
 
     @PostMapping("/user/event/postConsumption")
-    public ResponseEntity<?> processEventUsersForCertificateAndKarmaPoints(@RequestParam(value = "file", required = true) MultipartFile multipartFile, @RequestParam(value = "eventId", required = true) String eventId, @RequestParam(value = "batchId", required = true) String batchId) throws IOException {
+    public ResponseEntity<?> processEventUsersForCertificateAndKarmaPoints(@RequestParam(value = "file", required = true) MultipartFile multipartFile) throws IOException {
         SBApiResponse uploadResponse = nlwService.processEventUsersForCertificateAndKarmaPoints(multipartFile);
         return new ResponseEntity<>(uploadResponse, uploadResponse.getResponseCode());
 
