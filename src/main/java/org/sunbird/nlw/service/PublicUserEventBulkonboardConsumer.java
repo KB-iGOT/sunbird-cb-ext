@@ -165,6 +165,7 @@ public class PublicUserEventBulkonboardConsumer {
         } catch (IOException e) {
             logger.error("Error processing file: ", e);
             status = Constants.FAILED_UPPERCASE;
+            updateStatus(inputData, status, totalRecordsCount, processedCount, failedCount);
         }
 
         updateStatus(inputData, status, totalRecordsCount, processedCount, failedCount);
