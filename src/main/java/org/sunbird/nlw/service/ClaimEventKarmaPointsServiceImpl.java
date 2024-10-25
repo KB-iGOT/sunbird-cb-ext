@@ -26,7 +26,7 @@ public class ClaimEventKarmaPointsServiceImpl {
 
         Map<String, Object> objectMap = new HashMap<>();
         objectMap.put("user_id", userId);
-        objectMap.put("etc", ets);
+        objectMap.put("ets", ets);
         objectMap.put("event_id", eventId);
         objectMap.put("batch_id", batchId);
 
