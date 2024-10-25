@@ -94,11 +94,9 @@ public class UserEventPostConsumptionServiceImpl implements UserEventPostConsump
             String lrcProgressdetails = (String) enrolmentRecord.get("lrc_progressdetails");
             JsonNode lrcProgressdetailsMap = objectMapper.readTree(lrcProgressdetails);
             long duration = lrcProgressdetailsMap.get("duration").asLong();
-            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSSSSSXXX");
-            LocalDateTime localDateTime = LocalDateTime.parse(record.get("completedon"), formatter);
-            Date completedon = Date.from(localDateTime.atZone(ZoneId.systemDefault()).toInstant());
             if (duration >= 180) {
                 Map<String,Object> updateEnrollmentRecords = prepareUpdatedEnrollmentRecord(enrolmentRecord);
+                Date completedon = (Date) updateEnrollmentRecords.get("completedon");
                 Map<String,Object> keyMap = new HashMap<>();
                 keyMap.put(Constants.USER_ID, userid);
                 keyMap.put(Constants.CONTENT_ID_KEY, contentid);
