@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.collections.CollectionUtils;
+import org.apache.commons.collections.MapUtils;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVPrinter;
@@ -237,21 +238,36 @@ public class PublicUserEventBulkonboardConsumer {
             return updatedRecord;
         }
 
-        if (isEventEnrolmentExist(userId, eventId, batchId)) {
-            markRecordAsFailed(updatedRecord, "Already enrolled in the event");
-            return updatedRecord;
-        }
-
-        SBApiResponse enrollmentResponse = enrollNLWEvent(userId, eventId, batchId, eventDetails);
-        if (!Constants.SUCCESS.equalsIgnoreCase((String) enrollmentResponse.get(Constants.RESPONSE))) {
-            markRecordAsFailed(updatedRecord, "Failed to enroll");
-            return updatedRecord;
-        }
-
+        Map<String, Object> enrollmentRecord = isEventEnrolmentExist(userId, eventId, batchId);
         double completionPercentage = 100.0;
-        certificateService.generateCertificateEventAndPushToKafka(userId, eventId, batchId, completionPercentage, eventDetails);
-        karmaPointsService.generateKarmaPointEventAndPushToKafka(userId, eventId, batchId, eventDetails);
-        logger.info("Successfully enrolled user: userId = {}, email = {}", userId, email);
+        if (MapUtils.isNotEmpty(enrollmentRecord)) {
+
+            int status = (int) enrollmentRecord.get(Constants.STATUS);
+            if (status != 2) {
+
+                Map<String, Object> updateResponse = updateEventEnrollment(userId, eventId, batchId, eventDetails);
+                if (!Constants.SUCCESS.equalsIgnoreCase((String) updateResponse.get(Constants.RESPONSE))) {
+                    markRecordAsFailed(updatedRecord, "Failed to update enrollment");
+                    return updatedRecord;
+                }
+                certificateService.generateCertificateEventAndPushToKafka(userId, eventId, batchId, completionPercentage, eventDetails);
+                karmaPointsService.generateKarmaPointEventAndPushToKafka(userId, eventId, batchId, eventDetails);
+                logger.info("Successfully updated the enrollment for the user: userId = {}, email = {}", userId, email);
+            }else {
+                markRecordAsFailed(updatedRecord, "Already enrolled and completed the event");
+                return updatedRecord;
+            }
+        } else {
+            SBApiResponse enrollmentResponse = enrollNLWEvent(userId, eventId, batchId, eventDetails);
+            if (!Constants.SUCCESS.equalsIgnoreCase((String) enrollmentResponse.get(Constants.RESPONSE))) {
+                markRecordAsFailed(updatedRecord, "Failed to enroll");
+                return updatedRecord;
+            }
+            certificateService.generateCertificateEventAndPushToKafka(userId, eventId, batchId, completionPercentage, eventDetails);
+            karmaPointsService.generateKarmaPointEventAndPushToKafka(userId, eventId, batchId, eventDetails);
+            logger.info("Successfully enrolled user: userId = {}, email = {}", userId, email);
+
+        }
         return updatedRecord;
     }
 
@@ -390,7 +406,7 @@ public class PublicUserEventBulkonboardConsumer {
         return response;
     }
 
-    private boolean isEventEnrolmentExist(String userId, String eventId, String batchId) {
+    private Map<String, Object> isEventEnrolmentExist(String userId, String eventId, String batchId) {
 
         Map<String, Object> compositeKey = new HashMap<>();
         compositeKey.put(Constants.USER_ID, userId);
@@ -399,7 +415,10 @@ public class PublicUserEventBulkonboardConsumer {
         compositeKey.put(Constants.BATCH_ID, batchId);
 
         List<Map<String, Object>> enrolmentRecords = cassandraOperation.getRecordsByProperties(Constants.SUNBIRD_COURSES_KEY_SPACE_NAME, serverProperties.getUserEventEnrolmentTable(), compositeKey, null);
-        return CollectionUtils.isNotEmpty(enrolmentRecords);
+        if (CollectionUtils.isEmpty(enrolmentRecords)) {
+            return null;
+        }
+        return enrolmentRecords.get(0);
     }
 
     private List<String> validateReceivedKafkaMessage(Map<String, String> inputDataMap) {
@@ -522,6 +541,38 @@ public class PublicUserEventBulkonboardConsumer {
         result.put("current", Arrays.asList(0));
 
         return objectMapper.writeValueAsString(result);
+    }
+
+    private Map<String, Object> updateEventEnrollment(String userId, String eventId, String batchId, Map<String, Object> eventDetails) throws JsonProcessingException {
+        int defaultStatus = 2;
+        int defaultProgress = 100;
+        float defaultCompletionPercentage = 100;
+
+        Map<String, Object> compositeKey = new HashMap<>();
+        compositeKey.put(Constants.USER_ID_KEY, userId);
+        compositeKey.put(Constants.CONTENT_ID_KEY, eventId);
+        compositeKey.put(Constants.CONTEXT_ID_CAMEL, eventId);
+        compositeKey.put(Constants.BATCH_ID, batchId);
+
+        Map<String, Object> updateAttributes = new HashMap<>();
+        updateAttributes.put(Constants.STATUS, defaultStatus);
+        updateAttributes.put(Constants.ACTIVE, true);
+        updateAttributes.put(Constants.PROGRESS, defaultProgress);
+        updateAttributes.put(Constants.COMPLETION_PERCENTAGE, defaultCompletionPercentage);
+        updateAttributes.put(Constants.ENROLLED_DATE_KEY_LOWER, eventDetails.get(Constants.START_DATE));
+        updateAttributes.put(Constants.DATE_TIME, eventDetails.get(Constants.START_DATE));
+        updateAttributes.put(Constants.COMPLETED_ON, eventDetails.get(Constants.END_DATE));
+        updateAttributes.put(Constants.LRC_PROGRESS_DETAILS_COLUMN, prepareLrcProgressDetails(eventDetails));
+
+        Map<String, Object> response = new HashMap<>();
+        try {
+            response.putAll(cassandraOperation.updateRecord(Constants.SUNBIRD_COURSES_KEY_SPACE_NAME, serverProperties.getUserEventEnrolmentTable(), updateAttributes, compositeKey));
+        } catch (Exception e) {
+            logger.error("Exception while updating enrollment for user: userId = {}, eventId = {}, batchId = {}", userId, eventId, batchId, e);
+            response.put(Constants.RESPONSE, Constants.FAILED);
+        }
+
+        return response;
     }
 
 }
