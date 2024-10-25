@@ -471,7 +471,13 @@ public class PublicUserEventBulkonboardConsumer {
                 eventDetails.put(Constants.START_DATE, prepareEventDateTime((Date) eventBatch.get(Constants.START_DATE_COLUMN), (String) batchAttributes.get(Constants.START_TIME_KEY)));
                 eventDetails.put(Constants.END_DATE, prepareEventDateTime((Date) eventBatch.get(Constants.END_DATE_COLUMN), (String) batchAttributes.get(Constants.END_TIME_KEY)));
 
-                long durationInSec = ((long) batchAttributes.get(Constants.DURATION)) * 60;
+                Object durationObj = batchAttributes.get(Constants.DURATION);
+                long durationInSec = 0;
+                if (durationObj instanceof Integer) {
+                    durationInSec = ((Integer) durationObj).longValue() * 60;
+                } else if (durationObj instanceof Long) {
+                    durationInSec = ((Long) durationObj) * 60;
+                }
                 eventDetails.put(Constants.DURATION, durationInSec);
             } else {
                 logger.warn("No event batch details found for eventId: {} and batchId: {}", eventId, batchId);
