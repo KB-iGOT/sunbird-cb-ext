@@ -1234,8 +1234,8 @@ public class Constants {
 	public static final String START_DATE_COLUMN = "start_date";
 	public static final String END_DATE_COLUMN = "end_date";
 	public static final String BATCH_ATTRIBUTES_COLUMN="batch_attributes";
+	public static final String USER_EVENT_CONSUMPTION = "api.user.event.consumption";
 	public static final String LRC_PROGRESS_DETAILS_COLUMN="lrc_progressdetails";
-
 
 	private Constants() {
 		throw new IllegalStateException("Utility class");
