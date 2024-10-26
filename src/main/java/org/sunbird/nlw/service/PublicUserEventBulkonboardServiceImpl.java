@@ -6,7 +6,12 @@ import org.apache.commons.lang.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.core.io.Resource;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import org.sunbird.cassandra.utils.CassandraOperation;
@@ -18,6 +23,11 @@ import org.sunbird.core.producer.Producer;
 import org.sunbird.profile.service.UserBulkUploadService;
 import org.sunbird.storage.service.StorageServiceImpl;
 
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.sql.Timestamp;
 import java.util.*;
 
@@ -178,6 +188,54 @@ public class PublicUserEventBulkonboardServiceImpl implements PublicUserEventBul
             return errMsg;
         }
         return errMsg;
+    }
+
+    @Override
+    public SBApiResponse getUserEventBulkOnboardDetails(String eventId) {
+        SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.API_USER_EVENT_BULK_ONBOARD_STATUS);
+        try {
+            Map<String, Object> propertyMap = new HashMap<>();
+            if (StringUtils.isNotEmpty(eventId)) {
+                propertyMap.put(Constants.CONTEXT_ID_CAMEL, eventId);
+            }
+            List<Map<String, Object>> bulkUploadList = cassandraOperation.getRecordsByProperties(Constants.SUNBIRD_KEY_SPACE_NAME,
+                    serverConfig.getPublicUserEventBulkOnboardTable(), propertyMap, null);
+            response.getParams().setStatus(Constants.SUCCESSFUL);
+            response.setResponseCode(HttpStatus.OK);
+            response.getResult().put(Constants.CONTENT, bulkUploadList);
+            response.getResult().put(Constants.COUNT, bulkUploadList != null ? bulkUploadList.size() : 0);
+        } catch (Exception e) {
+            setErrorData(response,
+                    String.format("Failed to get user event bulk onboard request status. Error: ", e.getMessage()));
+        }
+        return response;
+    }
+
+    @Override
+    public ResponseEntity<Resource> downloadFile(String fileName) {
+        try {
+            storageService.downloadFile(fileName, serverConfig.getEventBulkOnboardContainerName());
+            Path tmpPath = Paths.get(Constants.LOCAL_BASE_PATH + fileName);
+            ByteArrayResource resource = new ByteArrayResource(Files.readAllBytes(tmpPath));
+            HttpHeaders headers = new HttpHeaders();
+            headers.add(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + fileName + "\"");
+            return ResponseEntity.ok()
+                    .headers(headers)
+                    .contentLength(tmpPath.toFile().length())
+                    .contentType(MediaType.parseMediaType(MediaType.MULTIPART_FORM_DATA_VALUE))
+                    .body(resource);
+        } catch (IOException e) {
+            logger.error("Failed to read the downloaded file: " + fileName + ", Exception: ", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        } finally {
+            try {
+                File file = new File(Constants.LOCAL_BASE_PATH + fileName);
+                if(file.exists()) {
+                    file.delete();
+                }
+            } catch(Exception e1) {
+            }
+        }
     }
 
 }

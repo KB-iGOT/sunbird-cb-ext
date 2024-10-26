@@ -2,9 +2,7 @@ package org.sunbird.nlw.controller;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.sunbird.common.model.SBApiResponse;
 import org.sunbird.nlw.service.PublicUserEventBulkonboardService;
@@ -22,5 +20,15 @@ public class PublicUserEventBulkonboardController {
         SBApiResponse uploadResponse = nlwService.bulkOnboard(multipartFile, eventId, batchId);
         return new ResponseEntity<>(uploadResponse, uploadResponse.getResponseCode());
 
+    }
+    @GetMapping("/user/event/bulkonboard/status/{eventId}")
+    public ResponseEntity<?> getUserEventBulkOnboardDetails(@PathVariable("eventId") String eventId) {
+        SBApiResponse response = nlwService.getUserEventBulkOnboardDetails(eventId);
+        return new ResponseEntity<>(response, response.getResponseCode());
+    }
+
+    @GetMapping("/user/event/bulkonboard/download/{fileName}")
+    public ResponseEntity<?> downloadFile(@PathVariable("fileName") String fileName) {
+        return nlwService.downloadFile(fileName);
     }
 }
