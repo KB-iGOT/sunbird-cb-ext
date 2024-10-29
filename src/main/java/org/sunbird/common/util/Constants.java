@@ -1243,6 +1243,7 @@ public class Constants {
 	public static final String USER_PROFILE_FIELDS = "userProfileFileds";
 	public static final String BATCH_ENROL_MANDATORY_PROFILE_FIELDS ="bpEnrolMandatoryProfileFields";
 	public static final String DOR = "dor";
+	public static final String API_USER_ENROLLMENT_BP_REPORT_STATUS = "api.user.enrollment.bp.report.status";
 
 
 

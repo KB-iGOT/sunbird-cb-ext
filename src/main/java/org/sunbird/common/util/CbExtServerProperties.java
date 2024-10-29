@@ -928,9 +928,6 @@ public class CbExtServerProperties {
 	@Value("${bp.user.enrolment.report.container.name}")
 	private String bpEnrolmentReportContainerName;
 
-	@Value("${course.batch.read}")
-	private String batchReadPath;
-
 
 	public String getCiosCloudIconFolderName() {
 		return ciosCloudIconFolderName;
@@ -3204,13 +3201,5 @@ public class CbExtServerProperties {
 
 	public void setBpEnrolmentReportContainerName(String bpEnrolmentReportContainerName) {
 		this.bpEnrolmentReportContainerName = bpEnrolmentReportContainerName;
-	}
-
-	public String getBatchReadPath() {
-		return batchReadPath;
-	}
-
-	public void setBatchReadPath(String batchReadPath) {
-		this.batchReadPath = batchReadPath;
 	}
 }

@@ -4,7 +4,12 @@ import org.apache.commons.lang.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.core.io.Resource;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.ObjectUtils;
@@ -15,8 +20,14 @@ import org.sunbird.common.util.CbExtServerProperties;
 import org.sunbird.common.util.Constants;
 import org.sunbird.common.util.ProjectUtil;
 import org.sunbird.core.producer.Producer;
+import org.sunbird.storage.service.StorageService;
 import org.sunbird.user.service.UserUtilityService;
 
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -42,21 +53,23 @@ public class BPReportsServiceImpl implements BPReportsService {
     @Autowired
     CbExtServerProperties serverProperties;
 
+    @Autowired
+    StorageService storageService;
+
     @Override
     public SBApiResponse generateBPReport(Map<String, Object> requestBody, String authToken) {
         SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.BP_REPORT_GENERATE_API);
         try {
-//            String userId = accessTokenValidator.fetchUserIdFromAccessToken(authToken);
-            String userId = "95a357c6-99d9-43d2-8d1b-42bea6f8c132";
+            String userId = accessTokenValidator.fetchUserIdFromAccessToken(authToken);
+            // String userId = "95a357c6-99d9-43d2-8d1b-42bea6f8c132";
             if (StringUtils.isBlank(userId)) {
-                updateErrorDetails(response, "Failed to read user details from access token.", HttpStatus.BAD_REQUEST);
+                updateErrorDetails(response, "Invalid user ID from auth token.", HttpStatus.BAD_REQUEST);
                 return response;
             }
 
             String courseId = (String) requestBody.get(Constants.COURSE_ID);
             String batchId = (String) requestBody.get(Constants.BATCH_ID);
             String orgId = (String) requestBody.get(Constants.ORG_ID);
-            String profileSurveyId = (String) requestBody.get(Constants.PROFILE_SURVEY_ID);
             SBApiResponse errResponse = validateGenerateReportRequestBody(requestBody);
             if (!ObjectUtils.isEmpty(errResponse)) {
                 return response;
@@ -222,20 +235,20 @@ public class BPReportsServiceImpl implements BPReportsService {
         return response;
     }
 
-    public SBApiResponse downloadBPReport(Map<String, Object> requestBody, String authToken) {
-        SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.BP_REPORT_DOWNLOAD_API);
+    @Override
+    public SBApiResponse getBPReportStatus(Map<String, Object> requestBody) {
+        SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.API_USER_ENROLLMENT_BP_REPORT_STATUS);
+        String courseId = (String) requestBody.get(Constants.COURSE_ID);
+        String batchId = (String) requestBody.get(Constants.BATCH_ID);
+        String orgId = (String) requestBody.get(Constants.ORG_ID);
         try {
             // String userId = accessTokenValidator.fetchUserIdFromAccessToken(authToken);
             String userId = "95a357c6-99d9-43d2-8d1b-42bea6f8c132";
             if (StringUtils.isBlank(userId)) {
-                updateErrorDetails(response, "Failed to read user details from access token.", HttpStatus.BAD_REQUEST);
+                updateErrorDetails(response, "Invalid user ID from auth token.", HttpStatus.BAD_REQUEST);
                 return response;
             }
-
-            String courseId = (String) requestBody.get(Constants.COURSE_ID);
-            String batchId = (String) requestBody.get(Constants.BATCH_ID);
-            String orgId = (String) requestBody.get(Constants.ORG_ID);
-            SBApiResponse errResponse = validateDownloadReportRequestBody(requestBody);
+            SBApiResponse errResponse = validateReportStatusRequestBody(requestBody);
             if (!ObjectUtils.isEmpty(errResponse)) {
                 return errResponse;
             }
@@ -250,46 +263,70 @@ public class BPReportsServiceImpl implements BPReportsService {
                 return response;
             }
 
-            Map<String, Object> keyMap = new HashMap<>();
-            keyMap.put(Constants.ORG_ID, orgId);
-            keyMap.put(Constants.COURSE_ID, courseId);
-            keyMap.put(Constants.BATCH_ID, batchId);
-            List<Map<String, Object>> existingReportDetails = cassandraOperation.getRecordsByProperties(Constants.KEYSPACE_SUNBIRD,
-                    Constants.BP_ENROLMENT_REPORT_TABLE, keyMap, null);
-
-            if (!CollectionUtils.isEmpty(existingReportDetails)) {
-                String status = (String) existingReportDetails.get(0).get(Constants.STATUS);
-                String downloadLink = (String) existingReportDetails.get(0).get(Constants.DOWNLOAD_LINK);
-                if (StringUtils.isEmpty(status)) {
-                    updateErrorDetails(response, "Report is not available. Please generate the report", HttpStatus.OK);
-                    return response;
-                }
-                if (Constants.STATUS_IN_PROGRESS_UPPERCASE.equalsIgnoreCase(status)) {
-                    updateErrorDetails(response, "Report generation is in-progress. Please wait for a while", HttpStatus.OK);
-                    return response;
-                } else {
-                    if (Constants.COMPLETED_UPPER_CASE.equalsIgnoreCase(status) && StringUtils.isEmpty(downloadLink)) {
-                        updateErrorDetails(response, "Report is not available. Please generate the report", HttpStatus.OK);
-                        return response;
-                    } else {
-                        response.getParams().setStatus(Constants.SUCCESS);
-                        response.setResponseCode(HttpStatus.OK);
-                        response.getResult().put(Constants.DOWNLOAD_LINK, downloadLink);
-                        return response;
-                    }
-                }
-            } else {
+            Map<String, Object> propertyMap = new HashMap<>();
+            propertyMap.put(Constants.ORG_ID, orgId);
+            propertyMap.put(Constants.COURSE_ID, courseId);
+            propertyMap.put(Constants.BATCH_ID, batchId);
+            List<Map<String, Object>> reportList = cassandraOperation.getRecordsByProperties(Constants.SUNBIRD_KEY_SPACE_NAME,
+                    Constants.BP_ENROLMENT_REPORT_TABLE, propertyMap, null);
+            if (CollectionUtils.isEmpty(reportList)) {
                 updateErrorDetails(response, "Report is not available. Please generate the report", HttpStatus.OK);
                 return response;
+            } else {
+                response.getParams().setStatus(Constants.SUCCESSFUL);
+                response.setResponseCode(HttpStatus.OK);
+                response.getResult().put(Constants.CONTENT, reportList);
+                response.getResult().put(Constants.COUNT, reportList.size());
+            }
+
+        } catch (Exception e) {
+            setErrorData(response,
+                    String.format("Failed to get bp report status. Error: ", e.getMessage()));
+        }
+        return response;
+    }
+
+    public ResponseEntity<Resource> downloadBPReport(String authToken, String fileName) {
+        try {
+            String userId = accessTokenValidator.fetchUserIdFromAccessToken(authToken);
+            // String userId = "95a357c6-99d9-43d2-8d1b-42bea6f8c132";
+
+            // Check if userId is valid
+            if (StringUtils.isBlank(userId)) {
+                return createErrorResponse("Invalid user ID from auth token.", HttpStatus.UNAUTHORIZED);
+            }
+
+            try {
+                // Download the file from storage
+                storageService.downloadFile(fileName, serverProperties.getBpEnrolmentReportContainerName());
+                Path tmpPath = Paths.get(Constants.LOCAL_BASE_PATH + fileName);
+
+                // Convert file to ByteArrayResource
+                ByteArrayResource resource = new ByteArrayResource(Files.readAllBytes(tmpPath));
+
+                // Prepare headers for file download
+                HttpHeaders headers = new HttpHeaders();
+                headers.add(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + fileName + "\"");
+
+                return ResponseEntity.ok()
+                        .headers(headers)
+                        .contentLength(Files.size(tmpPath))
+                        .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                        .body(resource);
+            } catch (IOException e) {
+                logger.error("Failed to download the file: {}, Exception: {}", fileName, e);
+                return createErrorResponse("Failed to download the requested file. Please try again later.", HttpStatus.INTERNAL_SERVER_ERROR);
+            } finally {
+                // Ensure file cleanup after download
+                cleanupFile(Constants.LOCAL_BASE_PATH + fileName);
             }
         } catch (Exception e) {
-            logger.error("Error while processing the download request", e);
-            updateErrorDetails(response, "Error while processing the download request", HttpStatus.INTERNAL_SERVER_ERROR);
-            return response;
+            logger.error("Unexpected error while processing the download request for file: {}, Exception: {}", fileName, e);
+            return createErrorResponse("An unexpected error occurred while processing your request. Please contact support.", HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
 
-    private SBApiResponse validateDownloadReportRequestBody(Map<String, Object> requestBody) {
+    private SBApiResponse validateReportStatusRequestBody(Map<String, Object> requestBody) {
         SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.BP_REPORT_GENERATE_API);
         if (CollectionUtils.isEmpty(requestBody)) {
             updateErrorDetails(response, Constants.INVALID_REQUEST, HttpStatus.BAD_REQUEST);
@@ -308,6 +345,32 @@ public class BPReportsServiceImpl implements BPReportsService {
             return response;
         }
         return null;
+    }
+
+    private void setErrorData(SBApiResponse response, String errMsg) {
+        response.getParams().setStatus(Constants.FAILED);
+        response.getParams().setErrmsg(errMsg);
+        response.setResponseCode(HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+
+    private ResponseEntity<Resource> createErrorResponse(String message, HttpStatus status) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.add(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
+
+        return ResponseEntity.status(status)
+                .headers(headers)
+                .body(new ByteArrayResource(message.getBytes()));
+    }
+
+    private void cleanupFile(String filePath) {
+        try {
+            File file = new File(filePath);
+            if (file.exists()) {
+                file.delete();
+            }
+        } catch (Exception e) {
+            logger.warn("Failed to delete temporary file: {}, Exception: {}", filePath, e);
+        }
     }
 
 }

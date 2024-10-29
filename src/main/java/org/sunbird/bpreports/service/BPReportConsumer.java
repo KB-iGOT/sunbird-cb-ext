@@ -30,7 +30,6 @@ import org.sunbird.common.service.OutboundRequestHandlerServiceImpl;
 import org.sunbird.common.util.CbExtServerProperties;
 import org.sunbird.common.util.Constants;
 import org.sunbird.common.util.IndexerService;
-import org.sunbird.core.config.PropertiesConfig;
 import org.sunbird.storage.service.StorageService;
 
 import java.io.File;
@@ -62,9 +61,6 @@ public class BPReportConsumer {
 
     @Autowired
     StorageService storageService;
-
-    @Autowired
-    private OutboundRequestHandlerServiceImpl outboundReqService;
 
 
     @KafkaListener(topics = "${kafka.topic.bp.report}", groupId = "${kafka.topic.bp.report.group}")
@@ -177,7 +173,7 @@ public class BPReportConsumer {
         String fileName;
         try {
             // Construct file name and path
-            fileName = batchId + ".xlsx";
+            fileName = System.currentTimeMillis() + "-" + batchId + ".xlsx";
             String filePath = Constants.LOCAL_BASE_PATH + "bpreports" + "/" + orgId + "/" + courseId + "/";
             File directory = new File(filePath);
 
@@ -216,7 +212,7 @@ public class BPReportConsumer {
                 return true;
             }
 
-            SBApiResponse uploadResponse = storageService.uploadFile(file, serverProperties.getCiosCloudFolderName(), serverProperties.getBpEnrolmentReportContainerName());
+            SBApiResponse uploadResponse = storageService.uploadFile(file, serverProperties.getBpEnrolmentReportContainerName(), serverProperties.getCloudContainerName());
             String downloadUrl = (String) uploadResponse.getResult().get(Constants.URL);
             if (downloadUrl == null) {
                 logger.error("Failed to upload file, download URL is null.");
@@ -231,6 +227,7 @@ public class BPReportConsumer {
             compositeKey.put(Constants.BATCH_ID, batchId);
             Map<String, Object> updateAttributes = new HashMap<>();
             updateAttributes.put(Constants.DOWNLOAD_LINK, downloadUrl);
+            updateAttributes.put(Constants.FILE_NAME, fileName);
             cassandraOperation.updateRecord(Constants.SUNBIRD_KEY_SPACE_NAME, Constants.BP_ENROLMENT_REPORT_TABLE, compositeKey, updateAttributes);
         } catch (IOException e) {
             logger.error("Error while writing the Excel file", e);

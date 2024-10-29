@@ -17,17 +17,21 @@ public class BPReportsController {
     @Autowired
     private BPReportsService bpReportsService;
 
-    @PostMapping("/generate/report")
+    @PostMapping("v1/generate/report")
     public ResponseEntity<SBApiResponse> generateBPReport(@RequestHeader(Constants.X_AUTH_TOKEN) String authToken, @RequestBody Map<String, Object> requestBody) {
         SBApiResponse response = bpReportsService.generateBPReport(requestBody, authToken);
         return new ResponseEntity<>(response, response.getResponseCode());
 
     }
 
-    @PostMapping("/download/report")
-    public ResponseEntity<SBApiResponse> downloadBPReport(@RequestHeader(Constants.X_AUTH_TOKEN) String authToken, @RequestBody Map<String, Object> requestBody) {
-        SBApiResponse response = bpReportsService.downloadBPReport(requestBody, authToken);
+    @PostMapping("v1/bpreport/status")
+    public ResponseEntity<?> getBulkUploadDetails(@RequestBody Map<String, Object> requestBody) {
+        SBApiResponse response = bpReportsService.getBPReportStatus(requestBody);
         return new ResponseEntity<>(response, response.getResponseCode());
+    }
 
+    @GetMapping("v1/bpreport/download/{fileName}")
+    public ResponseEntity<?> downloadFile(@RequestHeader(Constants.X_AUTH_TOKEN) String authToken, @PathVariable("fileName") String fileName) {
+        return bpReportsService.downloadBPReport(authToken, fileName);
     }
 }
