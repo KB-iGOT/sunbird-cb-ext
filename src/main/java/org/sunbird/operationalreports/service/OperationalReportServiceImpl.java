@@ -511,8 +511,7 @@ public class OperationalReportServiceImpl implements OperationalReportService {
                     mapId = orgHierarchyList.get(0).getMapId();
                 }
             }
-
-            if (StringUtils.isBlank(mapId) && CollectionUtils.isNotEmpty((childIds))) {
+            if (StringUtils.isBlank(mapId)) {
                 throw new Exception("Issue while fetching orgHierarchy for orgId: " + rootOrgId);
             }
             String reportFileName = serverProperties.getOperationReportFileName();

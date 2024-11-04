@@ -538,6 +538,7 @@ public class UserBulkUploadService {
                         userRegistration.setEmail(email);
                     }
 
+
                     if (isFieldEmpty(record, 2)) {
                         errList.add("Mobile Number");
                     } else {
@@ -558,7 +559,7 @@ public class UserBulkUploadService {
                         String group = record.get(3).trim();
                         userRegistration.setGroup(group);
                         if (!userUtilityService.validateGroup(userRegistration.getGroup())) {
-                            invalidErrList.add("Invalid Group : Group can be only among one of these " + String.join("|", serverProperties.getBulkUploadGroupValue()));
+                            invalidErrList.add("Invalid Group : Group can be only among one of these " + serverProperties.getBulkUploadGroupValue());
                         }
                     }
 
@@ -577,7 +578,7 @@ public class UserBulkUploadService {
                         if (userUtilityService.validateGender(gender)) {
                             userRegistration.setGender(gender);
                         } else {
-                            invalidErrList.add("Invalid Gender : Gender can be only among one of these " + String.join("|", serverProperties.getBulkUploadGenderValue()));
+                            invalidErrList.add("Invalid Gender : Gender can be only among one of these " + serverProperties.getBulkUploadGenderValue());
                         }
                     }
 
@@ -586,7 +587,7 @@ public class UserBulkUploadService {
                         if (userUtilityService.validateCategory(category)) {
                             userRegistration.setCategory(category);
                         } else {
-                            invalidErrList.add("Invalid Category : Category can be only among one of these " + String.join("|", serverProperties.getBulkUploadCategoryValue()));
+                            invalidErrList.add("Invalid Category : Category can be only among one of these " + serverProperties.getBulkUploadCategoryValue());
                         }
                     }
 
@@ -652,7 +653,7 @@ public class UserBulkUploadService {
                         }
                         userRegistration.setTag(tagList);
                         if (!ProjectUtil.validateTag(userRegistration.getTag())) {
-                            invalidErrList.add("Invalid Tag: Tags are separated by ';' and can contain only alphabets with spaces. e.g., Bihar Circle;Patna Division");
+                            invalidErrList.add("Invalid Tag: Tags are separated by '|' and can contain only alphabets with spaces. e.g., Bihar Circle|Patna Division");
                         }
                     }
                     userRegistration.setOrgName(inputDataMap.get(Constants.ORG_NAME));
@@ -661,7 +662,7 @@ public class UserBulkUploadService {
 
                     if (totalRecordsCount == 0 && errList.size() == 4) {
                         updatedRecord.put("Status", "FAILED");
-                        updatedRecord.put("Error Details", String.join(serverProperties.getTagsDelimiter(), errList));
+                        updatedRecord.put("Error Details", String.join(", ", errList));
                         failedRecordsCount++;
                         break;
                     } else if (totalRecordsCount > 0 && errList.size() == 4) {
@@ -690,15 +691,15 @@ public class UserBulkUploadService {
                         } else {
                             failedRecordsCount++;
                             updatedRecord.put("Status", "FAILED");
-                            updatedRecord.put("Error Details", String.join(serverProperties.getTagsDelimiter(), invalidErrList));
+                            updatedRecord.put("Error Details", String.join(", ", invalidErrList));
                         }
                     }
 
                     updatedRecords.add(updatedRecord);
                 }
-                logger.info("total noOfSuccessfulRecords {}, total noOfFailedRecordsCount {}, and total totalRecordsCount {}", noOfSuccessfulRecords,failedRecordsCount,totalRecordsCount);
+                logger.info("total noOfSuccessfulRecords {}, total nofailedRecordsCount {}, and total totalRecordsCount {}", noOfSuccessfulRecords,failedRecordsCount,totalRecordsCount);
                 // Write back updated records to the same CSV file
-                fileWriter = new FileWriter(file);
+                 fileWriter = new FileWriter(file);
                 bufferedWriter = new BufferedWriter(fileWriter);
                 csvPrinter = new CSVPrinter(bufferedWriter,CSVFormat.newFormat(csvDelimiter).withHeader(headers.toArray(new String[0])).withRecordSeparator(System.lineSeparator()));
 
@@ -752,11 +753,7 @@ public class UserBulkUploadService {
    }
 
     private boolean isFieldEmpty(CSVRecord record, int index) {
-        if (index < 0 || index >= record.size()) {
-            return true;
-        }
-        String value = record.get(index);
-        return value == null || value.trim().isEmpty();
+        return record.get(index) == null || record.get(index).trim().isEmpty();
     }
 
 
@@ -831,30 +828,24 @@ public class UserBulkUploadService {
     }
 
     private boolean validateFieldValue(String fieldKey, String fieldValue) {
-        try {
-            fieldValue = fieldValue.toLowerCase();
-            if (redisCacheMgr.keyExists(fieldKey)) {
-                return !redisCacheMgr.valueExists(fieldKey, fieldValue);
-            } else {
-                Set<String> designationsSet = new HashSet<>();
-                Map<String, Object> propertiesMap = new HashMap<>();
-                propertiesMap.put(Constants.CONTEXT_TYPE, fieldKey);
-                List<Map<String, Object>> fieldValueList = cassandraOperation.getRecordsByProperties(Constants.KEYSPACE_SUNBIRD, Constants.TABLE_MASTER_DATA, propertiesMap, Collections.singletonList(Constants.CONTEXT_NAME));
-                if (!CollectionUtils.isEmpty(fieldValueList)) {
-                    String columnName = fieldValueList.get(0).get("contextname") != null ? "contextname" : "contextName";
-                    for (Map<String, Object> languageMap : fieldValueList) {
-                        designationsSet.add(((String) languageMap.get(columnName)).toLowerCase());
-                    }
+        fieldValue = fieldValue.toLowerCase();
+        if(redisCacheMgr.keyExists(fieldKey)){
+            return !redisCacheMgr.valueExists(fieldKey, fieldValue);
+        } else{
+            Set<String> designationsSet = new HashSet<>();
+            Map<String,Object> propertiesMap = new HashMap<>();
+            propertiesMap.put(Constants.CONTEXT_TYPE, fieldKey);
+            List<Map<String, Object>> fieldValueList = cassandraOperation.getRecordsByProperties(Constants.KEYSPACE_SUNBIRD, Constants.TABLE_MASTER_DATA, propertiesMap, Collections.singletonList(Constants.CONTEXT_NAME));
+            if(!CollectionUtils.isEmpty(fieldValueList)) {
+                String columnName = fieldValueList.get(0).get("contextname") != null ? "contextname" : "contextName";
+                for(Map<String, Object> languageMap : fieldValueList){
+                    designationsSet.add(((String)languageMap.get(columnName)).toLowerCase());
                 }
-                redisCacheMgr.putCacheAsStringArray(fieldKey, designationsSet.toArray(new String[0]), null);
-                return !designationsSet.contains(fieldValue);
             }
-        } catch (Exception e) {
-            logger.error("Error while reading the value from redis and cassandra from the masterValue for key : " + fieldKey + " value: " + fieldValue, e);
+            redisCacheMgr.putCacheAsStringArray(fieldKey, designationsSet.toArray(new String[0]), null);
+            return !designationsSet.contains(fieldValue);
         }
-        return false;
     }
-
     private String getFileExtension(String fileName) {
         int lastIndexOfDot= fileName.lastIndexOf('.');
         return lastIndexOfDot == -1 ? "" : fileName.substring(lastIndexOfDot);

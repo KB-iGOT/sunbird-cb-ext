@@ -23,7 +23,7 @@ public class SecretKeySpec implements KeySpec, SecretKey {
 	}
 
 	public String getAlgorithm() {
-		return algorithm;
+		return Constants.CIPHER_ALGORITHM;
 	}
 
 	public String getFormat() {
