@@ -316,12 +316,12 @@ public class OrgDesignationCompetencyMappingServiceImpl implements OrgDesignatio
     private List<String> getOrgAddedDesignation(List<Map<String, Object>> getAllDesignationForOrg) {
         List<String> designation = new ArrayList<>();
         if (CollectionUtils.isNotEmpty(getAllDesignationForOrg)) {
-            Map<String, Object> designationFrameworkObject = getAllDesignationForOrg.stream().filter(n -> ((String) (n.get("code")))
+            Map<String, Object> orgFrameworkObject = getAllDesignationForOrg.stream().filter(n -> ((String) (n.get("code")))
                     .equalsIgnoreCase(Constants.ORG)).findFirst().orElse(null);
-            if (MapUtils.isNotEmpty(designationFrameworkObject)) {
-                List<Map<String, Object>> designationFrameworkTerms = (List<Map<String, Object>>) designationFrameworkObject.get("terms");
-                if (CollectionUtils.isNotEmpty(designationFrameworkTerms)) {
-                    List<Map<String, Object>> designationAssociation = (List<Map<String, Object>>) designationFrameworkTerms.get(0).get(Constants.ASSOCIATIONS);
+            if (MapUtils.isNotEmpty(orgFrameworkObject)) {
+                List<Map<String, Object>> orgFrameworkTerms = (List<Map<String, Object>>) orgFrameworkObject.get("terms");
+                if (CollectionUtils.isNotEmpty(orgFrameworkTerms)) {
+                    List<Map<String, Object>> designationAssociation = (List<Map<String, Object>>) orgFrameworkTerms.get(0).get(Constants.ASSOCIATIONS);
                     if (CollectionUtils.isNotEmpty(designationAssociation)) {
                         designation = designationAssociation.stream()
                                 .map(map -> (String) map.get(Constants.NAME))
