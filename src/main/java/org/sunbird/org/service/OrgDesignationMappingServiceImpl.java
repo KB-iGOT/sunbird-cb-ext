@@ -650,7 +650,14 @@ public class OrgDesignationMappingServiceImpl implements OrgDesignationMappingSe
                             if (CollectionUtils.isNotEmpty(orgDesignation) && orgDesignation.contains(designation)) {
                                 if (CollectionUtils.isNotEmpty(orgFrameworkTerms)) {
                                     List<Map<String, Object>> associations = (List<Map<String, Object>>) orgFrameworkTerms.get(0).get(Constants.ASSOCIATIONS);
-                                    if (CollectionUtils.isNotEmpty(associations)) {
+                                    if (CollectionUtils.isEmpty(associations)) { // For the first association Object addition
+                                        Map<String, Object> designationObject = getDesignationObject(getAllDesignationForOrg, designation);
+                                        if (MapUtils.isNotEmpty(designationObject)) {
+                                            associationIdentifier = (String) designationObject.get(Constants.IDENTIFIER);
+                                        } else {
+                                            invalidErrList.add("Issue while adding the designation for org");
+                                        }
+                                    } else {
                                         boolean isDesignationAssociationsPresent = associations.stream().anyMatch(n -> ((String) n.get(Constants.NAME)).equalsIgnoreCase(designation));
                                         if (isDesignationAssociationsPresent) {
                                             invalidErrList.add("Already designation: " + designation + "is mapped for org");
