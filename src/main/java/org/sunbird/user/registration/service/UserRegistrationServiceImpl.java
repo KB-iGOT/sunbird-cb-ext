@@ -269,8 +269,6 @@ public class UserRegistrationServiceImpl implements UserRegistrationService {
 					try {
 						Thread.sleep(1000);
 					} catch (Exception e) {
-						Thread.currentThread().interrupt();
-						LOGGER.error("Thread was interrupted", e);
 					}
 				} else {
 					try {

@@ -57,9 +57,6 @@ public interface OrgHierarchyRepository extends JpaRepository<OrgHierarchy, Inte
     @Query(value = "SELECT CASE WHEN COUNT(*) > 0 THEN TRUE ELSE FALSE END " +
             "FROM org_hierarchy_v4 " +
             "WHERE sborgid = :childId " +
-            "AND (LOWER(:mapId) IN (LOWER(l1MapId), LOWER(l2MapId), LOWER(l3MapId), LOWER(parentmapid)))", nativeQuery = true)
+            "AND (:mapId IN (l1MapId, l2MapId, l3MapId))", nativeQuery = true)
     boolean isChildOrgPresent(String mapId, String childId);
-
-    @Query(value = "SELECT * FROM org_hierarchy_v4 WHERE LOWER(?1) IN (LOWER(parentmapid), LOWER(l1MapId), LOWER(l2MapId), LOWER(l3MapId))  AND sborgid IS NOT NULL", nativeQuery = true)
-    List<OrgHierarchy> findAllOrgByParentMapId(String parentMapId);
 }

@@ -17,7 +17,7 @@ public class CassandraPropertyReader {
 
 	private final Properties properties = new Properties();
 	  private static final String file = "cassandratablecolumn.properties";
-	  private static volatile CassandraPropertyReader cassandraPropertyReader = null;
+	  private static CassandraPropertyReader cassandraPropertyReader = null;
 
 	  /** private default constructor 
 	 * @throws IOException */
@@ -30,20 +30,21 @@ public class CassandraPropertyReader {
 	    }
 	  }
 
-	public static CassandraPropertyReader getInstance() {
-		if (null == cassandraPropertyReader) {
-			synchronized (CassandraPropertyReader.class) {
-				if (null == cassandraPropertyReader) {
-					try {
-						cassandraPropertyReader = new CassandraPropertyReader();
-					} catch (IOException e) {
-						throw new RuntimeException("Error initializing CassandraPropertyReader", e);
-					}
-				}
+	  public static CassandraPropertyReader getInstance() {
+	    if (null == cassandraPropertyReader) {
+	      synchronized (CassandraPropertyReader.class) {
+	        if (null == cassandraPropertyReader) {
+	          try {
+				cassandraPropertyReader = new CassandraPropertyReader();
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
 			}
-		}
-		return cassandraPropertyReader;
-	}
+	        }
+	      }
+	    }
+	    return cassandraPropertyReader;
+	  }
 
 	  /**
 	   * Method to read value from resource file .

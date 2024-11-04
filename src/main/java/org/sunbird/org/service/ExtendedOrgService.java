@@ -17,6 +17,4 @@ public interface ExtendedOrgService {
 	public SBApiResponse createOrgForUserRegistration(Map<String, Object> requestData);
 
 	public SBApiResponse orgExtSearchV2(Map<String, Object> request);
-
-	SBApiResponse listAllOrg(String parentMapId);
 }

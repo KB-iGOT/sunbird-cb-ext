@@ -317,17 +317,14 @@ public class OrgDesignationCompetencyMappingServiceImpl implements OrgDesignatio
         List<String> designation = new ArrayList<>();
         if (CollectionUtils.isNotEmpty(getAllDesignationForOrg)) {
             Map<String, Object> designationFrameworkObject = getAllDesignationForOrg.stream().filter(n -> ((String) (n.get("code")))
-                    .equalsIgnoreCase(Constants.ORG)).findFirst().orElse(null);
+                    .equalsIgnoreCase(Constants.DESIGNATION)).findFirst().orElse(null);
             if (MapUtils.isNotEmpty(designationFrameworkObject)) {
                 List<Map<String, Object>> designationFrameworkTerms = (List<Map<String, Object>>) designationFrameworkObject.get("terms");
                 if (CollectionUtils.isNotEmpty(designationFrameworkTerms)) {
-                    List<Map<String, Object>> designationAssociation = (List<Map<String, Object>>) designationFrameworkTerms.get(0).get(Constants.ASSOCIATIONS);
-                    if (CollectionUtils.isNotEmpty(designationAssociation)) {
-                        designation = designationAssociation.stream()
-                                .map(map -> (String) map.get(Constants.NAME))
-                                .distinct()  // Ensure unique values
-                                .collect(Collectors.toList());
-                    }
+                    designation = designationFrameworkTerms.stream()
+                            .map(map -> (String) map.get(Constants.NAME))
+                            .distinct()  // Ensure unique values
+                            .collect(Collectors.toList());
                 }
             }
         }
