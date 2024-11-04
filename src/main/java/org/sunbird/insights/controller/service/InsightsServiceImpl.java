@@ -150,10 +150,9 @@ public class InsightsServiceImpl implements InsightsService {
         local[1] = endDate;
         return local;
     }
+
     public static double roundToTwoDecimals(double value) {
-        BigDecimal bd = new BigDecimal(value);
-        bd = bd.setScale(2, RoundingMode.HALF_UP);
-        return bd.doubleValue();
+        return BigDecimal.valueOf(value).setScale(2, RoundingMode.HALF_UP).doubleValue();
     }
 
     public SBApiResponse readInsightsForOrganisation(Map<String, Object> requestBody, String userId) {

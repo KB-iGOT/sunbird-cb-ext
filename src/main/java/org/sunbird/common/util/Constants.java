@@ -1224,6 +1224,19 @@ public class Constants {
 	public static final String NOT_APPLICABLE = "Not Applicable";
 	public static final String CURRENT_PAGE = "currentPage";
 	public static final String FILTER = "filter";
+	public static final String API_ORG_V2_LIST = "api.org.v2.list";
+	public static final String PUBLIC_USER_EVENT_BULKONBOARD = "api.public.user.event.bulkonboard";
+	public static final String EVENT_ID = "eventId";
+	public static final String ENROLLED_DATE_KEY_LOWER = "enrolled_date";
+	public static final String DATE_TIME = "dateTime";
+	public static final String EVENT_BATCH_TABLE_NAME = "event_batch";
+	public static final String COMPLETED_ON ="completedOn";
+	public static final String START_DATE_COLUMN = "start_date";
+	public static final String END_DATE_COLUMN = "end_date";
+	public static final String BATCH_ATTRIBUTES_COLUMN="batch_attributes";
+	public static final String USER_EVENT_CONSUMPTION = "api.user.event.consumption";
+	public static final String LRC_PROGRESS_DETAILS_COLUMN="lrc_progressdetails";
+	public static final String API_USER_EVENT_BULK_ONBOARD_STATUS = "api.user.event.bulk.onboard.status";
 
 	private Constants() {
 		throw new IllegalStateException("Utility class");

@@ -916,6 +916,27 @@ public class CbExtServerProperties {
 	@Value("${questionSet.publish}")
 	private String questionSetPublish;
 
+	@Value("${cios.logs.cloud.folder.name}")
+	private String ciosFileLogsCloudFolderName;
+
+	@Value("${public.user.event.bulk.onboard.topic}")
+	private String publicUserEventBulkOnboardTopic;
+
+	@Value("${public.user.event.bulk.onboard.container.name}")
+	private String eventBulkOnboardContainerName;
+
+	@Value("${user.issue.certificate.for.event.topic}")
+	private String userIssueCertificateForEventTopic;
+
+	@Value("${user.event.enrolment.table}")
+	private String userEventEnrolmentTable;
+
+	@Value("${public.user.event.bulkonboard.table}")
+	private String publicUserEventBulkOnboardTable;
+
+	@Value("${user.event.karma.point.topic}")
+	private String userEventKarmaPointTopic;
+
 	public String getCiosCloudIconFolderName() {
 		return ciosCloudIconFolderName;
 	}
@@ -1904,7 +1925,7 @@ public class CbExtServerProperties {
 	}
 
 	public void setSbEsHostList(String sbEsHost) {
-		this.sbEsHostList = sbEsHostList;
+		this.sbEsHostList = sbEsHost;
 	}
 
 	public String getSbEsUser() {
@@ -2521,10 +2542,6 @@ public class CbExtServerProperties {
 
 	public String getEhrmsDetailUrl() {
 		return ehrmsDetailUrl;
-	}
-
-	public void setEhrmsDetailUrl(SBApiResponse response) {
-		this.ehrmsDetailUrl = ehrmsDetailUrl;
 	}
 
 	public void setEhrmsDetailUrl(String ehrmsDetailUrl) {
@@ -3158,4 +3175,59 @@ public class CbExtServerProperties {
 		this.cqfAssessmentPostPublishTopic = cqfAssessmentPostPublishTopic;
 	}
 
+	public String getCiosFileLogsCloudFolderName() {
+		return ciosFileLogsCloudFolderName;
+	}
+
+	public void setCiosFileLogsCloudFolderName(String ciosFileLogsCloudFolderName) {
+		this.ciosFileLogsCloudFolderName = ciosFileLogsCloudFolderName;
+	}
+
+	public String getEventBulkOnboardContainerName() {
+		return eventBulkOnboardContainerName;
+	}
+
+	public void setEventBulkOnboardContainerName(String eventBulkOnboardContainerName) {
+		this.eventBulkOnboardContainerName = eventBulkOnboardContainerName;
+	}
+
+	public String getPublicUserEventBulkOnboardTopic() {
+		return publicUserEventBulkOnboardTopic;
+	}
+
+	public void setPublicUserEventBulkOnboardTopic(String publicUserEventBulkOnboardTopic) {
+		this.publicUserEventBulkOnboardTopic = publicUserEventBulkOnboardTopic;
+	}
+
+	public String getUserIssueCertificateForEventTopic() {
+		return userIssueCertificateForEventTopic;
+	}
+
+	public void setUserIssueCertificateForEventTopic(String userIssueCertificateForEventTopic) {
+		this.userIssueCertificateForEventTopic = userIssueCertificateForEventTopic;
+	}
+
+	public String getUserEventEnrolmentTable() {
+		return userEventEnrolmentTable;
+	}
+
+	public void setUserEventEnrolmentTable(String userEventEnrolmentTable) {
+		this.userEventEnrolmentTable = userEventEnrolmentTable;
+	}
+
+	public String getPublicUserEventBulkOnboardTable() {
+		return publicUserEventBulkOnboardTable;
+	}
+
+	public void setPublicUserEventBulkOnboardTable(String publicUserEventBulkOnboardTable) {
+		this.publicUserEventBulkOnboardTable = publicUserEventBulkOnboardTable;
+	}
+
+	public String getUserEventKarmaPointTopic() {
+		return userEventKarmaPointTopic;
+	}
+
+	public void setUserEventKarmaPointTopic(String userEventKarmaPointTopic) {
+		this.userEventKarmaPointTopic = userEventKarmaPointTopic;
+	}
 }
