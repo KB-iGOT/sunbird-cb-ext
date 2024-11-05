@@ -707,7 +707,6 @@ public class OrgDesignationMappingServiceImpl implements OrgDesignationMappingSe
                             Map<String, Object> orgFrameworkTerm = orgFrameworkTerms.stream().filter(n -> ((String) n.get(Constants.STATUS)).equalsIgnoreCase(Constants.LIVE)).findFirst().map(HashMap::new).orElse(null);
                             if (MapUtils.isNotEmpty(orgFrameworkTerm)) {
                                 designationMappingInfoMap.put(Constants.ORGANISATION, orgFrameworkTerm);
-
                             } else {
                                 invalidErrList.add("The issue while fetching the framework term for the org which is active.");
                             }
@@ -819,25 +818,25 @@ public class OrgDesignationMappingServiceImpl implements OrgDesignationMappingSe
                     List<Map<String, Object>> associationsMap = (List<Map<String, Object>>) terms.get(Constants.ASSOCIATIONS);
                     if (CollectionUtils.isNotEmpty(associationsMap)) {
                         associations.addAll(associationsMap.stream().map(n -> (String) n.get(Constants.IDENTIFIER)).collect(Collectors.toList()));
-                        associations.addAll(nodeId);
-                        List<Map<String, Object>> createDesignationObject = new ArrayList<>();
-                        for (String association : associations) {
-                            Map<String, Object> nodeIdMap = new HashMap<>();
-                            nodeIdMap.put(Constants.IDENTIFIER, association);
-                            createDesignationObject.add(nodeIdMap);
-                        }
-                        logger.info("The associated size need to be updated: " + associations.size());
-                        Map<String, Object> frameworkAssociationUpdateForOrg = updateFrameworkTerm(frameworkId, updateRequestObject(createDesignationObject), Constants.ORG, (String) terms.get(Constants.CODE));
-                        if (MapUtils.isNotEmpty(frameworkAssociationUpdateForOrg)) {
-                            Map<String, Object> result = publishFramework(frameworkId, new HashMap<>(), orgId);
-                            if (MapUtils.isNotEmpty(result)) {
-                                logger.info("Publish is Success for frameworkId: " + frameworkId);
-                            } else {
-                                invalidErrList.add("Issue while publish the framework.");
-                            }
+                    }
+                    associations.addAll(nodeId);
+                    List<Map<String, Object>> createDesignationObject = new ArrayList<>();
+                    for (String association : associations) {
+                        Map<String, Object> nodeIdMap = new HashMap<>();
+                        nodeIdMap.put(Constants.IDENTIFIER, association);
+                        createDesignationObject.add(nodeIdMap);
+                    }
+                    logger.info("The associated size need to be updated: " + associations.size());
+                    Map<String, Object> frameworkAssociationUpdateForOrg = updateFrameworkTerm(frameworkId, updateRequestObject(createDesignationObject), Constants.ORG, (String) terms.get(Constants.CODE));
+                    if (MapUtils.isNotEmpty(frameworkAssociationUpdateForOrg)) {
+                        Map<String, Object> result = publishFramework(frameworkId, new HashMap<>(), orgId);
+                        if (MapUtils.isNotEmpty(result)) {
+                            logger.info("Publish is Success for frameworkId: " + frameworkId);
                         } else {
-                            invalidErrList.add("Issue while adding the associations to the framework for theme.");
+                            invalidErrList.add("Issue while publish the framework.");
                         }
+                    } else {
+                        invalidErrList.add("Issue while adding the associations to the framework for theme.");
                     }
                 }
             }
