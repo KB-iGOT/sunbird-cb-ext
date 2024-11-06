@@ -25,8 +25,8 @@ public class BPReportsController {
     }
 
     @PostMapping("v1/bpreport/status")
-    public ResponseEntity<?> getBulkUploadDetails(@RequestBody Map<String, Object> requestBody) {
-        SBApiResponse response = bpReportsService.getBPReportStatus(requestBody);
+    public ResponseEntity<?> getBulkUploadDetails(@RequestHeader(Constants.X_AUTH_TOKEN) String authToken, @RequestBody Map<String, Object> requestBody) {
+        SBApiResponse response = bpReportsService.getBPReportStatus(requestBody, authToken);
         return new ResponseEntity<>(response, response.getResponseCode());
     }
 

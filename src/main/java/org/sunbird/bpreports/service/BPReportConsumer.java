@@ -17,7 +17,8 @@ import org.elasticsearch.search.sort.SortOrder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 import org.springframework.util.CollectionUtils;
@@ -26,7 +27,6 @@ import org.sunbird.bpreports.postgres.entity.WfStatusEntity;
 import org.sunbird.bpreports.postgres.repository.WfStatusEntityRepository;
 import org.sunbird.cassandra.utils.CassandraOperation;
 import org.sunbird.common.model.SBApiResponse;
-import org.sunbird.common.service.OutboundRequestHandlerServiceImpl;
 import org.sunbird.common.util.CbExtServerProperties;
 import org.sunbird.common.util.Constants;
 import org.sunbird.common.util.IndexerService;
@@ -37,6 +37,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 
 @Component
 public class BPReportConsumer {
@@ -65,49 +66,57 @@ public class BPReportConsumer {
 
     @KafkaListener(topics = "${kafka.topic.bp.report}", groupId = "${kafka.topic.bp.report.group}")
     private void initiateBPReportGeneration(ConsumerRecord<String, String> data) {
-        logger.info("AssessmentAsyncSubmitConsumer::processMessage.. started.");
+        logger.info("BPReportConsumer::processMessage.. started.");
         try {
-            Map<String, Object> asyncRequest = mapper.readValue(data.value(), new TypeReference<Map<String, Object>>() {
-            });
-            generateBPReport(asyncRequest);
+            if (StringUtils.isNotBlank(data.value())) {
+                CompletableFuture.runAsync(() -> {
+                    try {
+                        generateBPReport(data.value());
+                        logger.info("BP report generation initiated successfully for data: {}", data.value());
+                    } catch (Exception e) {
+                        logger.error("Error while generating BP report for data: {}", data.value(), e);
+                    }
+                });
+            } else {
+                logger.error("Error in BPReportConsumer: Invalid or empty Kafka message received");
+            }
         } catch (Exception e) {
-            String errMsg = String.format("Error while generating BP report", e.getMessage());
-            logger.error(errMsg, e);
+            logger.error("Error while initiating BP report generation", e);
         }
-
     }
 
-    private void generateBPReport(Map<String, Object> request) throws IOException {
+    public void generateBPReport(String data) throws IOException {
 
-        String courseId = (String) request.get(Constants.COURSE_ID);
-        String batchId = (String) request.get(Constants.BATCH_ID);
-        String orgId = (String) request.get(Constants.ORG_ID);
-        String profileSurveyId = (String) request.get(Constants.PROFILE_SURVEY_ID);
         Workbook workbook = new XSSFWorkbook();
         Map<String, Object> headerKeyMapping = new LinkedHashMap<>();
-
         try {
+            Map<String, Object> request = mapper.readValue(data, new TypeReference<Map<String, Object>>() {
+            });
+
+            String courseId = (String) request.get(Constants.COURSE_ID);
+            String batchId = (String) request.get(Constants.BATCH_ID);
+            String orgId = (String) request.get(Constants.ORG_ID);
+            String surveyId = (String) request.get(Constants.SURVEY_ID);
+
             Map<String, Object> batchReadApiResp = getBatchDetails(courseId, batchId);
             if (ObjectUtils.isEmpty(batchReadApiResp)) {
                 logger.info("No batch details found for batchId: {}", batchId);
                 return;
             }
-            if (StringUtils.isAnyBlank(batchId, profileSurveyId)) {
+            if (StringUtils.isAnyBlank(batchId, surveyId)) {
                 throw new IllegalArgumentException("Batch ID and Profile Survey ID must not be empty.");
             }
 
-            List<WfStatusEntity> wfStatusEntities = wfStatusEntityRepository.getByApplicationId(batchId);
+            List<WfStatusEntity> wfStatusEntities = getAllWfStatusEntitiesByBatchId(batchId);
             if (CollectionUtils.isEmpty(wfStatusEntities)) {
                 logger.info("No workflow status entities found for batchId: {}", batchId);
                 return;
             }
 
-            Map<String, Object> surveyResponse = getSurveyResponse(profileSurveyId);
+            List<Map<String, Object>> surveyResponse = getSurveyResponse(surveyId, null);
             Sheet sheet = workbook.createSheet("Enrolment Report");
 
-            Iterator iterator = surveyResponse.entrySet().iterator();
-            Map.Entry<String, Object> firstEntry = (Map.Entry<String, Object>) iterator.next();
-            Map<String, Object> firstResponse = (Map<String, Object>) firstEntry.getValue();
+            Map<String, Object> firstResponse = surveyResponse.get(0);
             Map<String, Object> dataObject = (Map<String, Object>) firstResponse.get(Constants.DATA_OBJECT);
 
             // Create header row and apply styles
@@ -130,11 +139,11 @@ public class BPReportConsumer {
                         logger.warn("No user details found for userId: {}", userId);
                         continue;
                     }
-
+                    List<Map<String, Object>> userSurveyResponse = getSurveyResponse(surveyId, null);
                     Map<String, Object> userInfo = getUserInfo((Map<String, Object>) userDetails.get(userId));
                     String enrolmentStatus = getEnrolmentStatus(wfStatusEntity);
                     // Process or save the report with userInfo, enrolmentStatus, and surveyResponse.
-                    processReport(userInfo, enrolmentStatus, (Map<String, Object>) surveyResponse.get(userId), sheet, headerKeyMapping, rowNum);
+                    processReport(userInfo, enrolmentStatus, userSurveyResponse.get(0), sheet, headerKeyMapping, rowNum);
 
                 } catch (Exception e) {
                     logger.error("Error processing report for userId: {}", userId, e);
@@ -165,15 +174,15 @@ public class BPReportConsumer {
         List<String> fields = new ArrayList<>();
         fields.add("batch_attributes");
 
-        List<Map<String, Object>> batchDetails = cassandraOperation.getRecordsByProperties(Constants.SUNBIRD_COURSES_KEY_SPACE_NAME, Constants.TABLE_COURSE_BATCH, propertyMap, fields);
+        List<Map<String, Object>> batchDetails = cassandraOperation.getRecordsByPropertiesWithoutFiltering(Constants.SUNBIRD_COURSES_KEY_SPACE_NAME, Constants.TABLE_COURSE_BATCH, propertyMap, fields);
         return batchDetails.get(0);
     }
 
-    private boolean uploadBPReportAndUpdateDatabase(String batchId, String orgId, String courseId, Workbook workbook) {
+    private void uploadBPReportAndUpdateDatabase(String batchId, String orgId, String courseId, Workbook workbook) {
         String fileName;
         try {
             // Construct file name and path
-            fileName = System.currentTimeMillis() + "-" + batchId + ".xlsx";
+            fileName = System.currentTimeMillis() + "_" + batchId + ".xlsx";
             String filePath = Constants.LOCAL_BASE_PATH + "bpreports" + "/" + orgId + "/" + courseId + "/";
             File directory = new File(filePath);
 
@@ -183,7 +192,7 @@ public class BPReportConsumer {
                     logger.info("Directory created: {}", filePath);
                 } else {
                     logger.error("Failed to create directory: {}", filePath);
-                    return true;
+                    return;
                 }
             } else {
                 logger.info("Directory already exists: {}", filePath);
@@ -197,7 +206,7 @@ public class BPReportConsumer {
                     logger.info("File created: {}", file.getAbsolutePath());
                 } else {
                     logger.error("Failed to create file: {}", fileName);
-                    return true;
+                    return;
                 }
             } else {
                 logger.info("File already exists, overwriting: {}", file.getAbsolutePath());
@@ -209,30 +218,39 @@ public class BPReportConsumer {
                 logger.info("Excel file generated successfully: {}", fileName);
             } catch (IOException e) {
                 logger.error("Error while writing the Excel file: {}", fileName, e);
-                return true;
+                return;
             }
 
             SBApiResponse uploadResponse = storageService.uploadFile(file, serverProperties.getBpEnrolmentReportContainerName(), serverProperties.getCloudContainerName());
             String downloadUrl = (String) uploadResponse.getResult().get(Constants.URL);
             if (downloadUrl == null) {
                 logger.error("Failed to upload file, download URL is null.");
-                return true;
+                return;
             }
             logger.info("File uploaded successfully. Download URL: {}", downloadUrl);
 
 
-            Map<String, Object> compositeKey = new HashMap<>();
-            compositeKey.put(Constants.ORG_ID, orgId);
-            compositeKey.put(Constants.COURSE_ID, courseId);
-            compositeKey.put(Constants.BATCH_ID, batchId);
-            Map<String, Object> updateAttributes = new HashMap<>();
-            updateAttributes.put(Constants.DOWNLOAD_LINK, downloadUrl);
-            updateAttributes.put(Constants.FILE_NAME, fileName);
-            cassandraOperation.updateRecord(Constants.SUNBIRD_KEY_SPACE_NAME, Constants.BP_ENROLMENT_REPORT_TABLE, compositeKey, updateAttributes);
+            updateDataBase(orgId, courseId, batchId, downloadUrl, fileName, Constants.COMPLETED_UPPER_CASE);
         } catch (IOException e) {
             logger.error("Error while writing the Excel file", e);
+            updateDataBase(orgId, courseId, batchId, null, null, Constants.FAILED_UPPERCASE);
         }
-        return false;
+    }
+
+    private void updateDataBase(String orgId, String courseId, String batchId, String downloadUrl, String fileName, String status) {
+        Map<String, Object> compositeKey = new HashMap<>();
+        compositeKey.put(Constants.ORG_ID, orgId);
+        compositeKey.put(Constants.COURSE_ID, courseId);
+        compositeKey.put(Constants.BATCH_ID, batchId);
+        Map<String, Object> updateAttributes = new HashMap<>();
+        if (StringUtils.isNotEmpty(downloadUrl)) {
+            updateAttributes.put(Constants.DOWNLOAD_LINK, downloadUrl);
+        }
+        if (StringUtils.isNotEmpty(fileName)) {
+            updateAttributes.put(Constants.FILE_NAME, fileName);
+        }
+        updateAttributes.put(Constants.STATUS, status);
+        cassandraOperation.updateRecord(Constants.SUNBIRD_KEY_SPACE_NAME, Constants.BP_ENROLMENT_REPORT_TABLE, updateAttributes, compositeKey);
     }
 
     private Map<String, Object> getUserInfo(Map<String, Object> userDetails) throws IOException {
@@ -244,6 +262,19 @@ public class BPReportConsumer {
         if (!StringUtils.isEmpty(profileDetailsStr)) {
             Map<String, Object> profileDetails = mapper.readValue(profileDetailsStr, new TypeReference<Map<String, Object>>() {
             });
+
+            String groupStatus = (String) profileDetails.get(Constants.PROFILE_GROUP_STATUS);
+            if (StringUtils.isNotEmpty(groupStatus) && Constants.VERIFIED.equalsIgnoreCase(groupStatus)) {
+                groupStatus = Constants.VERIFIED_TITLE_CASE;
+            } else {
+                groupStatus = Constants.NOT_VERIFIED_TITLE_CASE;
+            }
+            String designationStatus = (String) profileDetails.get(Constants.PROFILE_DESIGNATION_STATUS);
+            if (StringUtils.isNotEmpty(groupStatus) && Constants.VERIFIED.equalsIgnoreCase(designationStatus)) {
+                designationStatus = Constants.VERIFIED_TITLE_CASE;
+            } else {
+                designationStatus = Constants.NOT_VERIFIED_TITLE_CASE;
+            }
 
             Map<String, Object> personalDetails = (Map<String, Object>) profileDetails.get(Constants.PERSONAL_DETAILS);
             if (MapUtils.isNotEmpty(personalDetails)) {
@@ -258,8 +289,16 @@ public class BPReportConsumer {
             List<Map<String, Object>> professionalDetails = (List<Map<String, Object>>) profileDetails.get(Constants.PROFESSIONAL_DETAILS);
             if (!CollectionUtils.isEmpty(professionalDetails)) {
                 Map<String, Object> professionalDetailsObj = professionalDetails.get(0);
-                userInfo.put(Constants.GROUP, professionalDetailsObj.get(Constants.GROUP));
-                userInfo.put(Constants.DESIGNATION, professionalDetailsObj.get(Constants.DESIGNATION));
+                String group = "";
+                String designation = "";
+                if (StringUtils.isNotEmpty((String) professionalDetailsObj.get(Constants.GROUP)) && StringUtils.isNotEmpty(groupStatus)) {
+                    group = professionalDetailsObj.get(Constants.GROUP) + " " + "(" + groupStatus + ")";
+                }
+                if (StringUtils.isNotEmpty((String) professionalDetailsObj.get(Constants.DESIGNATION)) && StringUtils.isNotEmpty(designationStatus)) {
+                    designation = professionalDetailsObj.get(Constants.DESIGNATION) + " " + "(" + designationStatus + ")";
+                }
+                userInfo.put(Constants.GROUP, group);
+                userInfo.put(Constants.DESIGNATION, designation);
                 userInfo.put(Constants.DOR, professionalDetailsObj.get(Constants.DOR));
             }
 
@@ -277,9 +316,12 @@ public class BPReportConsumer {
 
             Map<String, Object> cadreDetails = (Map<String, Object>) profileDetails.get(Constants.CADRE_DETAILS);
             if (MapUtils.isNotEmpty(cadreDetails)) {
+                userInfo.put(Constants.CADRE_DETAILS, Constants.YES);
                 userInfo.put(Constants.CIVIL_SERVICE_TYPE, cadreDetails.get(Constants.CIVIL_SERVICE_TYPE));
                 userInfo.put(Constants.CIVIL_SERVICE_NAME, cadreDetails.get(Constants.CIVIL_SERVICE_NAME));
                 userInfo.put(Constants.CADRE_NAME, cadreDetails.get(Constants.CADRE_NAME));
+            } else {
+                userInfo.put(Constants.CADRE_DETAILS, Constants.NO);
             }
 
         }
@@ -288,56 +330,73 @@ public class BPReportConsumer {
 
     private String getEnrolmentStatus(WfStatusEntity wfStatusEntity) {
         String currentStatus = wfStatusEntity.getCurrentStatus();
-        if (currentStatus.equalsIgnoreCase("SEND_FOR_MDO_APPROVAL")) {
-            return "Pending with MDO";
-        } else if (currentStatus.equalsIgnoreCase("SEND_FOR_PC_APPROVAL")) {
-            return "Pending with the Program Coordinator";
-        } else if (currentStatus.equalsIgnoreCase("APPROVED")) {
-            return "APPROVED";
+        if (Constants.SEND_FOR_MDO_APPROVAL.equalsIgnoreCase(currentStatus)) {
+            return Constants.PENDING_WITH_MDO;
+        } else if (Constants.SEND_FOR_PC_APPROVAL.equalsIgnoreCase(currentStatus)) {
+            return Constants.PENDING_WITH_PC;
+        } else if (Constants.APPROVED_UPPER_CASE.equalsIgnoreCase(currentStatus)) {
+            return Constants.APPROVED_UPPER_CASE;
+        } else if (Constants.REJECTED_UPPER_CASE.equalsIgnoreCase(currentStatus)) {
+            return Constants.REJECTED_UPPER_CASE;
         }
         return null;
     }
 
-    private Map<String, Object> getSurveyResponse(String profileSurveyId) {
-        Map<String, Object> resultMap = new HashMap<>();
+    private List<Map<String, Object>> getSurveyResponse(String surveyId, String userId) {
+        List<Map<String, Object>> result = new ArrayList<>();
         try {
             // Query construction
             SearchSourceBuilder sourceBuilder = new SearchSourceBuilder();
-            sourceBuilder.size(10000);  // Set the result size to 10000
 
-            MatchQueryBuilder matchFormIdQuery = QueryBuilders.matchQuery(Constants.FORM_ID, profileSurveyId);
+            // If userId is null, fetch only one record
+            if (userId == null) {
+                sourceBuilder.size(1);  // Set the result size to 1
+            }
+
+            // Build the query for surveyId
+            MatchQueryBuilder matchFormIdQuery = QueryBuilders.matchQuery(Constants.FORM_ID, surveyId);
             BoolQueryBuilder boolQuery = new BoolQueryBuilder().must(matchFormIdQuery);
+
+            // If userId is provided, add it to the query
+            if (userId != null) {
+                MatchQueryBuilder matchUserIdQuery = QueryBuilders.matchQuery(Constants.UPDATED_BY, userId);
+                boolQuery.must(matchUserIdQuery);
+            }
+
             sourceBuilder.query(boolQuery);
 
             // Sorting by timestamp in ascending order
             sourceBuilder.sort("timestamp", SortOrder.ASC);
 
             // Execute the search request
-            SearchResponse searchResponse = indexerService.getEsResult(serverProperties.getIgotEsUserFormIndex(), serverProperties.getEsFormIndexType(), sourceBuilder, false);
+            SearchResponse searchResponse = indexerService.getEsResult(
+                    serverProperties.getIgotEsUserFormIndex(),
+                    serverProperties.getEsFormIndexType(),
+                    sourceBuilder,
+                    false
+            );
 
             if (searchResponse != null && searchResponse.getHits().getHits().length > 0) {
                 // Process each record (hit)
                 for (SearchHit hit : searchResponse.getHits().getHits()) {
                     Map<String, Object> sourceMap = hit.getSourceAsMap();
-                    if (sourceMap != null && sourceMap.containsKey(Constants.UPDATED_BY)) {
+                    if (sourceMap != null) {
                         // Put the result in the map using the "updatedBy" field as the key
-                        resultMap.put((String) sourceMap.get(Constants.UPDATED_BY), sourceMap);
+                        result.add(sourceMap);
                     }
                 }
             } else {
-                logger.warn("No results found for profileSurveyId: {}", profileSurveyId);
+                logger.warn("No results found for surveyId: {}", surveyId);
             }
 
         } catch (IOException e) {
-            logger.error("Error while processing user form response for profileSurveyId: {}", profileSurveyId, e);
+            logger.error("Error while processing user form response for surveyId: {}", surveyId, e);
         }
 
-        return resultMap;
-
+        return result;
     }
 
     private void processReport(Map<String, Object> userInfo, String enrolmentStatus, Map<String, Object> surveyResponse, Sheet sheet, Map<String, Object> headerKeyMapping, int rowNum) {
-        logger.info("Report generation started for user: {}", userInfo);
         try {
             // Create a new sheet or get existing one based on requirement
             Map<String, Object> reportInfo = prepareReportInfo(userInfo, enrolmentStatus, surveyResponse);
@@ -348,39 +407,58 @@ public class BPReportConsumer {
             // Auto-size columns for readability
             autoSizeColumns(sheet, headerKeyMapping.size());
 
-
         } catch (Exception e) {
             logger.error("Error while processing the report", e);
         }
     }
 
-    private void createHeaderRow(Workbook workbook, Sheet sheet, Map<String, Object> batchDetails, Map<String, Object> formQuestionsMap, Map<String, Object> headerKeyMapping) throws IOException {
+    private void createHeaderRow(Workbook workbook, Sheet sheet, Map<String, Object> batchDetails,
+                                 Map<String, Object> formQuestionsMap, Map<String, Object> headerKeyMapping) throws IOException {
+
+        // Create the header row and apply the header cell style
         Row headerRow = sheet.createRow(0);
         CellStyle headerStyle = createHeaderCellStyle(workbook);
         int currentColumnIndex = 0;
-        String batchAttributesStr = (String) batchDetails.get("batch_attributes");
+
+        // Parse batch attributes from the provided batch details
+        String batchAttributesStr = (String) batchDetails.get(Constants.BATCH_ATTRIBUTES);
         Map<String, Object> batchAttributes = mapper.readValue(batchAttributesStr, new TypeReference<Map<String, Object>>() {
         });
-        List<Map<String, Object>> bpEnrolMandatoryProfileFields = (List<Map<String, Object>>) batchAttributes.get(Constants.BATCH_ENROL_MANDATORY_PROFILE_FIELDS);
-        for (Map<String, Object> bpEnrolMandatoryProfileField : bpEnrolMandatoryProfileFields) {
+
+        // Retrieve mandatory profile fields for enrollment
+        List<Map<String, Object>> mandatoryProfileFields = (List<Map<String, Object>>) batchAttributes.get(Constants.BATCH_ENROL_MANDATORY_PROFILE_FIELDS);
+
+        // Populate header row with mandatory profile field display names
+        for (Map<String, Object> profileField : mandatoryProfileFields) {
+            String displayName = profileField.get(Constants.DISPLAY_NAME).toString();
             Cell cell = headerRow.createCell(currentColumnIndex++);
-            cell.setCellValue(bpEnrolMandatoryProfileField.get(Constants.DISPLAY_NAME).toString());
+            cell.setCellValue(displayName);
             cell.setCellStyle(headerStyle);
-            String[] keyArr = ((String) bpEnrolMandatoryProfileField.get(Constants.FIELD)).split("\\.");
-            headerKeyMapping.put(keyArr[keyArr.length - 1], bpEnrolMandatoryProfileField.get(Constants.DISPLAY_NAME));
-        }
 
-        List<String> formQuestions = new ArrayList<>();
-        for (Map.Entry<String, Object> entry : formQuestionsMap.entrySet()) {
-            if (!headerKeyMapping.containsKey(entry.getKey())) {
-                Cell cell = headerRow.createCell(currentColumnIndex++);
-                cell.setCellValue(entry.getKey());
-                cell.setCellStyle(headerStyle);
-                formQuestions.add(entry.getKey());
+            // Extract and map the last part of the field key to display name
+            String[] fieldKeyParts = ((String) profileField.get(Constants.FIELD)).split("\\.");
+            String fieldKey = fieldKeyParts[fieldKeyParts.length - 1];
 
+            if (fieldKey.equalsIgnoreCase(Constants.FIRSTNAME)) {
+                headerKeyMapping.put(Constants.FIRSTNAME, displayName);
+            } else {
+                headerKeyMapping.put(fieldKey, displayName);
             }
         }
-        headerKeyMapping.put("formQuestions", formQuestions);
+
+        List<String> formQuestionsList = new ArrayList<>();
+
+        // Populate header row with form questions that are not already mapped
+        for (Map.Entry<String, Object> entry : formQuestionsMap.entrySet()) {
+            String questionKey = entry.getKey();
+            if (!headerKeyMapping.containsKey(questionKey)) {
+                Cell cell = headerRow.createCell(currentColumnIndex++);
+                cell.setCellValue(questionKey);
+                cell.setCellStyle(headerStyle);
+                formQuestionsList.add(questionKey);
+            }
+        }
+        headerKeyMapping.put("formQuestions", formQuestionsList);
     }
 
     private CellStyle createHeaderCellStyle(Workbook workbook) {
@@ -404,14 +482,18 @@ public class BPReportConsumer {
 
                 if (formAllRequiredQuestionskey != null && formAllQuestionsAns != null) {
                     for (String requiredQuestionKey : formAllRequiredQuestionskey) {
-                        row.createCell(cellNum++).setCellValue(formAllQuestionsAns.get(requiredQuestionKey).toString());
+                        if (StringUtils.isNotEmpty(formAllQuestionsAns.get(requiredQuestionKey).toString())) {
+                            row.createCell(cellNum++).setCellValue(formAllQuestionsAns.get(requiredQuestionKey).toString());
+                        } else {
+                            row.createCell(cellNum++).setCellValue("N/A");
+                        }
                     }
                 } else {
                     row.createCell(cellNum++).setCellValue("No Questions Available");
                 }
             } else {
                 Object value = reportInfo.get(columnKey);
-                if (value != null) {
+                if (!ObjectUtils.isEmpty(value)) {
                     row.createCell(cellNum++).setCellValue(value.toString());
                 } else {
                     row.createCell(cellNum++).setCellValue("N/A");
@@ -453,5 +535,22 @@ public class BPReportConsumer {
         return mapper.readValue(columnsKeyMappingStr, new TypeReference<Map<String, String>>() {
         });
 
+    }
+
+    public List<WfStatusEntity> getAllWfStatusEntitiesByBatchId(String batchId) {
+        List<WfStatusEntity> wfStatusEntities = new ArrayList<>();
+        int pageNumber = 0;
+        int pageSize = 100;  // Set the page size to 100
+        Page<WfStatusEntity> page;
+
+        // Fetch records in pages and keep collecting until all records are fetched
+        do {
+            PageRequest pageable = PageRequest.of(pageNumber, pageSize);
+            page = wfStatusEntityRepository.findByApplicationId(batchId, pageable);
+            wfStatusEntities.addAll(page.getContent());
+            pageNumber++;  // Move to the next page
+        } while (page.hasNext());  // Keep fetching while there are more pages
+
+        return wfStatusEntities;
     }
 }

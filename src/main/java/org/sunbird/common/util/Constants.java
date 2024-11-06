@@ -1227,10 +1227,10 @@ public class Constants {
 	public static final String FILTER = "filter";
 	public static final String BP_REPORT_GENERATE_API ="api.generate.bp.report";
 	public static final String BP_REPORT_DOWNLOAD_API ="api.download.bp.report";
-	public static final String PROFILE_SURVEY_ID = "profileSurveyId";
+	public static final String SURVEY_ID = "surveyId";
 	public static final String COURSE_ID_MISSING = "Course ID is missing";
 	public static final String BATCH_ID_MISSING = "Batch ID is missing";
-	public static final String PROFILE_SURVEY_ID_MISSING = "Profile Survey ID is missing";
+	public static final String SURVEY_ID_MISSING = "Survey ID is missing";
 	public static final String ORG_ID_KEY_MISSING = "Org ID is missing";
 	public static final String BP_ENROLMENT_REPORT_TABLE= "bp_enrolment_report";
 	public static final String DOWNLOAD_LINK= "downloadLink";
@@ -1239,14 +1239,22 @@ public class Constants {
 	public static final String FORM_ID = "formId";
 	public static final String DATA_OBJECT = "dataObject";
 	public static final String ENROLMENT_STATUS = "enrolmentStatus";
-	public static final String BATCH_ATTRIBUTES = "batchAttributes";
-	public static final String USER_PROFILE_FIELDS = "userProfileFileds";
+	public static final String BATCH_ATTRIBUTES = "batch_attributes";
+	public static final String USER_PROFILE_FIELDS = "userProfileFields";
 	public static final String BATCH_ENROL_MANDATORY_PROFILE_FIELDS ="bpEnrolMandatoryProfileFields";
 	public static final String DOR = "dor";
 	public static final String API_USER_ENROLLMENT_BP_REPORT_STATUS = "api.user.enrollment.bp.report.status";
-
-
-
+	public static final String SEND_FOR_MDO_APPROVAL = "SEND_FOR_MDO_APPROVAL";
+	public static final String SEND_FOR_PC_APPROVAL = "SEND_FOR_PC_APPROVAL";
+	public static final String APPROVED_UPPER_CASE = "APPROVED";
+	public static final String REJECTED_UPPER_CASE = "REJECTED";
+	public static final String PENDING_WITH_PC = "Pending with the Program Coordinator";
+	public static final String PENDING_WITH_MDO = "Pending with MDO";
+	public static final String NOT_VERIFIED_TITLE_CASE = "Not-Verified";
+	public static final String VERIFIED_TITLE_CASE = "Verified";
+	public static final String IS_CADRE_EMPLOYEE = "isCadreEmployee";
+	public static final String YES = "Yes";
+	public static final String NO = "No";
 
 	private Constants() {
 		throw new IllegalStateException("Utility class");

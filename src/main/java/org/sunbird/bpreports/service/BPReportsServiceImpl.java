@@ -61,7 +61,6 @@ public class BPReportsServiceImpl implements BPReportsService {
         SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.BP_REPORT_GENERATE_API);
         try {
             String userId = accessTokenValidator.fetchUserIdFromAccessToken(authToken);
-            // String userId = "95a357c6-99d9-43d2-8d1b-42bea6f8c132";
             if (StringUtils.isBlank(userId)) {
                 updateErrorDetails(response, "Invalid user ID from auth token.", HttpStatus.BAD_REQUEST);
                 return response;
@@ -97,7 +96,7 @@ public class BPReportsServiceImpl implements BPReportsService {
                 String status = (String) existingReportDetails.get(0).get(Constants.STATUS);
                 if (Constants.STATUS_IN_PROGRESS_UPPERCASE.equalsIgnoreCase(status)) {
                     response.getParams().setStatus(Constants.SUCCESS);
-                    response.getParams().setErrmsg("Report generation is in-progress.");
+                    response.getResult().put(Constants.STATUS, Constants.STATUS_IN_PROGRESS_UPPERCASE);
                     response.setResponseCode(HttpStatus.OK);
                     return response;
                 } else {
@@ -137,8 +136,8 @@ public class BPReportsServiceImpl implements BPReportsService {
             updateErrorDetails(response, Constants.ORG_ID_KEY_MISSING, HttpStatus.BAD_REQUEST);
             return response;
         }
-        if (StringUtils.isEmpty((String) requestBody.get(Constants.PROFILE_SURVEY_ID))) {
-            updateErrorDetails(response, Constants.PROFILE_SURVEY_ID_MISSING, HttpStatus.BAD_REQUEST);
+        if (StringUtils.isEmpty((String) requestBody.get(Constants.SURVEY_ID))) {
+            updateErrorDetails(response, Constants.SURVEY_ID_MISSING, HttpStatus.BAD_REQUEST);
             return response;
         }
         return null;
@@ -158,7 +157,7 @@ public class BPReportsServiceImpl implements BPReportsService {
             dbRequest.put(Constants.ORG_ID, requestBody.get(Constants.ORG_ID));
             dbRequest.put(Constants.COURSE_ID, requestBody.get(Constants.COURSE_ID));
             dbRequest.put(Constants.BATCH_ID, requestBody.get(Constants.BATCH_ID));
-            dbRequest.put(Constants.PROFILE_SURVEY_ID, requestBody.get(Constants.PROFILE_SURVEY_ID));
+            dbRequest.put(Constants.SURVEY_ID, requestBody.get(Constants.SURVEY_ID));
             dbRequest.put(Constants.STATUS, Constants.STATUS_IN_PROGRESS_UPPERCASE);
             dbRequest.put(Constants.CREATED_BY, userId);
             SBApiResponse dbResponse = cassandraOperation.insertRecord(Constants.SUNBIRD_KEY_SPACE_NAME, Constants.BP_ENROLMENT_REPORT_TABLE, dbRequest);
@@ -168,7 +167,7 @@ public class BPReportsServiceImpl implements BPReportsService {
                 kafkaRequest.put(Constants.ORG_ID, requestBody.get(Constants.ORG_ID));
                 kafkaRequest.put(Constants.COURSE_ID, requestBody.get(Constants.COURSE_ID));
                 kafkaRequest.put(Constants.BATCH_ID, requestBody.get(Constants.BATCH_ID));
-                kafkaRequest.put(Constants.PROFILE_SURVEY_ID, requestBody.get(Constants.PROFILE_SURVEY_ID));
+                kafkaRequest.put(Constants.SURVEY_ID, requestBody.get(Constants.SURVEY_ID));
                 kafkaRequest.put(Constants.STATUS, Constants.STATUS_IN_PROGRESS_UPPERCASE);
                 kafkaRequest.put(Constants.CREATED_BY, userId);
                 kafkaProducer.push(serverProperties.getKafkaTopicBPReport(), kafkaRequest);
@@ -211,7 +210,7 @@ public class BPReportsServiceImpl implements BPReportsService {
                 kafkaRequest.put(Constants.ORG_ID, requestBody.get(Constants.ORG_ID));
                 kafkaRequest.put(Constants.COURSE_ID, requestBody.get(Constants.COURSE_ID));
                 kafkaRequest.put(Constants.BATCH_ID, requestBody.get(Constants.BATCH_ID));
-                kafkaRequest.put(Constants.PROFILE_SURVEY_ID, requestBody.get(Constants.PROFILE_SURVEY_ID));
+                kafkaRequest.put(Constants.SURVEY_ID, requestBody.get(Constants.SURVEY_ID));
                 kafkaRequest.put(Constants.STATUS, Constants.STATUS_IN_PROGRESS_UPPERCASE);
                 kafkaRequest.put(Constants.CREATED_BY, userId);
                 kafkaProducer.push(serverProperties.getKafkaTopicBPReport(), kafkaRequest);
@@ -236,14 +235,13 @@ public class BPReportsServiceImpl implements BPReportsService {
     }
 
     @Override
-    public SBApiResponse getBPReportStatus(Map<String, Object> requestBody) {
+    public SBApiResponse getBPReportStatus(Map<String, Object> requestBody, String authToken) {
         SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.API_USER_ENROLLMENT_BP_REPORT_STATUS);
         String courseId = (String) requestBody.get(Constants.COURSE_ID);
         String batchId = (String) requestBody.get(Constants.BATCH_ID);
         String orgId = (String) requestBody.get(Constants.ORG_ID);
         try {
-            // String userId = accessTokenValidator.fetchUserIdFromAccessToken(authToken);
-            String userId = "95a357c6-99d9-43d2-8d1b-42bea6f8c132";
+            String userId = accessTokenValidator.fetchUserIdFromAccessToken(authToken);
             if (StringUtils.isBlank(userId)) {
                 updateErrorDetails(response, "Invalid user ID from auth token.", HttpStatus.BAD_REQUEST);
                 return response;
@@ -289,8 +287,6 @@ public class BPReportsServiceImpl implements BPReportsService {
     public ResponseEntity<Resource> downloadBPReport(String authToken, String fileName) {
         try {
             String userId = accessTokenValidator.fetchUserIdFromAccessToken(authToken);
-            // String userId = "95a357c6-99d9-43d2-8d1b-42bea6f8c132";
-
             // Check if userId is valid
             if (StringUtils.isBlank(userId)) {
                 return createErrorResponse("Invalid user ID from auth token.", HttpStatus.UNAUTHORIZED);
@@ -304,6 +300,16 @@ public class BPReportsServiceImpl implements BPReportsService {
                 // Convert file to ByteArrayResource
                 ByteArrayResource resource = new ByteArrayResource(Files.readAllBytes(tmpPath));
 
+                // Determine content type based on file extension
+                String contentType;
+                if (fileName.endsWith(".xlsx")) {
+                    contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+                } else if (fileName.endsWith(".csv")) {
+                    contentType = "text/csv";
+                } else {
+                    contentType = MediaType.APPLICATION_OCTET_STREAM_VALUE; // Default for unknown types
+                }
+
                 // Prepare headers for file download
                 HttpHeaders headers = new HttpHeaders();
                 headers.add(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + fileName + "\"");
@@ -311,7 +317,7 @@ public class BPReportsServiceImpl implements BPReportsService {
                 return ResponseEntity.ok()
                         .headers(headers)
                         .contentLength(Files.size(tmpPath))
-                        .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                        .contentType(MediaType.parseMediaType(contentType))
                         .body(resource);
             } catch (IOException e) {
                 logger.error("Failed to download the file: {}, Exception: {}", fileName, e);
