@@ -620,6 +620,7 @@ public class OrgDesignationMappingServiceImpl implements OrgDesignationMappingSe
                     }
                     if (allColumnsEmpty) continue;
                     logger.info("CompetencyDesignationMapping:: Record " + count++);
+                    Thread.sleep(500);
                     List<Map<String, Object>> getAllDesignationForOrg = populateDataFromFrameworkTerm(frameworkId);
                     Map<String, Object> orgFrameworkObject = null;
                     List<Map<String, Object>> orgFrameworkTerms = null;
@@ -741,6 +742,9 @@ public class OrgDesignationMappingServiceImpl implements OrgDesignationMappingSe
                     logger.info("UserBulkUploadService:: Record Completed. Time taken: "
                             + duration + " milli-seconds");
                     if (progressUpdateThresholdValue >= serverProperties.getBulkUploadThresholdValue()) {
+                        if (totalNumberOfRecordInSheet >= 1) {
+                            totalNumberOfRecordInSheet = Math.max(totalNumberOfRecordInSheet - 1, 0);
+                        }
                         updateOrgCompetencyDesignationMappingBulkUploadStatus(inputDataMap.get(Constants.ROOT_ORG_ID), inputDataMap.get(Constants.IDENTIFIER),
                                 Constants.STATUS_IN_PROGRESS_UPPERCASE, totalNumberOfRecordInSheet, noOfSuccessfulRecords, failedRecordsCount);
                         progressUpdateThresholdValue = 0;
