@@ -1224,6 +1224,9 @@ public class Constants {
 	public static final String NOT_APPLICABLE = "Not Applicable";
 	public static final String CURRENT_PAGE = "currentPage";
 	public static final String FILTER = "filter";
+	public static final String QR_CODE_PATH = "qrcodepath";
+	public static final String CUSTOM_SELF_REGISTRATION_CREATE_API = "api.create.customselfregistration";
+	public static final String BATCH_SESSION_BODY_QR="pdf-batch-session-body-qr";
 
 	private Constants() {
 		throw new IllegalStateException("Utility class");

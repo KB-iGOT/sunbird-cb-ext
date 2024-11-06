@@ -537,4 +537,44 @@ public class PdfGeneratorServiceImpl implements PdfGeneratorService {
 				headers);
 		return compositeSearchRes;
 	}
+
+	public File generatePdfV2(HashMap<String, HashMap<String, String>> pdfDetails, HashMap<String, HashMap> params) throws IOException {
+		Map<String, String> pdfData = new HashMap<>();
+		for (Map.Entry<String, HashMap<String, String>> pdf : pdfDetails.entrySet()) {
+			String key = pdf.getKey();
+			HashMap<String, String> value = pdf.getValue();
+			String file = "";
+			if (value.get(Constants.BUDGET_DOC_FILE_TYPE).equalsIgnoreCase(Constants.VM))
+				file = generateHTMLfrmVM(value.get(Constants.BUDGET_DOC_FILE_NAME), params.get(key));
+			else
+				file = value.get(Constants.BUDGET_DOC_FILE_NAME);
+			switch (key) {
+				case Constants.FOOTER:
+					pdfData.put(UD_HTML_FOOTER_FILE_PATH, file);
+					break;
+				case Constants.HEADER:
+					pdfData.put(UD_HTML_HEADER_FILE_PATH, file);
+					break;
+				default:
+					String body = "";
+					for (Map.Entry<String, HashMap> entry1 : params.entrySet()) {
+						String key1 = entry1.getKey();
+						if (key1.startsWith(Constants.SESSION)) {
+							body = body + readVm(value.get(Constants.BUDGET_DOC_FILE_NAME) + Constants.DOT_SEPARATOR + Constants.VM, params.get(key1));
+						}
+					}
+					body = createHTMLFile(key, body);
+					pdfData.put(UD_HTML_FILE_PATH, body);
+					pdfData.put(UD_FILE_NAME, body.replace(HTML, Constants.DOT_SEPARATOR + Constants.PDF));
+					break;
+			}
+		}
+		String pdfFilePath = "";
+		try {
+			pdfFilePath = makePdf(pdfData);
+		} catch (Exception exception) {
+			log.error(EXCEPTION_OCCURRED_WHILE_CREATING_THE_PDF, exception);
+		}
+		return new File(pdfFilePath);
+	}
 }
