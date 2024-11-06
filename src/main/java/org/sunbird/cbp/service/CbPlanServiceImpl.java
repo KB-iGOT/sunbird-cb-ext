@@ -270,7 +270,7 @@ public class CbPlanServiceImpl implements CbPlanService {
                         endDate = dateFormat.parse(String.valueOf(
                                 cbPlanDtoMap.getOrDefault(Constants.END_DATE, publishCbPlan.get(Constants.END_DATE))));
                     } catch (ParseException e) {
-                        e.printStackTrace(); // Handle the exception appropriately
+                        logger.error("Failed to parse the end date: " + e.getMessage(), e);
                     }
                     cbPlan.put(Constants.END_DATE, endDate);
                     cbPlan.put(Constants.DRAFT_DATA, null);

@@ -119,7 +119,7 @@ public class KarmaPointsServiceImpl implements KarmaPointsService {
         try {
             return dateFormat.parse(dateString);
         } catch (ParseException e) {
-            e.printStackTrace();
+            logger.error("Failed to parse the date: " + dateString, e);
         }
         return null;
     }
