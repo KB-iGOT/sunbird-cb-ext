@@ -919,7 +919,7 @@ public class OrgDesignationCompetencyMappingServiceImpl implements OrgDesignatio
                 status = Constants.FAILED_UPPERCASE;
             }
             updateOrgCompetencyDesignationMappingBulkUploadStatus(inputDataMap.get(Constants.ROOT_ORG_ID), inputDataMap.get(Constants.IDENTIFIER),
-                    status, totalRecordsCount, noOfSuccessfulRecords, failedRecordsCount);
+                    status, totalNumberOfRecordInSheet, noOfSuccessfulRecords, failedRecordsCount);
         } catch (Exception e) {
             logger.error(String.format("Error in Process Bulk Upload %s", e.getMessage()), e);
             updateOrgCompetencyDesignationMappingBulkUploadStatus(inputDataMap.get(Constants.ROOT_ORG_ID), inputDataMap.get(Constants.IDENTIFIER),

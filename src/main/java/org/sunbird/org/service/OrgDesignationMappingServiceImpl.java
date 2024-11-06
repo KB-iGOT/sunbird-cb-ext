@@ -741,9 +741,7 @@ public class OrgDesignationMappingServiceImpl implements OrgDesignationMappingSe
                     duration = System.currentTimeMillis() - startTime;
                     logger.info("UserBulkUploadService:: Record Completed. Time taken: "
                             + duration + " milli-seconds");
-                    logger.info("The total Number of count Outside: " + totalNumberOfRecordInSheet);
                     if (progressUpdateThresholdValue >= serverProperties.getBulkUploadThresholdValue()) {
-                        logger.info("The total Number of count: " + totalNumberOfRecordInSheet);
                         updateOrgCompetencyDesignationMappingBulkUploadStatus(inputDataMap.get(Constants.ROOT_ORG_ID), inputDataMap.get(Constants.IDENTIFIER),
                                 Constants.STATUS_IN_PROGRESS_UPPERCASE, totalNumberOfRecordInSheet, noOfSuccessfulRecords, failedRecordsCount);
                         progressUpdateThresholdValue = 0;
@@ -767,7 +765,7 @@ public class OrgDesignationMappingServiceImpl implements OrgDesignationMappingSe
                 status = Constants.FAILED_UPPERCASE;
             }
             updateOrgCompetencyDesignationMappingBulkUploadStatus(inputDataMap.get(Constants.ROOT_ORG_ID), inputDataMap.get(Constants.IDENTIFIER),
-                    status, totalRecordsCount, noOfSuccessfulRecords, failedRecordsCount);
+                    status, totalNumberOfRecordInSheet, noOfSuccessfulRecords, failedRecordsCount);
         } catch (Exception e) {
             logger.error(String.format("Error in Process Bulk Upload %s", e.getMessage()), e);
             updateOrgCompetencyDesignationMappingBulkUploadStatus(inputDataMap.get(Constants.ROOT_ORG_ID), inputDataMap.get(Constants.IDENTIFIER),
