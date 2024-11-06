@@ -140,8 +140,8 @@ public class CustomSelfRegistrationServiceImpl implements CustomSelfRegistration
         Map<String, String> headerValues = new HashMap<>();
         headerValues.put(Constants.X_AUTH_TOKEN, authUserToken);
         request.put(Constants.ORGANIZATION_ID, orgId);
-        request.put(Constants.REGISTRATION_LINK, generateLink);
-        request.put(Constants.QR_CODE_PATH, qrCodePath);
+        request.put("registrationlink", generateLink);
+        request.put("qrregistrationlink", qrCodePath);
         updateRequest.put(Constants.REQUEST, request);
         StringBuilder url = new StringBuilder(serverProperties.getSbUrl());
         url.append(serverProperties.getUpdateOrgPath());
