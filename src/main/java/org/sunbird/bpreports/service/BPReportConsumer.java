@@ -65,14 +65,14 @@ public class BPReportConsumer {
 
 
     @KafkaListener(topics = "${kafka.topic.bp.report}", groupId = "${kafka.topic.bp.report.group}")
-    private void initiateBPReportGeneration(ConsumerRecord<String, String> data) {
+    private void processBPReportGenerationMessage(ConsumerRecord<String, String> data) {
         logger.info("BPReportConsumer::processMessage.. started.");
         try {
             if (StringUtils.isNotBlank(data.value())) {
                 CompletableFuture.runAsync(() -> {
                     try {
-                        generateBPReport(data.value());
                         logger.info("BP report generation initiated successfully for data: {}", data.value());
+                        initiateBPReportGeneration(data.value());
                     } catch (Exception e) {
                         logger.error("Error while generating BP report for data: {}", data.value(), e);
                     }
@@ -85,36 +85,57 @@ public class BPReportConsumer {
         }
     }
 
-    public void generateBPReport(String data) throws IOException {
+    public void initiateBPReportGeneration(String inputData) {
+        logger.info("BPReportConsumer:: initiateBPReportGeneration: Started");
+        long duration = 0;
+        long startTime = System.currentTimeMillis();
+        try {
+            Map<String, Object> request = mapper.readValue(inputData, new TypeReference<Map<String, Object>>() {
+            });
+            List<String> errList = validateReceivedKafkaMessage(request);
+            if (errList.isEmpty()) {
+                generateBPReport(request);
+            } else {
+                logger.error(String.format("Error in the Kafka Message Received for BP Report Generation: %s", errList));
+            }
+        } catch (Exception e) {
+            logger.error(String.format("Error in the scheduler to generate the BP report %s", e.getMessage()),
+                    e);
+        }
+        duration = System.currentTimeMillis() - startTime;
+        logger.info("BPReportConsumer:: initiateBPReportGeneration: Completed. Time taken: "
+                + duration + " milli-seconds");
+    }
+
+    public void generateBPReport(Map<String, Object> request) throws IOException {
 
         Workbook workbook = new XSSFWorkbook();
+        int pendingUserCount = 0;
+        int rejectedUserCount = 0;
+        int approvedUserCount = 0;
         Map<String, Object> headerKeyMapping = new LinkedHashMap<>();
+        String courseId = (String) request.get(Constants.COURSE_ID);
+        String batchId = (String) request.get(Constants.BATCH_ID);
+        String orgId = (String) request.get(Constants.ORG_ID);
+        String surveyId = (String) request.get(Constants.SURVEY_ID);
         try {
-            Map<String, Object> request = mapper.readValue(data, new TypeReference<Map<String, Object>>() {
-            });
-
-            String courseId = (String) request.get(Constants.COURSE_ID);
-            String batchId = (String) request.get(Constants.BATCH_ID);
-            String orgId = (String) request.get(Constants.ORG_ID);
-            String surveyId = (String) request.get(Constants.SURVEY_ID);
 
             Map<String, Object> batchReadApiResp = getBatchDetails(courseId, batchId);
             if (ObjectUtils.isEmpty(batchReadApiResp)) {
                 logger.info("No batch details found for batchId: {}", batchId);
+                updateDataBase(orgId, courseId, batchId, null, null, Constants.FAILED_UPPERCASE, 0, 0, 0, new Date());
                 return;
-            }
-            if (StringUtils.isAnyBlank(batchId, surveyId)) {
-                throw new IllegalArgumentException("Batch ID and Profile Survey ID must not be empty.");
             }
 
             List<WfStatusEntity> wfStatusEntities = getAllWfStatusEntitiesByBatchId(batchId);
             if (CollectionUtils.isEmpty(wfStatusEntities)) {
                 logger.info("No workflow status entities found for batchId: {}", batchId);
+                updateDataBase(orgId, courseId, batchId, null, null, Constants.FAILED_UPPERCASE, 0, 0, 0, new Date());
                 return;
             }
 
             List<Map<String, Object>> surveyResponse = getSurveyResponse(surveyId, null);
-            Sheet sheet = workbook.createSheet("Enrolment Report");
+            Sheet sheet = workbook.createSheet("Enrollment Report");
 
             Map<String, Object> firstResponse = surveyResponse.get(0);
             Map<String, Object> dataObject = (Map<String, Object>) firstResponse.get(Constants.DATA_OBJECT);
@@ -131,6 +152,13 @@ public class BPReportConsumer {
                 }
 
                 try {
+                    if (Constants.APPROVED_UPPER_CASE.equalsIgnoreCase(wfStatusEntity.getCurrentStatus())) {
+                        approvedUserCount++;
+                    } else if (Constants.REJECTED_UPPER_CASE.equalsIgnoreCase(wfStatusEntity.getCurrentStatus())) {
+                        rejectedUserCount++;
+                    } else {
+                        pendingUserCount++;
+                    }
                     Map<String, Object> propertyMap = new HashMap<>();
                     propertyMap.put(Constants.ID, userId);
                     Map<String, Object> userDetails = cassandraOperation.getRecordsByProperties(
@@ -141,9 +169,9 @@ public class BPReportConsumer {
                     }
                     List<Map<String, Object>> userSurveyResponse = getSurveyResponse(surveyId, null);
                     Map<String, Object> userInfo = getUserInfo((Map<String, Object>) userDetails.get(userId));
-                    String enrolmentStatus = getEnrolmentStatus(wfStatusEntity);
-                    // Process or save the report with userInfo, enrolmentStatus, and surveyResponse.
-                    processReport(userInfo, enrolmentStatus, userSurveyResponse.get(0), sheet, headerKeyMapping, rowNum);
+                    String enrollmentStatus = getEnrollmentStatus(wfStatusEntity);
+                    // Process or save the report with userInfo, enrollmentStatus, and surveyResponse.
+                    processReport(userInfo, enrollmentStatus, userSurveyResponse.get(0), sheet, headerKeyMapping, rowNum);
 
                 } catch (Exception e) {
                     logger.error("Error processing report for userId: {}", userId, e);
@@ -151,10 +179,11 @@ public class BPReportConsumer {
                 rowNum++;
             }
 
-            uploadBPReportAndUpdateDatabase(batchId, orgId, courseId, workbook);
+            uploadBPReportAndUpdateDatabase(batchId, orgId, courseId, workbook, pendingUserCount, approvedUserCount, rejectedUserCount);
 
         } catch (Exception e) {
             logger.error("Error processing report", e);
+            updateDataBase(orgId, courseId, batchId, null, null, Constants.FAILED_UPPERCASE, 0, 0, 0, new Date());
         } finally {
             // Closing workbook to prevent memory leaks
             try {
@@ -178,7 +207,7 @@ public class BPReportConsumer {
         return batchDetails.get(0);
     }
 
-    private void uploadBPReportAndUpdateDatabase(String batchId, String orgId, String courseId, Workbook workbook) {
+    private void uploadBPReportAndUpdateDatabase(String batchId, String orgId, String courseId, Workbook workbook, int pendingUserCount, int approvedUserCount, int rejectedUserCount) {
         String fileName;
         try {
             // Construct file name and path
@@ -220,8 +249,9 @@ public class BPReportConsumer {
                 logger.error("Error while writing the Excel file: {}", fileName, e);
                 return;
             }
-
-            SBApiResponse uploadResponse = storageService.uploadFile(file, serverProperties.getBpEnrolmentReportContainerName(), serverProperties.getCloudContainerName());
+            String cloudBaseFolder = serverProperties.getBpEnrolmentReportContainerName();
+            String cloudFilePath = cloudBaseFolder + "/" + orgId + "/" + courseId + "/" + batchId;
+            SBApiResponse uploadResponse = storageService.uploadFile(file, cloudFilePath, serverProperties.getCloudContainerName());
             String downloadUrl = (String) uploadResponse.getResult().get(Constants.URL);
             if (downloadUrl == null) {
                 logger.error("Failed to upload file, download URL is null.");
@@ -229,15 +259,14 @@ public class BPReportConsumer {
             }
             logger.info("File uploaded successfully. Download URL: {}", downloadUrl);
 
-
-            updateDataBase(orgId, courseId, batchId, downloadUrl, fileName, Constants.COMPLETED_UPPER_CASE);
+            updateDataBase(orgId, courseId, batchId, downloadUrl, fileName, Constants.COMPLETED_UPPER_CASE, pendingUserCount, approvedUserCount, rejectedUserCount, new Date());
         } catch (IOException e) {
             logger.error("Error while writing the Excel file", e);
-            updateDataBase(orgId, courseId, batchId, null, null, Constants.FAILED_UPPERCASE);
+            updateDataBase(orgId, courseId, batchId, null, null, Constants.FAILED_UPPERCASE, 0, 0, 0, new Date());
         }
     }
 
-    private void updateDataBase(String orgId, String courseId, String batchId, String downloadUrl, String fileName, String status) {
+    private void updateDataBase(String orgId, String courseId, String batchId, String downloadUrl, String fileName, String status, int pendingUserCount, int approvedUserCount, int rejectedUserCount, Date lastReportGeneratedOn) {
         Map<String, Object> compositeKey = new HashMap<>();
         compositeKey.put(Constants.ORG_ID, orgId);
         compositeKey.put(Constants.COURSE_ID, courseId);
@@ -250,6 +279,10 @@ public class BPReportConsumer {
             updateAttributes.put(Constants.FILE_NAME, fileName);
         }
         updateAttributes.put(Constants.STATUS, status);
+        updateAttributes.put(Constants.PENDING_USER, pendingUserCount);
+        updateAttributes.put(Constants.APPROVED_USER, approvedUserCount);
+        updateAttributes.put(Constants.REJECTED_USER, rejectedUserCount);
+        updateAttributes.put(Constants.LAST_REPORT_GENERATED_ON, lastReportGeneratedOn);
         cassandraOperation.updateRecord(Constants.SUNBIRD_KEY_SPACE_NAME, Constants.BP_ENROLMENT_REPORT_TABLE, updateAttributes, compositeKey);
     }
 
@@ -328,7 +361,7 @@ public class BPReportConsumer {
         return userInfo;
     }
 
-    private String getEnrolmentStatus(WfStatusEntity wfStatusEntity) {
+    private String getEnrollmentStatus(WfStatusEntity wfStatusEntity) {
         String currentStatus = wfStatusEntity.getCurrentStatus();
         if (Constants.SEND_FOR_MDO_APPROVAL.equalsIgnoreCase(currentStatus)) {
             return Constants.PENDING_WITH_MDO;
@@ -396,10 +429,10 @@ public class BPReportConsumer {
         return result;
     }
 
-    private void processReport(Map<String, Object> userInfo, String enrolmentStatus, Map<String, Object> surveyResponse, Sheet sheet, Map<String, Object> headerKeyMapping, int rowNum) {
+    private void processReport(Map<String, Object> userInfo, String enrollmentStatus, Map<String, Object> surveyResponse, Sheet sheet, Map<String, Object> headerKeyMapping, int rowNum) {
         try {
             // Create a new sheet or get existing one based on requirement
-            Map<String, Object> reportInfo = prepareReportInfo(userInfo, enrolmentStatus, surveyResponse);
+            Map<String, Object> reportInfo = prepareReportInfo(userInfo, enrollmentStatus, surveyResponse);
 
             // Add user data to the sheet
             fillDataRows(sheet, rowNum, headerKeyMapping, reportInfo);
@@ -415,22 +448,30 @@ public class BPReportConsumer {
     private void createHeaderRow(Workbook workbook, Sheet sheet, Map<String, Object> batchDetails,
                                  Map<String, Object> formQuestionsMap, Map<String, Object> headerKeyMapping) throws IOException {
 
-        // Create the header row and apply the header cell style
         Row headerRow = sheet.createRow(0);
         CellStyle headerStyle = createHeaderCellStyle(workbook);
         int currentColumnIndex = 0;
 
-        // Parse batch attributes from the provided batch details
         String batchAttributesStr = (String) batchDetails.get(Constants.BATCH_ATTRIBUTES);
+        if (batchAttributesStr == null) {
+            throw new IllegalArgumentException("Batch attributes cannot be null");
+        }
+
         Map<String, Object> batchAttributes = mapper.readValue(batchAttributesStr, new TypeReference<Map<String, Object>>() {
         });
 
-        // Retrieve mandatory profile fields for enrollment
         List<Map<String, Object>> mandatoryProfileFields = (List<Map<String, Object>>) batchAttributes.get(Constants.BATCH_ENROL_MANDATORY_PROFILE_FIELDS);
+        if (mandatoryProfileFields == null) {
+            throw new IllegalArgumentException("Mandatory profile fields cannot be null");
+        }
 
         // Populate header row with mandatory profile field display names
         for (Map<String, Object> profileField : mandatoryProfileFields) {
             String displayName = profileField.get(Constants.DISPLAY_NAME).toString();
+            if (displayName == null || displayName.isEmpty()) {
+                throw new IllegalArgumentException("Profile field display name cannot be null or empty");
+            }
+
             Cell cell = headerRow.createCell(currentColumnIndex++);
             cell.setCellValue(displayName);
             cell.setCellStyle(headerStyle);
@@ -439,6 +480,7 @@ public class BPReportConsumer {
             String[] fieldKeyParts = ((String) profileField.get(Constants.FIELD)).split("\\.");
             String fieldKey = fieldKeyParts[fieldKeyParts.length - 1];
 
+            // Map the field key to the display name
             if (fieldKey.equalsIgnoreCase(Constants.FIRSTNAME)) {
                 headerKeyMapping.put(Constants.FIRSTNAME, displayName);
             } else {
@@ -446,18 +488,25 @@ public class BPReportConsumer {
             }
         }
 
+        // Add a column for Enrollment Status
+        Cell cell = headerRow.createCell(currentColumnIndex++);
+        cell.setCellValue(Constants.ENROLLMENT_STATUS_COLUMN);
+        cell.setCellStyle(headerStyle);
+        headerKeyMapping.put(Constants.ENROLLMENT_STATUS, Constants.ENROLLMENT_STATUS_COLUMN);
+
         List<String> formQuestionsList = new ArrayList<>();
 
         // Populate header row with form questions that are not already mapped
         for (Map.Entry<String, Object> entry : formQuestionsMap.entrySet()) {
             String questionKey = entry.getKey();
             if (!headerKeyMapping.containsKey(questionKey)) {
-                Cell cell = headerRow.createCell(currentColumnIndex++);
+                cell = headerRow.createCell(currentColumnIndex++);
                 cell.setCellValue(questionKey);
                 cell.setCellStyle(headerStyle);
                 formQuestionsList.add(questionKey);
             }
         }
+
         headerKeyMapping.put("formQuestions", formQuestionsList);
     }
 
@@ -508,12 +557,10 @@ public class BPReportConsumer {
         }
     }
 
-    private Map<String, Object> prepareReportInfo(Map<String, Object> userInfo, String enrolmentStatus, Map<String, Object> surveyResponse) {
+    private Map<String, Object> prepareReportInfo(Map<String, Object> userInfo, String enrollmentStatus, Map<String, Object> surveyResponse) {
 
-        Map<String, Object> reportInfo = new HashMap<>();
-
-        reportInfo.putAll(userInfo);
-        reportInfo.put(Constants.ENROLMENT_STATUS, enrolmentStatus);
+        Map<String, Object> reportInfo = new HashMap<>(userInfo);
+        reportInfo.put(Constants.ENROLLMENT_STATUS, enrollmentStatus);
 
         // Extract and add survey questions
         Map<String, Object> formQuestions = new LinkedHashMap<>();
@@ -531,12 +578,6 @@ public class BPReportConsumer {
         return reportInfo;
     }
 
-    private Map<String, String> prepareColumnsKeyMapping(String columnsKeyMappingStr) throws IOException {
-        return mapper.readValue(columnsKeyMappingStr, new TypeReference<Map<String, String>>() {
-        });
-
-    }
-
     public List<WfStatusEntity> getAllWfStatusEntitiesByBatchId(String batchId) {
         List<WfStatusEntity> wfStatusEntities = new ArrayList<>();
         int pageNumber = 0;
@@ -552,5 +593,26 @@ public class BPReportConsumer {
         } while (page.hasNext());  // Keep fetching while there are more pages
 
         return wfStatusEntities;
+    }
+
+    private List<String> validateReceivedKafkaMessage(Map<String, Object> inputDataMap) {
+        StringBuilder str = new StringBuilder();
+        List<String> errList = new ArrayList<>();
+        if (StringUtils.isEmpty((String) inputDataMap.get(Constants.ORG_ID))) {
+            errList.add("OrgId is missing");
+        }
+        if (StringUtils.isEmpty((String) inputDataMap.get(Constants.COURSE_ID))) {
+            errList.add("Course ID is missing");
+        }
+        if (StringUtils.isEmpty((String) inputDataMap.get(Constants.BATCH_ID))) {
+            errList.add("Batch Id ID is missing");
+        }
+        if (StringUtils.isEmpty((String) inputDataMap.get(Constants.SURVEY_ID))) {
+            errList.add("Survey ID is missing");
+        }
+        if (!errList.isEmpty()) {
+            str.append("Failed to Validate Course Batch Details. Error Details - [").append(errList.toString()).append("]");
+        }
+        return errList;
     }
 }

@@ -12,5 +12,5 @@ public interface BPReportsService {
 
     SBApiResponse getBPReportStatus(Map<String, Object> requestBody, String authToken);
 
-    ResponseEntity<Resource> downloadBPReport(String authToken, String fileName);
+    ResponseEntity<Resource> downloadBPReport(String authToken, String orgId, String courseId, String batchId, String fileName);
 }

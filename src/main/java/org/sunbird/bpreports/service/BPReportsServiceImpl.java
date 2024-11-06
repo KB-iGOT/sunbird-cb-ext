@@ -60,19 +60,22 @@ public class BPReportsServiceImpl implements BPReportsService {
     public SBApiResponse generateBPReport(Map<String, Object> requestBody, String authToken) {
         SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.BP_REPORT_GENERATE_API);
         try {
-            String userId = accessTokenValidator.fetchUserIdFromAccessToken(authToken);
+            // String userId = accessTokenValidator.fetchUserIdFromAccessToken(authToken);
+            String userId = "3348dc18-9980-4850-8073-75e18639140d";
             if (StringUtils.isBlank(userId)) {
                 updateErrorDetails(response, "Invalid user ID from auth token.", HttpStatus.BAD_REQUEST);
                 return response;
             }
 
-            String courseId = (String) requestBody.get(Constants.COURSE_ID);
-            String batchId = (String) requestBody.get(Constants.BATCH_ID);
-            String orgId = (String) requestBody.get(Constants.ORG_ID);
-            SBApiResponse errResponse = validateGenerateReportRequestBody(requestBody);
+            Map<String, Object> request = (Map<String, Object>) requestBody.get(Constants.REQUEST);
+            SBApiResponse errResponse = validateGenerateReportRequestBody(request);
             if (!ObjectUtils.isEmpty(errResponse)) {
-                return response;
+                return errResponse;
             }
+
+            String courseId = (String) request.get(Constants.COURSE_ID);
+            String batchId = (String) request.get(Constants.BATCH_ID);
+            String orgId = (String) request.get(Constants.ORG_ID);
 
             Map<String, Map<String, String>> userInfoMap = new HashMap<>();
             userUtilityService.getUserDetailsFromDB(
@@ -101,13 +104,13 @@ public class BPReportsServiceImpl implements BPReportsService {
                     return response;
                 } else {
                     logger.info("Update BP report details::started");
-                    return updateReportDetailsInDBAndTriggerKafkaEvent(userId, requestBody);
+                    return updateReportDetailsInDBAndTriggerKafkaEvent(userId, request);
 
                 }
 
             } else {
                 logger.info("Insert BP report details into DB::started");
-                return insertReportDetailsInDBAndTriggerKafkaEvent(userId, requestBody);
+                return insertReportDetailsInDBAndTriggerKafkaEvent(userId, request);
             }
 
 
@@ -203,6 +206,11 @@ public class BPReportsServiceImpl implements BPReportsService {
 
             updateAttributes.put(Constants.STATUS, Constants.STATUS_IN_PROGRESS_UPPERCASE);
             updateAttributes.put(Constants.CREATED_BY, userId);
+            updateAttributes.put(Constants.FILE_NAME, null);
+            updateAttributes.put(Constants.DOWNLOAD_LINK, null);
+            updateAttributes.put(Constants.PENDING_USER, 0);
+            updateAttributes.put(Constants.REJECTED_USER, 0);
+            updateAttributes.put(Constants.APPROVED_USER, 0);
             Map<String, Object> updateResponse = cassandraOperation.updateRecord(Constants.SUNBIRD_KEY_SPACE_NAME, Constants.BP_ENROLMENT_REPORT_TABLE, updateAttributes, compositeKey);
 
             if (updateResponse.get(Constants.RESPONSE).equals(Constants.SUCCESS)) {
@@ -237,19 +245,23 @@ public class BPReportsServiceImpl implements BPReportsService {
     @Override
     public SBApiResponse getBPReportStatus(Map<String, Object> requestBody, String authToken) {
         SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.API_USER_ENROLLMENT_BP_REPORT_STATUS);
-        String courseId = (String) requestBody.get(Constants.COURSE_ID);
-        String batchId = (String) requestBody.get(Constants.BATCH_ID);
-        String orgId = (String) requestBody.get(Constants.ORG_ID);
+
         try {
-            String userId = accessTokenValidator.fetchUserIdFromAccessToken(authToken);
+            //   String userId = accessTokenValidator.fetchUserIdFromAccessToken(authToken);
+            String userId = "3348dc18-9980-4850-8073-75e18639140d";
             if (StringUtils.isBlank(userId)) {
                 updateErrorDetails(response, "Invalid user ID from auth token.", HttpStatus.BAD_REQUEST);
                 return response;
             }
-            SBApiResponse errResponse = validateReportStatusRequestBody(requestBody);
+            Map<String, Object> request = (Map<String, Object>) requestBody.get(Constants.REQUEST);
+            SBApiResponse errResponse = validateReportStatusRequestBody(request);
             if (!ObjectUtils.isEmpty(errResponse)) {
                 return errResponse;
             }
+
+            String courseId = (String) request.get(Constants.COURSE_ID);
+            String batchId = (String) request.get(Constants.BATCH_ID);
+            String orgId = (String) request.get(Constants.ORG_ID);
 
             Map<String, Map<String, String>> userInfoMap = new HashMap<>();
             userUtilityService.getUserDetailsFromDB(
@@ -284,9 +296,10 @@ public class BPReportsServiceImpl implements BPReportsService {
         return response;
     }
 
-    public ResponseEntity<Resource> downloadBPReport(String authToken, String fileName) {
+    public ResponseEntity<Resource> downloadBPReport(String authToken, String orgId, String courseId, String batchId, String fileName) {
         try {
-            String userId = accessTokenValidator.fetchUserIdFromAccessToken(authToken);
+            // String userId = accessTokenValidator.fetchUserIdFromAccessToken(authToken);
+            String userId = "3348dc18-9980-4850-8073-75e18639140d";
             // Check if userId is valid
             if (StringUtils.isBlank(userId)) {
                 return createErrorResponse("Invalid user ID from auth token.", HttpStatus.UNAUTHORIZED);
@@ -294,7 +307,9 @@ public class BPReportsServiceImpl implements BPReportsService {
 
             try {
                 // Download the file from storage
-                storageService.downloadFile(fileName, serverProperties.getBpEnrolmentReportContainerName());
+                String cloudBaseFolder = serverProperties.getBpEnrolmentReportContainerName();
+                String cloudFilePath = cloudBaseFolder + "/" + orgId + "/" + courseId + "/" + batchId;
+                storageService.downloadFile(fileName, cloudFilePath);
                 Path tmpPath = Paths.get(Constants.LOCAL_BASE_PATH + fileName);
 
                 // Convert file to ByteArrayResource

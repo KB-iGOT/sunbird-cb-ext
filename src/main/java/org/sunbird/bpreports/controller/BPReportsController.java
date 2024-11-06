@@ -30,8 +30,8 @@ public class BPReportsController {
         return new ResponseEntity<>(response, response.getResponseCode());
     }
 
-    @GetMapping("v1/bpreport/download/{fileName}")
-    public ResponseEntity<?> downloadFile(@RequestHeader(Constants.X_AUTH_TOKEN) String authToken, @PathVariable("fileName") String fileName) {
-        return bpReportsService.downloadBPReport(authToken, fileName);
+    @GetMapping("v1/bpreport/download/{orgId}/{courseId}/{batchId}/{fileName}")
+    public ResponseEntity<?> downloadFile(@RequestHeader(Constants.X_AUTH_TOKEN) String authToken, @PathVariable("orgId") String orgId, @PathVariable("courseId") String courseId, @PathVariable("batchId") String batchId, @PathVariable("fileName") String fileName) {
+        return bpReportsService.downloadBPReport(authToken, orgId, courseId, batchId, fileName);
     }
 }

@@ -1252,9 +1252,15 @@ public class Constants {
 	public static final String PENDING_WITH_MDO = "Pending with MDO";
 	public static final String NOT_VERIFIED_TITLE_CASE = "Not-Verified";
 	public static final String VERIFIED_TITLE_CASE = "Verified";
-	public static final String IS_CADRE_EMPLOYEE = "isCadreEmployee";
 	public static final String YES = "Yes";
 	public static final String NO = "No";
+	public static final String PENDING_USER = "pendingUser";
+	public static final String APPROVED_USER = "approvedUser";
+	public static final String REJECTED_USER = "rejectedUser";
+	public static final String ENROLLMENT_STATUS_COLUMN = "Enrollment Status";
+	public static final String ENROLLMENT_STATUS = "enrollmentStatus";
+	public static final String LAST_REPORT_GENERATED_ON = "lastReportGeneratedOn";
+
 
 	private Constants() {
 		throw new IllegalStateException("Utility class");
