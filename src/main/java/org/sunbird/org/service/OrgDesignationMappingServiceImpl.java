@@ -574,7 +574,7 @@ public class OrgDesignationMappingServiceImpl implements OrgDesignationMappingSe
                 while (rowIterator.hasNext()) { // to get the totalNumber of record to get the rows which have data
                     Row nextRow = rowIterator.next();
                     boolean allColumnsEmpty = true;
-                    for (int colIndex = 0; colIndex < 1; colIndex++) { // Only check the first 4 columns
+                    for (int colIndex = 0; colIndex < 1; colIndex++) { // Only check the first columns
                         Cell cell = nextRow.getCell(colIndex);
 
                         if (cell != null) {
@@ -741,10 +741,9 @@ public class OrgDesignationMappingServiceImpl implements OrgDesignationMappingSe
                     duration = System.currentTimeMillis() - startTime;
                     logger.info("UserBulkUploadService:: Record Completed. Time taken: "
                             + duration + " milli-seconds");
+                    logger.info("The total Number of count Outside: " + totalNumberOfRecordInSheet);
                     if (progressUpdateThresholdValue >= serverProperties.getBulkUploadThresholdValue()) {
-                        if (totalNumberOfRecordInSheet >= 1) {
-                            totalNumberOfRecordInSheet = Math.max(totalNumberOfRecordInSheet - 1, 0);
-                        }
+                        logger.info("The total Number of count: " + totalNumberOfRecordInSheet);
                         updateOrgCompetencyDesignationMappingBulkUploadStatus(inputDataMap.get(Constants.ROOT_ORG_ID), inputDataMap.get(Constants.IDENTIFIER),
                                 Constants.STATUS_IN_PROGRESS_UPPERCASE, totalNumberOfRecordInSheet, noOfSuccessfulRecords, failedRecordsCount);
                         progressUpdateThresholdValue = 0;
