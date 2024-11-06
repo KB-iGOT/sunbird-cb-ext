@@ -896,9 +896,6 @@ public class OrgDesignationCompetencyMappingServiceImpl implements OrgDesignatio
                     logger.info("UserBulkUploadService:: Record Completed. Time taken: "
                             + duration + " milli-seconds");
                     if (progressUpdateThresholdValue >= serverProperties.getBulkUploadThresholdValue()) {
-                        if (totalNumberOfRecordInSheet >= 1) {
-                            totalNumberOfRecordInSheet = Math.max(totalNumberOfRecordInSheet - 1, 0);
-                        }
                         updateOrgCompetencyDesignationMappingBulkUploadStatus(inputDataMap.get(Constants.ROOT_ORG_ID), inputDataMap.get(Constants.IDENTIFIER),
                                 Constants.STATUS_IN_PROGRESS_UPPERCASE, totalNumberOfRecordInSheet, noOfSuccessfulRecords, failedRecordsCount);
                         progressUpdateThresholdValue = 0;
