@@ -316,15 +316,18 @@ public class OrgDesignationCompetencyMappingServiceImpl implements OrgDesignatio
     private List<String> getOrgAddedDesignation(List<Map<String, Object>> getAllDesignationForOrg) {
         List<String> designation = new ArrayList<>();
         if (CollectionUtils.isNotEmpty(getAllDesignationForOrg)) {
-            Map<String, Object> designationFrameworkObject = getAllDesignationForOrg.stream().filter(n -> ((String) (n.get("code")))
-                    .equalsIgnoreCase(Constants.DESIGNATION)).findFirst().orElse(null);
-            if (MapUtils.isNotEmpty(designationFrameworkObject)) {
-                List<Map<String, Object>> designationFrameworkTerms = (List<Map<String, Object>>) designationFrameworkObject.get("terms");
-                if (CollectionUtils.isNotEmpty(designationFrameworkTerms)) {
-                    designation = designationFrameworkTerms.stream()
-                            .map(map -> (String) map.get(Constants.NAME))
-                            .distinct()  // Ensure unique values
-                            .collect(Collectors.toList());
+            Map<String, Object> orgFrameworkObject = getAllDesignationForOrg.stream().filter(n -> ((String) (n.get("code")))
+                    .equalsIgnoreCase(Constants.ORG)).findFirst().orElse(null);
+            if (MapUtils.isNotEmpty(orgFrameworkObject)) {
+                List<Map<String, Object>> orgFrameworkTerms = (List<Map<String, Object>>) orgFrameworkObject.get("terms");
+                if (CollectionUtils.isNotEmpty(orgFrameworkTerms)) {
+                    List<Map<String, Object>> designationAssociation = (List<Map<String, Object>>) orgFrameworkTerms.get(0).get(Constants.ASSOCIATIONS);
+                    if (CollectionUtils.isNotEmpty(designationAssociation)) {
+                        designation = designationAssociation.stream()
+                                .map(map -> (String) map.get(Constants.NAME))
+                                .distinct()  // Ensure unique values
+                                .collect(Collectors.toList());
+                    }
                 }
             }
         }
@@ -717,6 +720,7 @@ public class OrgDesignationCompetencyMappingServiceImpl implements OrgDesignatio
                     }
                     if (allColumnsEmpty) continue;
                     logger.info("CompetencyDesignationMapping:: Record " + count++);
+                    Thread.sleep(500);
                     List<Map<String, Object>> getAllDesignationForOrg = populateDataFromFrameworkTerm(frameworkId);
                     Map<String, Object> designationFrameworkObject = null;
                     Map<String, Object> competencyFrameworkObject = null;
@@ -915,7 +919,7 @@ public class OrgDesignationCompetencyMappingServiceImpl implements OrgDesignatio
                 status = Constants.FAILED_UPPERCASE;
             }
             updateOrgCompetencyDesignationMappingBulkUploadStatus(inputDataMap.get(Constants.ROOT_ORG_ID), inputDataMap.get(Constants.IDENTIFIER),
-                    status, totalRecordsCount, noOfSuccessfulRecords, failedRecordsCount);
+                    status, totalNumberOfRecordInSheet, noOfSuccessfulRecords, failedRecordsCount);
         } catch (Exception e) {
             logger.error(String.format("Error in Process Bulk Upload %s", e.getMessage()), e);
             updateOrgCompetencyDesignationMappingBulkUploadStatus(inputDataMap.get(Constants.ROOT_ORG_ID), inputDataMap.get(Constants.IDENTIFIER),

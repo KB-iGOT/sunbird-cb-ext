@@ -574,7 +574,7 @@ public class OrgDesignationMappingServiceImpl implements OrgDesignationMappingSe
                 while (rowIterator.hasNext()) { // to get the totalNumber of record to get the rows which have data
                     Row nextRow = rowIterator.next();
                     boolean allColumnsEmpty = true;
-                    for (int colIndex = 0; colIndex < 1; colIndex++) { // Only check the first 4 columns
+                    for (int colIndex = 0; colIndex < 1; colIndex++) { // Only check the first columns
                         Cell cell = nextRow.getCell(colIndex);
 
                         if (cell != null) {
@@ -620,6 +620,7 @@ public class OrgDesignationMappingServiceImpl implements OrgDesignationMappingSe
                     }
                     if (allColumnsEmpty) continue;
                     logger.info("CompetencyDesignationMapping:: Record " + count++);
+                    Thread.sleep(500);
                     List<Map<String, Object>> getAllDesignationForOrg = populateDataFromFrameworkTerm(frameworkId);
                     Map<String, Object> orgFrameworkObject = null;
                     List<Map<String, Object>> orgFrameworkTerms = null;
@@ -650,7 +651,14 @@ public class OrgDesignationMappingServiceImpl implements OrgDesignationMappingSe
                             if (CollectionUtils.isNotEmpty(orgDesignation) && orgDesignation.contains(designation)) {
                                 if (CollectionUtils.isNotEmpty(orgFrameworkTerms)) {
                                     List<Map<String, Object>> associations = (List<Map<String, Object>>) orgFrameworkTerms.get(0).get(Constants.ASSOCIATIONS);
-                                    if (CollectionUtils.isNotEmpty(associations)) {
+                                    if (CollectionUtils.isEmpty(associations)) { // For the first association Object addition
+                                        Map<String, Object> designationObject = getDesignationObject(getAllDesignationForOrg, designation);
+                                        if (MapUtils.isNotEmpty(designationObject)) {
+                                            associationIdentifier = (String) designationObject.get(Constants.IDENTIFIER);
+                                        } else {
+                                            invalidErrList.add("Issue while adding the designation for org");
+                                        }
+                                    } else {
                                         boolean isDesignationAssociationsPresent = associations.stream().anyMatch(n -> ((String) n.get(Constants.NAME)).equalsIgnoreCase(designation));
                                         if (isDesignationAssociationsPresent) {
                                             invalidErrList.add("Already designation: " + designation + "is mapped for org");
@@ -700,7 +708,6 @@ public class OrgDesignationMappingServiceImpl implements OrgDesignationMappingSe
                             Map<String, Object> orgFrameworkTerm = orgFrameworkTerms.stream().filter(n -> ((String) n.get(Constants.STATUS)).equalsIgnoreCase(Constants.LIVE)).findFirst().map(HashMap::new).orElse(null);
                             if (MapUtils.isNotEmpty(orgFrameworkTerm)) {
                                 designationMappingInfoMap.put(Constants.ORGANISATION, orgFrameworkTerm);
-
                             } else {
                                 invalidErrList.add("The issue while fetching the framework term for the org which is active.");
                             }
@@ -758,7 +765,7 @@ public class OrgDesignationMappingServiceImpl implements OrgDesignationMappingSe
                 status = Constants.FAILED_UPPERCASE;
             }
             updateOrgCompetencyDesignationMappingBulkUploadStatus(inputDataMap.get(Constants.ROOT_ORG_ID), inputDataMap.get(Constants.IDENTIFIER),
-                    status, totalRecordsCount, noOfSuccessfulRecords, failedRecordsCount);
+                    status, totalNumberOfRecordInSheet, noOfSuccessfulRecords, failedRecordsCount);
         } catch (Exception e) {
             logger.error(String.format("Error in Process Bulk Upload %s", e.getMessage()), e);
             updateOrgCompetencyDesignationMappingBulkUploadStatus(inputDataMap.get(Constants.ROOT_ORG_ID), inputDataMap.get(Constants.IDENTIFIER),
@@ -812,25 +819,25 @@ public class OrgDesignationMappingServiceImpl implements OrgDesignationMappingSe
                     List<Map<String, Object>> associationsMap = (List<Map<String, Object>>) terms.get(Constants.ASSOCIATIONS);
                     if (CollectionUtils.isNotEmpty(associationsMap)) {
                         associations.addAll(associationsMap.stream().map(n -> (String) n.get(Constants.IDENTIFIER)).collect(Collectors.toList()));
-                        associations.addAll(nodeId);
-                        List<Map<String, Object>> createDesignationObject = new ArrayList<>();
-                        for (String association : associations) {
-                            Map<String, Object> nodeIdMap = new HashMap<>();
-                            nodeIdMap.put(Constants.IDENTIFIER, association);
-                            createDesignationObject.add(nodeIdMap);
-                        }
-                        logger.info("The associated size need to be updated: " + associations.size());
-                        Map<String, Object> frameworkAssociationUpdateForOrg = updateFrameworkTerm(frameworkId, updateRequestObject(createDesignationObject), Constants.ORG, (String) terms.get(Constants.CODE));
-                        if (MapUtils.isNotEmpty(frameworkAssociationUpdateForOrg)) {
-                            Map<String, Object> result = publishFramework(frameworkId, new HashMap<>(), orgId);
-                            if (MapUtils.isNotEmpty(result)) {
-                                logger.info("Publish is Success for frameworkId: " + frameworkId);
-                            } else {
-                                invalidErrList.add("Issue while publish the framework.");
-                            }
+                    }
+                    associations.addAll(nodeId);
+                    List<Map<String, Object>> createDesignationObject = new ArrayList<>();
+                    for (String association : associations) {
+                        Map<String, Object> nodeIdMap = new HashMap<>();
+                        nodeIdMap.put(Constants.IDENTIFIER, association);
+                        createDesignationObject.add(nodeIdMap);
+                    }
+                    logger.info("The associated size need to be updated: " + associations.size());
+                    Map<String, Object> frameworkAssociationUpdateForOrg = updateFrameworkTerm(frameworkId, updateRequestObject(createDesignationObject), Constants.ORG, (String) terms.get(Constants.CODE));
+                    if (MapUtils.isNotEmpty(frameworkAssociationUpdateForOrg)) {
+                        Map<String, Object> result = publishFramework(frameworkId, new HashMap<>(), orgId);
+                        if (MapUtils.isNotEmpty(result)) {
+                            logger.info("Publish is Success for frameworkId: " + frameworkId);
                         } else {
-                            invalidErrList.add("Issue while adding the associations to the framework for theme.");
+                            invalidErrList.add("Issue while publish the framework.");
                         }
+                    } else {
+                        invalidErrList.add("Issue while adding the associations to the framework for theme.");
                     }
                 }
             }

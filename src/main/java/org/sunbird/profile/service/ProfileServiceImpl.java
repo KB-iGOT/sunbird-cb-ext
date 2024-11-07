@@ -1219,6 +1219,9 @@ public class ProfileServiceImpl implements ProfileService {
 				try {
 					Thread.sleep(1000);
 				} catch (Exception e) {
+					// Preserve the interrupt status
+					Thread.currentThread().interrupt();
+					log.error("Thread sleep interrupted", e);
 				}
 				errMsg = executeSelfMigrateUser(requestBody);
 			} else {
@@ -1715,6 +1718,7 @@ public class ProfileServiceImpl implements ProfileService {
 		log.info("Starting user report...");
 		long startTime = System.currentTimeMillis();
 		SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.API_USER_REPORT);
+		Workbook wb = null;
 		try {
 			List<String> fields = new ArrayList<String>();
 			fields.addAll(Constants.USER_ENROLMENT_REPORT_FIELDS);
@@ -1730,7 +1734,6 @@ public class ProfileServiceImpl implements ProfileService {
 			final BoolQueryBuilder finalQuery = QueryBuilders.boolQuery();
 			finalQuery.must(QueryBuilders.termQuery(Constants.STATUS, 1));
 			SearchSourceBuilder sourceBuilder = null;
-			Workbook wb = null;
 			long userCount = 0l;
 			do {
 				sourceBuilder = new SearchSourceBuilder().query(finalQuery).from(index).size(size);
@@ -1766,6 +1769,14 @@ public class ProfileServiceImpl implements ProfileService {
 			response.getParams().setStatus(Constants.FAILED);
 			response.getParams().setErrmsg("Failed to generate report.");
 			response.setResponseCode(HttpStatus.INTERNAL_SERVER_ERROR);
+		} finally {
+			if (wb != null) {
+				try {
+					wb.close(); // Manually closing the workbook
+				} catch (IOException e) {
+					log.error("Failed to close the workbook.", e);
+				}
+			}
 		}
 		log.info(String.format("Generate User Report Competed Oeration in %s seconds",
 				TimeUnit.MILLISECONDS.toSeconds(System.currentTimeMillis() - startTime)));
@@ -2014,7 +2025,12 @@ public class ProfileServiceImpl implements ProfileService {
 						getModifiedPersonalDetails(profileDetailsMap.get(changedObj), requestData);
 					}
 				}
-
+				String profileStatus = (String) existingProfileDetails.get(Constants.PROFILE_STATUS);
+				if (StringUtils.isBlank(updatedProfileStatus) && (Constants.NOT_VERIFIED.equalsIgnoreCase(profileStatus))) {
+					if (StringUtils.isNotBlank(updatedDesignationVal) && StringUtils.isNotBlank(updatedGroupVal)) {
+						updatedProfileStatus = Constants.VERIFIED;
+					}
+				}
 				if (Constants.VERIFIED.equalsIgnoreCase(updatedProfileStatus)) {
 					existingProfileDetails.put(Constants.PROFILE_GROUP_STATUS, Constants.VERIFIED);
 					existingProfileDetails.put(Constants.PROFILE_DESIGNATION_STATUS, Constants.VERIFIED);
