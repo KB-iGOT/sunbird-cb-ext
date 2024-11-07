@@ -1240,6 +1240,8 @@ public class Constants {
 	public static final String USER_EVENT_CONSUMPTION = "api.user.event.consumption";
 	public static final String LRC_PROGRESS_DETAILS_COLUMN="lrc_progressdetails";
 	public static final String API_USER_EVENT_BULK_ONBOARD_STATUS = "api.user.event.bulk.onboard.status";
+	public static final String REGISTRATION_LINK_CSR = "registrationLink";
+	public static final String QR_REGISTRATION_LINK_CSR = "qrregistrationLink";
 
 	private Constants() {
 		throw new IllegalStateException("Utility class");

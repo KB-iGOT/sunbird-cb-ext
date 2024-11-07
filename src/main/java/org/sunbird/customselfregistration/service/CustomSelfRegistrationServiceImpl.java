@@ -113,11 +113,18 @@ public class CustomSelfRegistrationServiceImpl implements CustomSelfRegistration
             String qrCodePath = String.format("%s/%s", serverProperties.getQrCustomerSelfRegistrationPath(), qrCodeFile.getName());
             Map<String, Object> data = updateOrgDetailsToDB(authUserToken, orgId, generateLink, qrCodePath);
             if (MapUtils.isEmpty(data) || !data.get(Constants.RESPONSE_CODE).equals(Constants.OK)) {
-                logger.info("CustomSelfRegistrationServiceImpl::getSelfRegistrationQRAndLink:Org data Updated successfully for the organization." + orgId);
+                logger.info("CustomSelfRegistrationServiceImpl::getSelfRegistrationQRAndLink:Failed to update Org details for the organization." + orgId);
                 outgoingResponse.getParams().setStatus(Constants.FAILED);
                 outgoingResponse.getParams().setErrmsg("Error while updating the organization details");
                 outgoingResponse.setResponseCode(HttpStatus.INTERNAL_SERVER_ERROR);
                 return outgoingResponse;
+            }else {
+                Map<String, Object> result = new HashMap<>();
+                result.put(Constants.REGISTRATION_LINK_CSR, generateLink);
+                result.put(Constants.QR_REGISTRATION_LINK_CSR, qrCodePath);
+                outgoingResponse.getResult().putAll(result);
+                outgoingResponse.getParams().setStatus(Constants.OK);
+                outgoingResponse.setResponseCode(HttpStatus.OK);
             }
         } else {
             logger.info("CustomSelfRegistrationServiceImpl::getSelfRegistrationQRAndLink : There was an issue while uploading the the qr code");
@@ -135,13 +142,14 @@ public class CustomSelfRegistrationServiceImpl implements CustomSelfRegistration
      * @return A map containing the result of the update operation.
      */
     private Map<String, Object> updateOrgDetailsToDB(String authUserToken, String orgId, String generateLink, String qrCodePath) {
+        logger.info("CustomSelfRegistrationServiceImpl::updateOrgDetailsToDB:Updating the Org details for the organization." + orgId);
         Map<String, Object> request = new HashMap<>();
         Map<String, Object> updateRequest = new HashMap<>();
         Map<String, String> headerValues = new HashMap<>();
         headerValues.put(Constants.X_AUTH_TOKEN, authUserToken);
         request.put(Constants.ORGANIZATION_ID, orgId);
-        request.put("registrationlink", generateLink);
-        request.put("qrregistrationlink", qrCodePath);
+        request.put(Constants.REGISTRATION_LINK_CSR, generateLink);
+        request.put(Constants.QR_REGISTRATION_LINK_CSR, qrCodePath);
         updateRequest.put(Constants.REQUEST, request);
         StringBuilder url = new StringBuilder(serverProperties.getSbUrl());
         url.append(serverProperties.getUpdateOrgPath());
