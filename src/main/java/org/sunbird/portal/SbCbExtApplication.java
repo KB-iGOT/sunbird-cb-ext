@@ -14,7 +14,6 @@ import org.springframework.http.client.ClientHttpRequestFactory;
 import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
 import org.springframework.web.client.RestTemplate;
 
-@EnableJpaRepositories(basePackages = {"org.sunbird"})
 @ComponentScan(basePackages = "org.sunbird")
 @EntityScan("org.sunbird")
 @SpringBootApplication

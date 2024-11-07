@@ -936,6 +936,18 @@ public class CbExtServerProperties {
 
 	@Value("${user.event.karma.point.topic}")
 	private String userEventKarmaPointTopic;
+  
+  @Value("${kafka.topic.bp.report}")
+	private String kafkaTopicBPReport;
+
+	@Value("${igot.es.user.form.index}")
+	private String igotEsUserFormIndex;
+
+	@Value("${es.form.index.type}")
+	private String esFormIndexType;
+
+	@Value("${bp.user.enrolment.report.container.name}")
+	private String bpEnrolmentReportContainerName;
 
 	public String getCiosCloudIconFolderName() {
 		return ciosCloudIconFolderName;
@@ -3230,4 +3242,35 @@ public class CbExtServerProperties {
 	public void setUserEventKarmaPointTopic(String userEventKarmaPointTopic) {
 		this.userEventKarmaPointTopic = userEventKarmaPointTopic;
 	}
+  public String getKafkaTopicBPReport() {
+		return kafkaTopicBPReport;
+	}
+
+	public void setKafkaTopicBPReport(String kafkaTopicBPReport) {
+		this.kafkaTopicBPReport = kafkaTopicBPReport;
+	}
+
+	public String getIgotEsUserFormIndex() {
+		return igotEsUserFormIndex;
+	}
+
+	public void setIgotEsUserFormIndex(String igotEsUserFormIndex) {
+		this.igotEsUserFormIndex = igotEsUserFormIndex;
+	}
+
+	public String getEsFormIndexType() {
+		return esFormIndexType;
+	}
+
+	public void setEsFormIndexType(String esFormIndexType) {
+		this.esFormIndexType = esFormIndexType;
+	}
+
+	public String getBpEnrolmentReportContainerName() {
+		return bpEnrolmentReportContainerName;
+	}
+
+	public void setBpEnrolmentReportContainerName(String bpEnrolmentReportContainerName) {
+		this.bpEnrolmentReportContainerName = bpEnrolmentReportContainerName;
+  }
 }
