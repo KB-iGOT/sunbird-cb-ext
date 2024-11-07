@@ -1,10 +1,13 @@
 package org.sunbird.bpreports.postgres.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+
 import javax.persistence.*;
 import java.util.Date;
 
 @Entity
 @Table(name = "wf_status", schema = "wingspan")
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class WfStatusEntity {
 
     @Id

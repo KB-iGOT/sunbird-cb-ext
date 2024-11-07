@@ -17,20 +17,20 @@ public class BPReportsController {
     @Autowired
     private BPReportsService bpReportsService;
 
-    @PostMapping("v1/generate/report")
+    @PostMapping("/v1/generate/report")
     public ResponseEntity<SBApiResponse> generateBPReport(@RequestHeader(Constants.X_AUTH_TOKEN) String authToken, @RequestBody Map<String, Object> requestBody) {
         SBApiResponse response = bpReportsService.generateBPReport(requestBody, authToken);
         return new ResponseEntity<>(response, response.getResponseCode());
 
     }
 
-    @PostMapping("v1/bpreport/status")
+    @PostMapping("/v1/bpreport/status")
     public ResponseEntity<?> getBulkUploadDetails(@RequestHeader(Constants.X_AUTH_TOKEN) String authToken, @RequestBody Map<String, Object> requestBody) {
         SBApiResponse response = bpReportsService.getBPReportStatus(requestBody, authToken);
         return new ResponseEntity<>(response, response.getResponseCode());
     }
 
-    @GetMapping("v1/bpreport/download/{orgId}/{courseId}/{batchId}/{fileName}")
+    @GetMapping("/v1/bpreport/download/{orgId}/{courseId}/{batchId}/{fileName}")
     public ResponseEntity<?> downloadFile(@RequestHeader(Constants.X_AUTH_TOKEN) String authToken, @PathVariable("orgId") String orgId, @PathVariable("courseId") String courseId, @PathVariable("batchId") String batchId, @PathVariable("fileName") String fileName) {
         return bpReportsService.downloadBPReport(authToken, orgId, courseId, batchId, fileName);
     }
