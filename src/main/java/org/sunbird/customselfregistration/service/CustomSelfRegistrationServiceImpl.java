@@ -87,7 +87,7 @@ public class CustomSelfRegistrationServiceImpl implements CustomSelfRegistration
         }
         String orgId = (String) requestBody.get(Constants.ORG_ID);
         // Generate the registration link
-        String generateLink = serverProperties.getUrlCustomerSelfRegistration() /*+ orgId*/;
+        String generateLink = serverProperties.getUrlCustomerSelfRegistration() + orgId;
         qrBody.put(Constants.REGISTRATION_LINK, generateLink);
         String targetDirPath = String.format("%scustomregistration/%s/", Constants.LOCAL_BASE_PATH, orgId);
         String uniqueFileName = UUID.randomUUID() + ".png";
