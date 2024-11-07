@@ -109,6 +109,7 @@ public class CustomSelfRegistrationServiceImpl implements CustomSelfRegistration
 
         // Check if the upload was successful
         if (outgoingResponse.getResponseCode() == HttpStatus.OK) {
+            outgoingResponse=new SBApiResponse();
             logger.info("CustomSelfRegistrationServiceImpl::getSelfRegistrationQRAndLink : QRCode Uploaded to bucket successfully.");
             String qrCodePath = String.format("%s/%s", serverProperties.getQrCustomerSelfRegistrationPath(), qrCodeFile.getName());
             Map<String, Object> data = updateOrgDetailsToDB(authUserToken, orgId, generateLink, qrCodePath);
