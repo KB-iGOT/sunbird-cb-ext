@@ -126,6 +126,7 @@ public class CustomSelfRegistrationServiceImpl implements CustomSelfRegistration
                 outgoingResponse.getResult().putAll(result);
                 outgoingResponse.getParams().setStatus(Constants.OK);
                 outgoingResponse.setResponseCode(HttpStatus.OK);
+                return outgoingResponse;
             }
         } else {
             logger.info("CustomSelfRegistrationServiceImpl::getSelfRegistrationQRAndLink : There was an issue while uploading the the qr code");
