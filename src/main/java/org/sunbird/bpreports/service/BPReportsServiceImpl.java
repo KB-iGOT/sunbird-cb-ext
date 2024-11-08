@@ -60,8 +60,7 @@ public class BPReportsServiceImpl implements BPReportsService {
     public SBApiResponse generateBPReport(Map<String, Object> requestBody, String authToken) {
         SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.BP_REPORT_GENERATE_API);
         try {
-            // String userId = accessTokenValidator.fetchUserIdFromAccessToken(authToken);
-            String userId = "3348dc18-9980-4850-8073-75e18639140d";
+            String userId = accessTokenValidator.fetchUserIdFromAccessToken(authToken);
             if (StringUtils.isBlank(userId)) {
                 updateErrorDetails(response, "Invalid user ID from auth token.", HttpStatus.BAD_REQUEST);
                 return response;
@@ -247,8 +246,7 @@ public class BPReportsServiceImpl implements BPReportsService {
         SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.API_USER_ENROLLMENT_BP_REPORT_STATUS);
 
         try {
-            //   String userId = accessTokenValidator.fetchUserIdFromAccessToken(authToken);
-            String userId = "3348dc18-9980-4850-8073-75e18639140d";
+            String userId = accessTokenValidator.fetchUserIdFromAccessToken(authToken);
             if (StringUtils.isBlank(userId)) {
                 updateErrorDetails(response, "Invalid user ID from auth token.", HttpStatus.BAD_REQUEST);
                 return response;
@@ -298,8 +296,7 @@ public class BPReportsServiceImpl implements BPReportsService {
 
     public ResponseEntity<Resource> downloadBPReport(String authToken, String orgId, String courseId, String batchId, String fileName) {
         try {
-            // String userId = accessTokenValidator.fetchUserIdFromAccessToken(authToken);
-            String userId = "3348dc18-9980-4850-8073-75e18639140d";
+            String userId = accessTokenValidator.fetchUserIdFromAccessToken(authToken);
             // Check if userId is valid
             if (StringUtils.isBlank(userId)) {
                 return createErrorResponse("Invalid user ID from auth token.", HttpStatus.UNAUTHORIZED);
