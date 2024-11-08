@@ -9,7 +9,6 @@ import org.sunbird.common.model.SBApiResponse;
 import org.sunbird.customselfregistration.service.CustomSelfRegistrationService;
 
 import javax.validation.Valid;
-import java.io.IOException;
 import java.util.Map;
 
 /**
@@ -21,8 +20,8 @@ public class CustomSelfRegistrationController {
     @Autowired
     CustomSelfRegistrationService customSelfRegistrationService;
 
-    @PostMapping(value = "/getSelfRegistrationQRPdf", produces = MediaType.APPLICATION_PDF_VALUE)
-    public ResponseEntity<SBApiResponse> getBatchSessionQRPdf(@RequestHeader("x-authenticated-user-token") String authUserToken, @Valid @RequestBody Map<String, Object> requestBody) throws IOException {
+    @PostMapping(value = "/getSelfRegistrationQRPdf", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<SBApiResponse> getBatchSessionQRPdf(@RequestHeader("x-authenticated-user-token") String authUserToken, @Valid @RequestBody Map<String, Object> requestBody) {
         return new ResponseEntity<>(customSelfRegistrationService.getSelfRegistrationQRAndLink(authUserToken,requestBody), HttpStatus.OK);
     }
 }

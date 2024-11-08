@@ -76,72 +76,30 @@ public class CustomSelfRegistrationServiceImpl implements CustomSelfRegistration
         String qrCodeBody = "";
         // Create a QR code body
         HashMap<String, Object> qrBody = new HashMap<>();
-        HashMap<String, HashMap<String, String>> pdfDetails = populatePDFTemplateDetails();
-        HashMap<String, HashMap> pdfParams = populatePDFParams();
         // Validate the access token and fetch the user ID
-        String userId = accessTokenValidator.fetchUserIdFromAccessToken(authUserToken);
-        if (ObjectUtils.isEmpty(userId)) {
-            updateErrorDetails(outgoingResponse, HttpStatus.BAD_REQUEST);
-            return outgoingResponse;
-        }
+        String userId = fetchUserIdFromToken(authUserToken, outgoingResponse);
+        if (userId == null) return outgoingResponse;
         // Validate the request body
-        String errMsg = validateRequest(requestBody, outgoingResponse);
-        if (StringUtils.isNotBlank(errMsg)) {
-            return outgoingResponse;
-        }
-        String orgId = (String) requestBody.get(Constants.ORG_ID);
+        String orgId = validateRequestBody(requestBody, outgoingResponse);
+        if (orgId == null) return outgoingResponse;
         //Validate the designation
-        if(!validateDesignation(orgId)){
-            logger.info("CustomSelfRegistrationServiceImpl::getSelfRegistrationQRAndLink :Designation is not mapped to the organisation" + orgId);
-            outgoingResponse.getParams().setStatus(HttpStatus.OK.toString());
-            outgoingResponse.getParams().setErrmsg("Designation is not mapped to the organisation");
-            outgoingResponse.setResponseCode(HttpStatus.OK);
-            return outgoingResponse;
-        }
-        // Generate the registration link
-        String generateLink = serverProperties.getUrlCustomerSelfRegistration() + orgId;
-        qrBody.put(Constants.REGISTRATION_LINK, generateLink);
-        String targetDirPath = String.format("%scustomregistration/%s/", Constants.LOCAL_BASE_PATH, orgId);
-        String uniqueFileName = UUID.randomUUID() + ".png";
-        String filePath = targetDirPath + uniqueFileName;
-        File qrCodeFile;
+        if (!isDesignationMappedToOrg(orgId, outgoingResponse)) return outgoingResponse;
+        String registrationLink = generateRegistrationLink(orgId);
+        String qrCodeFilePath = createQRCodeFilePath(orgId);
         try {
-            qrCodeBody = mapper.writeValueAsString(qrBody);
-            pdfParams.put(Constants.SESSION, populateSession(qrCodeBody, filePath));
-            qrCodeFile = pdfGeneratorService.generatePdfV2(pdfDetails, pdfParams);
+            File qrCodeFile = generateQRCodeFile(registrationLink, qrCodeFilePath);
+            outgoingResponse = uploadQRCodeFile(qrCodeFile);
+            if (outgoingResponse.getResponseCode() == HttpStatus.OK) {
+                return processSuccessfulUpload(authUserToken, orgId, registrationLink, qrCodeFile, outgoingResponse);
+            } else {
+                logger.info("CustomSelfRegistrationServiceImpl::getSelfRegistrationQRAndLink : There was an issue while uploading the QR code");
+            }
         } catch (IOException e) {
             logger.error("CustomSelfRegistrationServiceImpl::getSelfRegistrationQRAndLink :Error while parsing the QR code body", e);
             outgoingResponse.getParams().setStatus(HttpStatus.INTERNAL_SERVER_ERROR.toString());
             outgoingResponse.getParams().setErrmsg("Error while parsing the QR code object");
             outgoingResponse.setResponseCode(HttpStatus.INTERNAL_SERVER_ERROR);
             return outgoingResponse;
-        }
-        // Upload the QR code image to storage
-        outgoingResponse = storageService.uploadFile(qrCodeFile, serverProperties.getQrCustomerSelfRegistrationFolderName(), serverProperties.getQrCustomerSelfRegistrationContainerName());
-
-        // Check if the upload was successful
-        if (outgoingResponse.getResponseCode() == HttpStatus.OK) {
-            outgoingResponse=new SBApiResponse();
-            logger.info("CustomSelfRegistrationServiceImpl::getSelfRegistrationQRAndLink : QRCode Uploaded to bucket successfully.");
-            String qrCodePath = String.format("%s/%s", serverProperties.getQrCustomerSelfRegistrationPath(), qrCodeFile.getName());
-            Map<String, Object> data = updateOrgDetailsToDB(authUserToken, orgId, generateLink, qrCodePath);
-            if (MapUtils.isEmpty(data) || !data.get(Constants.RESPONSE_CODE).equals(Constants.OK)) {
-                logger.info("CustomSelfRegistrationServiceImpl::getSelfRegistrationQRAndLink:Failed to update Org details for the organization." + orgId);
-                outgoingResponse.getParams().setStatus(Constants.FAILED);
-                outgoingResponse.getParams().setErrmsg("Error while updating the organization details");
-                outgoingResponse.setResponseCode(HttpStatus.INTERNAL_SERVER_ERROR);
-                return outgoingResponse;
-            }else {
-                Map<String, Object> result = new HashMap<>();
-                result.put(Constants.REGISTRATION_LINK_CSR, generateLink);
-                result.put(Constants.QR_REGISTRATION_LINK_CSR, qrCodePath);
-                outgoingResponse.getResult().putAll(result);
-                outgoingResponse.getParams().setStatus(Constants.OK);
-                outgoingResponse.setResponseCode(HttpStatus.OK);
-                return outgoingResponse;
-            }
-        } else {
-            logger.info("CustomSelfRegistrationServiceImpl::getSelfRegistrationQRAndLink : There was an issue while uploading the the qr code");
         }
         return outgoingResponse;
     }
@@ -366,4 +324,156 @@ public class CustomSelfRegistrationServiceImpl implements CustomSelfRegistration
         return false;
     }
 
+    /**
+     * Fetches the user ID from the provided authentication token.
+     *
+     * @param authUserToken the authentication token to extract the user ID from
+     * @param response      the API response object to update with error details if necessary
+     * @return the user ID extracted from the token, or null if the token is invalid
+     */
+    private String fetchUserIdFromToken(String authUserToken, SBApiResponse response) {
+        String userId = accessTokenValidator.fetchUserIdFromAccessToken(authUserToken);
+        if (ObjectUtils.isEmpty(userId)) {
+            updateErrorDetails(response, HttpStatus.BAD_REQUEST);
+        }
+        return userId;
+    }
+
+    /**
+     * Validates the request body and extracts the organization ID if valid.
+     *
+     * @param requestBody the request body to validate
+     * @param response    the API response object to update with error details if necessary
+     * @return the organization ID if the request body is valid, or null if validation fails
+     */
+    private String validateRequestBody(Map<String, Object> requestBody, SBApiResponse response) {
+        String errMsg = validateRequest(requestBody, response);
+        if (StringUtils.isNotBlank(errMsg)) return null;
+        return (String) requestBody.get(Constants.ORG_ID);
+    }
+
+    /**
+     * Checks if a designation is mapped to a specific organization.
+     *
+     * @param orgId    the organization ID to check
+     * @param response the API response object to update with error details if necessary
+     * @return true if the designation is mapped to the organization, false otherwise
+     */
+    private boolean isDesignationMappedToOrg(String orgId, SBApiResponse response) {
+        if (!validateDesignation(orgId)) {
+            logger.info("CustomSelfRegistrationServiceImpl::isDesignationMappedToOrg:Designation is not mapped to the organization: " + orgId);
+            response.getParams().setStatus(HttpStatus.OK.toString());
+            response.getParams().setErrmsg("Designation is not mapped to the organization");
+            response.setResponseCode(HttpStatus.OK);
+            return false;
+        }
+        return true;
+    }
+
+    /**
+     * Generates a registration link for a given organization ID.
+     *
+     * @param orgId the organization ID to generate the registration link for
+     * @return the generated registration link
+     */
+    private String generateRegistrationLink(String orgId) {
+        return serverProperties.getUrlCustomerSelfRegistration() + orgId;
+    }
+
+    /**
+     * Creates a file path for a QR code image for a given organization ID.
+     *
+     * @param orgId the organization ID to create the QR code file path for
+     * @return the generated file path for the QR code image
+     */
+    private String createQRCodeFilePath(String orgId) {
+        String targetDirPath = String.format("%scustomregistration/%s/", Constants.LOCAL_BASE_PATH, orgId);
+        return targetDirPath + UUID.randomUUID() + ".png";
+    }
+
+    /**
+     * Generates a QR code file for a given registration link and file path.
+     *
+     * @param registrationLink the registration link to encode in the QR code
+     * @param filePath         the file path to save the generated QR code file to
+     * @return the generated QR code file
+     * @throws IOException if an error occurs during QR code generation
+     */
+    private File generateQRCodeFile(String registrationLink, String filePath) throws IOException {
+        HashMap<String, Object> qrBody = new HashMap<>();
+        qrBody.put(Constants.REGISTRATION_LINK, registrationLink);
+        String qrCodeBody = mapper.writeValueAsString(qrBody);
+        HashMap<String, HashMap> pdfParams = populatePDFParams();
+        pdfParams.put(Constants.SESSION, populateSession(qrCodeBody, filePath));
+        HashMap<String, HashMap<String, String>> pdfDetails = populatePDFTemplateDetails();
+        return pdfGeneratorService.generatePdfV2(pdfDetails, pdfParams);
+    }
+
+    /**
+     * Uploads a QR code file to the storage service.
+     *
+     * @param qrCodeFile the QR code file to upload
+     * @return the API response from the storage service
+     */
+    private SBApiResponse uploadQRCodeFile(File qrCodeFile) {
+        return storageService.uploadFile(
+                qrCodeFile,
+                serverProperties.getQrCustomerSelfRegistrationFolderName(),
+                serverProperties.getQrCustomerSelfRegistrationContainerName()
+        );
+    }
+
+
+    /**
+     * Processes a successful upload of a QR code file.
+     *
+     * @param authUserToken    the authentication token for the user
+     * @param orgId            the ID of the organization
+     * @param registrationLink the registration link for the organization
+     * @param qrCodeFile       the uploaded QR code file
+     * @param response         the API response object
+     * @return the updated API response object
+     */
+    private SBApiResponse processSuccessfulUpload(String authUserToken, String orgId, String registrationLink, File qrCodeFile, SBApiResponse response) {
+        String qrCodePath = String.format("%s/%s", serverProperties.getQrCustomerSelfRegistrationPath(), qrCodeFile.getName());
+        Map<String, Object> data = updateOrgDetailsToDB(authUserToken, orgId, registrationLink, qrCodePath);
+
+        if (MapUtils.isEmpty(data) || !data.get(Constants.RESPONSE_CODE).equals(Constants.OK)) {
+            logger.info("CustomSelfRegistrationServiceImpl::processSuccessfulUpload:Failed to update Org details for organization: " + orgId);
+            setInternalServerError(response, "Error while updating the organization details");
+        } else {
+            response = new SBApiResponse();
+            populateSuccessResponse(response, registrationLink, qrCodePath);
+        }
+
+        return response;
+    }
+
+    /**
+     * Sets the internal server error response for a given API response object.
+     *
+     * @param response the API response object to update
+     * @param errorMsg the error message to include in the response
+     */
+    private void setInternalServerError(SBApiResponse response, String errorMsg) {
+        response.getParams().setStatus(HttpStatus.INTERNAL_SERVER_ERROR.toString());
+        response.getParams().setErrmsg(errorMsg);
+        response.setResponseCode(HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+
+    /**
+     * Populates a successful API response object with registration link and QR code path.
+     *
+     * @param response         the API response object to update
+     * @param registrationLink the registration link to include in the response
+     * @param qrCodePath       the QR code path to include in the response
+     */
+    private void populateSuccessResponse(SBApiResponse response, String registrationLink, String qrCodePath) {
+        Map<String, Object> result = new HashMap<>();
+        result.put(Constants.REGISTRATION_LINK_CSR, registrationLink);
+        result.put(Constants.QR_REGISTRATION_LINK_CSR, qrCodePath);
+        response.getResult().putAll(result);
+        response.getParams().setStatus(Constants.OK);
+        response.setResponseCode(HttpStatus.OK);
+    }
 }
