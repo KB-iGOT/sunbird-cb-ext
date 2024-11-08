@@ -3,14 +3,17 @@ package org.sunbird.customselfregistration.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import net.glxn.qrgen.core.image.ImageType;
 import net.glxn.qrgen.javase.QRCode;
+import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.collections.MapUtils;
 import org.apache.commons.lang.StringUtils;
+import org.apache.poi.util.StringUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.util.ObjectUtils;
+import org.sunbird.cassandra.utils.CassandraOperation;
 import org.sunbird.common.model.SBApiResponse;
 import org.sunbird.common.service.OutboundRequestHandlerServiceImpl;
 import org.sunbird.common.util.AccessTokenValidator;
@@ -22,9 +25,7 @@ import org.sunbird.workallocation.service.PdfGeneratorServiceImpl;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 
 /**
  * Implementation of the CustomSelfRegistrationService interface.
@@ -57,6 +58,9 @@ public class CustomSelfRegistrationServiceImpl implements CustomSelfRegistration
     @Autowired
     PdfGeneratorServiceImpl pdfGeneratorService;
 
+    @Autowired
+    CassandraOperation cassandraOperation;
+
     /**
      * Generates a self-registration QR code and link for the organisation.
      *
@@ -86,6 +90,14 @@ public class CustomSelfRegistrationServiceImpl implements CustomSelfRegistration
             return outgoingResponse;
         }
         String orgId = (String) requestBody.get(Constants.ORG_ID);
+        //Validate the designation
+        if(!validateDesignation(orgId)){
+            logger.info("CustomSelfRegistrationServiceImpl::getSelfRegistrationQRAndLink :Designation is not mapped to the organisation" + orgId);
+            outgoingResponse.getParams().setStatus(HttpStatus.OK.toString());
+            outgoingResponse.getParams().setErrmsg("Designation is not mapped to the organisation");
+            outgoingResponse.setResponseCode(HttpStatus.OK);
+            return outgoingResponse;
+        }
         // Generate the registration link
         String generateLink = serverProperties.getUrlCustomerSelfRegistration() + orgId;
         qrBody.put(Constants.REGISTRATION_LINK, generateLink);
@@ -270,4 +282,88 @@ public class CustomSelfRegistrationServiceImpl implements CustomSelfRegistration
         logger.info("CustomSelfRegistrationServiceImpl::generateCustomSelfRegistrationQRCode : Generated QR code file path:" + qrCodeFile.getAbsolutePath());
         return qrCodeFile.getAbsolutePath();
     }
+
+
+    /**
+     * Validates the designation for the given organization.
+     *
+     * @param orgId The ID of the organization.
+     * @return True if the designation is valid, false otherwise.
+     */
+    private boolean validateDesignation(String orgId) {
+        logger.info("CustomSelfRegistrationServiceImpl::validateDesignation.. started");
+        Map<String, Object> properyMap = new HashMap<>();
+        try {
+            properyMap.put(Constants.ID, orgId);
+            List<Map<String, Object>> cassandraResponse = cassandraOperation.getRecordsByPropertiesWithoutFiltering(Constants.KEYSPACE_SUNBIRD,
+                    Constants.TABLE_ORGANIZATION, properyMap, null);
+
+            // Get the framework ID from the cassandra response
+            String frameworkID = (String) cassandraResponse.get(0).get(Constants.FRAMEWORK_ID_KEY);
+            if (StringUtil.isBlank(frameworkID)) {
+                return false;
+            }
+            // Construct the framework read URL
+            String url = serverProperties.getKmBaseHost() + serverProperties.getFrameworkReadEndpoint() + Constants.SLASH + frameworkID;
+            logger.info("CustomSelfRegistrationServiceImpl::validateDesignation:framework read url:: " + url);
+
+            Map<String, Object> frameworkReadResponse = (Map<String, Object>) outboundRequestHandlerService.fetchResult(url);
+
+            // Check if the framework read response is null or does not contain the result key
+            if (frameworkReadResponse == null || !frameworkReadResponse.containsKey(Constants.RESULT)) {
+                logger.info("CustomSelfRegistrationServiceImpl::validateDesignation:Failed to read framework");
+                return false;
+            }
+
+            Map<String, Object> frameworkResponseList = (Map<String, Object>) frameworkReadResponse.get(Constants.RESULT);
+            Map<String, Object> frameworkMap = (Map<String, Object>) frameworkResponseList.get(Constants.FRAMEWORK);
+            List<Map<String, Object>> categories = (List<Map<String, Object>>) frameworkMap.get(Constants.CATEGORIES);
+
+            // Check if the categories list is empty
+            if (CollectionUtils.isEmpty(categories)) {
+                logger.info("CustomSelfRegistrationServiceImpl::validateDesignation:no categories found in read framework");
+                return false;
+            }
+
+            // Validate the designation association
+            return isDesignationAssosciationValid(categories);
+        } catch (Exception e) {
+            logger.info("CustomSelfRegistrationServiceImpl::validateDesignation:Failed validate designation for orgId: " + orgId, e);
+            return false;
+        }
+    }
+
+    /**
+     * Validates the designation association for the given categories.
+     *
+     * @param categories The list of categories to validate.
+     * @return True if the designation association is valid, false otherwise.
+     */
+    private  boolean isDesignationAssosciationValid(List<Map<String, Object>> categories) {
+        logger.info("CustomSelfRegistrationServiceImpl::isDesignationAssosciationValid.. started");
+        // Iterate through each category
+        for (Map<String, Object> category : categories) {
+            // Get the category code
+            String categoryCode = (String) category.get(Constants.CODE);
+            // Check if the category code is ORG
+            if (Constants.ORG.equalsIgnoreCase(categoryCode)) {
+                // Get the terms for the category
+                List<Map<String, Object>> terms = (List<Map<String, Object>>) category.get(Constants.TERMS);
+                // Check if the terms list is not empty
+                if (CollectionUtils.isNotEmpty(terms)) {
+                    // Get the designation association from the terms
+                    Map<String, Object> designationAssociation = terms.get(0);
+                    // Check if the designation association is not empty and contains associations
+                    if (MapUtils.isNotEmpty(designationAssociation) &&
+                            designationAssociation.containsKey(Constants.ASSOCIATIONS) &&
+                            !CollectionUtils.isEmpty((Collection) designationAssociation.get(Constants.ASSOCIATIONS))) {
+                        logger.info("CustomSelfRegistrationServiceImpl::isDesignationAssosciationValid.. Designation Assosciation is valid");
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
 }

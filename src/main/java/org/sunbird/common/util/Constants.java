@@ -1242,6 +1242,7 @@ public class Constants {
 	public static final String API_USER_EVENT_BULK_ONBOARD_STATUS = "api.user.event.bulk.onboard.status";
 	public static final String REGISTRATION_LINK_CSR = "registrationLink";
 	public static final String QR_REGISTRATION_LINK_CSR = "qrRegistrationLink";
+	public static final String FRAMEWORK_ID_KEY = "frameworkid";
 
 	private Constants() {
 		throw new IllegalStateException("Utility class");
