@@ -568,7 +568,7 @@ public class PdfGeneratorServiceImpl implements PdfGeneratorService {
 					}
 					body = createHTMLFile(key, body);
 					pdfData.put(UD_HTML_FILE_PATH, body);
-					pdfData.put(UD_FILE_NAME, body.replace(HTML, Constants.DOT_SEPARATOR + Constants.PDF));
+					pdfData.put(UD_FILE_NAME, body.replace(HTML, Constants.DOT_SEPARATOR + Constants.PNG));
 					break;
 			}
 		}
