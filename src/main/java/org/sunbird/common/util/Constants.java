@@ -1244,6 +1244,7 @@ public class Constants {
 	public static final String QR_REGISTRATION_LINK_CSR = "qrRegistrationLink";
 	public static final String FRAMEWORK_ID_KEY = "frameworkid";
 	public static final String ORGANISATION_NAME = "organisationName";
+	public static final String ORG_NAME_LOWERCASE = "orgname";
 
 	private Constants() {
 		throw new IllegalStateException("Utility class");
