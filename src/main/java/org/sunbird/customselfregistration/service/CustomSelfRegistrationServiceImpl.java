@@ -233,6 +233,7 @@ public class CustomSelfRegistrationServiceImpl implements CustomSelfRegistration
                 Constants.TABLE_ORGANIZATION, properyMap, null);
         String orgName= (String) cassandraResponse.get(0).get(Constants.ORG_NAME_LOWERCASE);
         session.put(Constants.ORGANISATION_NAME,orgName);
+
         logger.info("CustomSelfRegistrationServiceImpl::populateSession : Session information: " + session.get(Constants.ORGANIZATION_ID) +" "+ session.get(Constants.ORGANISATION_NAME));
         return session;
     }
