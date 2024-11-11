@@ -232,6 +232,7 @@ public class CustomSelfRegistrationServiceImpl implements CustomSelfRegistration
         List<Map<String, Object>> cassandraResponse = cassandraOperation.getRecordsByPropertiesWithoutFiltering(Constants.KEYSPACE_SUNBIRD,
                 Constants.TABLE_ORGANIZATION, properyMap, null);
         session.put(Constants.ORGANISATION_NAME,  (String) cassandraResponse.get(0).get(Constants.ORG_NAME));
+        logger.info("CustomSelfRegistrationServiceImpl::populateSession : Session information: " + session.get(Constants.ORGANIZATION_ID) +" "+ session.get(Constants.ORGANISATION_NAME));
         return session;
     }
 
