@@ -87,7 +87,7 @@ public class CustomSelfRegistrationServiceImpl implements CustomSelfRegistration
         String registrationLink = generateRegistrationLink(orgId);
         String qrCodeFilePath = createQRCodeFilePath(orgId);
         try {
-            File qrCodeFile = generateQRCodeFile(registrationLink, qrCodeFilePath);
+            File qrCodeFile = generateQRCodeFile(registrationLink, qrCodeFilePath,orgId);
             outgoingResponse = uploadQRCodeFile(qrCodeFile);
             if (outgoingResponse.getResponseCode() == HttpStatus.OK) {
                 return processSuccessfulUpload(authUserToken, orgId, registrationLink, qrCodeFile, outgoingResponse);
@@ -219,12 +219,19 @@ public class CustomSelfRegistrationServiceImpl implements CustomSelfRegistration
      *
      * @param qrCodeBody The body of the QR code.
      * @param filePath   The file path to generate the QR code.
+     * @param orgId Id of the organisation
      * @return A HashMap containing the session information.
      */
-    private HashMap<String, String> populateSession(String qrCodeBody, String filePath) {
+    private HashMap<String, String> populateSession(String qrCodeBody, String filePath, String orgId) {
         // Initialize an empty HashMap to store the session information
         HashMap<String, String> session = new HashMap<>();
         session.put(Constants.QR_CODE_URL, generateCustomSelfRegistrationQRCode(qrCodeBody, filePath));
+        session.put(Constants.ORGANIZATION_ID, orgId);
+        Map<String, Object> properyMap = new HashMap<>();
+        properyMap.put(Constants.ID, orgId);
+        List<Map<String, Object>> cassandraResponse = cassandraOperation.getRecordsByPropertiesWithoutFiltering(Constants.KEYSPACE_SUNBIRD,
+                Constants.TABLE_ORGANIZATION, properyMap, null);
+        session.put(Constants.ORGANISATION_NAME,  (String) cassandraResponse.get(0).get(Constants.ORG_NAME));
         return session;
     }
 
@@ -396,15 +403,16 @@ public class CustomSelfRegistrationServiceImpl implements CustomSelfRegistration
      *
      * @param registrationLink the registration link to encode in the QR code
      * @param filePath         the file path to save the generated QR code file to
+     * @param orgId Id of the organisation
      * @return the generated QR code file
      * @throws IOException if an error occurs during QR code generation
      */
-    private File generateQRCodeFile(String registrationLink, String filePath) throws IOException {
+    private File generateQRCodeFile(String registrationLink, String filePath, String orgId) throws IOException {
         HashMap<String, Object> qrBody = new HashMap<>();
         qrBody.put(Constants.REGISTRATION_LINK, registrationLink);
         String qrCodeBody = mapper.writeValueAsString(qrBody);
         HashMap<String, HashMap> pdfParams = populatePDFParams();
-        pdfParams.put(Constants.SESSION, populateSession(qrCodeBody, filePath));
+        pdfParams.put(Constants.SESSION, populateSession(qrCodeBody, filePath,orgId));
         HashMap<String, HashMap<String, String>> pdfDetails = populatePDFTemplateDetails();
         return pdfGeneratorService.generatePdfV2(pdfDetails, pdfParams);
     }

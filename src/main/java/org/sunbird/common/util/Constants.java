@@ -1243,6 +1243,7 @@ public class Constants {
 	public static final String REGISTRATION_LINK_CSR = "registrationLink";
 	public static final String QR_REGISTRATION_LINK_CSR = "qrRegistrationLink";
 	public static final String FRAMEWORK_ID_KEY = "frameworkid";
+	public static final String ORGANISATION_NAME = "organisationName";
 
 	private Constants() {
 		throw new IllegalStateException("Utility class");

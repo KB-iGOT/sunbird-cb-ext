@@ -43,6 +43,10 @@
     <div id="qrcode">
         <!-- Replace 'YourQRCodeImageURLHere' with the actual URL of your QR Code image -->
         <img src="$qrcodeurl" alt="QR Code" style="width:750px;height:750px;" class="center">
+        <div style="text-align:center;font-weight:bold;">
+            Organization Name: $organisationName
+            Organization ID: $organisationId
+        </div>
     </div>
  <br/>
  <br/>
