@@ -568,7 +568,7 @@ public class PdfGeneratorServiceImpl implements PdfGeneratorService {
 					}
 					body = createHTMLFile(key, body);
 					pdfData.put(UD_HTML_FILE_PATH, body);
-					pdfData.put(UD_FILE_NAME, body.replace(HTML, Constants.DOT_SEPARATOR + Constants.PNG));
+					pdfData.put(UD_FILE_NAME, body.replace(HTML, Constants.DOT_SEPARATOR + Constants.JPG));
 					break;
 			}
 		}
@@ -647,10 +647,10 @@ public class PdfGeneratorServiceImpl implements PdfGeneratorService {
 			return null;
 		}
 		StringBuilder commandLine = new StringBuilder();
-		commandLine.append("wkhtmltoimage --enable-local-file-access --quality 70");
+		commandLine.append("wkhtmltoimage --enable-local-file-access --quality 70 ");
 		commandLine.append("--load-media-error-handling ignore --load-error-handling ignore ");
 		commandLine.append("--minimum-font-size 11 ");
-		commandLine.append(" --format jpg ");
+		commandLine.append("--format jpg ");
 		// Loop through parameters and add to the command line
 		for (Map.Entry<String, String> entry : paramMap.entrySet()) {
 			if (!entry.getKey().startsWith("ud_")) {
