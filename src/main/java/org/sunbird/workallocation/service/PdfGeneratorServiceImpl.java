@@ -591,7 +591,6 @@ public class PdfGeneratorServiceImpl implements PdfGeneratorService {
 		commandLine.append("--minimum-font-size 11 ");
 		commandLine.append("--width 1280 ");  // Set width parameter
 		commandLine.append("--height 720 ");  // Set height parameter
-		commandLine.append("--dpi 300 ");  // Set high DPI
 		commandLine.append("--zoom 1.5 ");  // Increase zoom for clarity
 
 		// Loop through parameters and add to the command line
