@@ -586,9 +586,13 @@ public class PdfGeneratorServiceImpl implements PdfGeneratorService {
 			return null;
 		}
 		StringBuilder commandLine = new StringBuilder();
-		commandLine.append("wkhtmltoimage --enable-local-file-access --quality 90 ");
+		commandLine.append("wkhtmltoimage --enable-local-file-access --quality 100 ");
 		commandLine.append("--load-media-error-handling ignore --load-error-handling ignore ");
 		commandLine.append("--minimum-font-size 11 ");
+		commandLine.append("--width 1280 ");  // Set width parameter
+		commandLine.append("--height 720 ");  // Set height parameter
+		commandLine.append("--dpi 300 ");  // Set high DPI
+		commandLine.append("--zoom 1.5 ");  // Increase zoom for clarity
 
 		// Loop through parameters and add to the command line
 		for (Map.Entry<String, String> entry : paramMap.entrySet()) {
