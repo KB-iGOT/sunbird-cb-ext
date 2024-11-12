@@ -246,7 +246,7 @@ public class CustomSelfRegistrationServiceImpl implements CustomSelfRegistration
      * @return The absolute path of the generated QR code file.
      */
     public String generateCustomSelfRegistrationQRCode(String qrCodeBody, String filePath) {
-        File qrCodeFile = QRCode.from(qrCodeBody).to(ImageType.PNG).file(filePath);
+        File qrCodeFile = QRCode.from(qrCodeBody).to(ImageType.PNG).withSize(750,750).file(filePath);
         logger.info("CustomSelfRegistrationServiceImpl::generateCustomSelfRegistrationQRCode : Generated QR code file path:" + qrCodeFile.getAbsolutePath());
         return qrCodeFile.getAbsolutePath();
     }
