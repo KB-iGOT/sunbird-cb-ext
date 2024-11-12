@@ -589,7 +589,6 @@ public class PdfGeneratorServiceImpl implements PdfGeneratorService {
 		commandLine.append("wkhtmltoimage --enable-local-file-access --quality 100 ");
 		commandLine.append("--load-media-error-handling ignore --load-error-handling ignore ");
 		commandLine.append("--minimum-font-size 11 ");
-
 		// Loop through parameters and add to the command line
 		for (Map.Entry<String, String> entry : paramMap.entrySet()) {
 			if (!entry.getKey().startsWith("ud_")) {
