@@ -246,7 +246,7 @@ public class CustomSelfRegistrationServiceImpl implements CustomSelfRegistration
      * @return The absolute path of the generated QR code file.
      */
     public String generateCustomSelfRegistrationQRCode(String qrCodeBody, String filePath) {
-        File qrCodeFile = QRCode.from(qrCodeBody).to(ImageType.PNG).withSize(750,750).file(filePath);
+        File qrCodeFile = QRCode.from(qrCodeBody).to(ImageType.JPG).withSize(750,750).file(filePath);
         logger.info("CustomSelfRegistrationServiceImpl::generateCustomSelfRegistrationQRCode : Generated QR code file path:" + qrCodeFile.getAbsolutePath());
         return qrCodeFile.getAbsolutePath();
     }
@@ -411,9 +411,7 @@ public class CustomSelfRegistrationServiceImpl implements CustomSelfRegistration
      * @throws IOException if an error occurs during QR code generation
      */
     private File generateQRCodeFile(String registrationLink, String filePath, String orgId) throws IOException {
-        HashMap<String, Object> qrBody = new HashMap<>();
-        qrBody.put(Constants.REGISTRATION_LINK, registrationLink);
-        String qrCodeBody = mapper.writeValueAsString(qrBody);
+        String qrCodeBody = registrationLink;
         HashMap<String, HashMap> pdfParams = populatePDFParams();
         pdfParams.put(Constants.SESSION, populateSession(qrCodeBody, filePath,orgId));
         HashMap<String, HashMap<String, String>> pdfDetails = populatePDFTemplateDetails();

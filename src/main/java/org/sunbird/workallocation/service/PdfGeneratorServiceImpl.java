@@ -574,7 +574,7 @@ public class PdfGeneratorServiceImpl implements PdfGeneratorService {
 		}
 		String imgFilePath = "";
 		try {
-			imgFilePath = makePng(pdfData);
+			imgFilePath = makeJpg(pdfData);
 		} catch (Exception exception) {
 			log.error(EXCEPTION_OCCURRED_WHILE_CREATING_THE_PDF, exception);
 		}
@@ -586,7 +586,7 @@ public class PdfGeneratorServiceImpl implements PdfGeneratorService {
 			return null;
 		}
 		StringBuilder commandLine = new StringBuilder();
-		commandLine.append("wkhtmltoimage --enable-local-file-access --quality 100 ");
+		commandLine.append("wkhtmltoimage --enable-local-file-access --quality 70");
 		commandLine.append("--load-media-error-handling ignore --load-error-handling ignore ");
 		commandLine.append("--minimum-font-size 11 ");
 		// Loop through parameters and add to the command line
@@ -640,6 +640,67 @@ public class PdfGeneratorServiceImpl implements PdfGeneratorService {
 			log.info("Failed to create PNG file for filename ===> {}", htmlFilePath);
 		}
 		return pngFilePath;
+	}
+
+	public String makeJpg(Map<String, String> paramMap) throws IOException {
+		if (null == paramMap.get(UD_HTML_FILE_PATH)) {
+			return null;
+		}
+		StringBuilder commandLine = new StringBuilder();
+		commandLine.append("wkhtmltoimage --enable-local-file-access --quality 70");
+		commandLine.append("--load-media-error-handling ignore --load-error-handling ignore ");
+		commandLine.append("--minimum-font-size 11 ");
+		commandLine.append(" --format jpg ");
+		// Loop through parameters and add to the command line
+		for (Map.Entry<String, String> entry : paramMap.entrySet()) {
+			if (!entry.getKey().startsWith("ud_")) {
+				commandLine.append(" " + entry.getKey());
+				commandLine.append(" " + entry.getValue());
+			}
+		}
+
+		log.info("Saving the file content as PNG");
+		String htmlFilePath = paramMap.get(UD_HTML_FILE_PATH);
+		String jpgFileName = paramMap.get(UD_FILE_NAME);
+		if (!jpgFileName.endsWith(".jpg")) {
+			jpgFileName = jpgFileName + ".jpg";
+		}
+		String jpgFilePath = jpgFileName;
+
+		File theDir = new File(htmlFilePath);  // Update the directory path if necessary
+		if (!theDir.exists()) {
+			theDir.mkdirs();
+		}
+
+		if (htmlFilePath != null) {
+			commandLine.append(" " + htmlFilePath);
+			commandLine.append(" " + jpgFilePath + " \n");
+			String command = commandLine.toString();
+			BufferedReader brCleanUp = null;
+			Process process = null;
+			try {
+				process = Runtime.getRuntime().exec(command);
+				InputStream stderr = process.getErrorStream();
+
+				String line;
+				brCleanUp = new BufferedReader(new InputStreamReader(stderr));
+				while ((line = brCleanUp.readLine()) != null) {
+					log.info("Writing the jpg file {}", line);
+				}
+			} catch (IOException e) {
+				log.error("Exception occurred while writing the png file {}", e);
+			} finally {
+				if (brCleanUp != null) {
+					brCleanUp.close();
+				}
+				if (process != null) {
+					process.destroy();
+				}
+			}
+		} else {
+			log.info("Failed to create PNG file for filename ===> {}", htmlFilePath);
+		}
+		return jpgFilePath;
 	}
 
 }
