@@ -79,7 +79,7 @@
     <p class="lato mb-4 mt-4 color-blue font-20">$organisationName</p>
   </div>
   <div class="qr-code-section text-center">
-	<img src="$qrcodeurl" alt="QR Code" style="width:350;" class="bar-code-img"/>
+	<img src="$qrcodeurl" alt="QR Code" class="bar-code-img"/>
   </div>
   <div class="text-center lato">
     <p class="lato mb-4 mt-4 font-16">Scan QR for Registration</p>
