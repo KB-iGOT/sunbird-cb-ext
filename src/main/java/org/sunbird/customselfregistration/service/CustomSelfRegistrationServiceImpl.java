@@ -227,6 +227,7 @@ public class CustomSelfRegistrationServiceImpl implements CustomSelfRegistration
         HashMap<String, String> session = new HashMap<>();
         session.put(Constants.QR_CODE_URL, generateCustomSelfRegistrationQRCode(qrCodeBody, filePath));
         session.put(Constants.ORGANIZATION_ID, orgId);
+        session.put(Constants.REGISTRATION_LINK_CSR, qrCodeBody);
         Map<String, Object> properyMap = new HashMap<>();
         properyMap.put(Constants.ID, orgId);
         List<Map<String, Object>> cassandraResponse = cassandraOperation.getRecordsByPropertiesWithoutFiltering(Constants.KEYSPACE_SUNBIRD,

@@ -1,57 +1,97 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>QR Code Table</title>
-    <style>
-        table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        th, td {
-            border: 1px solid #ccc;
-            padding: 10px;
-            text-align: center;
-        }
-
-        #qrcode {
-            display: block;
-            margin: 0 auto;
-        }
-        .center {
-          display: block;
-          margin-left: auto;
-          margin-right: auto;
-          width: 50%;
-        }
-
-@media print {
-  footer {page-break-after: always;}
-}
-
-    </style>
+  <meta name="description" content="Webpage description goes here" />
+  <meta charset="utf-8">
+  <title>Change_me</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="author" content="">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lato&family=Montserrat:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
+  <style>
+    .container {
+        width:425px;
+        border-radius: 12px 12px;
+        border:1px solid rgba(0, 0, 0, 0.16);
+        padding: 24px;
+        margin: auto;
+    }
+    .qr-img {
+        width:375px;
+        margin:auto;
+        position: relative;
+    }
+    .register-section {
+        /* text-align: center; */
+    }
+    .text-center {
+        text-align: center;
+    }
+    .lato {
+        font-family: "Lato", serif;
+    }
+    .mb-4 {
+        margin-bottom: 4px;
+    }
+    .mt-4 {
+        margin-top: 4px;
+    }
+    .font-12 {
+        font-size: 12px;
+        line-height: 1.2;
+    }
+    .font-10 {
+        font-size: 10px;
+        line-height: 1.2;
+    }
+    .font-16 {
+        font-size: 16px;
+        line-height: 1.2;
+    }
+    .font-20 {
+        font-size: 24px;
+        line-height: 1.2;
+    }
+    .color-blue {
+        color: #1b4ca1;
+    }
+    .qr-code-section {
+        text-align: center;
+        margin: 12px auto;
+    }
+    .bar-code-img {
+        width: 100%;
+        margin:auto;
+    }
+    .mail-link {
+        text-decoration: none;
+    }
+  </style>
 </head>
 <body>
+<div class="container">
+  <div class="top-header text-center">
+    <img src="img/main-logo.png" />
+  </div>
+  <div class="register-section text-center lato">
+    <p class="lato mb-4 mt-4 font-20">Register for</p>
+    <p class="lato mb-4 mt-4 color-blue font-20">$organisationName</p>
+  </div>
+  <div class="qr-code-section text-center">
+	<img src="$qrcodeurl" alt="QR Code" style="width:350;" class="bar-code-img"/>
+  </div>
+  <div class="text-center lato">
+    <p class="lato mb-4 mt-4 font-16">Scan QR for Registration</p>
+    <p class="lato mb-4 mt-4 font-16">or</p>
+    <p class="lato mb-4 mt-4 color-blue font-16">$registrationLink</p>
+  </div>
+  <div class="text-center">
+    <p class="lato font-12">If you are facing any issues related to registration, </br>
+        please email us on <a href="mailto:mission.karmayogi@gov.in" class="mail-link color-blue">mission.karmayogi@gov.in</a></p>
 
- <br/>
- <br/>
- <br/>
- <br/>
-
-
-    <div id="qrcode">
-        <!-- Replace 'YourQRCodeImageURLHere' with the actual URL of your QR Code image -->
-        <img src="$qrcodeurl" alt="QR Code" style="width:750px;height:750px;" class="center">
-        <div style="text-align:center;font-weight:bold;">
-            Organization Name: $organisationName<br>
-            Organization ID: $organisationId
-        </div>
-    </div>
- <br/>
- <br/>
- <br/>
- <br/>
-<footer/>
+        <p class="lato font-10"><b>Note: Please use for employees of the respective government organisation only.</b></p>
+  </div>
+</div>
 </body>
 </html>
