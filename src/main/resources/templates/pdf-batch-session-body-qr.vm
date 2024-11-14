@@ -11,7 +11,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Lato&family=Montserrat:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
   <style>
     .container {
-        width:425px;
+        width:475px;
         border-radius: 12px 12px;
         border:1px solid rgba(0, 0, 0, 0.16);
         padding: 24px;
