@@ -3,6 +3,9 @@ package org.sunbird.user.registration.service;
 import java.io.BufferedReader;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -103,6 +106,12 @@ public class UserRegistrationServiceImpl implements UserRegistrationService {
 
 					if (regDocument == null
 							|| UserRegistrationStatus.FAILED.name().equalsIgnoreCase(regDocument.getStatus())) {
+						String errorMsg=validateRegistrationDates(userRegInfo);
+						if (StringUtils.isNotBlank(errorMsg)) {
+							response.setResponseCode(HttpStatus.OK);
+							response.getResult().put(Constants.RESULT, errorMsg);
+							return response;
+						}
 						// create / update the doc in ES
 						RestStatus status = null;
 						if (regDocument == null) {
@@ -149,6 +158,27 @@ public class UserRegistrationServiceImpl implements UserRegistrationService {
 		}
 
 		return response;
+	}
+
+	private String validateRegistrationDates(UserRegistrationInfo userRegInfo) {
+		Map<String, Object> properyMap = new HashMap<>();
+		properyMap.put(Constants.ID, userRegInfo.getSbOrgId());
+		List<Map<String, Object>> cassandraResponse = cassandraOperation.getRecordsByPropertiesWithoutFiltering(Constants.KEYSPACE_SUNBIRD,
+				Constants.TABLE_ORGANIZATION, properyMap, null);
+		String registrationstartdate = (String) cassandraResponse.get(0).get("registrationStartDate");
+		String registrationenddate = (String) cassandraResponse.get(0).get("registrationEndDate");
+		if (StringUtils.isNotEmpty(registrationstartdate) && StringUtils.isNotEmpty(registrationenddate) ) {
+			DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"); // Adjust format if necessary
+			ZonedDateTime registrationStartDate = ZonedDateTime.parse(registrationstartdate, formatter.withZone(ZoneId.of("Asia/Calcutta")));
+			ZonedDateTime registrationEndDate = ZonedDateTime.parse(registrationstartdate, formatter.withZone(ZoneId.of("Asia/Calcutta")));
+			ZonedDateTime currentDateTime = ZonedDateTime.now(ZoneId.of("Asia/Calcutta"));
+			if (currentDateTime.isAfter(registrationStartDate) && currentDateTime.isBefore(registrationEndDate)) {
+				return "";
+			} else {
+				return "Registration Time Period is expired";
+			}
+		}
+		return "";
 	}
 
 	@Override

@@ -20,6 +20,7 @@ import org.sunbird.common.util.AccessTokenValidator;
 import org.sunbird.common.util.CbExtServerProperties;
 import org.sunbird.common.util.Constants;
 import org.sunbird.common.util.ProjectUtil;
+import org.sunbird.customselfregistration.model.CustomSelfRegistrationModel;
 import org.sunbird.storage.service.StorageServiceImpl;
 import org.sunbird.workallocation.service.PdfGeneratorServiceImpl;
 
@@ -90,7 +91,16 @@ public class CustomSelfRegistrationServiceImpl implements CustomSelfRegistration
             File qrCodeFile = generateQRCodeFile(registrationLink, qrCodeFilePath,orgId);
             outgoingResponse = uploadQRCodeFile(qrCodeFile);
             if (outgoingResponse.getResponseCode() == HttpStatus.OK) {
-                return processSuccessfulUpload(authUserToken, orgId, registrationLink, qrCodeFile, outgoingResponse);
+                CustomSelfRegistrationModel customSelfRegistrationModel = CustomSelfRegistrationModel.builder()
+                        .orgId(orgId)
+                        .registrationLink(registrationLink)
+                        .qrCodeFilePath(String.format("%s/%s", serverProperties.getQrCustomerSelfRegistrationPath(), qrCodeFile.getName()))
+                        .registrationenddate(String.valueOf(requestBody.get(Constants.REGISTRATION_END_DATE)))
+                        .registrationstartdate(String.valueOf(requestBody.get(Constants.REGISTRATION_START_DATE)))
+                        .description(String.valueOf(requestBody.get(Constants.DESCRIPTION)))
+                        .logo(String.valueOf(requestBody.get(Constants.LOGO)))
+                        .build();
+                return processSuccessfulUpload(authUserToken,customSelfRegistrationModel, outgoingResponse);
             } else {
                 logger.info("CustomSelfRegistrationServiceImpl::getSelfRegistrationQRAndLink : There was an issue while uploading the QR code");
             }
@@ -108,20 +118,22 @@ public class CustomSelfRegistrationServiceImpl implements CustomSelfRegistration
      * Updates the organization details in the database.
      *
      * @param authUserToken The authentication token of the user making the request.
-     * @param orgId         The ID of the organization to update.
-     * @param generateLink  The registration link to update.
-     * @param qrCodePath    The path of the qr code in the container.
+     * @param customSelfRegistrationModel the model containing custom self-registration details, including organization information.
      * @return A map containing the result of the update operation.
      */
-    private Map<String, Object> updateOrgDetailsToDB(String authUserToken, String orgId, String generateLink, String qrCodePath) {
-        logger.info("CustomSelfRegistrationServiceImpl::updateOrgDetailsToDB:Updating the Org details for the organization." + orgId);
+    private Map<String, Object> updateOrgDetailsToDB(String authUserToken, CustomSelfRegistrationModel customSelfRegistrationModel) {
+        logger.info("CustomSelfRegistrationServiceImpl::updateOrgDetailsToDB:Updating the Org details for the organization." + customSelfRegistrationModel.getOrgId());
         Map<String, Object> request = new HashMap<>();
         Map<String, Object> updateRequest = new HashMap<>();
         Map<String, String> headerValues = new HashMap<>();
         headerValues.put(Constants.X_AUTH_TOKEN, authUserToken);
-        request.put(Constants.ORGANIZATION_ID, orgId);
-        request.put(Constants.REGISTRATION_LINK_CSR, generateLink);
-        request.put(Constants.QR_REGISTRATION_LINK_CSR, qrCodePath);
+        request.put(Constants.ORGANIZATION_ID, customSelfRegistrationModel.getOrgId());
+        request.put(Constants.REGISTRATION_LINK_CSR, customSelfRegistrationModel.getRegistrationLink());
+        request.put(Constants.QR_REGISTRATION_LINK_CSR, customSelfRegistrationModel.getQrCodeFilePath());
+        request.put(Constants.REGISTRATION_START_DATE, customSelfRegistrationModel.getRegistrationstartdate());
+        request.put(Constants.REGISTRATION_END_DATE, customSelfRegistrationModel.getRegistrationenddate());
+        request.put( Constants.DESCRIPTION, customSelfRegistrationModel.getDescription());
+        request.put("logo", customSelfRegistrationModel);
         updateRequest.put(Constants.REQUEST, request);
         StringBuilder url = new StringBuilder(serverProperties.getSbUrl());
         url.append(serverProperties.getUpdateOrgPath());
@@ -438,22 +450,18 @@ public class CustomSelfRegistrationServiceImpl implements CustomSelfRegistration
      * Processes a successful upload of a QR code file.
      *
      * @param authUserToken    the authentication token for the user
-     * @param orgId            the ID of the organization
-     * @param registrationLink the registration link for the organization
-     * @param qrCodeFile       the uploaded QR code file
+     * @param customSelfRegistrationModel the model containing custom self-registration details, including organization information.
      * @param response         the API response object
      * @return the updated API response object
      */
-    private SBApiResponse processSuccessfulUpload(String authUserToken, String orgId, String registrationLink, File qrCodeFile, SBApiResponse response) {
-        String qrCodePath = String.format("%s/%s", serverProperties.getQrCustomerSelfRegistrationPath(), qrCodeFile.getName());
-        Map<String, Object> data = updateOrgDetailsToDB(authUserToken, orgId, registrationLink, qrCodePath);
-
+    private SBApiResponse processSuccessfulUpload(String authUserToken, CustomSelfRegistrationModel customSelfRegistrationModel,SBApiResponse response) {
+        Map<String, Object> data = updateOrgDetailsToDB(authUserToken, customSelfRegistrationModel);
         if (MapUtils.isEmpty(data) || !data.get(Constants.RESPONSE_CODE).equals(Constants.OK)) {
-            logger.info("CustomSelfRegistrationServiceImpl::processSuccessfulUpload:Failed to update Org details for organization: " + orgId);
+            logger.info("CustomSelfRegistrationServiceImpl::processSuccessfulUpload:Failed to update Org details for organization: " + customSelfRegistrationModel.getOrgId());
             setInternalServerError(response, "Error while updating the organization details");
         } else {
             response = new SBApiResponse();
-            populateSuccessResponse(response, registrationLink, qrCodePath);
+            populateSuccessResponse(response,customSelfRegistrationModel);
         }
 
         return response;
@@ -475,13 +483,12 @@ public class CustomSelfRegistrationServiceImpl implements CustomSelfRegistration
      * Populates a successful API response object with registration link and QR code path.
      *
      * @param response         the API response object to update
-     * @param registrationLink the registration link to include in the response
-     * @param qrCodePath       the QR code path to include in the response
+     @param customSelfRegistrationModel the model containing custom self-registration details, including organization information.
      */
-    private void populateSuccessResponse(SBApiResponse response, String registrationLink, String qrCodePath) {
+    private void populateSuccessResponse(SBApiResponse response, CustomSelfRegistrationModel customSelfRegistrationModel) {
         Map<String, Object> result = new HashMap<>();
-        result.put(Constants.REGISTRATION_LINK_CSR, registrationLink);
-        result.put(Constants.QR_REGISTRATION_LINK_CSR, qrCodePath);
+        result.put(Constants.REGISTRATION_LINK_CSR, customSelfRegistrationModel.getRegistrationLink());
+        result.put(Constants.QR_REGISTRATION_LINK_CSR, customSelfRegistrationModel.getQrCodeFilePath());
         response.getResult().putAll(result);
         response.getParams().setStatus(Constants.OK);
         response.setResponseCode(HttpStatus.OK);

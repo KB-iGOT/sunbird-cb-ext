@@ -1292,6 +1292,8 @@ public class Constants {
 	public static final String ORG_NAME_LOWERCASE = "orgname";
 	public static final String PNG="png";
 	public static final String JPG="jpg";
+	public static final String REGISTRATION_START_DATE = "registrationStartDate";
+	public static final String LOGO = "logo";
 
 	private Constants() {
 		throw new IllegalStateException("Utility class");
