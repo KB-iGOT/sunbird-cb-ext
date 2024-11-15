@@ -11,8 +11,8 @@ import lombok.*;
 @AllArgsConstructor
 @Builder
 public class CustomSelfRegistrationModel {
-    String registrationstartdate;
-    String registrationenddate;
+    Long registrationstartdate;
+    Long registrationenddate;
     String logo;
     String description;
     String orgId;

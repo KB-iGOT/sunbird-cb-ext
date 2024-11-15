@@ -95,8 +95,8 @@ public class CustomSelfRegistrationServiceImpl implements CustomSelfRegistration
                         .orgId(orgId)
                         .registrationLink(registrationLink)
                         .qrCodeFilePath(String.format("%s/%s", serverProperties.getQrCustomerSelfRegistrationPath(), qrCodeFile.getName()))
-                        .registrationenddate(String.valueOf(requestBody.get(Constants.REGISTRATION_END_DATE)))
-                        .registrationstartdate(String.valueOf(requestBody.get(Constants.REGISTRATION_START_DATE)))
+                        .registrationenddate(Long.valueOf(String.valueOf(requestBody.get(Constants.REGISTRATION_END_DATE))))
+                        .registrationstartdate(Long.valueOf(String.valueOf(requestBody.get(Constants.REGISTRATION_START_DATE))))
                         .description(String.valueOf(requestBody.get(Constants.DESCRIPTION)))
                         .logo(String.valueOf(requestBody.get(Constants.LOGO)))
                         .build();
