@@ -75,14 +75,14 @@ public class CustomSelfRegistrationServiceImpl implements CustomSelfRegistration
         // Create a default response object
         SBApiResponse outgoingResponse = ProjectUtil.createDefaultResponse(Constants.CUSTOM_SELF_REGISTRATION_CREATE_API);
         String qrCodeBody = "";
-        // Create a QR code body
-        HashMap<String, Object> qrBody = new HashMap<>();
         // Validate the access token and fetch the user ID
         String userId = fetchUserIdFromToken(authUserToken, outgoingResponse);
         if (userId == null) return outgoingResponse;
         // Validate the request body
         String orgId = validateRequestBody(requestBody, outgoingResponse);
         if (orgId == null) return outgoingResponse;
+        String errMsg = validateRequestFields(requestBody, outgoingResponse);
+        if(StringUtils.isEmpty(errMsg)) return outgoingResponse;
         //Validate the designation
         if (!isDesignationMappedToOrg(orgId, outgoingResponse)) return outgoingResponse;
         String registrationLink = generateRegistrationLink(orgId);
@@ -493,4 +493,37 @@ public class CustomSelfRegistrationServiceImpl implements CustomSelfRegistration
         response.getParams().setStatus(Constants.OK);
         response.setResponseCode(HttpStatus.OK);
     }
+
+    /**
+     * Validates specific fields in the request and updates the API response accordingly.
+     *
+     * @param request  The request object.
+     * @param response The API response object.
+     * @return An error message if any required field is invalid, otherwise an empty string.
+     */
+    private String validateRequestFields(Map<String, Object> request, SBApiResponse response) {
+        if (StringUtils.isBlank((String) request.get(Constants.REGISTRATION_END_DATE))) {
+            response.getParams().setStatus(Constants.FAILED);
+            response.getParams().setErrmsg("Registration end date is missing");
+            response.setResponseCode(HttpStatus.BAD_REQUEST);
+            return "Registration end date is missing";
+        } else if (StringUtils.isBlank((String) request.get(Constants.REGISTRATION_START_DATE))) {
+            response.getParams().setStatus(Constants.FAILED);
+            response.getParams().setErrmsg("Registration start date is missing");
+            response.setResponseCode(HttpStatus.BAD_REQUEST);
+            return "Registration start date is missing";
+        } else if (StringUtils.isBlank((String) request.get(Constants.LOGO))) {
+            response.getParams().setStatus(Constants.FAILED);
+            response.getParams().setErrmsg("Logo is missing");
+            response.setResponseCode(HttpStatus.BAD_REQUEST);
+            return "Logo is missing";
+        } else if (StringUtils.isBlank((String) request.get(Constants.DESCRIPTION))) {
+            response.getParams().setStatus(Constants.FAILED);
+            response.getParams().setErrmsg("Description is missing");
+            response.setResponseCode(HttpStatus.BAD_REQUEST);
+            return "Description is missing";
+        }
+        return "";
+    }
+
 }
