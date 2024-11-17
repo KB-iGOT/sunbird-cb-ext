@@ -82,7 +82,7 @@ public class CustomSelfRegistrationServiceImpl implements CustomSelfRegistration
         String orgId = validateRequestBody(requestBody, outgoingResponse);
         if (orgId == null) return outgoingResponse;
         String errMsg = validateRequestFields(requestBody, outgoingResponse);
-        if(StringUtils.isEmpty(errMsg)) return outgoingResponse;
+        if(!StringUtils.isEmpty(errMsg)) return outgoingResponse;
         //Validate the designation
         if (!isDesignationMappedToOrg(orgId, outgoingResponse)) return outgoingResponse;
         String registrationLink = generateRegistrationLink(orgId);
@@ -95,8 +95,8 @@ public class CustomSelfRegistrationServiceImpl implements CustomSelfRegistration
                         .orgId(orgId)
                         .registrationLink(registrationLink)
                         .qrCodeFilePath(String.format("%s/%s", serverProperties.getQrCustomerSelfRegistrationPath(), qrCodeFile.getName()))
-                        .registrationenddate(Long.valueOf(String.valueOf(requestBody.get(Constants.REGISTRATION_END_DATE))))
-                        .registrationstartdate(Long.valueOf(String.valueOf(requestBody.get(Constants.REGISTRATION_START_DATE))))
+                        .registrationenddate((Long)requestBody.get(Constants.REGISTRATION_END_DATE))
+                        .registrationstartdate((Long)requestBody.get(Constants.REGISTRATION_START_DATE))
                         .description(String.valueOf(requestBody.get(Constants.DESCRIPTION)))
                         .logo(String.valueOf(requestBody.get(Constants.LOGO)))
                         .build();
@@ -502,17 +502,17 @@ public class CustomSelfRegistrationServiceImpl implements CustomSelfRegistration
      * @return An error message if any required field is invalid, otherwise an empty string.
      */
     private String validateRequestFields(Map<String, Object> request, SBApiResponse response) {
-        if (StringUtils.isBlank((String) request.get(Constants.REGISTRATION_END_DATE))) {
+        if (request.get(Constants.REGISTRATION_END_DATE) == null || (Long) request.get(Constants.REGISTRATION_END_DATE) <= 0) {
             response.getParams().setStatus(Constants.FAILED);
             response.getParams().setErrmsg("Registration end date is missing");
             response.setResponseCode(HttpStatus.BAD_REQUEST);
             return "Registration end date is missing";
-        } else if (StringUtils.isBlank((String) request.get(Constants.REGISTRATION_START_DATE))) {
+        } else if (request.get(Constants.REGISTRATION_START_DATE) == null || (Long) request.get(Constants.REGISTRATION_START_DATE) <= 0) {
             response.getParams().setStatus(Constants.FAILED);
             response.getParams().setErrmsg("Registration start date is missing");
             response.setResponseCode(HttpStatus.BAD_REQUEST);
             return "Registration start date is missing";
-        } else if (StringUtils.isBlank((String) request.get(Constants.LOGO))) {
+        }else if (StringUtils.isBlank((String) request.get(Constants.LOGO))) {
             response.getParams().setStatus(Constants.FAILED);
             response.getParams().setErrmsg("Logo is missing");
             response.setResponseCode(HttpStatus.BAD_REQUEST);
