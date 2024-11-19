@@ -130,8 +130,8 @@ public class CustomSelfRegistrationServiceImpl implements CustomSelfRegistration
         request.put(Constants.ORGANIZATION_ID, customSelfRegistrationModel.getOrgId());
         request.put(Constants.REGISTRATION_LINK_CSR, customSelfRegistrationModel.getRegistrationLink());
         request.put(Constants.QR_REGISTRATION_LINK_CSR, customSelfRegistrationModel.getQrCodeFilePath());
-        request.put(Constants.REGISTRATION_START_DATE, customSelfRegistrationModel.getRegistrationstartdate());
-        request.put(Constants.REGISTRATION_END_DATE, customSelfRegistrationModel.getRegistrationenddate());
+        request.put(Constants.REGISTRATION_START_DATE, customSelfRegistrationModel.getRegistrationstartdate().toString());
+        request.put(Constants.REGISTRATION_END_DATE, customSelfRegistrationModel.getRegistrationenddate().toString());
         request.put( Constants.DESCRIPTION, customSelfRegistrationModel.getDescription());
         request.put("logo", customSelfRegistrationModel);
         updateRequest.put(Constants.REQUEST, request);
