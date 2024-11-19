@@ -97,8 +97,6 @@ public class CustomSelfRegistrationServiceImpl implements CustomSelfRegistration
                         .qrCodeFilePath(String.format("%s/%s", serverProperties.getQrCustomerSelfRegistrationPath(), qrCodeFile.getName()))
                         .registrationenddate((Long)requestBody.get(Constants.REGISTRATION_END_DATE))
                         .registrationstartdate((Long)requestBody.get(Constants.REGISTRATION_START_DATE))
-                        .description(String.valueOf(requestBody.get(Constants.DESCRIPTION)))
-                        .logo(String.valueOf(requestBody.get(Constants.LOGO)))
                         .build();
                 return processSuccessfulUpload(authUserToken,customSelfRegistrationModel, outgoingResponse);
             } else {
@@ -132,8 +130,6 @@ public class CustomSelfRegistrationServiceImpl implements CustomSelfRegistration
         request.put(Constants.QR_REGISTRATION_LINK_CSR, customSelfRegistrationModel.getQrCodeFilePath());
         request.put(Constants.REGISTRATION_START_DATE, customSelfRegistrationModel.getRegistrationstartdate().toString());
         request.put(Constants.REGISTRATION_END_DATE, customSelfRegistrationModel.getRegistrationenddate().toString());
-        request.put( Constants.DESCRIPTION, customSelfRegistrationModel.getDescription());
-        request.put("logo", customSelfRegistrationModel);
         updateRequest.put(Constants.REQUEST, request);
         StringBuilder url = new StringBuilder(serverProperties.getSbUrl());
         url.append(serverProperties.getUpdateOrgPath());
@@ -512,16 +508,6 @@ public class CustomSelfRegistrationServiceImpl implements CustomSelfRegistration
             response.getParams().setErrmsg("Registration start date is missing");
             response.setResponseCode(HttpStatus.BAD_REQUEST);
             return "Registration start date is missing";
-        }else if (StringUtils.isBlank((String) request.get(Constants.LOGO))) {
-            response.getParams().setStatus(Constants.FAILED);
-            response.getParams().setErrmsg("Logo is missing");
-            response.setResponseCode(HttpStatus.BAD_REQUEST);
-            return "Logo is missing";
-        } else if (StringUtils.isBlank((String) request.get(Constants.DESCRIPTION))) {
-            response.getParams().setStatus(Constants.FAILED);
-            response.getParams().setErrmsg("Description is missing");
-            response.setResponseCode(HttpStatus.BAD_REQUEST);
-            return "Description is missing";
         }
         return "";
     }
