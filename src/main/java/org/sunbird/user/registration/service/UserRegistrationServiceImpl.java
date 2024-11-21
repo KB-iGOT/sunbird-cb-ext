@@ -165,10 +165,10 @@ public class UserRegistrationServiceImpl implements UserRegistrationService {
 		properyMap.put(Constants.ID, userRegInfo.getSbOrgId());
 		List<Map<String, Object>> cassandraResponse = cassandraOperation.getRecordsByPropertiesWithoutFiltering(Constants.KEYSPACE_SUNBIRD,
 				Constants.TABLE_ORGANIZATION, properyMap, null);
-		String registrationstartdate = (String) cassandraResponse.get(0).get("registrationStartDate");
-		String registrationenddate = (String) cassandraResponse.get(0).get("registrationEndDate");
+		String registrationstartdate = (String) cassandraResponse.get(0).get("startdateregistration");
+		String registrationenddate = (String) cassandraResponse.get(0).get("enddateregistration");
 		if (StringUtils.isNotEmpty(registrationstartdate) && StringUtils.isNotEmpty(registrationenddate) ) {
-			DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"); // Adjust format if necessary
+			DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS"); // Adjust format if necessary
 			ZonedDateTime registrationStartDate = ZonedDateTime.parse(registrationstartdate, formatter.withZone(ZoneId.of("Asia/Calcutta")));
 			ZonedDateTime registrationEndDate = ZonedDateTime.parse(registrationstartdate, formatter.withZone(ZoneId.of("Asia/Calcutta")));
 			ZonedDateTime currentDateTime = ZonedDateTime.now(ZoneId.of("Asia/Calcutta"));

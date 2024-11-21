@@ -1294,6 +1294,7 @@ public class Constants {
 	public static final String JPG="jpg";
 	public static final String REGISTRATION_START_DATE = "registrationStartDate";
 	public static final String LOGO = "logo";
+	public static final String API_ORG_EXT_UPDATE = "api.org.extended.update";
 
 	private Constants() {
 		throw new IllegalStateException("Utility class");

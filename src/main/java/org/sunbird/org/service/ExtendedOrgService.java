@@ -19,4 +19,6 @@ public interface ExtendedOrgService {
 	public SBApiResponse orgExtSearchV2(Map<String, Object> request);
 
 	SBApiResponse listAllOrg(String parentMapId);
+
+	SBApiResponse update(Map<String, Object> orgRequest, String userToken);
 }

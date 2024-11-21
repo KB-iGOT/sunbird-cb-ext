@@ -26,7 +26,6 @@ import org.sunbird.common.service.OutboundRequestHandlerServiceImpl;
 import org.sunbird.common.util.CbExtServerProperties;
 import org.sunbird.common.util.Constants;
 import org.sunbird.common.util.ProjectUtil;
-import org.sunbird.core.logger.CbExtLogger;
 import org.sunbird.org.model.OrgHierarchy;
 import org.sunbird.org.model.OrgHierarchyInfo;
 import org.sunbird.org.repository.OrgHierarchyRepository;
@@ -838,5 +837,124 @@ public class ExtendedOrgServiceImpl implements ExtendedOrgService {
 		}
 
 		return response;
+	}
+
+	/**
+	 * Updates the organization details for the given organization ID.
+	 *
+	 * @param orgRequest the organization request data
+	 * @param userToken  the user authentication token
+	 * @return the API response object
+	 */
+	@Override
+	public SBApiResponse update(Map<String, Object> orgRequest, String userToken) {
+		logger.info("ExtendedOrgServiceImpl::update::Starting the update of the organization");
+		SBApiResponse outgoingResponse = ProjectUtil.createDefaultResponse(Constants.API_ORG_EXT_UPDATE);
+		String errMsg = validateRequestFields(orgRequest, outgoingResponse);
+		if (!StringUtils.isEmpty(errMsg)) return outgoingResponse;
+		List<OrgHierarchy> orgHierarchyList = orgRepository.findAllBySbOrgId(Collections.singletonList((String) orgRequest.get(Constants.ORG_ID)));
+		String sborgsubtype = "";
+		if (CollectionUtils.isNotEmpty(orgHierarchyList) && orgHierarchyList.get(0) != null) {
+			sborgsubtype = orgHierarchyList.get(0).getSbOrgSubType();
+			logger.info("ExtendedOrgServiceImpl::update::SbOrgType: " + sborgsubtype + " for the organization" + orgRequest.get(Constants.ORG_ID));
+		}
+		if (Constants.BOARD.equalsIgnoreCase(sborgsubtype)) {
+			logger.info("ExtendedOrgServiceImpl::update:: Updating the board details for organization:" + orgRequest.get(Constants.ORG_ID));
+			orgRepository.updateOrgNameBySbOrgId((String) orgRequest.get(Constants.ORG_ID), (String) orgRequest.get(Constants.ORG_NAME));
+			OrgHierarchyInfo orgHierarchyInfo = new OrgHierarchyInfo();
+			orgHierarchyInfo.setOrgName((String) orgRequest.get(Constants.ORG_NAME));
+			orgHierarchyInfo.setSbOrgId((String) orgRequest.get(Constants.ORG_ID));
+			Map<String, Object> orgDataUpdateResonse = updateOrgDetailsToDB(userToken, orgHierarchyInfo, orgRequest);
+			if (MapUtils.isEmpty(orgDataUpdateResonse) || !orgDataUpdateResonse.get(Constants.RESPONSE_CODE).equals(Constants.OK)) {
+				logger.info("ExtendedOrgServiceImpl::update::Failed to update Org details for organization: " + orgHierarchyInfo.getSbOrgId());
+				setInternalServerError(outgoingResponse, "Error while updating the organization details");
+			} else {
+				populateSuccessResponse(outgoingResponse);
+			}
+		} else {
+			Map<String, Object> result = new HashMap<>();
+			logger.info("ExtendedOrgServiceImpl::update:: SbOrgType is not 'board' for the organization:" + orgRequest.get(Constants.ORG_ID));
+			result.put(Constants.SB_SUB_ORG_TYPE, "Updating ministry,state or department is not allowed");
+			outgoingResponse.getResult().putAll(result);
+			outgoingResponse.getParams().setStatus(Constants.OK);
+			outgoingResponse.setResponseCode(HttpStatus.OK);
+		}
+		return outgoingResponse;
+	}
+
+	/**
+	 * Validates specific fields in the request and updates the API response accordingly.
+	 *
+	 * @param request  The request object.
+	 * @param response The API response object.
+	 * @return An error message if any required field is invalid, otherwise an empty string.
+	 */
+	private String validateRequestFields(Map<String, Object> request, SBApiResponse response) {
+		if (StringUtils.isBlank(MapUtils.getString(request, Constants.ORG_ID))) {
+			response.getParams().setStatus(Constants.FAILED);
+			response.getParams().setErrmsg("Organization ID is missing");
+			response.setResponseCode(HttpStatus.BAD_REQUEST);
+			return "Organization ID is missing";
+		}
+		if (StringUtils.isBlank(MapUtils.getString(request, Constants.ORG_NAME))) {
+			response.getParams().setStatus(Constants.FAILED);
+			response.getParams().setErrmsg("Organization name is missing");
+			response.setResponseCode(HttpStatus.BAD_REQUEST);
+			return "Organization name is missing";
+		}
+		return "";
+	}
+
+
+	/**
+	 * Updates the organization details in the database using the provided request data.
+	 *
+	 * @param authUserToken    the authentication token for the user making the request
+	 * @param orgHierarchyInfo the organization hierarchy information
+	 * @param orgRequest       the organization request data
+	 * @return the result of the update operation
+	 */
+	private Map<String, Object> updateOrgDetailsToDB(String authUserToken, OrgHierarchyInfo orgHierarchyInfo, Map<String, Object> orgRequest) {
+		logger.info("ExtendedOrgServiceImpl::updateOrgDetailsToDB:Updating the Org details for the organization." + orgHierarchyInfo.getSbOrgId());
+		Map<String, Object> request = new HashMap<>();
+		Map<String, Object> updateRequest = new HashMap<>();
+		Map<String, String> headerValues = new HashMap<>();
+		headerValues.put(Constants.X_AUTH_TOKEN, authUserToken);
+		request.put(Constants.ORGANIZATION_ID, orgHierarchyInfo.getSbOrgId());
+		request.put(Constants.ORG_NAME, orgHierarchyInfo.getOrgName());
+		if (MapUtils.getObject(orgRequest, Constants.DESCRIPTION) != null) {
+			request.put(Constants.DESCRIPTION, orgRequest.get(Constants.DESCRIPTION));
+		}
+		if (MapUtils.getObject(orgRequest, Constants.LOGO) != null) {
+			request.put(Constants.LOGO, orgRequest.get(Constants.LOGO));
+		}
+		updateRequest.put(Constants.REQUEST, request);
+		return outboundService.fetchResultUsingPatch(
+				configProperties.getSbUrl() + configProperties.getUpdateOrgPath(), updateRequest, headerValues);
+	}
+
+	/**
+	 * Sets the internal server error response for a given API response object.
+	 *
+	 * @param response the API response object to update
+	 * @param errorMsg the error message to include in the response
+	 */
+	private void setInternalServerError(SBApiResponse response, String errorMsg) {
+		response.getParams().setStatus(HttpStatus.INTERNAL_SERVER_ERROR.toString());
+		response.getParams().setErrmsg(errorMsg);
+		response.setResponseCode(HttpStatus.INTERNAL_SERVER_ERROR);
+	}
+
+	/**
+	 * Populates the success response object with the result of the organization ID update operation.
+	 *
+	 * @param response the API response object to be populated
+	 */
+	private void populateSuccessResponse(SBApiResponse response) {
+		Map<String, Object> result = new HashMap<>();
+		result.put(Constants.ORGANIZATION_ID, "Organisation Id Updated successfully");
+		response.getResult().putAll(result);
+		response.getParams().setStatus(Constants.OK);
+		response.setResponseCode(HttpStatus.OK);
 	}
 }

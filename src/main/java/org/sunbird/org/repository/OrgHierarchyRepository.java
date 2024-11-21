@@ -62,4 +62,10 @@ public interface OrgHierarchyRepository extends JpaRepository<OrgHierarchy, Inte
 
     @Query(value = "SELECT * FROM org_hierarchy_v4 WHERE LOWER(?1) IN (LOWER(parentmapid), LOWER(l1MapId), LOWER(l2MapId), LOWER(l3MapId))  AND sborgid IS NOT NULL", nativeQuery = true)
     List<OrgHierarchy> findAllOrgByParentMapId(String parentMapId);
+
+    @Transactional
+    @Modifying(clearAutomatically = true)
+    @Query(value = "UPDATE org_hierarchy_v4 SET orgname = ?2 WHERE sborgid = ?1", nativeQuery = true)
+    void updateOrgNameBySbOrgId(String sbOrgId, String orgName);
+
 }
