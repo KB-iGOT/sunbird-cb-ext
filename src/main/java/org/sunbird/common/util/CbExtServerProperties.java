@@ -963,6 +963,9 @@ public class CbExtServerProperties {
 	@Value("${bp.report.default.field.map}")
 	private String bpEnrolmentReportDefaultFields;
 
+	@Value("${qr.custom.self.registration.skip.validation}")
+	private String skipQRCodeValdationCheck;
+
 	public String getCiosCloudIconFolderName() {
 		return ciosCloudIconFolderName;
 	}
@@ -3326,5 +3329,13 @@ public class CbExtServerProperties {
 
 	public void setBpEnrolmentReportDefaultFields(String bpEnrolmentReportDefaultFields) {
 		this.bpEnrolmentReportDefaultFields = bpEnrolmentReportDefaultFields;
+	}
+
+	public String getSkipQRCodeValdationCheck() {
+		return skipQRCodeValdationCheck;
+	}
+
+	public void setSkipQRCodeValdationCheck(String skipQRCodeValdationCheck) {
+		this.skipQRCodeValdationCheck = skipQRCodeValdationCheck;
 	}
 }

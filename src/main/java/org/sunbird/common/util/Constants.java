@@ -1295,6 +1295,11 @@ public class Constants {
 	public static final String REGISTRATION_START_DATE = "registrationStartDate";
 	public static final String LOGO = "logo";
 	public static final String API_ORG_EXT_UPDATE = "api.org.extended.update";
+	public static final String CREATED_DATE_TIME = "createdDateTime";
+	public static final String NUMBER_OF_USERS_ONBOARDED = "numberOfUsersOnBoarded";
+	public static final String REGISTRATION_QR_CODE_TABLE = "registration_qr_code";
+	public static final String EXPIRED = "expired";
+	public static final String TRUE = "true";
 
 	private Constants() {
 		throw new IllegalStateException("Utility class");

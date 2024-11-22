@@ -106,12 +106,6 @@ public class UserRegistrationServiceImpl implements UserRegistrationService {
 
 					if (regDocument == null
 							|| UserRegistrationStatus.FAILED.name().equalsIgnoreCase(regDocument.getStatus())) {
-						String errorMsg=validateRegistrationDates(userRegInfo);
-						if (StringUtils.isNotBlank(errorMsg)) {
-							response.setResponseCode(HttpStatus.OK);
-							response.getResult().put(Constants.RESULT, errorMsg);
-							return response;
-						}
 						// create / update the doc in ES
 						RestStatus status = null;
 						if (regDocument == null) {
