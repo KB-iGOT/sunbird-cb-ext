@@ -1300,6 +1300,8 @@ public class Constants {
 	public static final String REGISTRATION_QR_CODE_TABLE = "registration_qr_code";
 	public static final String EXPIRED = "expired";
 	public static final String TRUE = "true";
+	public static final String ASIA_CALCUTTA_TIMEZONE = "Asia/Calcutta";
+	public static final String REGISTRATION_LINK_CSR_LOWERCASE = "registrationlink";
 
 	private Constants() {
 		throw new IllegalStateException("Utility class");
