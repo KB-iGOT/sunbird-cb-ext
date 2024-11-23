@@ -7,6 +7,7 @@ import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
@@ -106,6 +107,12 @@ public class UserRegistrationServiceImpl implements UserRegistrationService {
 
 					if (regDocument == null
 							|| UserRegistrationStatus.FAILED.name().equalsIgnoreCase(regDocument.getStatus())) {
+						String errorMsg=validateRegistrationDates(userRegInfo);
+						if (StringUtils.isNotBlank(errorMsg)) {
+							response.setResponseCode(HttpStatus.OK);
+							response.getResult().put(Constants.RESULT, errorMsg);
+							return response;
+						}
 						// create / update the doc in ES
 						RestStatus status = null;
 						if (regDocument == null) {
@@ -154,26 +161,6 @@ public class UserRegistrationServiceImpl implements UserRegistrationService {
 		return response;
 	}
 
-	private String validateRegistrationDates(UserRegistrationInfo userRegInfo) {
-		Map<String, Object> properyMap = new HashMap<>();
-		properyMap.put(Constants.ID, userRegInfo.getSbOrgId());
-		List<Map<String, Object>> cassandraResponse = cassandraOperation.getRecordsByPropertiesWithoutFiltering(Constants.KEYSPACE_SUNBIRD,
-				Constants.TABLE_ORGANIZATION, properyMap, null);
-		String registrationstartdate = (String) cassandraResponse.get(0).get("startdateregistration");
-		String registrationenddate = (String) cassandraResponse.get(0).get("enddateregistration");
-		if (StringUtils.isNotEmpty(registrationstartdate) && StringUtils.isNotEmpty(registrationenddate) ) {
-			DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS"); // Adjust format if necessary
-			ZonedDateTime registrationStartDate = ZonedDateTime.parse(registrationstartdate, formatter.withZone(ZoneId.of("Asia/Calcutta")));
-			ZonedDateTime registrationEndDate = ZonedDateTime.parse(registrationstartdate, formatter.withZone(ZoneId.of("Asia/Calcutta")));
-			ZonedDateTime currentDateTime = ZonedDateTime.now(ZoneId.of("Asia/Calcutta"));
-			if (currentDateTime.isAfter(registrationStartDate) && currentDateTime.isBefore(registrationEndDate)) {
-				return "";
-			} else {
-				return "Registration Time Period is expired";
-			}
-		}
-		return "";
-	}
 
 	@Override
 	public SBApiResponse getUserRegistrationDetails(String registrationCode) {
@@ -666,6 +653,49 @@ public class UserRegistrationServiceImpl implements UserRegistrationService {
 		return records.stream()
 				.map(map -> (String) map.get(Constants.CONTEXT_NAME))
 				.collect(Collectors.toSet());
+	}
+
+
+	private String validateRegistrationDates(UserRegistrationInfo userRegistrationInfo) {
+		Map<String, Object> properyMap = new HashMap<>();
+		properyMap.put(Constants.ID, userRegistrationInfo.getSbOrgId());
+		List<Map<String, Object>> cassandraResponse = cassandraOperation.getRecordsByPropertiesWithoutFiltering(Constants.KEYSPACE_SUNBIRD,
+				Constants.TABLE_ORGANIZATION, properyMap, null);
+		String registrationLinkCode = (String) cassandraResponse.get(0).get("registrationlink");
+		String orgId = (String) cassandraResponse.get(0).get("id");
+		String uniqueCode=extractIdFromUrl(registrationLinkCode);
+		properyMap = new HashMap<>();
+		properyMap.put(Constants.ORG_ID, orgId);
+		properyMap.put("id", uniqueCode);
+		cassandraResponse = cassandraOperation.getRecordsByPropertiesWithoutFiltering(Constants.KEYSPACE_SUNBIRD,
+				Constants.REGISTRATION_QR_CODE_TABLE, properyMap, null);
+		String registrationstartdate = (String) cassandraResponse.get(0).get("startDate");
+		String registrationenddate = (String) cassandraResponse.get(0).get("endDate");
+		if (StringUtils.isNotEmpty(registrationstartdate) && StringUtils.isNotEmpty(registrationenddate)) {
+			DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS"); // Adjust format if necessary
+			ZonedDateTime registrationStartDate = ZonedDateTime.parse(registrationstartdate, formatter.withZone(ZoneId.of("Asia/Calcutta")));
+			ZonedDateTime registrationEndDate = ZonedDateTime.parse(registrationstartdate, formatter.withZone(ZoneId.of("Asia/Calcutta")));
+			ZonedDateTime currentDateTime = ZonedDateTime.now(ZoneId.of("Asia/Calcutta"));
+			if (currentDateTime.isAfter(registrationStartDate) && currentDateTime.isBefore(registrationEndDate) && cassandraResponse.get(0).get("status").equals("active")) {
+				return "";
+			} else {
+				return "Registration Time Period is expired";
+			}
+		}
+		return "";
+	}
+
+	public static String extractIdFromUrl(String url) {
+		// Regex pattern to capture the id from the URL
+		String regex = "/([^/]+)/crp";  // Matches any string between slashes and before "/crp"
+		Pattern pattern = Pattern.compile(regex);
+		Matcher matcher = pattern.matcher(url);
+
+		// If the pattern matches, return the captured id
+		if (matcher.find()) {
+			return matcher.group(1);  // The first captured group
+		}
+		return null;  // Return null if no match found
 	}
 
 }

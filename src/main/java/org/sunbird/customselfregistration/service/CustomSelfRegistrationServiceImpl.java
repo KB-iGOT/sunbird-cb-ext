@@ -94,13 +94,14 @@ public class CustomSelfRegistrationServiceImpl implements CustomSelfRegistration
         if(!StringUtils.isEmpty(errMsg)) return outgoingResponse;
         //Validate the designation
         if (!isDesignationMappedToOrg(orgId, outgoingResponse)) return outgoingResponse;
-        String registrationLink = generateRegistrationLink(orgId);
+        String uniqueId = String.valueOf(System.currentTimeMillis());
+        String registrationLink = generateRegistrationLink(orgId,uniqueId);
         String qrCodeFilePath = createQRCodeFilePath(orgId);
         try {
             File qrCodeFile = generateQRCodeFile(registrationLink, qrCodeFilePath,orgId);
             outgoingResponse = uploadQRCodeFile(qrCodeFile);
             if (outgoingResponse.getResponseCode() == HttpStatus.OK) {
-                CustomSelfRegistrationModel customSelfRegistrationModel = getCustomSelfRegistrationModel(requestBody, orgId, registrationLink, qrCodeFile, "userId");
+                CustomSelfRegistrationModel customSelfRegistrationModel = getCustomSelfRegistrationModel(requestBody, orgId, registrationLink, qrCodeFile, userId,uniqueId);
                 return processSuccessfulUpload(authUserToken, customSelfRegistrationModel, outgoingResponse);
             } else {
                 logger.info("CustomSelfRegistrationServiceImpl::getSelfRegistrationQRAndLink : There was an issue while uploading the QR code");
@@ -396,8 +397,8 @@ public class CustomSelfRegistrationServiceImpl implements CustomSelfRegistration
      * @param orgId the organization ID to generate the registration link for
      * @return the generated registration link
      */
-    private String generateRegistrationLink(String orgId) {
-        return serverProperties.getUrlCustomerSelfRegistration() + orgId;
+    private String generateRegistrationLink(String orgId, String id) {
+        return serverProperties.getUrlCustomerSelfRegistration() + id + "/crp?id=" + orgId;
     }
 
     /**
@@ -457,7 +458,7 @@ public class CustomSelfRegistrationServiceImpl implements CustomSelfRegistration
         if (MapUtils.isEmpty(data) || !data.get(Constants.RESPONSE_CODE).equals(Constants.OK)) {
             logger.info("CustomSelfRegistrationServiceImpl::processSuccessfulUpload:Failed to update Org details for organization: " + customSelfRegistrationModel.getOrgId());
             setInternalServerError(response, "Error while updating the organization details");
-        }else if(!HttpStatus.OK.equals(updateDBresponse.getResponseCode())){
+        }else if(!Constants.SUCCESS.equals(updateDBresponse.get(Constants.RESPONSE))){
             logger.info("CustomSelfRegistrationServiceImpl::processSuccessfulUpload:Failed to update QR Registration details for organization: " + customSelfRegistrationModel.getOrgId());
             setInternalServerError(response, "Error while updating the qr registration code details");
         }else {
@@ -525,9 +526,10 @@ public class CustomSelfRegistrationServiceImpl implements CustomSelfRegistration
      * @param registrationLink The registration link.
      * @param qrCodeFile    The QR code file.
      * @param userId        The user ID.
+     * @param uniqueId  currenttimestamp as string is appended in the url path.
      * @return A CustomSelfRegistrationModel instance.
      */
-    private CustomSelfRegistrationModel getCustomSelfRegistrationModel(Map<String, Object> requestBody, String orgId, String registrationLink, File qrCodeFile, String userId) {
+    private CustomSelfRegistrationModel getCustomSelfRegistrationModel(Map<String, Object> requestBody, String orgId, String registrationLink, File qrCodeFile, String userId, String uniqueId) {
         logger.info("CustomSelfRegistrationServiceImpl::getCustomSelfRegistrationModel : Creating the CustomSelfRegistrationModel instance for organization: " + orgId);
         ZoneId zoneId = ZoneId.of("Asia/Kolkata");
         ZonedDateTime registrationStartDateLong = Instant.ofEpochMilli(Long.parseLong(String.valueOf(requestBody.get(Constants.REGISTRATION_END_DATE)))).atZone(zoneId);
@@ -544,7 +546,7 @@ public class CustomSelfRegistrationServiceImpl implements CustomSelfRegistration
                 .status(Constants.ACTIVE)
                 .createdby(userId)
                 .numberofusersonboarded(0L)
-                .id(String.valueOf(System.currentTimeMillis()))
+                .id(uniqueId)
                 .createddatetime(ZonedDateTime.now(zoneId).format(formatter))
                 .build();
     }
