@@ -20,13 +20,16 @@ import org.sunbird.common.util.AccessTokenValidator;
 import org.sunbird.common.util.CbExtServerProperties;
 import org.sunbird.common.util.Constants;
 import org.sunbird.common.util.ProjectUtil;
+import org.sunbird.org.model.CustomeSelfRegistrationEntity;
 import org.sunbird.customselfregistration.model.CustomSelfRegistrationModel;
+import org.sunbird.org.repository.CustomSelfRegistrationRepository;
 import org.sunbird.storage.service.StorageServiceImpl;
 import org.sunbird.workallocation.service.PdfGeneratorServiceImpl;
 
 import java.io.File;
 import java.io.IOException;
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
@@ -66,6 +69,9 @@ public class CustomSelfRegistrationServiceImpl implements CustomSelfRegistration
     @Autowired
     CassandraOperation cassandraOperation;
 
+    @Autowired
+    private CustomSelfRegistrationRepository qrRegistrationCodeRepository;
+
     /**
      * Generates a self-registration QR code and link for the organisation.
      *
@@ -101,7 +107,7 @@ public class CustomSelfRegistrationServiceImpl implements CustomSelfRegistration
             File qrCodeFile = generateQRCodeFile(registrationLink, qrCodeFilePath,orgId);
             outgoingResponse = uploadQRCodeFile(qrCodeFile);
             if (outgoingResponse.getResponseCode() == HttpStatus.OK) {
-                CustomSelfRegistrationModel customSelfRegistrationModel = getCustomSelfRegistrationModel(requestBody, orgId, registrationLink, qrCodeFile, userId,uniqueId);
+                CustomSelfRegistrationModel customSelfRegistrationModel = getCustomSelfRegistrationModel(requestBody, orgId, registrationLink, qrCodeFile, "userId",uniqueId);
                 return processSuccessfulUpload(authUserToken, customSelfRegistrationModel, outgoingResponse);
             } else {
                 logger.info("CustomSelfRegistrationServiceImpl::getSelfRegistrationQRAndLink : There was an issue while uploading the QR code");
@@ -454,13 +460,10 @@ public class CustomSelfRegistrationServiceImpl implements CustomSelfRegistration
      */
     private SBApiResponse processSuccessfulUpload(String authUserToken, CustomSelfRegistrationModel customSelfRegistrationModel, SBApiResponse response) {
         Map<String, Object> data = updateOrgDetailsToDB(authUserToken, customSelfRegistrationModel);
-        SBApiResponse updateDBresponse = updateQRCodeDetailsToDB(customSelfRegistrationModel);
+        updateQRCodeDetailsToDB(customSelfRegistrationModel);
         if (MapUtils.isEmpty(data) || !data.get(Constants.RESPONSE_CODE).equals(Constants.OK)) {
             logger.info("CustomSelfRegistrationServiceImpl::processSuccessfulUpload:Failed to update Org details for organization: " + customSelfRegistrationModel.getOrgId());
             setInternalServerError(response, "Error while updating the organization details");
-        }else if(!Constants.SUCCESS.equals(updateDBresponse.get(Constants.RESPONSE))){
-            logger.info("CustomSelfRegistrationServiceImpl::processSuccessfulUpload:Failed to update QR Registration details for organization: " + customSelfRegistrationModel.getOrgId());
-            setInternalServerError(response, "Error while updating the qr registration code details");
         }else {
             response = new SBApiResponse();
             populateSuccessResponse(response,customSelfRegistrationModel);
@@ -559,16 +562,15 @@ public class CustomSelfRegistrationServiceImpl implements CustomSelfRegistration
      */
     private boolean isRegistrationQRCodeActive(String orgId) {
         logger.info("CustomSelfRegistrationServiceImpl::isRegistrationQRCodeActive : Checking if registration QR code is active for orgId: {}", orgId);
-        Map<String, Object> properyMap = new HashMap<>();
-        properyMap.put(Constants.ORG_ID, orgId);
-        List<Map<String, Object>> cassandraResponse = cassandraOperation.getRecordsByPropertiesWithoutFiltering(Constants.KEYSPACE_SUNBIRD,
-                Constants.REGISTRATION_QR_CODE_TABLE, properyMap, null);
-        if (cassandraResponse.isEmpty()) {
+        List<CustomeSelfRegistrationEntity> qrRegistrationCodeByOrgIds = qrRegistrationCodeRepository.findAllByOrgId(orgId);
+        if (qrRegistrationCodeByOrgIds.isEmpty()) {
             return false;
-        } else if (Constants.ACTIVE.equalsIgnoreCase((String) cassandraResponse.get(0).get(Constants.STATUS))) {
-            return !Constants.TRUE.equalsIgnoreCase(serverProperties.getSkipQRCodeValdationCheck());
-        } else if (Constants.EXPIRED.equalsIgnoreCase((String) cassandraResponse.get(0).get(Constants.STATUS))) {
-            return false;
+        }
+        for (CustomeSelfRegistrationEntity qrCode : qrRegistrationCodeByOrgIds) {
+            String status = qrCode.getStatus();
+            if (Constants.ACTIVE.equalsIgnoreCase(status)) {
+                return !Constants.TRUE.equalsIgnoreCase(serverProperties.getSkipQRCodeValdationCheck());
+            }
         }
         return false;
     }
@@ -577,21 +579,96 @@ public class CustomSelfRegistrationServiceImpl implements CustomSelfRegistration
      * Updates the QR code details in the database using the provided CustomSelfRegistrationModel.
      *
      * @param customSelfRegistrationModel The CustomSelfRegistrationModel containing the updated details.
-     * @return The SBApiResponse containing the result of the update operation.
      */
-    private SBApiResponse updateQRCodeDetailsToDB(CustomSelfRegistrationModel customSelfRegistrationModel) {
+    private void updateQRCodeDetailsToDB(CustomSelfRegistrationModel customSelfRegistrationModel) {
         logger.info("CustomSelfRegistrationServiceImpl::updateQRCodeDetailsToDB : Inserting QR code details for orgId: {}", customSelfRegistrationModel.getOrgId());
-        Map<String, Object> request = new HashMap<>();
-        request.put(Constants.ORG_ID, customSelfRegistrationModel.getOrgId());
-        request.put(Constants.USERID, customSelfRegistrationModel.getId());
-        request.put(Constants.STATUS, customSelfRegistrationModel.getStatus());
-        request.put(Constants.URL, customSelfRegistrationModel.getRegistrationLink());
-        request.put(Constants.START_DATE, customSelfRegistrationModel.getRegistrationstartdate());
-        request.put(Constants.END_DATE, customSelfRegistrationModel.getRegistrationenddate());
-        request.put(Constants.CREATED_BY, customSelfRegistrationModel.getCreatedby());
-        request.put(Constants.CREATED_DATE_TIME, customSelfRegistrationModel.getCreateddatetime());
-        request.put(Constants.NUMBER_OF_USERS_ONBOARDED, customSelfRegistrationModel.getNumberofusersonboarded());
-        return cassandraOperation.insertRecord(Constants.KEYSPACE_SUNBIRD,
-                Constants.REGISTRATION_QR_CODE_TABLE, request);
+        CustomeSelfRegistrationEntity registrationQRCode = CustomeSelfRegistrationEntity.builder()
+                .orgId(customSelfRegistrationModel.getOrgId())
+                .id(customSelfRegistrationModel.getId())
+                .status(customSelfRegistrationModel.getStatus())
+                .url(customSelfRegistrationModel.getRegistrationLink())
+                .startDate(customSelfRegistrationModel.getRegistrationstartdate())
+                .endDate(customSelfRegistrationModel.getRegistrationenddate())
+                .createdBy(customSelfRegistrationModel.getCreatedby())
+                .createdDateTime(customSelfRegistrationModel.getCreateddatetime())
+                .numberOfUsersOnboarded(customSelfRegistrationModel.getNumberofusersonboarded())
+                .build();
+        qrRegistrationCodeRepository.save(registrationQRCode);
+    }
+
+
+    /**
+     * Retrieves the list of all registration done through QR codes for a given organization.
+     *
+     * @param authUserToken The authentication token of the user making the request.
+     * @param requestBody   The request body containing the organization ID.
+     * @return SBApiResponse containing the list of registration done through QR codes or an error message if the request fails.
+     */
+    @Override
+    public SBApiResponse getAllRegistrationQRCodesList(String authUserToken, Map<String, Object> requestBody) {
+        logger.info("CustomSelfRegistrationServiceImpl::getAllRegistrationQRCodesList : Retrieving all the registration QR codes done through qr for orgId");
+        SBApiResponse outgoingResponse = ProjectUtil.createDefaultResponse(Constants.CUSTOM_SELF_REGISTRATION_CREATE_API);
+        // Validate the access token and fetch the user ID
+        String userId = fetchUserIdFromToken(authUserToken, outgoingResponse);
+        if (StringUtils.isBlank(userId)) return outgoingResponse;
+        // Validate the request body
+        String orgId = validateRequestBody(requestBody, outgoingResponse);
+        if (StringUtils.isBlank(orgId)) return outgoingResponse;
+        // Get the QR code details
+        List<CustomeSelfRegistrationEntity> qrRegistrationCodeByOrgIds = qrRegistrationCodeRepository.findAllByOrgId(orgId);
+        if (CollectionUtils.isEmpty(qrRegistrationCodeByOrgIds)) {
+            outgoingResponse.getParams().setStatus(Constants.FAILED);
+            outgoingResponse.getParams().setErrmsg("No QR Code found for this org");
+            outgoingResponse.setResponseCode(HttpStatus.OK);
+            return outgoingResponse;
+        } else {
+            Map<String, Object> result = new HashMap<>();
+            result.put("qrCodeDataForOrg", qrRegistrationCodeByOrgIds);
+            outgoingResponse.getResult().putAll(result);
+            outgoingResponse.getParams().setStatus(Constants.OK);
+            outgoingResponse.setResponseCode(HttpStatus.OK);
+        }
+        return outgoingResponse;
+    }
+
+    /**
+     * Expire registration QR codes for a given organization ID.
+     *
+     * @param requestBody The request body containing the organization ID.
+     * @return The API response with the updated organization IDs and QR code IDs.
+     */
+    @Override
+    public SBApiResponse expireRegistrationQRCodes(Map<String, Object> requestBody) {
+        logger.info("CustomSelfRegistrationServiceImpl::expireRegistrationQRCodes");
+        SBApiResponse outgoingResponse = ProjectUtil.createDefaultResponse(Constants.CUSTOM_SELF_REGISTRATION_CREATE_API);
+        // Validate the request body
+        String orgId = validateRequestBody(requestBody, outgoingResponse);
+        if (StringUtils.isBlank(orgId)) return outgoingResponse;
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS");
+        ZoneId zoneId = ZoneId.of("Asia/Kolkata");
+        LocalDateTime currentDate = LocalDateTime.now(zoneId);
+        List<CustomeSelfRegistrationEntity> qrRegistrationCodeByOrgIds = qrRegistrationCodeRepository.findAllByOrgId(orgId);
+        List<String> orgIds = new ArrayList<>();
+        for (CustomeSelfRegistrationEntity record : qrRegistrationCodeByOrgIds) {
+            String status = record.getStatus();
+            String endDateStr = record.getEndDate();
+            if (Constants.ACTIVE.equalsIgnoreCase(status) && StringUtils.isEmpty(endDateStr)) {
+                try {
+                    LocalDateTime endDate = LocalDateTime.parse(endDateStr, formatter);
+                    if (currentDate.isAfter(endDate)) {
+                        qrRegistrationCodeRepository.updateRegistrationQrCodeWithStatus(record.getOrgId(), record.getId(), "expired");
+                        orgIds.add(record.getOrgId() + "-" + record.getId());
+                    }
+                } catch (Exception e) {
+                    logger.error("Error while updating the data for the orgId " + orgId + " and id " + record.getId());
+                }
+            }
+        }
+        Map<String, Object> result = new HashMap<>();
+        result.put("orgIdsUniqueIdsUpdated", orgIds);
+        outgoingResponse.getResult().putAll(result);
+        outgoingResponse.getParams().setStatus(Constants.OK);
+        outgoingResponse.setResponseCode(HttpStatus.OK);
+        return outgoingResponse;
     }
 }

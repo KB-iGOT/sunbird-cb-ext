@@ -24,4 +24,14 @@ public class CustomSelfRegistrationController {
     public ResponseEntity<SBApiResponse> getBatchSessionQRPdf(@RequestHeader("x-authenticated-user-token") String authUserToken, @Valid @RequestBody Map<String, Object> requestBody) {
         return new ResponseEntity<>(customSelfRegistrationService.getSelfRegistrationQRAndLink(authUserToken,requestBody), HttpStatus.OK);
     }
+
+    @PostMapping(value = "/listAllQRCodes", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<SBApiResponse> getAllRegistrationQRCodesList(@RequestHeader("x-authenticated-user-token") String authUserToken, @Valid @RequestBody Map<String, Object> requestBody) {
+        return new ResponseEntity<>(customSelfRegistrationService.getAllRegistrationQRCodesList(authUserToken,requestBody), HttpStatus.OK);
+    }
+
+    @PostMapping(value = "/expiredQRCodes", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<SBApiResponse> expireRegistrationQRCodes(@Valid @RequestBody Map<String, Object> requestBody) {
+        return new ResponseEntity<>(customSelfRegistrationService.expireRegistrationQRCodes(requestBody), HttpStatus.OK);
+    }
 }

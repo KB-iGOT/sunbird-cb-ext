@@ -18,4 +18,21 @@ public interface CustomSelfRegistrationService {
      * @return An SBApiResponse object containing the response of processing the request.
      */
     SBApiResponse getSelfRegistrationQRAndLink(String authUserToken, Map<String, Object> requestBody);
+
+    /**
+     * Retrieves the list of all registration QR codes.
+     *
+     * @param authUserToken The authentication token of the user making the request.
+     * @param requestBody   The request body containing any additional parameters required for the request.
+     * @return SBApiResponse containing the list of registration QR codes or an error message if the request fails.
+     */
+    SBApiResponse getAllRegistrationQRCodesList(String authUserToken,  Map<String, Object> requestBody);
+
+    /**
+     * Expire registration QR codes for a given organization ID.
+     *
+     * @param requestBody The request body containing the organization ID.
+     * @return The API response with the updated organization IDs and QR code IDs.
+     */
+    SBApiResponse expireRegistrationQRCodes(Map<String, Object> requestBody);
 }

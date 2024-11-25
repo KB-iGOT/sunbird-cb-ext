@@ -41,6 +41,8 @@ import org.sunbird.common.util.Constants;
 import org.sunbird.common.util.IndexerService;
 import org.sunbird.common.util.ProjectUtil;
 import org.sunbird.core.producer.Producer;
+import org.sunbird.org.model.CustomeSelfRegistrationEntity;
+import org.sunbird.org.repository.CustomSelfRegistrationRepository;
 import org.sunbird.org.service.ExtendedOrgService;
 import org.sunbird.portal.department.model.DeptPublicInfo;
 import org.sunbird.user.registration.model.UserRegistration;
@@ -84,6 +86,9 @@ public class UserRegistrationServiceImpl implements UserRegistrationService {
 
 	@Autowired
 	CassandraOperation cassandraOperation;
+
+	@Autowired
+	private CustomSelfRegistrationRepository qrRegistrationCodeRepository;
 
 	@Override
 	public SBApiResponse registerUser(UserRegistrationInfo userRegInfo) {
@@ -658,26 +663,25 @@ public class UserRegistrationServiceImpl implements UserRegistrationService {
 
 	private String validateRegistrationDates(UserRegistrationInfo userRegistrationInfo) {
 		LOGGER.info("UserRegistrationServiceImpl::validateRegistrationDates : started");
-		Map<String, Object> properyMap = new HashMap<>();
-		properyMap.put(Constants.ID, userRegistrationInfo.getSbOrgId());
-		List<Map<String, Object>> cassandraResponse = cassandraOperation.getRecordsByPropertiesWithoutFiltering(Constants.KEYSPACE_SUNBIRD,
-				Constants.TABLE_ORGANIZATION, properyMap, null);
-		String registrationLinkCode = (String) cassandraResponse.get(0).get(Constants.REGISTRATION_LINK_CSR_LOWERCASE);
-		String orgId = (String) cassandraResponse.get(0).get(Constants.ID);
-		String uniqueCode=extractIdFromUrl(registrationLinkCode);
-		properyMap = new HashMap<>();
-		properyMap.put(Constants.ORG_ID, orgId);
-		properyMap.put(Constants.ID, uniqueCode);
-		cassandraResponse = cassandraOperation.getRecordsByPropertiesWithoutFiltering(Constants.KEYSPACE_SUNBIRD,
-				Constants.REGISTRATION_QR_CODE_TABLE, properyMap, null);
-		String registrationstartdate = (String) cassandraResponse.get(0).get(Constants.START_DATE);
-		String registrationenddate = (String) cassandraResponse.get(0).get(Constants.END_DATE);
+		String orgId = userRegistrationInfo.getSbOrgId();
+		String uniqueCode = userRegistrationInfo.getUniqueCodeRegistration();
+		if (StringUtils.isEmpty(uniqueCode)) {
+			LOGGER.info("UserRegistrationServiceImpl::validateRegistrationDates : uniqueCode is missing for orgId " + orgId);
+			return "";
+		}
+		CustomeSelfRegistrationEntity customeSelfRegistrationEntity = qrRegistrationCodeRepository.findAllByOrgIdAndUniqueId(orgId, uniqueCode);
+		if (Objects.isNull(customeSelfRegistrationEntity)) {
+			LOGGER.info("UserRegistrationServiceImpl::validateRegistrationDates : No registration data found for orgId " + orgId + " and uniqueCode " + uniqueCode);
+			return "No registration data found";
+		}
+		String registrationstartdate = customeSelfRegistrationEntity.getStartDate();
+		String registrationenddate = customeSelfRegistrationEntity.getEndDate();
 		if (StringUtils.isNotEmpty(registrationstartdate) && StringUtils.isNotEmpty(registrationenddate)) {
 			DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS");
 			ZonedDateTime registrationStartDate = ZonedDateTime.parse(registrationstartdate, formatter.withZone(ZoneId.of(Constants.ASIA_CALCUTTA_TIMEZONE)));
 			ZonedDateTime registrationEndDate = ZonedDateTime.parse(registrationstartdate, formatter.withZone(ZoneId.of(Constants.ASIA_CALCUTTA_TIMEZONE)));
 			ZonedDateTime currentDateTime = ZonedDateTime.now(ZoneId.of(Constants.ASIA_CALCUTTA_TIMEZONE));
-			if (currentDateTime.isAfter(registrationStartDate) && currentDateTime.isBefore(registrationEndDate) && cassandraResponse.get(0).get(Constants.STATUS).equals(Constants.ACTIVE)) {
+			if (currentDateTime.isAfter(registrationStartDate) && currentDateTime.isBefore(registrationEndDate) && customeSelfRegistrationEntity.getStatus().equals(Constants.ACTIVE)) {
 				LOGGER.info("UserRegistrationServiceImpl::validateRegistrationDates : Registration time period is active for orgId" + orgId + "id : " + uniqueCode);
 				return "";
 			} else {
