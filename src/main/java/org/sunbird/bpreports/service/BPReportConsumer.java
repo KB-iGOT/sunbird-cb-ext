@@ -130,7 +130,7 @@ public class BPReportConsumer {
             List<WfStatusEntity> wfStatusEntities = getAllWfStatusEntitiesByBatchId(batchId);
             if (CollectionUtils.isEmpty(wfStatusEntities)) {
                 logger.info("No workflow status entities found for batchId: {}", batchId);
-                updateDataBase(adminOrgId, courseId, batchId, reportRequester, null, null, Constants.FAILED_UPPERCASE, 0, 0, 0, new Date());
+                updateDataBase(adminOrgId, courseId, batchId, reportRequester, null, null, Constants.COMPLETED_UPPER_CASE, 0, 0, 0, new Date());
                 return;
             }
 
