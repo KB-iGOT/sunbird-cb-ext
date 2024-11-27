@@ -453,7 +453,6 @@ public class CustomSelfRegistrationServiceImpl implements CustomSelfRegistration
      */
     private SBApiResponse processSuccessfulUpload(String authUserToken, CustomSelfRegistrationModel customSelfRegistrationModel, SBApiResponse response) {
         Map<String, Object> data = updateOrgDetailsToDB(authUserToken, customSelfRegistrationModel);
-        updateQRCodeDetailsToDB(customSelfRegistrationModel);
         if (MapUtils.isEmpty(data) || !data.get(Constants.RESPONSE_CODE).equals(Constants.OK)) {
             logger.info("CustomSelfRegistrationServiceImpl::processSuccessfulUpload:Failed to update Org details for organization: " + customSelfRegistrationModel.getOrgId());
             setInternalServerError(response, "Error while updating the organization details");
