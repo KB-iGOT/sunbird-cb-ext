@@ -90,18 +90,11 @@ public class CustomSelfRegistrationServiceImpl implements CustomSelfRegistration
         if (userId == null) return outgoingResponse;
         // Validate the request body
         String orgId = validateRequestBody(requestBody, outgoingResponse);
-        if (isRegistrationQRCodeActive(orgId)) {
-            outgoingResponse.getParams().setStatus(Constants.FAILED);
-            outgoingResponse.getParams().setErrmsg("QR Code is already active for this org");
-            outgoingResponse.setResponseCode(HttpStatus.OK);
-        }
         if (orgId == null) return outgoingResponse;
-        String errMsg = validateRequestFields(requestBody, outgoingResponse);
-        if(!StringUtils.isEmpty(errMsg)) return outgoingResponse;
         //Validate the designation
         if (!isDesignationMappedToOrg(orgId, outgoingResponse)) return outgoingResponse;
         String uniqueId = String.valueOf(System.currentTimeMillis());
-        String registrationLink = generateRegistrationLink(orgId,uniqueId);
+        String registrationLink = generateRegistrationLink(orgId);
         String qrCodeFilePath = createQRCodeFilePath(orgId);
         try {
             File qrCodeFile = generateQRCodeFile(registrationLink, qrCodeFilePath,orgId);
@@ -403,8 +396,8 @@ public class CustomSelfRegistrationServiceImpl implements CustomSelfRegistration
      * @param orgId the organization ID to generate the registration link for
      * @return the generated registration link
      */
-    private String generateRegistrationLink(String orgId, String id) {
-        return serverProperties.getUrlCustomerSelfRegistration() + id + "/crp?id=" + orgId;
+    private String generateRegistrationLink(String orgId) {
+        return serverProperties.getUrlCustomerSelfRegistration()+ orgId;
     }
 
     /**
