@@ -5,6 +5,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 import org.sunbird.common.model.SBApiResponse;
 import org.sunbird.customselfregistration.service.CustomSelfRegistrationService;
 
@@ -33,5 +34,11 @@ public class CustomSelfRegistrationController {
     @PostMapping(value = "/expiredQRCodes", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<SBApiResponse> expireRegistrationQRCodes(@Valid @RequestBody Map<String, Object> requestBody) {
         return new ResponseEntity<>(customSelfRegistrationService.expireRegistrationQRCodes(requestBody), HttpStatus.OK);
+    }
+
+    @PostMapping(value ="/upload/logo/gcpcontainer")
+    public ResponseEntity<SBApiResponse> uploadImageToGCPContainer(@RequestParam(value = "file") MultipartFile multipartFile, @RequestHeader("x-authenticated-user-token") String authUserToken) {
+        SBApiResponse uploadResponse = customSelfRegistrationService.uploadImageToGCPContainer(multipartFile, authUserToken);
+        return new ResponseEntity<>(uploadResponse, uploadResponse.getResponseCode());
     }
 }

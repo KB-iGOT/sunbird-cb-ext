@@ -1302,7 +1302,9 @@ public class Constants {
 	public static final String TRUE = "true";
 	public static final String ASIA_CALCUTTA_TIMEZONE = "Asia/Calcutta";
 	public static final String REGISTRATION_LINK_CSR_LOWERCASE = "registrationlink";
-
+	public static final String IMAGE_UPLOAD_GCP_CONTAINER = "api.image.upload.togcp.container";
+	public static final String CLOUD_FOLDER_NAME = "cloudFolderName";
+	public static final String CLOUD_CONTAINER_NAME = "containerName";
 	private Constants() {
 		throw new IllegalStateException("Utility class");
 	}

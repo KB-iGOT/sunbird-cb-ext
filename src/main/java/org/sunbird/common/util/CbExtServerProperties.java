@@ -966,6 +966,10 @@ public class CbExtServerProperties {
 	@Value("${qr.custom.self.registration.skip.validation}")
 	private String skipQRCodeValdationCheck;
 
+	@Value("${qr.custom.self.registration.uploadlogo.folder.name}")
+	private String qrCustomerSelfRegistrationLogoFolderName;
+
+
 	public String getCiosCloudIconFolderName() {
 		return ciosCloudIconFolderName;
 	}
@@ -3337,5 +3341,13 @@ public class CbExtServerProperties {
 
 	public void setSkipQRCodeValdationCheck(String skipQRCodeValdationCheck) {
 		this.skipQRCodeValdationCheck = skipQRCodeValdationCheck;
+	}
+
+	public String getQrCustomerSelfRegistrationLogoFolderName() {
+		return qrCustomerSelfRegistrationLogoFolderName;
+	}
+
+	public void setQrCustomerSelfRegistrationLogoFolderName(String qrCustomerSelfRegistrationLogoFolderName) {
+		this.qrCustomerSelfRegistrationLogoFolderName = qrCustomerSelfRegistrationLogoFolderName;
 	}
 }

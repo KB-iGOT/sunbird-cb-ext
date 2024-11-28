@@ -1,5 +1,6 @@
 package org.sunbird.customselfregistration.service;
 
+import org.springframework.web.multipart.MultipartFile;
 import org.sunbird.common.model.SBApiResponse;
 
 import java.util.Map;
@@ -35,4 +36,13 @@ public interface CustomSelfRegistrationService {
      * @return The API response with the updated organization IDs and QR code IDs.
      */
     SBApiResponse expireRegistrationQRCodes(Map<String, Object> requestBody);
+
+    /**
+     * Uploads an image to a Google Cloud Platform (GCP) container.
+     *
+     * @param multipartFile the image file to be uploaded
+     * @param authUserToken the authentication token for the user
+     * @return the response object containing the result of the upload operation
+     */
+    SBApiResponse uploadImageToGCPContainer(MultipartFile multipartFile, String authUserToken);
 }

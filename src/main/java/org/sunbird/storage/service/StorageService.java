@@ -9,6 +9,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.multipart.MultipartFile;
 import org.sunbird.common.model.SBApiResponse;
 
+import javax.validation.Valid;
+
 public interface StorageService {
 	public SBApiResponse uploadFile(MultipartFile file, String containerName) throws IOException;
 
@@ -40,4 +42,14 @@ public interface StorageService {
 	SBApiResponse uploadCiosLogsFile(String logFilePath,String fileName, String containerName, String cloudFolderName);
 
 	ResponseEntity<?> downloadCiosLogsFile(String fileName);
+
+	/**
+	 * Uploads an image to a Google Cloud Platform (GCP) container.
+	 *
+	 * @param multipartFile the image file to be uploaded
+	 * @param requestBody   a map containing the cloud folder and container names
+	 * @param authUserToken the authentication token for the user
+	 * @return the response object containing the result of the upload operation
+	 */
+	SBApiResponse uploadImageToGCPContainer(MultipartFile multipartFile, Map<String, Object> requestBody, String authUserToken);
 }

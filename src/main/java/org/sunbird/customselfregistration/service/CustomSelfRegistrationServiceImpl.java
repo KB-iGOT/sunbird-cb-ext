@@ -13,6 +13,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.util.ObjectUtils;
+import org.springframework.web.multipart.MultipartFile;
 import org.sunbird.cassandra.utils.CassandraOperation;
 import org.sunbird.common.model.SBApiResponse;
 import org.sunbird.common.service.OutboundRequestHandlerServiceImpl;
@@ -28,10 +29,8 @@ import org.sunbird.workallocation.service.PdfGeneratorServiceImpl;
 
 import java.io.File;
 import java.io.IOException;
-import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
-import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 
@@ -100,7 +99,7 @@ public class CustomSelfRegistrationServiceImpl implements CustomSelfRegistration
             File qrCodeFile = generateQRCodeFile(registrationLink, qrCodeFilePath,orgId);
             outgoingResponse = uploadQRCodeFile(qrCodeFile);
             if (outgoingResponse.getResponseCode() == HttpStatus.OK) {
-                CustomSelfRegistrationModel customSelfRegistrationModel = getCustomSelfRegistrationModel(requestBody, orgId, registrationLink, qrCodeFile, "userId",uniqueId);
+                CustomSelfRegistrationModel customSelfRegistrationModel = getCustomSelfRegistrationModel(orgId, registrationLink, qrCodeFile, userId,uniqueId);
                 return processSuccessfulUpload(authUserToken, customSelfRegistrationModel, outgoingResponse);
             } else {
                 logger.info("CustomSelfRegistrationServiceImpl::getSelfRegistrationQRAndLink : There was an issue while uploading the QR code");
@@ -516,7 +515,6 @@ public class CustomSelfRegistrationServiceImpl implements CustomSelfRegistration
     /**
      * Creates a CustomSelfRegistrationModel instance based on the provided request body and parameters.
      *
-     * @param requestBody   The request body containing registration start and end dates.
      * @param orgId         The organization ID.
      * @param registrationLink The registration link.
      * @param qrCodeFile    The QR code file.
@@ -524,7 +522,7 @@ public class CustomSelfRegistrationServiceImpl implements CustomSelfRegistration
      * @param uniqueId  currenttimestamp as string is appended in the url path.
      * @return A CustomSelfRegistrationModel instance.
      */
-    private CustomSelfRegistrationModel getCustomSelfRegistrationModel(Map<String, Object> requestBody, String orgId, String registrationLink, File qrCodeFile, String userId, String uniqueId) {
+    private CustomSelfRegistrationModel getCustomSelfRegistrationModel(String orgId, String registrationLink, File qrCodeFile, String userId, String uniqueId) {
         logger.info("CustomSelfRegistrationServiceImpl::getCustomSelfRegistrationModel : Creating the CustomSelfRegistrationModel instance for organization: " + orgId);
         return CustomSelfRegistrationModel.builder()
                 .orgId(orgId)
@@ -653,5 +651,25 @@ public class CustomSelfRegistrationServiceImpl implements CustomSelfRegistration
         outgoingResponse.getParams().setStatus(Constants.OK);
         outgoingResponse.setResponseCode(HttpStatus.OK);
         return outgoingResponse;
+    }
+
+    /**
+     * Uploads an image to a Google Cloud Platform (GCP) container.
+     *
+     * @param multipartFile the image file to be uploaded
+     * @param authUserToken the authentication token for the user
+     * @return the response object containing the result of the upload operation
+     */
+    @Override
+    public SBApiResponse uploadImageToGCPContainer(MultipartFile multipartFile, String authUserToken) {
+        logger.info("CustomSelfRegistrationServiceImpl::uploadImageToGCPContainer:started");
+        Map<String, Object> requestBody = new HashMap<>();
+        requestBody.put(Constants.CLOUD_FOLDER_NAME, serverProperties.getQrCustomerSelfRegistrationLogoFolderName());
+        logger.debug("Added cloud folder name to request body: {}", Constants.CLOUD_FOLDER_NAME);
+        requestBody.put(Constants.CLOUD_CONTAINER_NAME, serverProperties.getQrCustomerSelfRegistrationContainerName());
+        logger.debug("Added cloud container name to request body: {}", Constants.CLOUD_CONTAINER_NAME);
+        SBApiResponse response = storageService.uploadImageToGCPContainer(multipartFile, requestBody, authUserToken);
+        logger.info("Received response from storage service: {}", response);
+        return response;
     }
 }

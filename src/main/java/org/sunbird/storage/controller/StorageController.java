@@ -2,6 +2,7 @@ package org.sunbird.storage.controller;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -13,6 +14,8 @@ import org.sunbird.common.util.Constants;
 import org.sunbird.storage.service.StorageService;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+
+import javax.validation.Valid;
 
 @RestController
 @RequestMapping("/storage")
@@ -110,5 +113,11 @@ public class StorageController {
 	@GetMapping("/v1/downloadCiosLogs/{fileName}")
 	public ResponseEntity<?> downloadCiosLogsFile(@PathVariable("fileName") String fileName) {
 		return storageService.downloadCiosLogsFile(fileName);
+	}
+
+	@PostMapping("/v1/upload/image/gcpcontainer")
+	public ResponseEntity<SBApiResponse> uploadImageToGCPContainer(@RequestParam(value = "file", required = true) MultipartFile multipartFile,@Valid @RequestBody Map<String, Object> requestBody,@RequestHeader("x-authenticated-user-token") String authUserToken) {
+		SBApiResponse uploadResponse = storageService.uploadImageToGCPContainer(multipartFile, requestBody,authUserToken);
+		return new ResponseEntity<>(uploadResponse, uploadResponse.getResponseCode());
 	}
 }
