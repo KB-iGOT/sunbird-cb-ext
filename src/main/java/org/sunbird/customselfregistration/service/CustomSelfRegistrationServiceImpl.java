@@ -670,6 +670,9 @@ public class CustomSelfRegistrationServiceImpl implements CustomSelfRegistration
         logger.debug("Added cloud container name to request body: {}", Constants.CLOUD_CONTAINER_NAME);
         SBApiResponse response = storageService.uploadImageToGCPContainer(multipartFile, requestBody, authUserToken);
         logger.info("Received response from storage service: {}", response);
+        String fileName = response.getResult().get(Constants.NAME).toString();
+        String filePath = serverProperties.getQrCustomerSelfRegistrationLogoPath() + fileName;
+        response.getResult().put(Constants.QR_CODE_PATH, filePath);
         return response;
     }
 }
