@@ -526,23 +526,14 @@ public class CustomSelfRegistrationServiceImpl implements CustomSelfRegistration
      */
     private CustomSelfRegistrationModel getCustomSelfRegistrationModel(Map<String, Object> requestBody, String orgId, String registrationLink, File qrCodeFile, String userId, String uniqueId) {
         logger.info("CustomSelfRegistrationServiceImpl::getCustomSelfRegistrationModel : Creating the CustomSelfRegistrationModel instance for organization: " + orgId);
-        ZoneId zoneId = ZoneId.of("Asia/Kolkata");
-        ZonedDateTime registrationStartDateLong = Instant.ofEpochMilli(Long.parseLong(String.valueOf(requestBody.get(Constants.REGISTRATION_END_DATE)))).atZone(zoneId);
-        ZonedDateTime registrationEndDateLong = Instant.ofEpochMilli(Long.parseLong(String.valueOf(requestBody.get(Constants.REGISTRATION_START_DATE)))).atZone(zoneId);
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS");
-        String formattedRegistrationStartDate = registrationStartDateLong.format(formatter);
-        String formattedRegistrationEndDate = registrationEndDateLong.format(formatter);
         return CustomSelfRegistrationModel.builder()
                 .orgId(orgId)
                 .registrationLink(registrationLink)
                 .qrCodeFilePath(String.format("%s/%s", serverProperties.getQrCustomerSelfRegistrationPath(), qrCodeFile.getName()))
-                .registrationenddate(formattedRegistrationStartDate)
-                .registrationstartdate(formattedRegistrationEndDate)
                 .status(Constants.ACTIVE)
                 .createdby(userId)
                 .numberofusersonboarded(0L)
                 .id(uniqueId)
-                .createddatetime(ZonedDateTime.now(zoneId).format(formatter))
                 .build();
     }
 
