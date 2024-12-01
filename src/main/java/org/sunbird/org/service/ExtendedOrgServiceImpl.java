@@ -67,6 +67,9 @@ public class ExtendedOrgServiceImpl implements ExtendedOrgService {
 			if (StringUtils.isEmpty(orgId)) {
 				// There is no org exist for given Channel. We can simply create the same in
 				// system.
+				errMsg = validateRequestFieldsOrganisationCreate(request,response);
+				if (!StringUtils.isEmpty(errMsg)) return response;
+				fetchStateOrMinistryDetails(request);
 				orgId = createOrgInSunbird(request, (String) requestData.get(Constants.CHANNEL), userToken);
 				if (StringUtils.isBlank(orgId)) {
 					response.getParams().setErrmsg("Failed to create organisation in Sunbird.");
@@ -956,5 +959,49 @@ public class ExtendedOrgServiceImpl implements ExtendedOrgService {
 		response.getResult().putAll(result);
 		response.getParams().setStatus(Constants.OK);
 		response.setResponseCode(HttpStatus.OK);
+	}
+
+	/**
+	 * Validates the request fields for organisation creation.
+	 *
+	 * @param request the request map containing the organisation creation data
+	 * @param response the API response object
+	 * @return an error message if validation fails, otherwise an empty string
+	 */
+	private String validateRequestFieldsOrganisationCreate(Map<String, Object> request, SBApiResponse response) {
+		if (StringUtils.isBlank(MapUtils.getString(request, Constants.PARENT_MAP_ID)) && Constants.BOARD.equalsIgnoreCase(MapUtils.getString(request, Constants.ORGANIZATION_SUB_TYPE))) {
+			response.getParams().setStatus(Constants.FAILED);
+			response.getParams().setErrmsg("Parent Map ID is missing");
+			response.setResponseCode(HttpStatus.BAD_REQUEST);
+			return "Parent Map ID is missing";
+		}
+		return "";
+	}
+
+	/**
+	 * This method fetches and adds state or ministry details to the given request map based on the provided parent map ID.
+	 * It utilizes the organization repository to retrieve hierarchical organizational details.
+	 *
+	 * @param request The request map containing the parent map ID and other details.
+	 */
+	private void fetchStateOrMinistryDetails(Map<String, Object> request) {
+		if (Constants.BOARD.equalsIgnoreCase((String) request.get(Constants.ORGANIZATION_SUB_TYPE))) {
+			logger.info("ExtendedOrgServiceImpl::fetchStateOrMinistryDetails:Fetching the state or ministry details based on the parent map ID." + request.get("parentMapId"));
+			OrgHierarchy deptOrgDetails = orgRepository.findByMapId((String) request.get(Constants.PARENT_MAP_ID));
+			if (StringUtils.isNotEmpty(deptOrgDetails.getOrgName())) {
+				logger.info("ExtendedOrgServiceImpl::fetchStateOrMinistryDetails: Found department details. " +
+						"DeptName: {}, ParentMapId: {}", deptOrgDetails.getOrgName(), deptOrgDetails.getParentMapId());
+				request.put(Constants.DEPT_NAME, deptOrgDetails.getOrgName());
+				String deptMapId = deptOrgDetails.getParentMapId();
+				OrgHierarchy ministryOrgDetails = orgRepository.findByMapId(deptMapId);
+				if (StringUtils.isNotEmpty(deptOrgDetails.getOrgName()) &&
+						(Constants.MINISTRY.equalsIgnoreCase(ministryOrgDetails.getSbOrgType()) || Constants.STATE.equalsIgnoreCase(ministryOrgDetails.getSbOrgType()))) {
+					logger.info("ExtendedOrgServiceImpl::fetchStateOrMinistryDetails: Found ministry/state details. " +
+							"Name: {}, Type: {}", ministryOrgDetails.getOrgName(), ministryOrgDetails.getSbOrgType());
+					request.put(Constants.MINISTRY_STATE_NAME, ministryOrgDetails.getOrgName());
+					request.put(Constants.MINISTRY_STATE_TYPE, ministryOrgDetails.getSbOrgType());
+				}
+			}
+		}
 	}
 }

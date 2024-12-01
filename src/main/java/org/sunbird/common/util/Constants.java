@@ -1305,6 +1305,9 @@ public class Constants {
 	public static final String IMAGE_UPLOAD_GCP_CONTAINER = "api.image.upload.togcp.container";
 	public static final String CLOUD_FOLDER_NAME = "cloudFolderName";
 	public static final String CLOUD_CONTAINER_NAME = "containerName";
+	public static final String MINISTRY_STATE_NAME = "ministryOrStateName";
+	public static final String MINISTRY_STATE_TYPE = "ministryOrStateType";
+
 	private Constants() {
 		throw new IllegalStateException("Utility class");
 	}
