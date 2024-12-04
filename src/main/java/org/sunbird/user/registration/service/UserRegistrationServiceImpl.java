@@ -112,6 +112,14 @@ public class UserRegistrationServiceImpl implements UserRegistrationService {
 
 					if (regDocument == null
 							|| UserRegistrationStatus.FAILED.name().equalsIgnoreCase(regDocument.getStatus())) {
+						if(StringUtils.isNotEmpty(userRegInfo.getRegistrationLink())) {
+							String errorMsg = validateRegistrationDates(userRegInfo);
+							if (StringUtils.isNotBlank(errorMsg)) {
+								response.setResponseCode(HttpStatus.OK);
+								response.getResult().put(Constants.RESULT, errorMsg);
+								return response;
+							}
+						}
 						// create / update the doc in ES
 						RestStatus status = null;
 						if (regDocument == null) {
@@ -658,7 +666,7 @@ public class UserRegistrationServiceImpl implements UserRegistrationService {
 	private String validateRegistrationDates(UserRegistrationInfo userRegistrationInfo) {
 		LOGGER.info("UserRegistrationServiceImpl::validateRegistrationDates : started");
 		String orgId = userRegistrationInfo.getSbOrgId();
-		String uniqueCode = userRegistrationInfo.getUniqueCodeRegistration();
+		String uniqueCode = extractIdFromUrl(userRegistrationInfo.getRegistrationLink());
 		if (StringUtils.isEmpty(uniqueCode)) {
 			LOGGER.info("UserRegistrationServiceImpl::validateRegistrationDates : uniqueCode is missing for orgId " + orgId);
 			return "";

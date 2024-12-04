@@ -971,7 +971,7 @@ public class ExtendedOrgServiceImpl implements ExtendedOrgService {
 	private String validateRequestFieldsOrganisationCreate(Map<String, Object> request, SBApiResponse response) {
 		if (StringUtils.isBlank(MapUtils.getString(request, Constants.PARENT_MAP_ID)) && Constants.BOARD.equalsIgnoreCase(MapUtils.getString(request, Constants.ORGANIZATION_SUB_TYPE))) {
 			response.getParams().setStatus(Constants.FAILED);
-			response.getParams().setErrmsg("Parent Map ID is missing");
+			response.getParams().setErrmsg("Parent Map ID is Empty/missing");
 			response.setResponseCode(HttpStatus.BAD_REQUEST);
 			return "Parent Map ID is missing";
 		}
@@ -988,7 +988,7 @@ public class ExtendedOrgServiceImpl implements ExtendedOrgService {
 		if (Constants.BOARD.equalsIgnoreCase((String) request.get(Constants.ORGANIZATION_SUB_TYPE))) {
 			logger.info("ExtendedOrgServiceImpl::fetchStateOrMinistryDetails:Fetching the state or ministry details based on the parent map ID." + request.get("parentMapId"));
 			OrgHierarchy deptOrgDetails = orgRepository.findByMapId((String) request.get(Constants.PARENT_MAP_ID));
-			if (StringUtils.isNotEmpty(deptOrgDetails.getOrgName())) {
+			if (StringUtils.isNotEmpty(deptOrgDetails.getOrgName()) && "department".equalsIgnoreCase(deptOrgDetails.getSbOrgSubType())) {
 				logger.info("ExtendedOrgServiceImpl::fetchStateOrMinistryDetails: Found department details. " +
 						"DeptName: {}, ParentMapId: {}", deptOrgDetails.getOrgName(), deptOrgDetails.getParentMapId());
 				request.put(Constants.DEPT_NAME, deptOrgDetails.getOrgName());
@@ -1001,6 +1001,10 @@ public class ExtendedOrgServiceImpl implements ExtendedOrgService {
 					request.put(Constants.MINISTRY_STATE_NAME, ministryOrgDetails.getOrgName());
 					request.put(Constants.MINISTRY_STATE_TYPE, ministryOrgDetails.getSbOrgType());
 				}
+			} else if (StringUtils.isNotEmpty(deptOrgDetails.getOrgName()) &&
+					(Constants.MINISTRY.equalsIgnoreCase(deptOrgDetails.getSbOrgType()) || Constants.STATE.equalsIgnoreCase(deptOrgDetails.getSbOrgType()))) {
+				request.put(Constants.MINISTRY_STATE_NAME, deptOrgDetails.getOrgName());
+				request.put(Constants.MINISTRY_STATE_TYPE, deptOrgDetails.getSbOrgType());
 			}
 		}
 	}

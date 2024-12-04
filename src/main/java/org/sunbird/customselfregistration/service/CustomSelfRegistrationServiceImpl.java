@@ -29,8 +29,10 @@ import org.sunbird.workallocation.service.PdfGeneratorServiceImpl;
 
 import java.io.File;
 import java.io.IOException;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 
@@ -90,16 +92,23 @@ public class CustomSelfRegistrationServiceImpl implements CustomSelfRegistration
         // Validate the request body
         String orgId = validateRequestBody(requestBody, outgoingResponse);
         if (orgId == null) return outgoingResponse;
+        String errMsg = validateRequestFields(requestBody, outgoingResponse);
+        if(!StringUtils.isEmpty(errMsg)) return outgoingResponse;
+        if (isRegistrationQRCodeActive(orgId)) {
+            outgoingResponse.getParams().setStatus(Constants.FAILED);
+            outgoingResponse.getParams().setErrmsg("QR Code is already active for this org");
+            outgoingResponse.setResponseCode(HttpStatus.OK);
+        }
         //Validate the designation
         if (!isDesignationMappedToOrg(orgId, outgoingResponse)) return outgoingResponse;
         String uniqueId = String.valueOf(System.currentTimeMillis());
-        String registrationLink = generateRegistrationLink(orgId);
+        String registrationLink = generateRegistrationLink(orgId,uniqueId);
         String qrCodeFilePath = createQRCodeFilePath(orgId);
         try {
             File qrCodeFile = generateQRCodeFile(registrationLink, qrCodeFilePath,orgId);
             outgoingResponse = uploadQRCodeFile(qrCodeFile);
             if (outgoingResponse.getResponseCode() == HttpStatus.OK) {
-                CustomSelfRegistrationModel customSelfRegistrationModel = getCustomSelfRegistrationModel(orgId, registrationLink, qrCodeFile, userId,uniqueId);
+                CustomSelfRegistrationModel customSelfRegistrationModel = getCustomSelfRegistrationModel(requestBody,orgId, registrationLink, qrCodeFile, userId,uniqueId);
                 return processSuccessfulUpload(authUserToken, customSelfRegistrationModel, outgoingResponse);
             } else {
                 logger.info("CustomSelfRegistrationServiceImpl::getSelfRegistrationQRAndLink : There was an issue while uploading the QR code");
@@ -395,8 +404,8 @@ public class CustomSelfRegistrationServiceImpl implements CustomSelfRegistration
      * @param orgId the organization ID to generate the registration link for
      * @return the generated registration link
      */
-    private String generateRegistrationLink(String orgId) {
-        return serverProperties.getUrlCustomerSelfRegistration()+ orgId;
+    private String generateRegistrationLink(String orgId, String id) {
+        return serverProperties.getUrlCustomerSelfRegistration() + id + "/crp/" + orgId;
     }
 
     /**
@@ -452,6 +461,7 @@ public class CustomSelfRegistrationServiceImpl implements CustomSelfRegistration
      */
     private SBApiResponse processSuccessfulUpload(String authUserToken, CustomSelfRegistrationModel customSelfRegistrationModel, SBApiResponse response) {
         Map<String, Object> data = updateOrgDetailsToDB(authUserToken, customSelfRegistrationModel);
+        updateQRCodeDetailsToDB(customSelfRegistrationModel);
         if (MapUtils.isEmpty(data) || !data.get(Constants.RESPONSE_CODE).equals(Constants.OK)) {
             logger.info("CustomSelfRegistrationServiceImpl::processSuccessfulUpload:Failed to update Org details for organization: " + customSelfRegistrationModel.getOrgId());
             setInternalServerError(response, "Error while updating the organization details");
@@ -522,8 +532,14 @@ public class CustomSelfRegistrationServiceImpl implements CustomSelfRegistration
      * @param uniqueId  currenttimestamp as string is appended in the url path.
      * @return A CustomSelfRegistrationModel instance.
      */
-    private CustomSelfRegistrationModel getCustomSelfRegistrationModel(String orgId, String registrationLink, File qrCodeFile, String userId, String uniqueId) {
+    public CustomSelfRegistrationModel getCustomSelfRegistrationModel(Map<String, Object> requestBody, String orgId, String registrationLink, File qrCodeFile, String userId, String uniqueId) {
         logger.info("CustomSelfRegistrationServiceImpl::getCustomSelfRegistrationModel : Creating the CustomSelfRegistrationModel instance for organization: " + orgId);
+        ZoneId zoneId = ZoneId.of("Asia/Kolkata");
+        ZonedDateTime registrationStartDateLong = Instant.ofEpochMilli(Long.parseLong(String.valueOf(requestBody.get(Constants.REGISTRATION_END_DATE)))).atZone(zoneId);
+        ZonedDateTime registrationEndDateLong = Instant.ofEpochMilli(Long.parseLong(String.valueOf(requestBody.get(Constants.REGISTRATION_START_DATE)))).atZone(zoneId);
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS");
+        String formattedRegistrationStartDate = registrationStartDateLong.format(formatter);
+        String formattedRegistrationEndDate = registrationEndDateLong.format(formatter);
         return CustomSelfRegistrationModel.builder()
                 .orgId(orgId)
                 .registrationLink(registrationLink)
@@ -532,6 +548,9 @@ public class CustomSelfRegistrationServiceImpl implements CustomSelfRegistration
                 .createdby(userId)
                 .numberofusersonboarded(0L)
                 .id(uniqueId)
+                .registrationenddate(formattedRegistrationStartDate)
+                .registrationstartdate(formattedRegistrationEndDate)
+                .createddatetime(ZonedDateTime.now(zoneId).format(formatter))
                 .build();
     }
 

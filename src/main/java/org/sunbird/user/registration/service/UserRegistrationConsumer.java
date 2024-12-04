@@ -5,7 +5,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
+import org.apache.commons.collections.CollectionUtils;
+import org.apache.commons.lang.StringUtils;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.elasticsearch.rest.RestStatus;
 import org.slf4j.Logger;
@@ -13,11 +17,14 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
+import org.springframework.util.ObjectUtils;
 import org.sunbird.common.service.OutboundRequestHandlerServiceImpl;
 import org.sunbird.common.util.CbExtServerProperties;
 import org.sunbird.common.util.Constants;
 import org.sunbird.common.util.IndexerService;
 import org.sunbird.common.util.NotificationUtil;
+import org.sunbird.org.model.CustomeSelfRegistrationEntity;
+import org.sunbird.org.repository.CustomSelfRegistrationRepository;
 import org.sunbird.user.registration.model.UserRegistration;
 import org.sunbird.user.registration.model.WfRequest;
 import org.sunbird.user.registration.util.UserRegistrationStatus;
@@ -51,6 +58,9 @@ public class UserRegistrationConsumer {
 
 	@Autowired
 	UserRegistrationNotificationService userRegNotificationService;
+
+	@Autowired
+	private CustomSelfRegistrationRepository qrRegistrationCodeRepository;
 
 	@SuppressWarnings("unchecked")
 	@KafkaListener(topics = "${kafka.topics.user.registration.register.event}",groupId = "${kafka.topics.user.registration.register.event.consumer.group}" )
@@ -114,6 +124,16 @@ public class UserRegistrationConsumer {
 			LOGGER.info("Consumed Request in Topic to auto create user in registration:: "
 					+ mapper.writeValueAsString(userRegistration));
 			userRegService.initiateCreateUserFlow(userRegistration.getRegistrationCode());
+			if (StringUtils.isNotEmpty(userRegistration.getRegistrationLink())) {
+				String orgId = userRegistration.getSbOrgId();
+				String uniqueCode = extractIdFromUrl(userRegistration.getRegistrationLink());
+				CustomeSelfRegistrationEntity customeSelfRegistrationEntity = qrRegistrationCodeRepository.findAllByOrgIdAndUniqueId(orgId, uniqueCode);
+				if (!ObjectUtils.isEmpty(customeSelfRegistrationEntity)) {
+					long count = customeSelfRegistrationEntity.getNumberOfUsersOnboarded() + 1;
+					qrRegistrationCodeRepository.updateRegistrationQrCodeOnboardUserCount(customeSelfRegistrationEntity.getOrgId(), customeSelfRegistrationEntity.getId(), count);
+					LOGGER.info("Updated the number of user onboarded for orgId : " + orgId + " and uniqueId : " + uniqueCode + " with count : " + count);
+				}
+			}
 		} catch (Exception e) {
 			LOGGER.error("Failed to process message in Topic to auto create user in registration.", e);
 		}
@@ -151,5 +171,18 @@ public class UserRegistrationConsumer {
 			LOGGER.error(String.format("Exception in %s : %s", "workflowTransition", e.getMessage()));
 		}
 		return null;
+	}
+
+	public static String extractIdFromUrl(String url) {
+		// Regex pattern to capture the id from the URL
+		String regex = "/([^/]+)/crp";  // Matches any string between slashes and before "/crp"
+		Pattern pattern = Pattern.compile(regex);
+		Matcher matcher = pattern.matcher(url);
+
+		// If the pattern matches, return the captured id
+		if (matcher.find()) {
+			return matcher.group(1);  // The first captured group
+		}
+		return null;  // Return null if no match found
 	}
 }

@@ -40,7 +40,7 @@ public class UserRegistrationInfo {
     private String category;
     private String pincode;
     private List<String> roles;
-    private String uniqueCodeRegistration;
+    private String registrationLink;
 
     public String getRegistrationCode() {
         return registrationCode;
@@ -242,11 +242,11 @@ public class UserRegistrationInfo {
         this.roles = roles;
     }
 
-    public String getUniqueCodeRegistration() {
-        return uniqueCodeRegistration;
+    public String getRegistrationLink() {
+        return registrationLink;
     }
 
-    public void setUniqueCodeRegistration(String uniqueCodeRegistration) {
-        this.uniqueCodeRegistration = uniqueCodeRegistration;
+    public void setRegistrationLink(String registrationLink) {
+        this.registrationLink = registrationLink;
     }
 }
