@@ -969,7 +969,8 @@ public class ExtendedOrgServiceImpl implements ExtendedOrgService {
 	 * @return an error message if validation fails, otherwise an empty string
 	 */
 	private String validateRequestFieldsOrganisationCreate(Map<String, Object> request, SBApiResponse response) {
-		if (StringUtils.isBlank(MapUtils.getString(request, Constants.PARENT_MAP_ID)) && Constants.BOARD.equalsIgnoreCase(MapUtils.getString(request, Constants.ORGANIZATION_SUB_TYPE))) {
+		Map<String,Object> requestBody = (Map<String, Object>) request.get(Constants.REQUEST);
+		if (StringUtils.isBlank(MapUtils.getString(requestBody, Constants.PARENT_MAP_ID)) && Constants.BOARD.equalsIgnoreCase(MapUtils.getString(requestBody, Constants.ORGANIZATION_SUB_TYPE))) {
 			response.getParams().setStatus(Constants.FAILED);
 			response.getParams().setErrmsg("Parent Map ID is Empty/missing");
 			response.setResponseCode(HttpStatus.BAD_REQUEST);
@@ -982,9 +983,10 @@ public class ExtendedOrgServiceImpl implements ExtendedOrgService {
 	 * This method fetches and adds state or ministry details to the given request map based on the provided parent map ID.
 	 * It utilizes the organization repository to retrieve hierarchical organizational details.
 	 *
-	 * @param request The request map containing the parent map ID and other details.
+	 * @param requestBody The request map containing the parent map ID and other details.
 	 */
-	private void fetchStateOrMinistryDetails(Map<String, Object> request) {
+	private void fetchStateOrMinistryDetails(Map<String, Object> requestBody) {
+		Map<String,Object> request = (Map<String, Object>) requestBody.get(Constants.REQUEST);
 		if (Constants.BOARD.equalsIgnoreCase((String) request.get(Constants.ORGANIZATION_SUB_TYPE))) {
 			logger.info("ExtendedOrgServiceImpl::fetchStateOrMinistryDetails:Fetching the state or ministry details based on the parent map ID." + request.get("parentMapId"));
 			OrgHierarchy deptOrgDetails = orgRepository.findByMapId((String) request.get(Constants.PARENT_MAP_ID));
