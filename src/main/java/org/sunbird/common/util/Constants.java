@@ -1286,6 +1286,7 @@ public class Constants {
 	public static final String FALSE = "false";
 	public static final String PUBLIC_CERT = "publicCert";
 	public static final String REISSUE = "reissue";
+	public static final String SEND_FOR_APPROVAL = "SEND_FOR_APPROVAL";
 
 	private Constants() {
 		throw new IllegalStateException("Utility class");
