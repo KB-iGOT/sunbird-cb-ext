@@ -156,10 +156,12 @@ public class InsightsServiceImpl implements InsightsService {
     }
 
     public SBApiResponse readInsightsForOrganisation(Map<String, Object> requestBody, String userId) {
+        log.info("Starting readInsightsForOrganisation for userId: {}", userId);
         SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.API_MICRO_SITE_INSIGHTS);
         try {
             Map<String, Object> request = (Map<String, Object>) requestBody.get(REQUEST);
             if (MapUtils.isEmpty(request)) {
+                log.warn("Request is missing in the request body.");
                 response.getParams().setStatus(Constants.FAILED);
                 response.put(MESSAGE, "Request is Missing");
                 response.setResponseCode(HttpStatus.BAD_REQUEST);
@@ -167,6 +169,7 @@ public class InsightsServiceImpl implements InsightsService {
             }
             Map<String, Object> filter = ((Map<String, Object>) request.get(FILTERS));
             if (MapUtils.isEmpty(filter)) {
+                log.warn("Filters are missing in the request.");
                 response.getParams().setStatus(Constants.FAILED);
                 response.put(MESSAGE, "Filter is Missing");
                 response.setResponseCode(HttpStatus.BAD_REQUEST);
@@ -174,11 +177,14 @@ public class InsightsServiceImpl implements InsightsService {
             }
             List<String> organizations = (ArrayList<String>) (filter.get(ORGANISATIONS));
             if (CollectionUtils.isEmpty(organizations)) {
+                log.warn("Organizations are missing in the filters.");
                 response.getParams().setStatus(Constants.FAILED);
                 response.put(MESSAGE, "Organization is Required");
                 response.setResponseCode(HttpStatus.BAD_REQUEST);
                 return response;
             }
+            log.debug("Organizations to process: {}", organizations);
+
             Map<String, String> insightKeyMapping = serverProperties.getInsightsMappingKey();
             String valueForInsightKey = insightKeyMapping.getOrDefault(filter.get(Constants.REQUEST_TYPE), Constants.ORGANISATION);
             Map<String, Object> responseMap = new HashMap<>();
@@ -191,6 +197,7 @@ public class InsightsServiceImpl implements InsightsService {
                 response.setResponseCode(HttpStatus.BAD_REQUEST);
                 return response;
             }
+            log.debug("Properties retrieved successfully for valueForInsightKey: {}", valueForInsightKey);
             Map<String, String> organisationInsideFields = mapper.readValue(organisationInsideFieldsProperty, new TypeReference<LinkedHashMap<String, Object>>() {
             });
             Map<String, String> redisKeyForInsight =  mapper.readValue(redisKeyForInsightsProperty, new TypeReference<LinkedHashMap<String, Object>>() {
@@ -199,11 +206,15 @@ public class InsightsServiceImpl implements InsightsService {
             });
             List<Map<String, Object>> organisationDataMapList = new ArrayList<>();
             for (String organisationId: organizations) {
+                log.info("Processing organisationId: {}", organisationId);
+
                 Map<String, Object> organisationMap = new HashMap<>();
                 List<Map<String, Object>> nudgesDataList = new ArrayList<>();
                 for (Map.Entry<String,String> insightFields: organisationInsideFields.entrySet()) {
                     Map<String, Object> nudgesData = new HashMap<>();
                     nudgesData.put(Constants.ICON, insightFields.getValue());
+                    log.debug("Populating nudge for field: {} and organisationId: {}", insightFields.getKey(), organisationId);
+
                     populateNudgeForMicroSite(insightFields.getKey(), organisationId, cssPropertiesForInsight,
                             redisKeyForInsight.get(insightFields.getKey()), nudgesData);
                     nudgesDataList.add(nudgesData);
@@ -211,9 +222,11 @@ public class InsightsServiceImpl implements InsightsService {
                 organisationMap.put(Constants.ORG_ID, organisationId);
                 organisationMap.put(Constants.DATA, nudgesDataList);
                 organisationDataMapList.add(organisationMap);
+                log.info("Processed organisationId: {}", organisationId);
             }
             responseMap.put(NUDGES, organisationDataMapList);
             response.getResult().put(RESPONSE, responseMap);
+            log.info("Successfully processed insights for all organizations.");
         } catch (Exception e) {
             log.error("Failed to get Insight Info for OrgId", e);
             response.getParams().setStatus(Constants.FAILED);
@@ -224,11 +237,13 @@ public class InsightsServiceImpl implements InsightsService {
     }
 
     public void populateNudgeForMicroSite(String label, String organisationId, Map<String, String> additionalCssFields, String redisKey, Map<String, Object> nudgesData) {
+        log.debug("Fetching data from Redis for redisKey: {} and organisationId: {}", redisKey, organisationId);
        List<String> redisData = redisCacheMgr.hget(redisKey, serverProperties.getRedisInsightIndex(), organisationId);
        if (CollectionUtils.isNotEmpty(redisData)) {
            nudgesData.put(Constants.LABEL, label);
            nudgesData.put(Constants.VALUE, redisData.get(0));
            nudgesData.putAll(additionalCssFields);
+           log.debug("Successfully populated nudge data for label: {} with data: {}", label, nudgesData);
        } else {
            log.error("Not able to fetch Data from redis key for key: {} for organisation: {}", redisKey, organisationId);
        }
