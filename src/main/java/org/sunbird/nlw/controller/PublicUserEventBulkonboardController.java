@@ -16,8 +16,8 @@ public class PublicUserEventBulkonboardController {
     PublicUserEventBulkonboardService nlwService;
 
     @PostMapping("/user/event/bulkOnboard")
-    public ResponseEntity<?> processEventUsersForCertificate(@RequestParam(value = "file", required = true) MultipartFile multipartFile, @RequestParam(value = "eventId", required = true) String eventId, @RequestParam(value = "batchId", required = true) String batchId) throws IOException {
-        SBApiResponse uploadResponse = nlwService.bulkOnboard(multipartFile, eventId, batchId);
+    public ResponseEntity<?> processEventUsersForCertificate(@RequestParam(value = "file", required = true) MultipartFile multipartFile, @RequestParam(value = "eventId", required = true) String eventId, @RequestParam(value = "batchId", required = true) String batchId, @RequestParam(value = "publicCert", required = false) String publicCert, @RequestParam(value = "reissue", required = false) String reissue) throws IOException {
+        SBApiResponse uploadResponse = nlwService.bulkOnboard(multipartFile, eventId, batchId, publicCert, reissue);
         return new ResponseEntity<>(uploadResponse, uploadResponse.getResponseCode());
 
     }

@@ -25,18 +25,16 @@ public class CertificateServiceImpl {
 
     ObjectMapper mapper = new ObjectMapper();
 
-    public void generateCertificateEventAndPushToKafka(String userId, String eventId, String batchId, double completionPercentage, Map<String, Object> eventDetails) throws IOException {
+    public void generateCertificateEventAndPushToKafka(String userId, String eventId, String batchId, double completionPercentage, long etsForEvent, boolean publicCert) throws IOException {
         List<String> userIds = Collections.singletonList(userId);
-        String eventJson = generateIssueCertificateEvent(batchId, eventId, userIds, completionPercentage, userId, eventDetails);
+        String eventJson = generateIssueCertificateEvent(batchId, eventId, userIds, completionPercentage, userId, etsForEvent, publicCert);
         if (pushTokafkaEnabled) {
             String topic = serverProperties.getUserIssueCertificateForEventTopic();
             kafkaTemplate.send(topic, userId, eventJson);
         }
     }
 
-    public String generateIssueCertificateEvent(String batchId, String eventId, List<String> userIds, double eventCompletionPercentage, String userId, Map<String, Object> eventDetails) throws JsonProcessingException {
-
-        long ets = ((Date) eventDetails.get(Constants.END_DATE)).getTime() - 10 * 1000;
+    public String generateIssueCertificateEvent(String batchId, String eventId, List<String> userIds, double eventCompletionPercentage, String userId, long ets, boolean publicCert) throws JsonProcessingException {
 
         // Generate a UUID for the message ID
         String mid = UUID.randomUUID().toString();
@@ -57,7 +55,10 @@ public class CertificateServiceImpl {
 
         Map<String, Object> edata = new HashMap<>();
         edata.put("action", "issue-event-certificate");
-        edata.put("eventType", "offline"); // Add mode here
+        edata.put("eventType", "offline");
+        if (publicCert) {
+            edata.put("certStore", "public");
+        }
         edata.put("batchId", batchId);
         edata.put("eventId", eventId);
         edata.put("userIds", userIds);

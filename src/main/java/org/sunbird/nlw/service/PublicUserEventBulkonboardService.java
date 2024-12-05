@@ -7,7 +7,7 @@ import org.sunbird.common.model.SBApiResponse;
 
 public interface PublicUserEventBulkonboardService {
 
-    SBApiResponse bulkOnboard(MultipartFile multipartFile, String eventId, String batchId);
+    SBApiResponse bulkOnboard(MultipartFile multipartFile, String eventId, String batchId, String publicCert, String reissue);
     ResponseEntity<Resource> downloadFile(String fileName);
     SBApiResponse getUserEventBulkOnboardDetails(String eventId);
 }

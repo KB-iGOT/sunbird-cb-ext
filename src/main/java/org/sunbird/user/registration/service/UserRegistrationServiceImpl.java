@@ -681,7 +681,7 @@ public class UserRegistrationServiceImpl implements UserRegistrationService {
 		if (StringUtils.isNotEmpty(registrationstartdate) && StringUtils.isNotEmpty(registrationenddate)) {
 			DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS");
 			ZonedDateTime registrationStartDate = ZonedDateTime.parse(registrationstartdate, formatter.withZone(ZoneId.of(Constants.ASIA_CALCUTTA_TIMEZONE)));
-			ZonedDateTime registrationEndDate = ZonedDateTime.parse(registrationstartdate, formatter.withZone(ZoneId.of(Constants.ASIA_CALCUTTA_TIMEZONE)));
+			ZonedDateTime registrationEndDate = ZonedDateTime.parse(registrationenddate, formatter.withZone(ZoneId.of(Constants.ASIA_CALCUTTA_TIMEZONE)));
 			ZonedDateTime currentDateTime = ZonedDateTime.now(ZoneId.of(Constants.ASIA_CALCUTTA_TIMEZONE));
 			if (currentDateTime.isAfter(registrationStartDate) && currentDateTime.isBefore(registrationEndDate) && customeSelfRegistrationEntity.getStatus().equals(Constants.ACTIVE)) {
 				LOGGER.info("UserRegistrationServiceImpl::validateRegistrationDates : Registration time period is active for orgId" + orgId + "id : " + uniqueCode);

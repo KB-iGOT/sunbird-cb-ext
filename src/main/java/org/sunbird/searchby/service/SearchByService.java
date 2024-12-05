@@ -259,7 +259,7 @@ public class SearchByService {
 		HashMap<String, Object> req = new HashMap<>();
 		req.put(Constants.FACETS, Arrays.asList(Constants.SOURCE));
 		Map<String, Object> filters = new HashMap<>();
-		filters.put(Constants.PRIMARY_CATEGORY, Arrays.asList(Constants.COURSE, Constants.PROGRAM));
+		filters.put(Constants.COURSE_CATEGORY, cbExtServerProperties.getCompetencyV6SearchPrimaryCategoryFilter());
 		filters.put(Constants.STATUS, Arrays.asList(Constants.LIVE));
 		req.put(Constants.FILTERS, filters);
 		req.put(Constants.LIMIT, 0);

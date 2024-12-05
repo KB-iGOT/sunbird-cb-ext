@@ -20,9 +20,7 @@ public class ClaimEventKarmaPointsServiceImpl {
     @Autowired
     CbExtServerProperties serverProperties;
 
-    public void generateKarmaPointEventAndPushToKafka(String userId, String eventId, String batchId, Map<String, Object> eventDetails) {
-
-        long ets = ((Date) eventDetails.get(Constants.END_DATE)).getTime() - 10 * 1000;
+    public void generateKarmaPointEventAndPushToKafka(String userId, String eventId, String batchId, long ets) {
 
         Map<String, Object> objectMap = new HashMap<>();
         objectMap.put("user_id", userId);
