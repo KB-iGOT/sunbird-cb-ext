@@ -1307,10 +1307,10 @@ public class Constants {
 	public static final String CLOUD_CONTAINER_NAME = "containerName";
 	public static final String MINISTRY_STATE_NAME = "ministryOrStateName";
 	public static final String MINISTRY_STATE_TYPE = "ministryOrStateType";
-	public static final String TRUE = "true";
 	public static final String FALSE = "false";
 	public static final String PUBLIC_CERT = "publicCert";
 	public static final String REISSUE = "reissue";
+	public static final String IS_REGISTRATION_LINK_ACTIVE = "api.org.isqrcode.active";
 
 	private Constants() {
 		throw new IllegalStateException("Utility class");

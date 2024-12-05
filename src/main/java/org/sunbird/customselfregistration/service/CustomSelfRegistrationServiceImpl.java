@@ -36,6 +36,10 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+
 /**
  * Implementation of the CustomSelfRegistrationService interface.
  * <p>
@@ -405,7 +409,7 @@ public class CustomSelfRegistrationServiceImpl implements CustomSelfRegistration
      * @return the generated registration link
      */
     private String generateRegistrationLink(String orgId, String id) {
-        return serverProperties.getUrlCustomerSelfRegistration() + id + "/crp/" + orgId;
+        return serverProperties.getUrlCustomerSelfRegistration() + "/crp/" + id + "/" + orgId;
     }
 
     /**
@@ -592,6 +596,7 @@ public class CustomSelfRegistrationServiceImpl implements CustomSelfRegistration
                 .createdBy(customSelfRegistrationModel.getCreatedby())
                 .createdDateTime(customSelfRegistrationModel.getCreateddatetime())
                 .numberOfUsersOnboarded(customSelfRegistrationModel.getNumberofusersonboarded())
+                .qrCodeImagePath(customSelfRegistrationModel.getQrCodeFilePath())
                 .build();
         qrRegistrationCodeRepository.save(registrationQRCode);
     }
@@ -694,4 +699,87 @@ public class CustomSelfRegistrationServiceImpl implements CustomSelfRegistration
         response.getResult().put(Constants.QR_CODE_PATH, filePath);
         return response;
     }
+
+    /**
+     * Checks if the registration QR code is active for the given request.
+     *
+     * @param authUserToken The authentication token of the user making the request.
+     * @param requestBody   A map containing the request body parameters.
+     * @return SBApiResponse containing the result of the request or an error message if the request fails.
+     */
+    @Override
+    public SBApiResponse isRegistrationQRActive(String authUserToken, Map<String, Object> requestBody) {
+        logger.info("CustomSelfRegistrationServiceImpl::isRegistrationQRActive  Started ");
+        SBApiResponse outgoingResponse = ProjectUtil.createDefaultResponse(Constants.IS_REGISTRATION_LINK_ACTIVE);
+        String errMsg = validateRequestBodyForQRCodeActive(requestBody, outgoingResponse);
+        if (StringUtils.isNotEmpty(errMsg)) return outgoingResponse;
+        String registrationLink = (String) requestBody.get("registrationLink");
+        String[] ids = extractIdsFromUrl(registrationLink);
+        String orgId = null;
+        String uniqueCode = null;
+        if (StringUtils.isNotEmpty(ids[0]) && StringUtils.isNotEmpty(ids[1])) {
+            uniqueCode = ids[0];
+            orgId = ids[1];
+        }
+        logger.info("CustomSelfRegistrationServiceImpl::isRegistrationQRActive :" + orgId + " " + uniqueCode);
+        CustomeSelfRegistrationEntity customeSelfRegistrationEntity = qrRegistrationCodeRepository.findAllByOrgIdAndUniqueId(orgId, uniqueCode);
+        if (Objects.isNull(customeSelfRegistrationEntity)) {
+            logger.info("CustomSelfRegistrationServiceImpl::isRegistrationQRActive : No registration data found for orgId " + orgId + " and uniqueCode " + uniqueCode);
+            outgoingResponse.getParams().setStatus(Constants.FAILED);
+            outgoingResponse.getParams().setErrmsg("Registration link is missing");
+            outgoingResponse.setResponseCode(HttpStatus.BAD_REQUEST);
+            return outgoingResponse;
+        }
+        String status = customeSelfRegistrationEntity.getStatus();
+        if (Constants.ACTIVE.equalsIgnoreCase(status)) {
+            outgoingResponse.getParams().setStatus(Constants.OK);
+            outgoingResponse.getParams().setErrmsg("Registration link is active");
+            outgoingResponse.setResponseCode(HttpStatus.OK);
+        } else {
+            outgoingResponse.getParams().setStatus(Constants.FAILED);
+            outgoingResponse.getParams().setErrmsg("Registration link is not active");
+            outgoingResponse.setResponseCode(HttpStatus.BAD_REQUEST);
+        }
+        return outgoingResponse;
+    }
+    /**
+     * Validates the request body for the isRegistrationQRActive method.
+     *
+     * @param request  The request body map.
+     * @param response The response object to be updated with error messages.
+     * @return An error message if the validation fails, otherwise an empty string.
+     */
+    private String validateRequestBodyForQRCodeActive(Map<String, Object> request, SBApiResponse response) {
+        if (MapUtils.isEmpty(request)) {
+            response.getParams().setStatus(Constants.FAILED);
+            response.getParams().setErrmsg("RequestBody is missing");
+            response.setResponseCode(HttpStatus.BAD_REQUEST);
+            return "Request Body is missing";
+        } else if (StringUtils.isBlank((String) request.get("registrationLink"))) {
+            response.getParams().setStatus(Constants.FAILED);
+            response.getParams().setErrmsg("Registration link is missing");
+            response.setResponseCode(HttpStatus.BAD_REQUEST);
+            return "Registration link is missing";
+        }
+        return "";
+    }
+    /**
+     * Extracts orgid and unique code from the URL.
+     *
+     * @param url The URL to extract the IDs from.
+     * @return An array of two strings containing the extracted IDs, or null if no match is found.
+     */
+    public static String[] extractIdsFromUrl(String url) {
+        // Regex pattern to capture two numeric IDs after "/crp/"
+        String regex = "/crp/(\\d+)/(\\d+)";
+        Pattern pattern = Pattern.compile(regex);
+        Matcher matcher = pattern.matcher(url);
+        // If the pattern matches, return the captured IDs
+        if (matcher.find()) {
+            return new String[]{matcher.group(1), matcher.group(2)}; // Group 1 and Group 2 are the IDs
+        }
+        // Return an empty array instead of null to avoid NullPointerException
+        return new String[]{"", ""};
+    }
+
 }

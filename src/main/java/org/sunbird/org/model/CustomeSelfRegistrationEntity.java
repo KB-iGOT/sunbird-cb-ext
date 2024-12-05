@@ -50,4 +50,7 @@ public class CustomeSelfRegistrationEntity {
     @Column(name = "numberofusersonboarded")
     private Long numberOfUsersOnboarded;
 
+    @Column(name = "qrcodeimagepath")
+    private String qrCodeImagePath;
+
 }

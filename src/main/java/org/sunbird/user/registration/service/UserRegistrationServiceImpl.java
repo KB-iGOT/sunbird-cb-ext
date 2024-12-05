@@ -695,8 +695,8 @@ public class UserRegistrationServiceImpl implements UserRegistrationService {
 	}
 
 	public static String extractIdFromUrl(String url) {
-		// Regex pattern to capture the id from the URL
-		String regex = "/([^/]+)/crp";  // Matches any string between slashes and before "/crp"
+		// Regex pattern to capture the id immediately after "/crp/"
+		String regex = "/crp/(\\d+)";
 		Pattern pattern = Pattern.compile(regex);
 		Matcher matcher = pattern.matcher(url);
 
