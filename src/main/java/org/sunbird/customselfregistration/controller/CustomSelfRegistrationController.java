@@ -43,7 +43,7 @@ public class CustomSelfRegistrationController {
     }
 
     @PostMapping(value = "/isRegistrationQRActive", produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<SBApiResponse> isRegistrationQRActive(@RequestHeader("x-authenticated-user-token") String authUserToken, @Valid @RequestBody Map<String, Object> requestBody) {
-        return new ResponseEntity<>(customSelfRegistrationService.isRegistrationQRActive(authUserToken,requestBody), HttpStatus.OK);
+    public ResponseEntity<SBApiResponse> isRegistrationQRActive(@Valid @RequestBody Map<String, Object> requestBody) {
+        return new ResponseEntity<>(customSelfRegistrationService.isRegistrationQRActive(requestBody), HttpStatus.OK);
     }
 }

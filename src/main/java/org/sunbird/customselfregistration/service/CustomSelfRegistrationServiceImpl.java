@@ -703,12 +703,11 @@ public class CustomSelfRegistrationServiceImpl implements CustomSelfRegistration
     /**
      * Checks if the registration QR code is active for the given request.
      *
-     * @param authUserToken The authentication token of the user making the request.
-     * @param requestBody   A map containing the request body parameters.
+     * @param requestBody A map containing the request body parameters.
      * @return SBApiResponse containing the result of the request or an error message if the request fails.
      */
     @Override
-    public SBApiResponse isRegistrationQRActive(String authUserToken, Map<String, Object> requestBody) {
+    public SBApiResponse isRegistrationQRActive(Map<String, Object> requestBody) {
         logger.info("CustomSelfRegistrationServiceImpl::isRegistrationQRActive  Started ");
         SBApiResponse outgoingResponse = ProjectUtil.createDefaultResponse(Constants.IS_REGISTRATION_LINK_ACTIVE);
         String errMsg = validateRequestBodyForQRCodeActive(requestBody, outgoingResponse);
