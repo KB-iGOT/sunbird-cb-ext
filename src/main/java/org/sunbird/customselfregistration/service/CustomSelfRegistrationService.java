@@ -49,9 +49,8 @@ public interface CustomSelfRegistrationService {
     /**
      * Checks if the registration QR code is active for the given request.
      *
-     * @param authUserToken The authentication token of the user making the request.
-     * @param requestBody   A map containing the request body parameters.
+     * @param requestBody A map containing the request body parameters.
      * @return SBApiResponse containing the result of the request or an error message if the request fails.
      */
-    SBApiResponse isRegistrationQRActive(String authUserToken, Map<String, Object> requestBody);
+    SBApiResponse isRegistrationQRActive(Map<String, Object> requestBody);
 }
