@@ -1287,6 +1287,8 @@ public class Constants {
 	public static final String PUBLIC_CERT = "publicCert";
 	public static final String REISSUE = "reissue";
 	public static final String SEND_FOR_APPROVAL = "SEND_FOR_APPROVAL";
+	public static final String ERR_MSG_APPROVAL_REQUEST = "Error while rejecting approval requests";
+	public static final String FAILED_MSG_APPROVAL_REQUEST = "Failed to reject approval requests for userId: {}";
 
 	private Constants() {
 		throw new IllegalStateException("Utility class");

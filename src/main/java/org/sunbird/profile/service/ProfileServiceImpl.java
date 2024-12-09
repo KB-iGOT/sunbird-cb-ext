@@ -1976,9 +1976,9 @@ public class ProfileServiceImpl implements ProfileService {
 							if (Constants.NOT_MY_USER.equalsIgnoreCase(updatedProfileStatus)) {
 								boolean isRejected = rejectProfileApprovalRequestById(userId);
 								if (!isRejected) {
-									log.error("Failed to reject profile approval requests for userId: {}", userId);
+									log.error(Constants.FAILED_MSG_APPROVAL_REQUEST, userId);
 									response.getParams().setStatus(Constants.FAILED);
-									response.getParams().setErr("Error while rejecting approval requests");
+									response.getParams().setErr(Constants.ERR_MSG_APPROVAL_REQUEST);
 									response.setResponseCode(HttpStatus.INTERNAL_SERVER_ERROR);
 									return response;
 								}
@@ -2445,7 +2445,8 @@ public class ProfileServiceImpl implements ProfileService {
 			// Fetch pending approval requests for the user
 			List<WfStatusEntity> pendingApprovalRequests = wfStatusEntityRepository.findProfileApprovalRequests(
 					userId, Constants.PROFILE, Constants.SEND_FOR_APPROVAL);
-			if (pendingApprovalRequests.isEmpty()) {
+			if (CollectionUtils.isEmpty(pendingApprovalRequests)) {
+				log.info("No pending approval requests found for user: {}", userId);
 				return true;
 			}
 			// Update and save all requests in bulk
@@ -2454,6 +2455,8 @@ public class ProfileServiceImpl implements ProfileService {
 				request.setInWorkflow(Boolean.FALSE);
 			});
 			wfStatusEntityRepository.saveAll(pendingApprovalRequests);
+			log.info("Successfully rejected {} profile approval requests for user: {}",
+					pendingApprovalRequests.size(), userId);
 			return true;
 		} catch (Exception ex) {
 			// Log the exception and return failure
