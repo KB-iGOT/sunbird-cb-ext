@@ -53,4 +53,11 @@ public interface CustomSelfRegistrationService {
      * @return SBApiResponse containing the result of the request or an error message if the request fails.
      */
     SBApiResponse isRegistrationQRActive(Map<String, Object> requestBody);
+
+    /**
+     * Expire registration QR codes for a given organization ID.
+     *
+     * @return The API response with the updated organization IDs and QR code IDs.
+     */
+    SBApiResponse expireRegistrationQRCodesByCronJob();
 }

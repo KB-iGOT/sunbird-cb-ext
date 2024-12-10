@@ -539,8 +539,11 @@ public class CustomSelfRegistrationServiceImpl implements CustomSelfRegistration
     public CustomSelfRegistrationModel getCustomSelfRegistrationModel(Map<String, Object> requestBody, String orgId, String registrationLink, File qrCodeFile, String userId, String uniqueId) {
         logger.info("CustomSelfRegistrationServiceImpl::getCustomSelfRegistrationModel : Creating the CustomSelfRegistrationModel instance for organization: " + orgId);
         ZoneId zoneId = ZoneId.of("Asia/Kolkata");
-        ZonedDateTime registrationStartDateLong = Instant.ofEpochMilli(Long.parseLong(String.valueOf(requestBody.get(Constants.REGISTRATION_END_DATE)))).atZone(zoneId);
-        ZonedDateTime registrationEndDateLong = Instant.ofEpochMilli(Long.parseLong(String.valueOf(requestBody.get(Constants.REGISTRATION_START_DATE)))).atZone(zoneId);
+        ZonedDateTime registrationStartDateLong = Instant.ofEpochMilli(Long.parseLong(String.valueOf(requestBody.get(Constants.REGISTRATION_START_DATE)))).atZone(zoneId);
+        ZonedDateTime registrationEndDateLong = Instant.ofEpochMilli(Long.parseLong(String.valueOf(requestBody.get(Constants.REGISTRATION_END_DATE)))).atZone(zoneId)
+                .withHour(23)
+                .withMinute(59)
+                .withSecond(59);
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS");
         String formattedRegistrationStartDate = registrationStartDateLong.format(formatter);
         String formattedRegistrationEndDate = registrationEndDateLong.format(formatter);
@@ -552,8 +555,8 @@ public class CustomSelfRegistrationServiceImpl implements CustomSelfRegistration
                 .createdby(userId)
                 .numberofusersonboarded(0L)
                 .id(uniqueId)
-                .registrationenddate(formattedRegistrationStartDate)
-                .registrationstartdate(formattedRegistrationEndDate)
+                .registrationenddate(formattedRegistrationEndDate)
+                .registrationstartdate(formattedRegistrationStartDate)
                 .createddatetime(ZonedDateTime.now(zoneId).format(formatter))
                 .build();
     }
@@ -657,12 +660,13 @@ public class CustomSelfRegistrationServiceImpl implements CustomSelfRegistration
         for (CustomeSelfRegistrationEntity record : qrRegistrationCodeByOrgIds) {
             String status = record.getStatus();
             String endDateStr = record.getEndDate();
-            if (Constants.ACTIVE.equalsIgnoreCase(status) && StringUtils.isEmpty(endDateStr)) {
+            if (Constants.ACTIVE.equalsIgnoreCase(status) && !StringUtils.isEmpty(endDateStr)) {
                 try {
                     LocalDateTime endDate = LocalDateTime.parse(endDateStr, formatter);
                     if (currentDate.isAfter(endDate)) {
                         qrRegistrationCodeRepository.updateRegistrationQrCodeWithStatus(record.getOrgId(), record.getId(), "expired");
                         orgIds.add(record.getOrgId() + "-" + record.getId());
+                        logger.info("CustomSelfRegistrationServiceImpl::expireRegistrationQRCodes : Updated the data for the orgId " + orgId + " and id " + record.getId());
                     }
                 } catch (Exception e) {
                     logger.error("Error while updating the data for the orgId " + orgId + " and id " + record.getId());
@@ -787,4 +791,42 @@ public class CustomSelfRegistrationServiceImpl implements CustomSelfRegistration
         return new String[]{"", ""};
     }
 
+    /**
+     * Expire registration QR codes for a given organization ID.
+     *
+     * @return The API response with the updated organization IDs and QR code IDs.
+     */
+    @Override
+    public SBApiResponse expireRegistrationQRCodesByCronJob() {
+        logger.info("CustomSelfRegistrationServiceImpl::expireRegistrationQRCodes");
+        SBApiResponse outgoingResponse = ProjectUtil.createDefaultResponse(Constants.CUSTOM_SELF_REGISTRATION_CREATE_API);
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS");
+        ZoneId zoneId = ZoneId.of("Asia/Kolkata");
+        LocalDateTime currentDate = LocalDateTime.now(zoneId);
+        List<CustomeSelfRegistrationEntity> qrRegistrationCodeByOrgIds = qrRegistrationCodeRepository.findAll();
+        List<String> orgIds = new ArrayList<>();
+        for (CustomeSelfRegistrationEntity record : qrRegistrationCodeByOrgIds) {
+            String status = record.getStatus();
+            String endDateStr = record.getEndDate();
+            String orgId = record.getOrgId();
+            if (Constants.ACTIVE.equalsIgnoreCase(status) && !StringUtils.isEmpty(endDateStr)) {
+                try {
+                    LocalDateTime endDate = LocalDateTime.parse(endDateStr, formatter);
+                    if (currentDate.isAfter(endDate)) {
+                        qrRegistrationCodeRepository.updateRegistrationQrCodeWithStatus(record.getOrgId(), record.getId(), "expired");
+                        orgIds.add(record.getOrgId() + "-" + record.getId());
+                        logger.info("CustomSelfRegistrationServiceImpl::expireRegistrationQRCodes : Updated the data for the orgId " + orgId + " and id " + record.getId());
+                    }
+                } catch (Exception e) {
+                    logger.error("Error while updating the data for the orgId " + orgId + " and id " + record.getId());
+                }
+            }
+        }
+        Map<String, Object> result = new HashMap<>();
+        result.put("orgIdsUniqueIdsUpdated", orgIds);
+        outgoingResponse.getResult().putAll(result);
+        outgoingResponse.getParams().setStatus(Constants.OK);
+        outgoingResponse.setResponseCode(HttpStatus.OK);
+        return outgoingResponse;
+    }
 }

@@ -46,4 +46,9 @@ public class CustomSelfRegistrationController {
     public ResponseEntity<SBApiResponse> isRegistrationQRActive(@Valid @RequestBody Map<String, Object> requestBody) {
         return new ResponseEntity<>(customSelfRegistrationService.isRegistrationQRActive(requestBody), HttpStatus.OK);
     }
+
+    @GetMapping(value = "/cronjob/expiredQRCodes", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<SBApiResponse> expireRegistrationQRCodesByCronJob() {
+        return new ResponseEntity<>(customSelfRegistrationService.expireRegistrationQRCodesByCronJob(), HttpStatus.OK);
+    }
 }
