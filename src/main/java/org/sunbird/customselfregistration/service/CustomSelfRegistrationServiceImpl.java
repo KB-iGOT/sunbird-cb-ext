@@ -729,8 +729,14 @@ public class CustomSelfRegistrationServiceImpl implements CustomSelfRegistration
             outgoingResponse.setResponseCode(HttpStatus.BAD_REQUEST);
             return outgoingResponse;
         }
-        String status = customeSelfRegistrationEntity.getStatus();
-        if (Constants.ACTIVE.equalsIgnoreCase(status)) {
+        String startDate = customeSelfRegistrationEntity.getStartDate();
+        String endDate = customeSelfRegistrationEntity.getEndDate();
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS");
+        ZonedDateTime registrationStartDate = ZonedDateTime.parse(startDate, formatter.withZone(ZoneId.of(Constants.ASIA_CALCUTTA_TIMEZONE)));
+        ZonedDateTime registrationEndDate = ZonedDateTime.parse(endDate, formatter.withZone(ZoneId.of(Constants.ASIA_CALCUTTA_TIMEZONE)));
+        ZonedDateTime currentDateTime = ZonedDateTime.now(ZoneId.of(Constants.ASIA_CALCUTTA_TIMEZONE));
+        if (currentDateTime.isAfter(registrationStartDate) && currentDateTime.isBefore(registrationEndDate) && customeSelfRegistrationEntity.getStatus().equals(Constants.ACTIVE)) {
+            logger.info("CustomSelfRegistrationServiceImpl::isRegistrationQRActive : Registration link is active for orgId " + orgId + " and uniqueCode " + uniqueCode);
             outgoingResponse.getParams().setStatus(Constants.OK);
             outgoingResponse.getParams().setErrmsg("Registration link is active");
             outgoingResponse.setResponseCode(HttpStatus.OK);
