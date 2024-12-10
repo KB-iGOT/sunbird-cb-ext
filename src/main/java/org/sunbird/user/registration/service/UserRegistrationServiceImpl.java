@@ -464,7 +464,7 @@ public class UserRegistrationServiceImpl implements UserRegistrationService {
 		userRegistration.setOrganisationSubType(userRegInfo.getOrganisationSubType());
 		userRegistration.setPhone(userRegInfo.getPhone());
 		userRegistration.setGroup(userRegInfo.getGroup());
-
+		userRegistration.setRegistrationLink(userRegInfo.getRegistrationLink());
 		if (StringUtils.isBlank(userRegInfo.getRegistrationCode())) {
 			userRegistration.setRegistrationCode(serverProperties.getUserRegCodePrefix() + "-"
 					+ userRegistration.getMapId() + "-" + RandomStringUtils.random(8, Boolean.TRUE, Boolean.TRUE));
