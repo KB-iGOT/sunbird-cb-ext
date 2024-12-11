@@ -249,10 +249,7 @@ public class CustomSelfRegistrationServiceImpl implements CustomSelfRegistration
         session.put(Constants.QR_CODE_URL, generateCustomSelfRegistrationQRCode(qrCodeBody, filePath));
         session.put(Constants.ORGANIZATION_ID, orgId);
         session.put(Constants.REGISTRATION_LINK_CSR, qrCodeBody);
-        Map<String, Object> properyMap = new HashMap<>();
-        properyMap.put(Constants.ID, orgId);
-        List<Map<String, Object>> cassandraResponse = cassandraOperation.getRecordsByPropertiesWithoutFiltering(Constants.KEYSPACE_SUNBIRD,
-                Constants.TABLE_ORGANIZATION, properyMap, null);
+        List<Map<String, Object>> cassandraResponse = fetchOrgDetailsById(orgId);
         String orgName= (String) cassandraResponse.get(0).get(Constants.ORG_NAME_LOWERCASE);
         session.put(Constants.ORGANISATION_NAME,orgName);
 
@@ -724,6 +721,8 @@ public class CustomSelfRegistrationServiceImpl implements CustomSelfRegistration
             uniqueCode = ids[0];
             orgId = ids[1];
         }
+        String errMsgForRegistration = validateRegistrationLink(orgId, uniqueCode,outgoingResponse);
+        if (StringUtils.isNotEmpty(errMsgForRegistration)) return outgoingResponse;
         logger.info("CustomSelfRegistrationServiceImpl::isRegistrationQRActive :" + orgId + " " + uniqueCode);
         CustomeSelfRegistrationEntity customeSelfRegistrationEntity = qrRegistrationCodeRepository.findAllByOrgIdAndUniqueId(orgId, uniqueCode);
         if (Objects.isNull(customeSelfRegistrationEntity)) {
@@ -829,4 +828,47 @@ public class CustomSelfRegistrationServiceImpl implements CustomSelfRegistration
         outgoingResponse.setResponseCode(HttpStatus.OK);
         return outgoingResponse;
     }
+
+    /**
+     * Validates a registration link by checking the organization ID and unique code.
+     *
+     * @param orgId         the organization ID
+     * @param uniqueCode    the unique code
+     * @param outgoingResponse the response object to be populated with the validation result
+     * @return an error message if the validation fails, or an empty string if it succeeds
+     */
+    private String validateRegistrationLink(String orgId, String uniqueCode, SBApiResponse outgoingResponse) {
+        logger.info("CustomSelfRegistrationServiceImpl::validateRegistrationLink" + orgId + " " + uniqueCode);
+        List<Map<String, Object>> orgDetails = fetchOrgDetailsById(orgId);
+        if (Objects.isNull(orgDetails) || orgDetails.isEmpty()) {
+            logger.info("CustomSelfRegistrationServiceImpl::validateRegistrationLink : No data found for orgId :" + orgId);
+            outgoingResponse.getParams().setStatus(Constants.FAILED);
+            outgoingResponse.getParams().setErrmsg("Invalid Organisation is Provided in the Registration Link");
+            outgoingResponse.setResponseCode(HttpStatus.BAD_REQUEST);
+            return "Invalid Organisation is Provided in the Registration Link";
+        }
+        CustomeSelfRegistrationEntity customeSelfRegistrationEntity = qrRegistrationCodeRepository.findAllByUniqueId(uniqueCode);
+        if (Objects.isNull(customeSelfRegistrationEntity)) {
+            logger.info("CustomSelfRegistrationServiceImpl::validateRegistrationLink : No data found for uniqueCode :" + uniqueCode);
+            outgoingResponse.getParams().setStatus(Constants.FAILED);
+            outgoingResponse.getParams().setErrmsg("Invalid Unique Code is Provided in the Registration Link");
+            outgoingResponse.setResponseCode(HttpStatus.BAD_REQUEST);
+            return "Invalid Unique Code is Provided in the Registration Link";
+        }
+        return "";
+    }
+
+    /**
+     * Fetches organization details by ID from the Cassandra database.
+     *
+     * @param orgId the organization ID
+     * @return a list of maps containing the organization details
+     */
+    private List<Map<String, Object>> fetchOrgDetailsById(String orgId) {
+        Map<String, Object> properyMap = new HashMap<>();
+        properyMap.put(Constants.ID, orgId);
+        return cassandraOperation.getRecordsByPropertiesWithoutFiltering(Constants.KEYSPACE_SUNBIRD,
+                Constants.TABLE_ORGANIZATION, properyMap, null);
+    }
+
 }
