@@ -28,4 +28,7 @@ public interface CustomSelfRegistrationRepository extends JpaRepository<CustomeS
     @Modifying(clearAutomatically = true)
     @Query(value = "UPDATE registration_qr_code SET numberofusersonboarded = ?3 WHERE orgid = ?1 AND id = ?2", nativeQuery = true)
     void updateRegistrationQrCodeOnboardUserCount(String orgId, String uniqueId, long status);
+
+    @Query(value = "SELECT * from registration_qr_code where id=?1", nativeQuery = true)
+    CustomeSelfRegistrationEntity findAllByUniqueId(String uniqueId);
 }
