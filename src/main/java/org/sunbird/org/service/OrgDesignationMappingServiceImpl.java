@@ -603,6 +603,9 @@ public class OrgDesignationMappingServiceImpl implements OrgDesignationMappingSe
                     statusCell.setCellValue("Status");
                     errorDetails.setCellValue("Error Details");
                 }
+                List<String> associationsList = new ArrayList<>();
+                List<Map<String, Object>> getAllDesignationForOrg = populateDataFromFrameworkTerm(frameworkId);
+                List<Map<String, Object>> orgFrameworkTerms = null;
                 while (rowIterator.hasNext()) {
                     Row nextRow = rowIterator.next();
                     boolean allColumnsEmpty = true;
@@ -620,10 +623,7 @@ public class OrgDesignationMappingServiceImpl implements OrgDesignationMappingSe
                     }
                     if (allColumnsEmpty) continue;
                     logger.info("CompetencyDesignationMapping:: Record " + count++);
-                    Thread.sleep(500);
-                    List<Map<String, Object>> getAllDesignationForOrg = populateDataFromFrameworkTerm(frameworkId);
                     Map<String, Object> orgFrameworkObject = null;
-                    List<Map<String, Object>> orgFrameworkTerms = null;
                     if (CollectionUtils.isNotEmpty(getAllDesignationForOrg)) {
                         orgFrameworkObject = getAllDesignationForOrg.stream().filter(n -> ((String) (n.get("code")))
                                 .equalsIgnoreCase(Constants.ORG)).findFirst().orElse(null);
@@ -679,7 +679,6 @@ public class OrgDesignationMappingServiceImpl implements OrgDesignationMappingSe
                                     invalidErrList.add("Invalid designation for org: " + designation);
                                 }
                             }
-
                         } else {
                             invalidErrList.add("Invalid column type for designation. Expecting string format");
                         }
@@ -699,7 +698,6 @@ public class OrgDesignationMappingServiceImpl implements OrgDesignationMappingSe
                     }
                     totalRecordsCount++;
                     progressUpdateThresholdValue++;
-                    String orgId = inputDataMap.get(Constants.ROOT_ORG_ID);
                     if (!errList.isEmpty()) {
                         setErrorDetails(str, errList, statusCell, errorDetails);
                         failedRecordsCount++;
@@ -716,13 +714,13 @@ public class OrgDesignationMappingServiceImpl implements OrgDesignationMappingSe
                             Map<String, Object> masterObjectForDesignation = masterDesignationMapping.stream().filter(n -> ((String) n.get(Constants.DESIGNATION)).equalsIgnoreCase((String) designationMappingInfoMap.get(Constants.DESIGNATION))).findFirst().map(HashMap::new).orElse(null);
                             if (MapUtils.isNotEmpty(masterObjectForDesignation)) {
                                 designationMappingInfoMap.put(Constants.DESIGNATION, masterObjectForDesignation);
-                                addUpdateDesignationMapping(frameworkId, designationMappingInfoMap, invalidErrList, orgId, null);
+                                addUpdateDesignationMapping(frameworkId, designationMappingInfoMap, invalidErrList, null, associationsList);
                             } else {
                                 invalidErrList.add("The issue while fetching the framework term for the org.");
                             }
                         } else {
                             if (StringUtils.isNotEmpty(associationIdentifier)) {
-                                addUpdateDesignationMapping(frameworkId, designationMappingInfoMap, invalidErrList, orgId, associationIdentifier);
+                                addUpdateDesignationMapping(frameworkId, designationMappingInfoMap, invalidErrList, associationIdentifier, associationsList);
                             }
                             if (StringUtils.isEmpty(associationIdentifier) && CollectionUtils.isEmpty(invalidErrList)) {
                                 invalidErrList.add("The issue while fetching the framework for the org.");
@@ -746,6 +744,47 @@ public class OrgDesignationMappingServiceImpl implements OrgDesignationMappingSe
                                 Constants.STATUS_IN_PROGRESS_UPPERCASE, totalNumberOfRecordInSheet, noOfSuccessfulRecords, failedRecordsCount);
                         progressUpdateThresholdValue = 0;
                     }
+                }
+                List<String> errList = new ArrayList<>();
+                if (CollectionUtils.isNotEmpty(associationsList)) {
+                    String code = null;
+                    if (CollectionUtils.isNotEmpty(orgFrameworkTerms)) {
+                        Map<String, Object> orgFrameworkTerm = orgFrameworkTerms.stream().filter(n -> ((String) n.get(Constants.STATUS)).equalsIgnoreCase(Constants.LIVE)).findFirst().map(HashMap::new).orElse(null);
+                        if (MapUtils.isNotEmpty(orgFrameworkTerm)) {
+                            code = (String) orgFrameworkTerm.get(Constants.CODE);
+                            List<Map<String, Object>> associationsMap = (List<Map<String, Object>>) orgFrameworkTerm.get(Constants.ASSOCIATIONS);
+                            if (CollectionUtils.isNotEmpty(associationsMap)) {
+                                associationsList.addAll(associationsMap.stream().map(n -> (String) n.get(Constants.IDENTIFIER)).collect(Collectors.toList()));
+                            }
+                        } else {
+                            errList.add("The issue while fetching the framework term for the org which is active.");
+                        }
+                    }
+                    List<Map<String, Object>> createDesignationObject = new ArrayList<>();
+                    for (String association : associationsList) {
+                        Map<String, Object> nodeIdMap = new HashMap<>();
+                        nodeIdMap.put(Constants.IDENTIFIER, association);
+                        createDesignationObject.add(nodeIdMap);
+                    }
+                    logger.info("The associated size need to be updated: " + associationsList.size());
+                    String orgId = inputDataMap.get(Constants.ROOT_ORG_ID);
+                    addAssociationAndPublish(frameworkId, createDesignationObject, errList, orgId, code);
+                    if (CollectionUtils.isNotEmpty(errList)) {
+                        noOfSuccessfulRecords = 0;
+                        failedRecordsCount = totalNumberOfRecordInSheet;
+                        rowIterator = sheet.iterator();
+                        if (rowIterator.hasNext()) {
+                            // remove the first header
+                        }
+                        while (rowIterator.hasNext()) {
+                            Row nextRow = rowIterator.next();
+                            Cell statusCell = nextRow.getCell(1);
+                            Cell errorDetails = nextRow.getCell(2);
+                            statusCell.setCellValue(Constants.FAILED_UPPERCASE);
+                            errorDetails.setCellValue(String.join(", ", errList));
+                        }
+                    }
+
                 }
                 if (totalRecordsCount == 0) {
                     XSSFRow row = sheet.createRow(sheet.getLastRowNum() + 1);
@@ -799,47 +838,16 @@ public class OrgDesignationMappingServiceImpl implements OrgDesignationMappingSe
         return null;
     }
 
-    private void addUpdateDesignationMapping(String frameworkId, Map<String, Object> designationMappingInfoMap, List<String> invalidErrList, String orgId, String associationsIdentifier) {
+    private void addUpdateDesignationMapping(String frameworkId, Map<String, Object> designationMappingInfoMap, List<String> invalidErrList, String associationsIdentifier, List<String> associationsIdentifierList) {
         try {
-            List<String> nodeId = new ArrayList<>();
             if (StringUtils.isEmpty(associationsIdentifier)) {
                 Map<String, Object> termCreateRespDesignation = createTermFrameworkObjectForDesignation(frameworkId, designationMappingInfoMap);
                 if (MapUtils.isNotEmpty(termCreateRespDesignation)) {
-                    nodeId.addAll((List<String>) termCreateRespDesignation.get("node_id"));
-                    logger.info("The NodeId for term create is: " + nodeId);
+                    associationsIdentifierList.addAll((List<String>) termCreateRespDesignation.get("node_id"));
+                    logger.info("The NodeId for term create is: " + associationsIdentifierList.size());
                 }
             } else {
-                nodeId.add(associationsIdentifier);
-            }
-
-            List<String> associations = new ArrayList<>();
-            if (CollectionUtils.isNotEmpty(nodeId)) {
-                Map<String, Object> terms = (Map<String, Object>) designationMappingInfoMap.get(Constants.ORGANISATION);
-                if (MapUtils.isNotEmpty(terms)) {
-                    List<Map<String, Object>> associationsMap = (List<Map<String, Object>>) terms.get(Constants.ASSOCIATIONS);
-                    if (CollectionUtils.isNotEmpty(associationsMap)) {
-                        associations.addAll(associationsMap.stream().map(n -> (String) n.get(Constants.IDENTIFIER)).collect(Collectors.toList()));
-                    }
-                    associations.addAll(nodeId);
-                    List<Map<String, Object>> createDesignationObject = new ArrayList<>();
-                    for (String association : associations) {
-                        Map<String, Object> nodeIdMap = new HashMap<>();
-                        nodeIdMap.put(Constants.IDENTIFIER, association);
-                        createDesignationObject.add(nodeIdMap);
-                    }
-                    logger.info("The associated size need to be updated: " + associations.size());
-                    Map<String, Object> frameworkAssociationUpdateForOrg = updateFrameworkTerm(frameworkId, updateRequestObject(createDesignationObject), Constants.ORG, (String) terms.get(Constants.CODE));
-                    if (MapUtils.isNotEmpty(frameworkAssociationUpdateForOrg)) {
-                        Map<String, Object> result = publishFramework(frameworkId, new HashMap<>(), orgId);
-                        if (MapUtils.isNotEmpty(result)) {
-                            logger.info("Publish is Success for frameworkId: " + frameworkId);
-                        } else {
-                            invalidErrList.add("Issue while publish the framework.");
-                        }
-                    } else {
-                        invalidErrList.add("Issue while adding the associations to the framework for theme.");
-                    }
-                }
+                associationsIdentifierList.add(associationsIdentifier);
             }
         } catch (Exception e) {
             logger.error("Issue while creating the term object for designation.", e);
@@ -1016,5 +1024,25 @@ public class OrgDesignationMappingServiceImpl implements OrgDesignationMappingSe
             return userInfoMap.get(userId);
         }
         return null;
+    }
+
+    private void addAssociationAndPublish(String frameworkId, List<Map<String, Object>> associationList, List<String> errList, String orgId, String organisationTermCode) {
+        Map<String, Object> frameworkAssociationUpdateForOrg = null;
+        try {
+            frameworkAssociationUpdateForOrg = updateFrameworkTerm(frameworkId, updateRequestObject(associationList), Constants.ORG, organisationTermCode);
+            if (MapUtils.isNotEmpty(frameworkAssociationUpdateForOrg)) {
+                Map<String, Object> result = publishFramework(frameworkId, new HashMap<>(), orgId);
+                if (MapUtils.isNotEmpty(result)) {
+                    logger.info("Publish is Success for frameworkId: " + frameworkId);
+                } else {
+                    errList.add("Issue while publish the framework.");
+                }
+            } else {
+                errList.add("Issue while adding the associations to the framework for theme.");
+            }
+        } catch (Exception e) {
+            logger.error("Issue while publish or adding the associations to the framework: ", e);
+            errList.add("Issue while publish or adding the associations to the framework.");
+        }
     }
 }
