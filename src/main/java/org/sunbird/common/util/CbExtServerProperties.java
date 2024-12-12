@@ -972,6 +972,9 @@ public class CbExtServerProperties {
 	@Value("${qr.custom.self.registration.logoupload.path}")
 	private String qrCustomerSelfRegistrationLogoPath;
 
+	@Value("${course.recommendation.designation.redis.key}")
+	private String courseRecommendationsByDesignationKey;
+
 
 	public String getCiosCloudIconFolderName() {
 		return ciosCloudIconFolderName;
@@ -3361,5 +3364,13 @@ public class CbExtServerProperties {
 
 	public void setQrCustomerSelfRegistrationLogoPath(String qrCustomerSelfRegistrationLogoPath) {
 		this.qrCustomerSelfRegistrationLogoPath = qrCustomerSelfRegistrationLogoPath;
+	}
+
+	public String getCourseRecommendationsByDesignationKey() {
+		return courseRecommendationsByDesignationKey;
+	}
+
+	public void setCourseRecommendationsByDesignationKey(String courseRecommendationsByDesignationKey) {
+		this.courseRecommendationsByDesignationKey = courseRecommendationsByDesignationKey;
 	}
 }

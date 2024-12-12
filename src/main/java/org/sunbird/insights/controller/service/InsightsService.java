@@ -11,4 +11,6 @@ public interface InsightsService {
     public SBApiResponse readInsightsForOrganisation(Map<String, Object> requestBody, String userId);
 
     public  SBApiResponse fetchNationalLearningData();
+
+    public SBApiResponse getCourseRecommendationsByDesignation(String userId);
 }

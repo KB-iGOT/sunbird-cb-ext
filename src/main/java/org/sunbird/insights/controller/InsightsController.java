@@ -33,4 +33,13 @@ public class InsightsController {
         SBApiResponse response = insightsService.fetchNationalLearningData();
         return new ResponseEntity<>(response, response.getResponseCode());
     }
+
+    @GetMapping("/v1/recommendations/courses")
+    public ResponseEntity<SBApiResponse> getCourseRecommendationsByDesignation(
+            @RequestHeader(X_AUTH_USER_ID) String authToken) {
+        SBApiResponse response = insightsService.getCourseRecommendationsByDesignation(authToken);
+        return new ResponseEntity<>(response, response.getResponseCode());
+    }
+
+
 }

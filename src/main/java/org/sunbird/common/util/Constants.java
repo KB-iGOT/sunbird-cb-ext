@@ -1312,6 +1312,8 @@ public class Constants {
 	public static final String REISSUE = "reissue";
 	public static final String IS_REGISTRATION_LINK_ACTIVE = "api.org.isqrcode.active";
 	public static final String IS_WHATSAPP_CONSENT="isWhatsappConsent";
+	public static final String API_COURSE_RECOMMENDATIONS ="api.insights.get.courses.recommendations.designation";
+	public static final String COURSE_LIST ="courseList";
 
 	private Constants() {
 		throw new IllegalStateException("Utility class");

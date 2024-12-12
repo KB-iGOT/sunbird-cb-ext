@@ -1,6 +1,7 @@
 package org.sunbird.insights.controller.service;
 
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.collections.MapUtils;
@@ -10,17 +11,15 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.util.ObjectUtils;
 import org.sunbird.cache.RedisCacheMgr;
 import org.sunbird.cassandra.utils.CassandraOperation;
 import org.sunbird.common.model.SBApiResponse;
-import org.sunbird.common.util.CbExtServerProperties;
-import org.sunbird.common.util.Constants;
-import org.sunbird.common.util.ProjectUtil;
-import org.sunbird.common.util.PropertiesCache;
+import org.sunbird.common.util.*;
+import org.sunbird.user.service.UserUtilityService;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.temporal.TemporalAdjusters;
@@ -42,6 +41,12 @@ public class InsightsServiceImpl implements InsightsService {
 
     @Autowired
     CbExtServerProperties extServerProperties;
+
+    @Autowired
+    UserUtilityService userUtilityService;
+
+    @Autowired
+    AccessTokenValidator accessTokenValidator;
 
     ObjectMapper mapper = new ObjectMapper();
 
@@ -274,6 +279,92 @@ public class InsightsServiceImpl implements InsightsService {
             response.setResponseCode(HttpStatus.INTERNAL_SERVER_ERROR);
         }
         return response;
+    }
+
+    @Override
+    public SBApiResponse getCourseRecommendationsByDesignation(String authToken) {
+        SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.API_COURSE_RECOMMENDATIONS);
+        String orgId = null;
+        String designation = null;
+        try {
+            String userId = fetchUserIdFromToken(authToken, response);
+            if (userId == null) return response;
+            Map<String, Object> userData = userUtilityService.getUsersReadData(userId, null, null);
+            if (CollectionUtils.isNotEmpty(Collections.singleton(userData))) {
+                designation = extractDesignation(userData);
+                orgId = (String) userData.get(Constants.ROOT_ORG_ID);
+            }
+            String errMsg = validateUserInfo(orgId, response, designation);
+            if (StringUtils.isNotEmpty(errMsg)) return response;
+            String subKey = orgId + "_" + designation;
+            String redisKey = serverProperties.getCourseRecommendationsByDesignationKey();
+            List<String> redisData = redisCacheMgr.hget(redisKey, serverProperties.getRedisInsightIndex(), subKey);
+            if (CollectionUtils.isEmpty(redisData) || StringUtils.isBlank(redisData.get(0))) {
+                log.info("No recommendations courses found with this subKey{}",subKey);
+                response.getParams().setStatus(Constants.FAILED);
+                response.put(Constants.MESSAGE, "No recommendations courses found");
+                response.setResponseCode(HttpStatus.NOT_FOUND);
+                return response;
+            }
+            String recommendationsString = redisData.get(0);
+            List<String> recommendations = Arrays.asList(recommendationsString.split(","));
+            response.getParams().setStatus(Constants.SUCCESS);
+            response.put(Constants.COURSE_LIST, recommendations);
+            response.setResponseCode(HttpStatus.OK);
+        } catch (Exception e) {
+            log.error("Error while fetching recommendation course", e);
+            response.getParams().setStatus(Constants.FAILED);
+            response.put(Constants.MESSAGE, "Internal Server Error");
+            response.setResponseCode(HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+        return response;
+    }
+
+    private String validateUserInfo(String orgId, SBApiResponse response, String designation) {
+        if (StringUtils.isEmpty(orgId)) {
+            response.getParams().setStatus(Constants.FAILED);
+            response.put(Constants.MESSAGE, "OrgId is Missing");
+            response.setResponseCode(HttpStatus.BAD_REQUEST);
+            return "OrgId is Missing";
+        }
+        if (StringUtils.isEmpty(designation)) {
+            response.getParams().setStatus(Constants.FAILED);
+            response.put(Constants.MESSAGE, "Designation is Missing");
+            response.setResponseCode(HttpStatus.BAD_REQUEST);
+            return "Designation is Missing";
+        }
+        return null;
+    }
+
+    private String extractDesignation(Map<String, Object> userData) {
+        ObjectMapper objectMapper = new ObjectMapper();
+        JsonNode userDataNode = objectMapper.convertValue(userData, JsonNode.class);
+        JsonNode profileDetails = userDataNode.get(Constants.PROFILE_DETAILS);
+        if (profileDetails == null) {
+            log.warn("User profile details are missing in the provided user data.");
+            return "Profile details are unavailable";
+        }
+        JsonNode professionalDetails = profileDetails.get("professionalDetails").get(0);
+        if (professionalDetails == null) {
+            log.warn("Professional details are missing in the user profile.");
+            return "Professional details are unavailable";
+        }
+        return professionalDetails.get(Constants.DESIGNATION).asText();
+    }
+
+
+    private String fetchUserIdFromToken(String authUserToken, SBApiResponse response) {
+        String userId = accessTokenValidator.fetchUserIdFromAccessToken(authUserToken);
+        if (ObjectUtils.isEmpty(userId)) {
+            updateErrorDetails(response, HttpStatus.BAD_REQUEST);
+        }
+        return userId;
+    }
+
+    private void updateErrorDetails(SBApiResponse response, HttpStatus responseCode) {
+        response.getParams().setStatus(Constants.FAILED);
+        response.getParams().setErrmsg(Constants.USER_ID_DOESNT_EXIST);
+        response.setResponseCode(responseCode);
     }
 }
 
