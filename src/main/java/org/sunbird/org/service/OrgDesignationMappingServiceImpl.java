@@ -157,6 +157,10 @@ public class OrgDesignationMappingServiceImpl implements OrgDesignationMappingSe
                 return response;
             }
 
+            if (isFileExistForProcessingForMDO(rootOrgId)) {
+                setErrorDataForMdo(response, "Failed to upload for another request as previous request is in processing state, please try after some time.");
+                return response;
+            }
             SBApiResponse uploadResponse = storageService.uploadFile(file, serverProperties.getOrgDesignationBulkUploadContainerName());
             if (!HttpStatus.OK.equals(uploadResponse.getResponseCode())) {
                 setErrorData(response, String.format("Failed to upload file. Error: %s",
@@ -385,7 +389,7 @@ public class OrgDesignationMappingServiceImpl implements OrgDesignationMappingSe
 
     @Override
     public void initiateOrgDesignationBulkUploadProcess(String value) {
-        logger.info("OrgDesignationMapping:: initiateUserBulkUploadProcess: Started");
+        logger.info("OrgDesignationMapping:: initiateDesignationUploadProcess: Started");
         long duration = 0;
         long startTime = System.currentTimeMillis();
         try {
@@ -406,7 +410,7 @@ public class OrgDesignationMappingServiceImpl implements OrgDesignationMappingSe
                     e);
         }
         duration = System.currentTimeMillis() - startTime;
-        logger.info("CompetencyDesignationMapping:: initiateUserBulkUploadProcess: Completed. Time taken: "
+        logger.info("CompetencyDesignationMapping:: initiateDesignationBulkUploadProcess: Completed. Time taken: "
                 + duration + " milli-seconds");
     }
 
@@ -635,6 +639,7 @@ public class OrgDesignationMappingServiceImpl implements OrgDesignationMappingSe
                     if (StringUtils.isNotEmpty(frameworkId)) {
                         orgDesignation = getOrgAddedDesignation(getAllDesignationForOrg);
                     }
+                    Thread.sleep(180000);
                     long duration = 0;
                     long startTime = System.currentTimeMillis();
                     StringBuffer str = new StringBuffer();
@@ -661,7 +666,7 @@ public class OrgDesignationMappingServiceImpl implements OrgDesignationMappingSe
                                     } else {
                                         boolean isDesignationAssociationsPresent = associations.stream().anyMatch(n -> ((String) n.get(Constants.NAME)).equalsIgnoreCase(designation));
                                         if (isDesignationAssociationsPresent) {
-                                            invalidErrList.add("Already designation: " + designation + "is mapped for org");
+                                            invalidErrList.add("Already designation: " + designation + " is mapped for org");
                                         } else {
                                             Map<String, Object> designationObject = getDesignationObject(getAllDesignationForOrg, designation);
                                             if (MapUtils.isNotEmpty(designationObject)) {
@@ -737,7 +742,7 @@ public class OrgDesignationMappingServiceImpl implements OrgDesignationMappingSe
                         }
                     }
                     duration = System.currentTimeMillis() - startTime;
-                    logger.info("UserBulkUploadService:: Record Completed. Time taken: "
+                    logger.info("OrgDesignationMappingService:: Record Completed. Time taken: "
                             + duration + " milli-seconds");
                     if (progressUpdateThresholdValue >= serverProperties.getBulkUploadThresholdValue()) {
                         updateOrgCompetencyDesignationMappingBulkUploadStatus(inputDataMap.get(Constants.ROOT_ORG_ID), inputDataMap.get(Constants.IDENTIFIER),
@@ -1044,5 +1049,52 @@ public class OrgDesignationMappingServiceImpl implements OrgDesignationMappingSe
             logger.error("Issue while publish or adding the associations to the framework: ", e);
             errList.add("Issue while publish or adding the associations to the framework.");
         }
+    }
+
+    @Override
+    public void updateDBStatusAtShutDown(String value) {
+        logger.info("updateDBStatusAtShutDown:: initiateProcess: Started");
+        long duration = 0;
+        long startTime = System.currentTimeMillis();
+        try {
+            HashMap<String, String> inputDataMap = objectMapper.readValue(value,
+                    new TypeReference<Object>() {
+                    });
+            List<String> errList = validateReceivedKafkaMessage(inputDataMap);
+            if (errList.isEmpty()) {
+                if (isFileExistForProcessingForMDO(inputDataMap.get(Constants.ROOT_ORG_ID))) {
+                    updateOrgCompetencyDesignationMappingBulkUploadStatus(inputDataMap.get(Constants.ROOT_ORG_ID),
+                            inputDataMap.get(Constants.IDENTIFIER), Constants.FAILED_UPPERCASE, 0, 0, 0);
+                }
+            } else {
+                logger.error(String.format("Error in the Kafka Message Received : %s", errList));
+            }
+        } catch (Exception e) {
+            logger.error(String.format("Error in the scheduler to update the record %s", e.getMessage()),
+                    e);
+        }
+        duration = System.currentTimeMillis() - startTime;
+        logger.info("UpdateDBStatusAtShutDown:: initiateProcess: Completed. Time taken: "
+                + duration + " milli-seconds");
+    }
+
+    private boolean isFileExistForProcessingForMDO(String mdoId) {
+        Map<String, Object> bulkUploadPrimaryKey = new HashMap<String, Object>();
+        bulkUploadPrimaryKey.put(Constants.ROOT_ORG_ID, mdoId);
+        List<String> fields = Arrays.asList(Constants.ROOT_ORG_ID, Constants.IDENTIFIER, Constants.STATUS);
+
+        List<Map<String, Object>> bulkUploadMdoList = cassandraOperation.getRecordsByPropertiesWithoutFiltering(
+                Constants.KEYSPACE_SUNBIRD, Constants.TABLE_ORG_DESIGNATION_MAPPING_BULK_UPLOAD, bulkUploadPrimaryKey, fields);
+        if (CollectionUtils.isEmpty(bulkUploadMdoList)) {
+            return false;
+        }
+        return bulkUploadMdoList.stream()
+                .anyMatch(entry -> Constants.STATUS_IN_PROGRESS_UPPERCASE.equalsIgnoreCase((String) entry.get(Constants.STATUS)));
+    }
+
+    private void setErrorDataForMdo(SBApiResponse response, String errMsg) {
+        response.getParams().setStatus(Constants.FAILED);
+        response.getParams().setErrmsg(errMsg);
+        response.setResponseCode(HttpStatus.TOO_MANY_REQUESTS);
     }
 }

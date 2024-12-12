@@ -14,4 +14,6 @@ public interface OrgDesignationMappingService {
     ResponseEntity<?> downloadFile(String fileName, String rootOrgId, String userAuthToken);
 
     SBApiResponse getBulkUploadDetailsForOrgDesignationMapping(String orgId, String rootOrgId, String userAuthToken);
+
+    void updateDBStatusAtShutDown(String value);
 }
