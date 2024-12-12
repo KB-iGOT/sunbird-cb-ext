@@ -27,8 +27,7 @@ public class CassandraConnectionManagerImpl implements CassandraConnectionManage
     public static CbExtLogger logger = new CbExtLogger(CassandraConnectionManagerImpl.class.getName());
     List<String> keyspaces = Arrays.asList(Constants.KEYSPACE_SUNBIRD, Constants.KEYSPACE_SUNBIRD_COURSES);
 
-    @Autowired
-    private static OrgDesignationBulkUploadConsumer orgDesignationBulkUploadConsumer;
+    private static final OrgDesignationBulkUploadConsumer orgDesignationBulkUploadConsumer = OrgDesignationBulkUploadConsumer.getInstance();
 
     @PostConstruct
     private void addPostConstruct() {
@@ -187,6 +186,8 @@ public class CassandraConnectionManagerImpl implements CassandraConnectionManage
                     logger.info("Processing buffered messages during shutdown...");
                     orgDesignationBulkUploadConsumer.shutdownHook();
                     logger.info("Buffered messages processed successfully.");
+                } else {
+                    logger.info("orgDesignationBulkUploadConsumer is not active. Skipping message processing.");
                 }
             } catch (Exception e) {
                 logger.error("Error occurred while processing buffered messages during shutdown.", e);

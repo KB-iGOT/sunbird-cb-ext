@@ -1,5 +1,6 @@
 package org.sunbird.org.service;
 
+import lombok.Getter;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.slf4j.Logger;
@@ -8,6 +9,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 
+import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -17,6 +19,9 @@ import java.util.concurrent.CompletableFuture;
 @Component
 public class OrgDesignationBulkUploadConsumer {
 
+    @Getter
+    private static OrgDesignationBulkUploadConsumer instance;
+
     private final Logger logger = LoggerFactory.getLogger(OrgDesignationBulkUploadConsumer.class);
 
     @Autowired
@@ -24,6 +29,10 @@ public class OrgDesignationBulkUploadConsumer {
 
     private final List<String> messageBuffer = Collections.synchronizedList(new ArrayList<>());
 
+    @PostConstruct
+    public void init() {
+        instance = this; // Assign the current instance to the static field
+    }
 
     @KafkaListener(topics = "${kafka.topics.org.designation.bulk.upload.event}", groupId = "${kafka.topics.org.designation.bulk.upload.event.group}")
     public void processOrgDesignationBulkUploadMessage(ConsumerRecord<String, String> data) {
