@@ -179,21 +179,27 @@ public class CassandraConnectionManagerImpl implements CassandraConnectionManage
     public static void registerShutDownHookV2() {
         Runtime runtime = Runtime.getRuntime();
 
-        // Ensure that shutdown hook is invoked for Cassandra last, and for OrgDesignationBulkUploadConsumer first
+        // Adding a shutdown hook that ensures OrgDesignationBulkUploadConsumer shutdown happens first
         runtime.addShutdownHook(new Thread(() -> {
-            // First, explicitly call shutdown logic for OrgDesignationBulkUploadConsumer
             try {
+                // First, explicitly call shutdown logic for OrgDesignationBulkUploadConsumer
                 if (orgDesignationBulkUploadConsumer != null) {
-                    // Ensure the buffered messages are processed before shutting down Cassandra
+                    logger.info("Processing buffered messages during shutdown...");
                     orgDesignationBulkUploadConsumer.shutdownHook();
+                    logger.info("Buffered messages processed successfully.");
                 }
             } catch (Exception e) {
                 logger.error("Error occurred while processing buffered messages during shutdown.", e);
             }
 
-            // Now proceed with Cassandra cleanup
-            new ResourceCleanUp().run();  // Assuming this handles Cassandra's cleanup logic
-            logger.info("Cassandra ShutDownHook completed.");
+            try {
+                // Now, proceed with Cassandra cleanup after OrgDesignationBulkUploadConsumer shutdown logic
+                logger.info("Starting Cassandra cleanup...");
+                new ResourceCleanUp().run();  // Assuming this handles Cassandra's cleanup logic
+                logger.info("Cassandra ShutDownHook completed.");
+            } catch (Exception e) {
+                logger.error("Error occurred during Cassandra cleanup.", e);
+            }
         }));
         logger.info("Cassandra ShutDownHook registered.");
     }
