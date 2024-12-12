@@ -27,12 +27,12 @@ public class CassandraConnectionManagerImpl implements CassandraConnectionManage
     public static CbExtLogger logger = new CbExtLogger(CassandraConnectionManagerImpl.class.getName());
     List<String> keyspaces = Arrays.asList(Constants.KEYSPACE_SUNBIRD, Constants.KEYSPACE_SUNBIRD_COURSES);
 
-    private static OrgDesignationBulkUploadConsumer orgDesignationBulkUploadConsumer = null;
+    @Autowired
+    private OrgDesignationBulkUploadConsumer orgDesignationBulkUploadConsumer = null;
 
     @PostConstruct
     private void addPostConstruct() {
         logger.info("CassandraConnectionManagerImpl:: Initiating...");
-        orgDesignationBulkUploadConsumer = OrgDesignationBulkUploadConsumer.getInstance();
         registerShutDownHookV2();
         createCassandraConnection();
         for(String keyspace: keyspaces) {
@@ -176,7 +176,7 @@ public class CassandraConnectionManagerImpl implements CassandraConnectionManage
             }
         }
     }
-    public static void registerShutDownHookV2() {
+    public void registerShutDownHookV2() {
         Runtime runtime = Runtime.getRuntime();
 
         // Adding a shutdown hook that ensures OrgDesignationBulkUploadConsumer shutdown happens first
