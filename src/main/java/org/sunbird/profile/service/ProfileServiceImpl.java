@@ -116,6 +116,9 @@ public class ProfileServiceImpl implements ProfileService {
 	@Autowired
     AccessTokenValidator accessTokenValidator;
 
+	@Autowired
+	CbExtServerProperties serverProperties;
+
 	private Logger log = LoggerFactory.getLogger(getClass().getName());
 
 	@Override
@@ -1988,7 +1991,26 @@ public class ProfileServiceImpl implements ProfileService {
 								Map<String, Object> updatedProfessionalDetailsMap = ((List<Map<String, Object>>) profileDetailsMap
 										.get(changedObj)).get(0);
 								for (String childKey : updatedProfessionalDetailsMap.keySet()) {
-									String updatedValue = (String) updatedProfessionalDetailsMap.get(childKey);
+									String updatedValue = null;
+									Object value = updatedProfessionalDetailsMap.get(childKey);
+									if (value != null) {
+										updatedValue = value.toString();
+									}
+									//									Object updatedValueObj = updatedProfessionalDetailsMap.get(childKey);
+//									String updatedValue = null;
+//									if (updatedValueObj instanceof Boolean) {
+//										updatedValue = updatedValueObj.toString();
+//									} else if (updatedValueObj instanceof String) {
+//										updatedValue = (String) updatedValueObj;
+//									}
+									if (childKey.equalsIgnoreCase(Constants.GROUP)) {
+										if (!userUtilityService.validateGroup(updatedValue)) {
+											response.setResponseCode(HttpStatus.BAD_REQUEST);
+											response.getParams().setStatus(Constants.FAILED);
+											response.getParams().setErrmsg(Constants.INVALID_GROUP_MESSAGE + serverProperties.getBulkUploadGroupValue());
+											return response;
+										}
+									}
 									if ((Constants.GROUP.equalsIgnoreCase(childKey)
 											|| Constants.DESIGNATION.equalsIgnoreCase(childKey)) &&
 											!updatedValue.equalsIgnoreCase(
