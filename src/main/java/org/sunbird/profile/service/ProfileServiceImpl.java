@@ -1991,11 +1991,7 @@ public class ProfileServiceImpl implements ProfileService {
 								Map<String, Object> updatedProfessionalDetailsMap = ((List<Map<String, Object>>) profileDetailsMap
 										.get(changedObj)).get(0);
 								for (String childKey : updatedProfessionalDetailsMap.keySet()) {
-									String updatedValue = null;
-									Object value = updatedProfessionalDetailsMap.get(childKey);
-									if (value != null) {
-										updatedValue = value.toString();
-									}
+									String updatedValue = (String) updatedProfessionalDetailsMap.get(childKey);
 									if (childKey.equalsIgnoreCase(Constants.GROUP)) {
 										if (!userUtilityService.validateGroup(updatedValue)) {
 											response.setResponseCode(HttpStatus.BAD_REQUEST);
