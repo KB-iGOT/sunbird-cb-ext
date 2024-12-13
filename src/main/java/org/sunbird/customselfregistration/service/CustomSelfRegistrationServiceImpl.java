@@ -98,11 +98,7 @@ public class CustomSelfRegistrationServiceImpl implements CustomSelfRegistration
         if (orgId == null) return outgoingResponse;
         String errMsg = validateRequestFields(requestBody, outgoingResponse);
         if(!StringUtils.isEmpty(errMsg)) return outgoingResponse;
-        if (isRegistrationQRCodeActive(orgId)) {
-            outgoingResponse.getParams().setStatus(Constants.FAILED);
-            outgoingResponse.getParams().setErrmsg("QR Code is already active for this org");
-            outgoingResponse.setResponseCode(HttpStatus.OK);
-        }
+        isRegistrationQRCodeActive(orgId);
         //Validate the designation
         if (!isDesignationMappedToOrg(orgId, outgoingResponse)) return outgoingResponse;
         String uniqueId = String.valueOf(System.currentTimeMillis());
@@ -562,21 +558,21 @@ public class CustomSelfRegistrationServiceImpl implements CustomSelfRegistration
      * Checks if the registration QR code is active for the given organization ID.
      *
      * @param orgId The organization ID.
-     * @return True if the QR code is active, false otherwise.
+     *
      */
-    private boolean isRegistrationQRCodeActive(String orgId) {
+    private void isRegistrationQRCodeActive(String orgId) {
         logger.info("CustomSelfRegistrationServiceImpl::isRegistrationQRCodeActive : Checking if registration QR code is active for orgId: {}", orgId);
         List<CustomeSelfRegistrationEntity> qrRegistrationCodeByOrgIds = qrRegistrationCodeRepository.findAllByOrgId(orgId);
-        if (qrRegistrationCodeByOrgIds.isEmpty()) {
-            return false;
-        }
-        for (CustomeSelfRegistrationEntity qrCode : qrRegistrationCodeByOrgIds) {
-            String status = qrCode.getStatus();
-            if (Constants.ACTIVE.equalsIgnoreCase(status)) {
-                return !Constants.TRUE.equalsIgnoreCase(serverProperties.getSkipQRCodeValdationCheck());
-            }
-        }
-        return false;
+        Optional.ofNullable(qrRegistrationCodeByOrgIds).orElse(Collections.emptyList()).
+                stream().
+                filter(qrCodeDetails -> Constants.ACTIVE.equalsIgnoreCase(qrCodeDetails.getStatus())).
+                forEach(qrCodeDetails -> {
+                    try {
+                        qrRegistrationCodeRepository.updateRegistrationQrCodeWithStatus(qrCodeDetails.getOrgId(), qrCodeDetails.getId(), "expired");
+                    } catch (Exception e) {
+                        logger.error("CustomSelfRegistrationServiceImpl::getCustomSelfRegistrationModel :Failed to update QR code with ID {}: {}", qrCodeDetails.getId(), e.getMessage());
+                    }
+                });
     }
 
     /**
