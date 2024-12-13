@@ -778,7 +778,7 @@ public class OrgDesignationMappingServiceImpl implements OrgDesignationMappingSe
                         failedRecordsCount = totalNumberOfRecordInSheet;
                         rowIterator = sheet.iterator();
                         if (rowIterator.hasNext()) {
-                            // remove the first header
+                            rowIterator.next(); // remove the first header
                         }
                         while (rowIterator.hasNext()) {
                             Row nextRow = rowIterator.next();
