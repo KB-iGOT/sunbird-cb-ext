@@ -1996,13 +1996,6 @@ public class ProfileServiceImpl implements ProfileService {
 									if (value != null) {
 										updatedValue = value.toString();
 									}
-									//									Object updatedValueObj = updatedProfessionalDetailsMap.get(childKey);
-//									String updatedValue = null;
-//									if (updatedValueObj instanceof Boolean) {
-//										updatedValue = updatedValueObj.toString();
-//									} else if (updatedValueObj instanceof String) {
-//										updatedValue = (String) updatedValueObj;
-//									}
 									if (childKey.equalsIgnoreCase(Constants.GROUP)) {
 										if (!userUtilityService.validateGroup(updatedValue)) {
 											response.setResponseCode(HttpStatus.BAD_REQUEST);
