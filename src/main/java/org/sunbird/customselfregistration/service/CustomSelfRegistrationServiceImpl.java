@@ -140,6 +140,7 @@ public class CustomSelfRegistrationServiceImpl implements CustomSelfRegistration
         request.put(Constants.ORGANIZATION_ID, customSelfRegistrationModel.getOrgId());
         request.put(Constants.REGISTRATION_LINK_CSR, customSelfRegistrationModel.getRegistrationLink());
         request.put(Constants.QR_REGISTRATION_LINK_CSR, customSelfRegistrationModel.getQrCodeFilePath());
+        request.put(Constants.QR_LOGO_PATH, customSelfRegistrationModel.getQrLogoFilePath());
         updateRequest.put(Constants.REQUEST, request);
         StringBuilder url = new StringBuilder(serverProperties.getSbUrl());
         url.append(serverProperties.getUpdateOrgPath());
