@@ -176,6 +176,7 @@ public class CassandraConnectionManagerImpl implements CassandraConnectionManage
             }
         }
     }
+
     public void registerShutDownHookV2() {
         Runtime runtime = Runtime.getRuntime();
 
@@ -195,7 +196,6 @@ public class CassandraConnectionManagerImpl implements CassandraConnectionManage
             }
 
             try {
-                // Now, proceed with Cassandra cleanup after OrgDesignationBulkUploadConsumer shutdown logic
                 logger.info("Starting Cassandra cleanup...");
                 new ResourceCleanUp().run();  // Assuming this handles Cassandra's cleanup logic
                 logger.info("Cassandra ShutDownHook completed.");

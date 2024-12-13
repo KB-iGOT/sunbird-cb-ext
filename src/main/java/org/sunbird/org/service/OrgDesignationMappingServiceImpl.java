@@ -639,7 +639,6 @@ public class OrgDesignationMappingServiceImpl implements OrgDesignationMappingSe
                     if (StringUtils.isNotEmpty(frameworkId)) {
                         orgDesignation = getOrgAddedDesignation(getAllDesignationForOrg);
                     }
-                    Thread.sleep(180000);
                     long duration = 0;
                     long startTime = System.currentTimeMillis();
                     StringBuffer str = new StringBuffer();
