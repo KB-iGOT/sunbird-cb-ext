@@ -23,4 +23,5 @@ public class CustomSelfRegistrationModel {
     String createdby;
     String createddatetime;
     Long numberofusersonboarded;
+    String qrLogoFilePath;
 }
