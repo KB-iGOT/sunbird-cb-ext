@@ -1312,6 +1312,7 @@ public class Constants {
 	public static final String REISSUE = "reissue";
 	public static final String IS_REGISTRATION_LINK_ACTIVE = "api.org.isqrcode.active";
 	public static final String IS_WHATSAPP_CONSENT="isWhatsappConsent";
+	public static final String QR_LOGO_PATH = "qrLogoPath";
 
 	private Constants() {
 		throw new IllegalStateException("Utility class");
