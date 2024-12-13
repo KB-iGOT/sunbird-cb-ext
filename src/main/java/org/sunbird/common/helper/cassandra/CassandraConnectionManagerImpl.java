@@ -3,12 +3,14 @@ package org.sunbird.common.helper.cassandra;
 import com.datastax.driver.core.*;
 import com.datastax.driver.core.policies.DefaultRetryPolicy;
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.sunbird.common.exceptions.ProjectCommonException;
 import org.sunbird.common.exceptions.ResponseCode;
 import org.sunbird.common.util.Constants;
 import org.sunbird.common.util.PropertiesCache;
 import org.sunbird.core.logger.CbExtLogger;
+import org.sunbird.org.service.OrgDesignationBulkUploadConsumer;
 
 import javax.annotation.PostConstruct;
 import java.util.Arrays;
@@ -25,10 +27,13 @@ public class CassandraConnectionManagerImpl implements CassandraConnectionManage
     public static CbExtLogger logger = new CbExtLogger(CassandraConnectionManagerImpl.class.getName());
     List<String> keyspaces = Arrays.asList(Constants.KEYSPACE_SUNBIRD, Constants.KEYSPACE_SUNBIRD_COURSES);
 
+    @Autowired
+    private OrgDesignationBulkUploadConsumer orgDesignationBulkUploadConsumer = null;
+
     @PostConstruct
     private void addPostConstruct() {
         logger.info("CassandraConnectionManagerImpl:: Initiating...");
-        registerShutDownHook();
+        registerShutDownHookV2();
         createCassandraConnection();
         for(String keyspace: keyspaces) {
             getSession(keyspace);
@@ -170,5 +175,34 @@ public class CassandraConnectionManagerImpl implements CassandraConnectionManage
                 logger.error(ex);
             }
         }
+    }
+
+    public void registerShutDownHookV2() {
+        Runtime runtime = Runtime.getRuntime();
+
+        // Adding a shutdown hook that ensures OrgDesignationBulkUploadConsumer shutdown happens first
+        runtime.addShutdownHook(new Thread(() -> {
+            try {
+                // First, explicitly call shutdown logic for OrgDesignationBulkUploadConsumer
+                if (orgDesignationBulkUploadConsumer != null) {
+                    logger.info("Processing buffered messages during shutdown...");
+                    orgDesignationBulkUploadConsumer.shutdownHook();
+                    logger.info("Buffered messages processed successfully.");
+                } else {
+                    logger.info("orgDesignationBulkUploadConsumer is not active. Skipping message processing.");
+                }
+            } catch (Exception e) {
+                logger.error("Error occurred while processing buffered messages during shutdown.", e);
+            }
+
+            try {
+                logger.info("Starting Cassandra cleanup...");
+                new ResourceCleanUp().run();  // Assuming this handles Cassandra's cleanup logic
+                logger.info("Cassandra ShutDownHook completed.");
+            } catch (Exception e) {
+                logger.error("Error occurred during Cassandra cleanup.", e);
+            }
+        }));
+        logger.info("Cassandra ShutDownHook registered.");
     }
 }
