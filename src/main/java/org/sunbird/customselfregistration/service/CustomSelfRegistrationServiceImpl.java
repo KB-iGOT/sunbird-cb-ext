@@ -140,7 +140,6 @@ public class CustomSelfRegistrationServiceImpl implements CustomSelfRegistration
         request.put(Constants.ORGANIZATION_ID, customSelfRegistrationModel.getOrgId());
         request.put(Constants.REGISTRATION_LINK_CSR, customSelfRegistrationModel.getRegistrationLink());
         request.put(Constants.QR_REGISTRATION_LINK_CSR, customSelfRegistrationModel.getQrCodeFilePath());
-        request.put(Constants.QR_LOGO_PATH, customSelfRegistrationModel.getQrLogoFilePath());
         updateRequest.put(Constants.REQUEST, request);
         StringBuilder url = new StringBuilder(serverProperties.getSbUrl());
         url.append(serverProperties.getUpdateOrgPath());
@@ -494,6 +493,7 @@ public class CustomSelfRegistrationServiceImpl implements CustomSelfRegistration
         Map<String, Object> result = new HashMap<>();
         result.put(Constants.REGISTRATION_LINK_CSR, customSelfRegistrationModel.getRegistrationLink());
         result.put(Constants.QR_REGISTRATION_LINK_CSR, customSelfRegistrationModel.getQrCodeFilePath());
+        result.put(Constants.QR_LOGO_PATH, customSelfRegistrationModel.getQrLogoFilePath());
         response.getResult().putAll(result);
         response.getParams().setStatus(Constants.OK);
         response.setResponseCode(HttpStatus.OK);
