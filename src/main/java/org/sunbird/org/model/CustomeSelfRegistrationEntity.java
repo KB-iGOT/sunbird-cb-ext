@@ -54,6 +54,6 @@ public class CustomeSelfRegistrationEntity {
     private String qrCodeImagePath;
 
     @Column(name = "qrcodelogopath")
-    private String qrLogoFilePath;
+    private String qrCodeLogoPath;
 
 }
