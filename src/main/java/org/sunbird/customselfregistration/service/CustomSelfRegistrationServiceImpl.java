@@ -597,7 +597,7 @@ public class CustomSelfRegistrationServiceImpl implements CustomSelfRegistration
                 .createdDateTime(customSelfRegistrationModel.getCreateddatetime())
                 .numberOfUsersOnboarded(customSelfRegistrationModel.getNumberofusersonboarded())
                 .qrCodeImagePath(customSelfRegistrationModel.getQrCodeFilePath())
-                .qrLogoFilePath(customSelfRegistrationModel.getQrLogoFilePath())
+                .qrCodeLogoPath(customSelfRegistrationModel.getQrLogoFilePath())
                 .build();
         qrRegistrationCodeRepository.save(registrationQRCode);
     }
