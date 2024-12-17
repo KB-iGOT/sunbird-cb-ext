@@ -283,7 +283,6 @@ public class InsightsServiceImpl implements InsightsService {
 
     @Override
     public SBApiResponse getCourseRecommendationsByDesignation(String authToken) {
-        log.info("InsightsServiceImpl::getCourseRecommendationsByDesignation: {}", authToken);
         SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.API_COURSE_RECOMMENDATIONS);
         String orgId = null;
         String designation = null;
@@ -304,7 +303,7 @@ public class InsightsServiceImpl implements InsightsService {
                 log.info("No recommendations courses found with this subKey{}",subKey);
                 response.getParams().setStatus(Constants.FAILED);
                 response.put(Constants.MESSAGE, "No recommendations courses found");
-                response.setResponseCode(HttpStatus.NO_CONTENT);
+                response.setResponseCode(HttpStatus.OK);
                 return response;
             }
             String recommendationsString = redisData.get(0);
