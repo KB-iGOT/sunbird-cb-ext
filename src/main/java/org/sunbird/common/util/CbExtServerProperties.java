@@ -972,6 +972,9 @@ public class CbExtServerProperties {
 	@Value("${qr.custom.self.registration.logoupload.path}")
 	private String qrCustomerSelfRegistrationLogoPath;
 
+	@Value("${map.id.counter.enabled}")
+	private String mapIdCounterEnabled;
+
 
 	public String getCiosCloudIconFolderName() {
 		return ciosCloudIconFolderName;
@@ -3361,5 +3364,13 @@ public class CbExtServerProperties {
 
 	public void setQrCustomerSelfRegistrationLogoPath(String qrCustomerSelfRegistrationLogoPath) {
 		this.qrCustomerSelfRegistrationLogoPath = qrCustomerSelfRegistrationLogoPath;
+	}
+
+	public String getMapIdCounterEnabled() {
+		return mapIdCounterEnabled;
+	}
+
+	public void setMapIdCounterEnabled(String mapIdCounterEnabled) {
+		this.mapIdCounterEnabled = mapIdCounterEnabled;
 	}
 }

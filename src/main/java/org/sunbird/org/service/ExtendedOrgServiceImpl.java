@@ -1,13 +1,8 @@
 package org.sunbird.org.service;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
+import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import org.apache.commons.collections.CollectionUtils;
@@ -543,7 +538,30 @@ public class ExtendedOrgServiceImpl implements ExtendedOrgService {
 					mapIdList.add(org.getMapId());
 				}
 			}
-			mapIdNew = prefix + (mapIdList.size() + 1);
+			if (Constants.ENABLED.equalsIgnoreCase(configProperties.getMapIdCounterEnabled())) {
+				String finalPrefix = prefix;
+				List<Integer> numbers = existingOrgList.stream()
+						.map(OrgHierarchy::getMapId)                // Extract mapId
+						.filter(mapId -> mapId.startsWith(finalPrefix)) // Filter by prefix
+						.map(mapId -> {
+							// Find all numeric parts and extract the last one
+							Matcher matcher = Pattern.compile("\\d+").matcher(mapId);
+							String lastNumber = null;
+							while (matcher.find()) {
+								lastNumber = matcher.group(); // Update with the current match
+							}
+							return lastNumber; // Return the last matched number
+						})
+						.filter(Objects::nonNull)                   // Exclude null values
+						.map(Integer::parseInt)                     // Convert to integers
+						.collect(Collectors.toList());             // Collect into a list
+
+				// Find the maximum number or default to 0 if the list is empty
+				int maxNumber = numbers.isEmpty() ? 0 : Collections.max(numbers);
+				mapIdNew = prefix + (maxNumber + 1);
+			}else{
+				mapIdNew = prefix + (mapIdList.size() + 1);
+			}
 		} else {
 			mapIdNew = prefix + "1";
 		}

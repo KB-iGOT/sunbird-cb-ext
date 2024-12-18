@@ -107,6 +107,7 @@ public class CustomSelfRegistrationServiceImpl implements CustomSelfRegistration
         try {
             File qrCodeFile = generateQRCodeFile(registrationLink, qrCodeFilePath, orgId);
             File qrCodeLogoFile = QRCode.from(registrationLink).to(ImageType.JPG).withSize(750, 750).file(qrCodeFilePath);
+            outgoingResponse = uploadQRCodeFile(qrCodeFile);
             SBApiResponse qrLogoUploadResponse = uploadQRCodeFile(qrCodeLogoFile);
             if (outgoingResponse.getResponseCode() == HttpStatus.OK && qrLogoUploadResponse.getResponseCode() == HttpStatus.OK) {
                 CustomSelfRegistrationModel customSelfRegistrationModel = getCustomSelfRegistrationModel(requestBody, orgId, registrationLink, qrCodeFile, qrCodeLogoFile,userId, uniqueId);
