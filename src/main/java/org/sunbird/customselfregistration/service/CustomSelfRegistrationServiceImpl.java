@@ -623,6 +623,14 @@ public class CustomSelfRegistrationServiceImpl implements CustomSelfRegistration
         if (StringUtils.isBlank(orgId)) return outgoingResponse;
         // Get the QR code details
         List<CustomeSelfRegistrationEntity> qrRegistrationCodeByOrgIds = qrRegistrationCodeRepository.findAllByOrgId(orgId);
+        Long totalNumberOfUsersOnboarded = qrRegistrationCodeByOrgIds.stream()
+                .mapToLong(entity ->
+                        entity.getNumberOfUsersOnboarded() != null ? entity.getNumberOfUsersOnboarded() : 0
+                )
+                .sum();
+        qrRegistrationCodeByOrgIds.forEach(customeSelfRegistrationEntity ->
+                customeSelfRegistrationEntity.setNumberOfUsersOnboarded(totalNumberOfUsersOnboarded)
+        );
         if (CollectionUtils.isEmpty(qrRegistrationCodeByOrgIds)) {
             outgoingResponse.getParams().setStatus(Constants.FAILED);
             outgoingResponse.getParams().setErrmsg("No QR Code found for this org");
