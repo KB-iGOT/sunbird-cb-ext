@@ -44,26 +44,20 @@ public class PortalServiceImpl implements PortalService {
 			int count = 0;
 			int iterateCount = 0;
 			do {
+				Map<String, Object> filtersMap = new HashMap<>();
+				filtersMap.put(Constants.IS_TENANT, Boolean.TRUE);
+				filtersMap.put(Constants.STATUS, 1);
 				// request body
 				Map<String, Object> requestMap = new HashMap<>();
 				requestMap.put(Constants.OFFSET, iterateCount);
 				requestMap.put(Constants.LIMIT, 100);
 				requestMap.put(Constants.FIELDS,
 						new ArrayList<>(Arrays.asList(Constants.CHANNEL, Constants.IS_MDO, Constants.IS_CBP)));
-				requestMap.put(Constants.FILTERS, new HashMap<String, Object>() {
-					{
-						put(Constants.IS_TENANT, Boolean.TRUE);
-						put(Constants.STATUS, 1);
-					}
-				});
+				requestMap.put(Constants.FILTERS, filtersMap);
 
 				String serviceURL = serverConfig.getSbUrl() + serverConfig.getSbOrgSearchPath();
 				SunbirdApiResp orgResponse = mapper.convertValue(
-						outboundRequestHandlerService.fetchResultUsingPost(serviceURL, new HashMap<String, Object>() {
-							{
-								put(Constants.REQUEST, requestMap);
-							}
-						}), SunbirdApiResp.class);
+						outboundRequestHandlerService.fetchResultUsingPost(serviceURL, Map.of(Constants.REQUEST, requestMap)), SunbirdApiResp.class);
 
 				SunbirdApiResultResponse resultResp = orgResponse.getResult().getResponse();
 				count = resultResp.getCount();
@@ -107,26 +101,23 @@ public class PortalServiceImpl implements PortalService {
 			int count = 0;
 			int iterateCount = 0;
 			do {
+				Map<String, Object> filtersMap = new HashMap<>();
+				filtersMap.put(Constants.IS_TENANT, Boolean.TRUE);
+				filtersMap.put(Constants.STATUS, 1);
+
 				// request body
 				Map<String, Object> requestMap = new HashMap<>();
 				requestMap.put(Constants.OFFSET, iterateCount);
 				requestMap.put(Constants.LIMIT, 100);
 				requestMap.put(Constants.FIELDS,
 						new ArrayList<>(Arrays.asList(Constants.CHANNEL, Constants.IS_MDO, Constants.IS_CBP, Constants.ID)));
-				requestMap.put(Constants.FILTERS, new HashMap<String, Object>() {
-					{
-						put(Constants.IS_TENANT, Boolean.TRUE);
-						put(Constants.STATUS, 1);
-					}
-				});
+				requestMap.put(Constants.FILTERS, filtersMap);
 
 				String serviceURL = serverConfig.getSbUrl() + serverConfig.getSbOrgSearchPath();
+				Map<String, Object> requestPayload = Map.of(Constants.REQUEST, requestMap);
 				SunbirdApiResp orgResponse = mapper.convertValue(
-						outboundRequestHandlerService.fetchResultUsingPost(serviceURL, new HashMap<String, Object>() {
-							{
-								put(Constants.REQUEST, requestMap);
-							}
-						}), SunbirdApiResp.class);
+						outboundRequestHandlerService.fetchResultUsingPost(serviceURL, requestPayload)
+						, SunbirdApiResp.class);
 
 				SunbirdApiResultResponse resultResp = orgResponse.getResult().getResponse();
 				count = resultResp.getCount();

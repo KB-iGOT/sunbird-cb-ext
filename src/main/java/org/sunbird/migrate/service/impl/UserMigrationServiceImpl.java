@@ -87,14 +87,13 @@ public class UserMigrationServiceImpl implements UserMigrationService {
                                     log.info("userPatchResponse for user ID '{}'.", userPatchResponse);
                                     if (userPatchResponse.getResponseCode().is2xxSuccessful()) {
                                         log.info("Successfully patched user ID '{}'. Response: {}", userId, userPatchResponse);
-                                        Map<String, Object> requestBody = new HashMap<String, Object>() {{
-                                            put(Constants.ORGANIZATION_ID, custodianOrgId);
-                                            put(Constants.USER_ID, userId);
-                                            put(Constants.ROLES, Arrays.asList(Constants.PUBLIC));
-                                        }};
-                                        Map<String, Object> roleRequest = new HashMap<String, Object>() {{
-                                            put("request", requestBody);
-                                        }};
+                                        Map<String, Object> requestBody = new HashMap<>();
+                                        requestBody.put(Constants.ORGANIZATION_ID, custodianOrgId);
+                                        requestBody.put(Constants.USER_ID, userId);
+                                        requestBody.put(Constants.ROLES, Arrays.asList(Constants.PUBLIC));
+
+                                        Map<String, Object> roleRequest = new HashMap<>();
+                                        roleRequest.put("request", requestBody);
                                         StringBuilder assignRoleUrl = new StringBuilder(serverConfig.getSbUrl()).append(serverConfig.getSbAssignRolePath());
                                         log.info("printing assignRoleUrl: {}", assignRoleUrl);
                                         Map<String, Object> assignRole = outboundRequestHandlerService.fetchResultUsingPost(assignRoleUrl.toString(), roleRequest, null);
@@ -156,7 +155,7 @@ public class UserMigrationServiceImpl implements UserMigrationService {
         }
         response.getParams().setStatus(Constants.FAILED);
         String errMsg = response.getParams().getErrmsg();
-        if (StringUtils.isEmpty(errMsg)) {
+        if (updateResponse != null && StringUtils.isEmpty(errMsg)) {
             errMsg = (String) ((Map<String, Object>) updateResponse.get(Constants.PARAMS)).get(Constants.ERROR_MESSAGE);
             errMsg = PropertiesCache.getInstance().readCustomError(errMsg);
             response.getParams().setErrmsg(errMsg);
@@ -207,22 +206,16 @@ public class UserMigrationServiceImpl implements UserMigrationService {
     }
 
     private Map<String, Object> getUserMigrateRequest(String userId, String channel, boolean isSelfMigrate) {
-        Map<String, Object> requestBody = new HashMap<String, Object>() {
-            {
-                put(Constants.USER_ID, userId);
-                put(Constants.CHANNEL, channel);
-                put(Constants.SOFT_DELETE_OLD_ORG, true);
-                put(Constants.NOTIFY_MIGRATION, false);
-                if (!isSelfMigrate) {
-                    put(Constants.FORCE_MIGRATION, true);
-                }
-            }
-        };
-        Map<String, Object> request = new HashMap<String, Object>() {
-            {
-                put(Constants.REQUEST, requestBody);
-            }
-        };
+        Map<String, Object> requestBody = new HashMap<>();
+        requestBody.put(Constants.USER_ID, userId);
+        requestBody.put(Constants.CHANNEL, channel);
+        requestBody.put(Constants.SOFT_DELETE_OLD_ORG, true);
+        requestBody.put(Constants.NOTIFY_MIGRATION, false);
+        if (!isSelfMigrate) {
+            requestBody.put(Constants.FORCE_MIGRATION, true);
+        }
+        Map<String, Object> request = new HashMap<>();
+        request.put(Constants.REQUEST, requestBody);
         return request;
     }
 
@@ -250,9 +243,8 @@ public class UserMigrationServiceImpl implements UserMigrationService {
         requestBody.put("userId", userId);
         requestBody.put("profileDetails", newProfileDetails);
 
-        return new HashMap<String, Object>() {{
-            put("request", requestBody);
-        }};
-
+        Map<String, Object> request = new HashMap<>();
+        request.put("request", requestBody);
+        return request;
     }
 }

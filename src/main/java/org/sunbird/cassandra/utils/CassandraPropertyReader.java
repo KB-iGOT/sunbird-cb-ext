@@ -17,20 +17,41 @@ public class CassandraPropertyReader {
 
 	private final Properties properties = new Properties();
 	  private static final String file = "cassandratablecolumn.properties";
-	  private static volatile CassandraPropertyReader cassandraPropertyReader = null;
+	  //private static volatile CassandraPropertyReader cassandraPropertyReader = null;
 
 	  /** private default constructor 
 	 * @throws IOException */
-	  private CassandraPropertyReader() throws IOException {
+	 /* private CassandraPropertyReader() throws IOException {
 	    InputStream in = this.getClass().getClassLoader().getResourceAsStream(file);
 	    try {
 	      properties.load(in);
 	    } catch (IOException e) {
 	    	throw e;
 	    }
+	  }*/
+
+	  private CassandraPropertyReader() {
+		  try (InputStream in = this.getClass().getClassLoader().getResourceAsStream(file)) {
+			  if (in != null) {
+				  properties.load(in);
+			  } else {
+				  throw new RuntimeException("Properties file not found: " + file);
+			  }
+		  } catch (IOException e) {
+			  throw new RuntimeException("Error loading properties file", e);
+		  }
 	  }
 
+	private static class SingletonHelper {
+		private static final CassandraPropertyReader INSTANCE = new CassandraPropertyReader();
+	}
+
 	public static CassandraPropertyReader getInstance() {
+		return SingletonHelper.INSTANCE;
+	}
+
+
+	/*public static CassandraPropertyReader getInstance() {
 		if (null == cassandraPropertyReader) {
 			synchronized (CassandraPropertyReader.class) {
 				if (null == cassandraPropertyReader) {
@@ -43,7 +64,7 @@ public class CassandraPropertyReader {
 			}
 		}
 		return cassandraPropertyReader;
-	}
+	}*/
 
 	  /**
 	   * Method to read value from resource file .

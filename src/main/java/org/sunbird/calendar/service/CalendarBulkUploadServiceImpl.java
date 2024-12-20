@@ -452,8 +452,12 @@ public class CalendarBulkUploadServiceImpl implements CalendarBulkUploadService 
                 wb.close();
             if (fis != null)
                 fis.close();
-            if (file != null)
-                file.delete();
+            if (file != null) {
+                boolean isDeleted = file.delete();
+                if (!isDeleted) {
+                    logger.warn("Failed to delete temporary file: {}", file.getAbsolutePath());
+                }
+            }
         }
     }
 

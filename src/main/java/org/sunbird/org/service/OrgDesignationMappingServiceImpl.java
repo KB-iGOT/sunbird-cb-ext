@@ -90,9 +90,7 @@ public class OrgDesignationMappingServiceImpl implements OrgDesignationMappingSe
      */
     @Override
     public ResponseEntity<?> getSampleFileForOrgDesignationMapping(String rootOrgId, String userAuthToken, String frameworkId) {
-        try {
-            Workbook workbook = new XSSFWorkbook();
-
+        try(Workbook workbook = new XSSFWorkbook()){
             // Create sheets with safe names
             Sheet yourWorkspaceSheet = workbook.createSheet(WorkbookUtil.createSafeSheetName(serverProperties.getBulkUploadCompetencyYourWorkSpaceName()));
             Sheet designationMasterSheet = workbook.createSheet(WorkbookUtil.createSafeSheetName(serverProperties.getSampleFileMasterDesignationWorkSpaceName()));
@@ -118,7 +116,6 @@ public class OrgDesignationMappingServiceImpl implements OrgDesignationMappingSe
 
             ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
             workbook.write(outputStream);
-            workbook.close();
 
             // Convert the output stream to a byte array and return as a downloadable file
             ByteArrayResource resource = new ByteArrayResource(outputStream.toByteArray());
@@ -766,7 +763,8 @@ public class OrgDesignationMappingServiceImpl implements OrgDesignationMappingSe
             }
             updateOrgCompetencyDesignationMappingBulkUploadStatus(inputDataMap.get(Constants.ROOT_ORG_ID), inputDataMap.get(Constants.IDENTIFIER),
                     status, totalNumberOfRecordInSheet, noOfSuccessfulRecords, failedRecordsCount);
-        } catch (Exception e) {
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
             logger.error(String.format("Error in Process Bulk Upload %s", e.getMessage()), e);
             updateOrgCompetencyDesignationMappingBulkUploadStatus(inputDataMap.get(Constants.ROOT_ORG_ID), inputDataMap.get(Constants.IDENTIFIER),
                     Constants.FAILED_UPPERCASE, 0, 0, 0);
@@ -775,8 +773,12 @@ public class OrgDesignationMappingServiceImpl implements OrgDesignationMappingSe
                 wb.close();
             if (fis != null)
                 fis.close();
-            if (file != null)
-                file.delete();
+            if (file != null){
+                boolean isDeleted = file.delete();
+                if (!isDeleted) {
+                    System.out.println("Failed to delete the file: " + file.getAbsolutePath());
+                }
+            }
         }
     }
 

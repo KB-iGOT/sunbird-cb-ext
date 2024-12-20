@@ -142,8 +142,12 @@ public class KafkaConsumer {
         } catch (Exception e) {
             throw new RuntimeException(e);
         } finally {
-            if (mFile != null)
-                mFile.delete();
+            if (mFile != null) {
+                boolean isDeleted = mFile.delete();
+                if (!isDeleted) {
+                    logger.warn("Failed to delete the file: {}", mFile.getAbsolutePath());
+                }
+            }
         }
     }
 
@@ -184,8 +188,8 @@ public class KafkaConsumer {
                     JsonNode.class
             );
             if (response.getStatusCode().is2xxSuccessful()) {
-                String printUri = response.getBody().path("result").get("printUri").asText();
-                return printUri;
+                return response.getBody().path("result").get("printUri").asText();
+
             } else {
                 throw new RuntimeException("Failed to retrieve externalId. Status code: " + response.getStatusCodeValue());
             }

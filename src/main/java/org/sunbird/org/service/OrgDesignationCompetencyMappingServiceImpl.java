@@ -78,8 +78,7 @@ public class OrgDesignationCompetencyMappingServiceImpl implements OrgDesignatio
 
     @Override
     public ResponseEntity<ByteArrayResource> bulkUploadOrganisationCompetencyMapping(String rootOrgId, String userAuthToken, String frameworkId) {
-        try {
-            Workbook workbook = new XSSFWorkbook();
+        try(Workbook workbook = new XSSFWorkbook()){
 
             // Create sheets with safe names
             Sheet yourWorkspaceSheet = workbook.createSheet(WorkbookUtil.createSafeSheetName(serverProperties.getBulkUploadCompetencyYourWorkSpaceName()));
@@ -113,7 +112,6 @@ public class OrgDesignationCompetencyMappingServiceImpl implements OrgDesignatio
 
             ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
             workbook.write(outputStream);
-            workbook.close();
 
             // Convert the output stream to a byte array and return as a downloadable file
             ByteArrayResource resource = new ByteArrayResource(outputStream.toByteArray());
@@ -591,7 +589,10 @@ public class OrgDesignationCompetencyMappingServiceImpl implements OrgDesignatio
             try {
                 File file = new File(Constants.LOCAL_BASE_PATH + fileName);
                 if (file.exists()) {
-                    file.delete();
+                    boolean isDeleted = file.delete();
+                    if (!isDeleted) {
+                        logger.warn("Failed to delete the file: {}", file.getAbsolutePath());
+                    }
                 }
             } catch (Exception e1) {
             }
@@ -929,8 +930,12 @@ public class OrgDesignationCompetencyMappingServiceImpl implements OrgDesignatio
                 wb.close();
             if (fis != null)
                 fis.close();
-            if (file != null)
-                file.delete();
+            if (file != null) {
+                boolean isDeleted = file.delete();
+                if (!isDeleted) {
+                    logger.warn("Failed to delete the file: {}", file.getAbsolutePath());
+                }
+            }
         }
     }
 

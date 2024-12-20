@@ -36,11 +36,14 @@ public class NotificationUtil {
 			List<Object> notificationTosend = new ArrayList<>(Arrays.asList(
 					new Notification(Constants.EMAIL, Constants.MESSAGE, new EmailConfig(senderMail, emailSubject),
 							sendTo, new Template(null, emailTemplate, params))));
-			notificationRequest.put(Constants.REQUEST, new HashMap<String, List<Object>>() {
+			/*notificationRequest.put(Constants.REQUEST, new HashMap<String, List<Object>>() {
 				{
 					put(Constants.NOTIFICATIONS, notificationTosend);
 				}
-			});
+			});*/
+			Map<String, List<Object>> requestMap = new HashMap<>();
+			requestMap.put(Constants.NOTIFICATIONS, notificationTosend);
+			notificationRequest.put(Constants.REQUEST, requestMap);
 			logger.debug(String.format("Notification Request : %s", notificationRequest));
 			HttpEntity<Object> req = new HttpEntity<>(notificationRequest, headers);
 			restTemplate.postForEntity(notificationUrl, req, String.class);
@@ -58,11 +61,14 @@ public class NotificationUtil {
 				HttpHeaders headers = new HttpHeaders();
 				headers.setContentType(MediaType.APPLICATION_JSON);
 				Map<String, Object> notificationRequest = new HashMap<>();
-				notificationRequest.put(Constants.REQUEST, new HashMap<String, Object>() {
+				/*notificationRequest.put(Constants.REQUEST, new HashMap<String, Object>() {
 					{
 						put(Constants.NOTIFICATIONS, notifications);
 					}
-				});
+				});*/
+				Map<String, Object> requestMap = new HashMap<>();
+				requestMap.put(Constants.NOTIFICATIONS, notifications);
+				notificationRequest.put(Constants.REQUEST, requestMap);
 
 				HttpEntity<Object> req = new HttpEntity<>(notificationRequest, headers);
 				logger.info(String.format("Notification Request : %s", notificationRequest));
