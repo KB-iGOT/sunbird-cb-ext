@@ -80,7 +80,10 @@ public class StorageServiceImpl implements StorageService {
 		File file = null;
 		try {
 			file = new File(System.currentTimeMillis() + "_" + mFile.getOriginalFilename());
-			file.createNewFile();
+			boolean isFileCreated = file.createNewFile();
+			if (!isFileCreated) {
+				logger.warn("File already exists: {}", file.getAbsolutePath());
+			}
 			// Use try-with-resources to ensure FileOutputStream is closed
 			try (FileOutputStream fos = new FileOutputStream(file)) {
 				fos.write(mFile.getBytes());
@@ -94,7 +97,12 @@ public class StorageServiceImpl implements StorageService {
 			return response;
 		} finally {
 			if (file != null && file.exists()) {
-				file.delete();
+				Path path = Paths.get(file.getAbsolutePath());
+				try {
+					Files.delete(path);
+				} catch (IOException e) {
+					logger.warn("Failed to delete file: {}", path, e);
+				}
 			}
 		}
 	}
@@ -119,7 +127,12 @@ public class StorageServiceImpl implements StorageService {
 			return response;
 		} finally {
 			if (file != null) {
-				file.delete();
+				Path path = Paths.get(file.getAbsolutePath());
+				try {
+					Files.delete(path);
+				} catch (IOException e) {
+					logger.warn("Failed to delete file: {}", path, e);
+				}
 			}
 		}
 	}
@@ -210,9 +223,11 @@ public class StorageServiceImpl implements StorageService {
 			try {
 				File file = new File(Constants.LOCAL_BASE_PATH + fileName);
 				if(file.exists()) {
-					file.delete();
-				}
-			} catch(Exception e1) {
+					Path path = Paths.get(file.getAbsolutePath());
+						Files.delete(path);
+					}
+			} catch(IOException e) {
+				logger.error("Failed to delete file:", e);
 			}
 		}
 	}
@@ -330,9 +345,11 @@ public class StorageServiceImpl implements StorageService {
 			try {
 				File file = new File(Constants.LOCAL_BASE_PATH + fileName);
 				if (file.exists()) {
-					file.delete();
+					Path path = Paths.get(file.getAbsolutePath());
+					Files.delete(path);
 				}
 			} catch (Exception e1) {
+				logger.error("Failed to delete file:", e1);
 			}
 		}
 
@@ -441,7 +458,10 @@ public class StorageServiceImpl implements StorageService {
 		File file = null;
 		try {
 			file = new File(System.currentTimeMillis() + "_" + mFile.getOriginalFilename());
-			file.createNewFile();
+			boolean isFileCreated = file.createNewFile();
+			if (!isFileCreated) {
+				logger.warn("File is already exists: {}", file.getAbsolutePath());
+			}
 			FileOutputStream fos = new FileOutputStream(file);
 			fos.write(mFile.getBytes());
 			fos.close();
@@ -454,7 +474,12 @@ public class StorageServiceImpl implements StorageService {
 			return response;
 		} finally {
 			if (file != null) {
-				file.delete();
+				Path path = Paths.get(file.getAbsolutePath());
+				try {
+					Files.delete(path);
+				} catch (IOException e) {
+					logger.error("Failed to delete file: {}", path, e);
+				}
 			}
 		}
 	}
@@ -478,7 +503,12 @@ public class StorageServiceImpl implements StorageService {
 			return response;
 		} finally {
 			if (file != null) {
-				file.delete();
+				Path path = Paths.get(file.getAbsolutePath());
+				try {
+					Files.delete(path);
+				} catch (IOException e) {
+					logger.error("Failed to delete file: {}", path, e);
+				}
 			}
 		}
 	}
@@ -505,9 +535,10 @@ public class StorageServiceImpl implements StorageService {
 			try {
 				File file = new File(Constants.LOCAL_BASE_PATH + fileName);
 				if (file.exists()) {
-					file.delete();
+					Files.delete(file.toPath());
 				}
-			} catch (Exception e1) {
+			} catch (IOException e1) {
+				logger.error("Failed to delete file: {}", fileName, e1);
 			}
 		}
 
@@ -548,11 +579,19 @@ public class StorageServiceImpl implements StorageService {
 			response.getParams().setErrmsg("Failed to upload log file. Exception: " + e.getMessage());
 			response.setResponseCode(HttpStatus.INTERNAL_SERVER_ERROR);
 		} finally {
-			if (file != null && file.exists()) {
-				file.delete();
+			try {
+				if (file != null && file.exists()) {
+					Path path = Paths.get(file.getAbsolutePath());
+					Files.delete(path);
+				}
+			}catch (IOException e){
+				logger.warn("Failed to delete file: {}", file.getAbsolutePath(), e);
 			}
 			if (tempFile != null && tempFile.exists()) {
-				tempFile.delete();
+				boolean isDeleted = tempFile.delete();
+				if (!isDeleted) {
+					logger.warn("Failed to delete temp file: {}", tempFile.getAbsolutePath());
+				}
 			}
 		}
 
