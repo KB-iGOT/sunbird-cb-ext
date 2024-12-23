@@ -773,11 +773,13 @@ public class OrgDesignationMappingServiceImpl implements OrgDesignationMappingSe
                 wb.close();
             if (fis != null)
                 fis.close();
-            if (file != null){
-                boolean isDeleted = file.delete();
-                if (!isDeleted) {
-                    System.out.println("Failed to delete the file: " + file.getAbsolutePath());
+            try {
+                if (file != null){
+                    Path filePath = Paths.get(file.getAbsolutePath());
+                    Files.delete(filePath);
                 }
+            }catch (IOException e){
+                logger.error("Failed to delete the file: {}", file.getAbsolutePath(), e);
             }
         }
     }

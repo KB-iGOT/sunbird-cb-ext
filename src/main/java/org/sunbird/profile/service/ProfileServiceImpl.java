@@ -3,10 +3,9 @@ package org.sunbird.profile.service;
 import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonMappingException;
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.gson.Gson;
-
+import io.jsonwebtoken.*;
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.collections.ListUtils;
 import org.apache.commons.collections.MapUtils;
@@ -59,16 +58,14 @@ import java.sql.Timestamp;
 import java.text.SimpleDateFormat;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.Map.Entry;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
-import io.jsonwebtoken.*;
 
 import static java.util.stream.Collectors.toList;
-
-import java.time.ZonedDateTime;
 
 @Service
 @SuppressWarnings({ "unchecked" })
@@ -1189,22 +1186,16 @@ public class ProfileServiceImpl implements ProfileService {
 	}
 
 	private Map<String, Object> getUserMigrateRequest(String userId, String channel, boolean isSelfMigrate) {
-		Map<String, Object> requestBody = new HashMap<String, Object>() {
-			{
-				put(Constants.USER_ID, userId);
-				put(Constants.CHANNEL, channel);
-				put(Constants.SOFT_DELETE_OLD_ORG, true);
-				put(Constants.NOTIFY_MIGRATION, false);
-				if (!isSelfMigrate) {
-					put(Constants.FORCE_MIGRATION, true);
-				}
-			}
-		};
-		Map<String, Object> request = new HashMap<String, Object>() {
-			{
-				put(Constants.REQUEST, requestBody);
-			}
-		};
+		Map<String, Object> requestBody = new HashMap<>();
+		requestBody.put(Constants.USER_ID, userId);
+		requestBody.put(Constants.CHANNEL, channel);
+		requestBody.put(Constants.SOFT_DELETE_OLD_ORG, true);
+		requestBody.put(Constants.NOTIFY_MIGRATION, false);
+		if (!isSelfMigrate) {
+			requestBody.put(Constants.FORCE_MIGRATION, true);
+		}
+		Map<String, Object> request = new HashMap<>();
+		request.put(Constants.REQUEST, requestBody);
 		return request;
 	}
 
@@ -1284,13 +1275,11 @@ public class ProfileServiceImpl implements ProfileService {
 		if (existingProfile.containsKey(Constants.PROFESSIONAL_DETAILS)) {
 			professionalDetails = (List<Map<String, Object>>) existingProfile.get(Constants.PROFESSIONAL_DETAILS);
 		} else {
-			professionalDetails = new ArrayList<Map<String, Object>>() {
-				{
-					Map<String, Object> profDetail = new HashMap<String, Object>();
-					profDetail.put(Constants.OSID, UUID.randomUUID().toString());
-					add(profDetail);
-				}
-			};
+			 professionalDetails = new ArrayList<>();
+			 Map<String, Object> profDetail = new HashMap<>();
+			 profDetail.put(Constants.OSID, UUID.randomUUID().toString());
+			 professionalDetails.add(profDetail);
+
 			existingProfile.put(Constants.PROFESSIONAL_DETAILS, professionalDetails);
 		}
 		professionalDetails.get(0).put(Constants.GROUP, request.get(Constants.GROUP));
@@ -1758,7 +1747,7 @@ public class ProfileServiceImpl implements ProfileService {
 				resultArray.clear();
 				userInfoMap.clear();
 
-				index = (int) Math.min(userCount, index + size);
+				index = (int) Math.min(userCount, (long) index + size);
 
 				if (index == userCount) {
 					isCompleted = true;
@@ -1903,15 +1892,14 @@ public class ProfileServiceImpl implements ProfileService {
 					.contentType(MediaType.parseMediaType(MediaType.MULTIPART_FORM_DATA_VALUE))
 					.body(resource);
 		} catch (IOException e) {
-			log.error("Failed to read the downloaded file: " + fileName + ", Exception: ", e);
+            log.error("Failed to read the downloaded file: {}, Exception: ", fileName, e);
 			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
 		} finally {
 			try {
 				File file = new File(Constants.LOCAL_BASE_PATH + fileName);
-				if(file.exists()) {
-					file.delete();
-				}
+				Files.delete(file.toPath());
 			} catch(Exception e1) {
+                log.error("Failed to read the downloaded file: {}, Exception: ", fileName, e1);
 			}
 		}
 	}

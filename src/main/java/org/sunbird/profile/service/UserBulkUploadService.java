@@ -34,6 +34,7 @@ import org.sunbird.user.service.UserUtilityService;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.sql.Timestamp;
@@ -466,8 +467,14 @@ public class UserBulkUploadService {
                 wb.close();
             if (fis != null)
                 fis.close();
-            if (file != null)
-                file.delete();
+            try {
+                if (file != null) {
+                    Path filePath = Paths.get(file.getAbsolutePath());
+                    Files.delete(filePath);
+                }
+            }catch (IOException e){
+                logger.error("Failed to delete the file: {}", file.getAbsolutePath(), e);
+            }
         }
     }
     public void processCSVBulkUploadV2(HashMap<String, String> inputDataMap) throws IOException {
@@ -703,7 +710,7 @@ public class UserBulkUploadService {
                 csvPrinter = new CSVPrinter(bufferedWriter,CSVFormat.newFormat(csvDelimiter).withHeader(headers.toArray(new String[0])).withRecordSeparator(System.lineSeparator()));
 
 
-                for (Map<String, String> record : updatedRecords) {
+                    for (Map<String, String> record : updatedRecords) {
                     List<String> recordValues = new ArrayList<>();
                     for (String header :  headers) {
                         recordValues.add(record.get(header));
@@ -746,8 +753,14 @@ public class UserBulkUploadService {
                bufferedWriter.close();
            if (fileWriter != null)
                fileWriter.close();
-            if (file != null)
-                file.delete();
+            if (file != null) {
+                Path filePath = Paths.get(file.getAbsolutePath());
+                try {
+                    Files.delete(filePath);
+                } catch (IOException e) {
+                    logger.error("Failed to delete the file: {}", file.getAbsolutePath(), e);
+                }
+            }
         }
    }
 
