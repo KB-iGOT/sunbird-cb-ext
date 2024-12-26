@@ -148,12 +148,12 @@ public class UserUtilityServiceImpl implements UserUtilityService {
 		Map<String, Object> result = new HashMap<>();
 		// request body
 		SunbirdApiRequest requestObj = new SunbirdApiRequest();
+
+		Map<String, Object> filtersMap = new HashMap<>();
+		filtersMap.put(Constants.USER_ID, userIds);
+
 		Map<String, Object> reqMap = new HashMap<>();
-		reqMap.put(Constants.FILTERS, new HashMap<String, Object>() {
-			{
-				put(Constants.USER_ID, userIds);
-			}
-		});
+		reqMap.put(Constants.FILTERS, filtersMap);
 		reqMap.put(Constants.FIELDS_CONSTANT, fields);
 		requestObj.setRequest(reqMap);
 
@@ -429,15 +429,13 @@ public class UserUtilityServiceImpl implements UserUtilityService {
 	public Map<String, Map<String, String>> getUserDetails(List<String> userIds, List<String> fields) {
 		// request body
 		SunbirdApiRequest requestObj = new SunbirdApiRequest();
+		Map<String, Object> filtersMap = new HashMap<>();
+		filtersMap.put(Constants.USER_ID, userIds);
+
 		Map<String, Object> reqMap = new HashMap<>();
-		reqMap.put(Constants.FILTERS, new HashMap<String, Object>() {
-			{
-				put(Constants.USER_ID, userIds);
-			}
-		});
+		reqMap.put(Constants.FILTERS, filtersMap);
 		reqMap.put(Constants.FIELDS_CONSTANT, fields);
 		requestObj.setRequest(reqMap);
-
 		try {
 			String url = props.getSbUrl() + props.getUserSearchEndPoint();
 			Map<String, Object> apiResponse = outboundRequestHandlerService.fetchResultUsingPost(url, requestObj, null);
@@ -545,12 +543,10 @@ public class UserUtilityServiceImpl implements UserUtilityService {
 	public boolean isUserExist(String key, String value) {
 		// request body
 		SunbirdApiRequest requestObj = new SunbirdApiRequest();
+		Map<String, Object> filtersMap = new HashMap<>();
+		filtersMap.put(key, value);
 		Map<String, Object> reqMap = new HashMap<>();
-		reqMap.put(Constants.FILTERS, new HashMap<String, Object>() {
-			{
-				put(key, value);
-			}
-		});
+		reqMap.put(Constants.FILTERS, filtersMap);
 		requestObj.setRequest(reqMap);
 
 		HashMap<String, String> headersValue = new HashMap<>();
@@ -749,7 +745,7 @@ public class UserUtilityServiceImpl implements UserUtilityService {
 			backupUserInfoMap.putAll(userInfoMap);
 			resultArray.clear();
 
-			index = (int) Math.min(userCount, index + size);
+			index = (int) Math.min(userCount, (long)index + size);
 			if (index == userCount) {
 				isCompleted = true;
 			}
@@ -1032,12 +1028,10 @@ public class UserUtilityServiceImpl implements UserUtilityService {
 	public Map<String, Object> getUserDetails(String key, String value) {
 		// request body
 		SunbirdApiRequest requestObj = new SunbirdApiRequest();
+		Map<String, Object> filtersMap = new HashMap<>();
+		filtersMap.put(key, value);
 		Map<String, Object> reqMap = new HashMap<>();
-		reqMap.put(Constants.FILTERS, new HashMap<String, Object>() {
-			{
-				put(key, value);
-			}
-		});
+		reqMap.put(Constants.FILTERS, filtersMap);
 		requestObj.setRequest(reqMap);
 
 		HashMap<String, String> headersValue = new HashMap<>();

@@ -452,8 +452,7 @@ public class CalendarBulkUploadServiceImpl implements CalendarBulkUploadService 
                 wb.close();
             if (fis != null)
                 fis.close();
-            if (file != null)
-                file.delete();
+            ProjectUtil.deleteFileSafely(file);
         }
     }
 

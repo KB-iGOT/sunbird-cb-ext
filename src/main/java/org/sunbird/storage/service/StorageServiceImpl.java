@@ -1,20 +1,5 @@
 package org.sunbird.storage.service;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Map;
-
-import javax.annotation.PostConstruct;
-
 import org.apache.commons.collections4.MapUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
@@ -42,6 +27,20 @@ import org.sunbird.common.util.Constants;
 import org.sunbird.common.util.ProjectUtil;
 import org.sunbird.user.service.UserUtilityService;
 import scala.Option;
+
+import javax.annotation.PostConstruct;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
 
 @Service
 public class StorageServiceImpl implements StorageService {
@@ -80,7 +79,11 @@ public class StorageServiceImpl implements StorageService {
 		File file = null;
 		try {
 			file = new File(System.currentTimeMillis() + "_" + mFile.getOriginalFilename());
-			file.createNewFile();
+			if (file.createNewFile()) {
+				logger.info("File created successfully: {}", file.getAbsolutePath());
+			} else {
+				logger.warn("File already exists: {}", file.getAbsolutePath());
+			}
 			// Use try-with-resources to ensure FileOutputStream is closed
 			try (FileOutputStream fos = new FileOutputStream(file)) {
 				fos.write(mFile.getBytes());
@@ -93,9 +96,7 @@ public class StorageServiceImpl implements StorageService {
 			response.setResponseCode(HttpStatus.INTERNAL_SERVER_ERROR);
 			return response;
 		} finally {
-			if (file != null && file.exists()) {
-				file.delete();
-			}
+			ProjectUtil.deleteFileSafely(file);
 		}
 	}
 
@@ -118,9 +119,7 @@ public class StorageServiceImpl implements StorageService {
 			response.setResponseCode(HttpStatus.INTERNAL_SERVER_ERROR);
 			return response;
 		} finally {
-			if (file != null) {
-				file.delete();
-			}
+			ProjectUtil.deleteFileSafely(file);
 		}
 	}
 
@@ -207,13 +206,8 @@ public class StorageServiceImpl implements StorageService {
 			logger.error("Failed to read the downloaded file: " + fileName + ", Exception: ", e);
 			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
 		} finally {
-			try {
 				File file = new File(Constants.LOCAL_BASE_PATH + fileName);
-				if(file.exists()) {
-					file.delete();
-				}
-			} catch(Exception e1) {
-			}
+				ProjectUtil.deleteFileSafely(file);
 		}
 	}
 
@@ -327,15 +321,9 @@ public class StorageServiceImpl implements StorageService {
 			logger.error("Failed to read the downloaded file: " + fileName + ", Exception: ", e);
 			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
 		} finally {
-			try {
 				File file = new File(Constants.LOCAL_BASE_PATH + fileName);
-				if (file.exists()) {
-					file.delete();
-				}
-			} catch (Exception e1) {
-			}
+				ProjectUtil.deleteFileSafely(file);
 		}
-
 	}
 
 	@Override
@@ -441,10 +429,11 @@ public class StorageServiceImpl implements StorageService {
 		File file = null;
 		try {
 			file = new File(System.currentTimeMillis() + "_" + mFile.getOriginalFilename());
-			file.createNewFile();
-			FileOutputStream fos = new FileOutputStream(file);
-			fos.write(mFile.getBytes());
-			fos.close();
+			if (file.createNewFile()) {
+				try (FileOutputStream fos = new FileOutputStream(file)) {
+					fos.write(mFile.getBytes());
+				}
+			}
 			return uploadFile(file, cloudFolderName, containerName);
 		} catch (Exception e) {
 			logger.error("Failed to upload file. Exception: ", e);
@@ -453,9 +442,7 @@ public class StorageServiceImpl implements StorageService {
 			response.setResponseCode(HttpStatus.INTERNAL_SERVER_ERROR);
 			return response;
 		} finally {
-			if (file != null) {
-				file.delete();
-			}
+			ProjectUtil.deleteFileSafely(file);
 		}
 	}
 
@@ -465,10 +452,11 @@ public class StorageServiceImpl implements StorageService {
 		File file = null;
 		try {
 			file = new File(System.currentTimeMillis() + "_" + mFile.getOriginalFilename());
-			file.createNewFile();
-			FileOutputStream fos = new FileOutputStream(file);
-			fos.write(mFile.getBytes());
-			fos.close();
+			if (file.createNewFile()) {
+				try (FileOutputStream fos = new FileOutputStream(file)) {
+					fos.write(mFile.getBytes());
+				}
+			}
 			return uploadFile(file, cloudFolderName, containerName);
 		} catch (Exception e) {
 			logger.error("Failed to upload file. Exception: ", e);
@@ -477,9 +465,7 @@ public class StorageServiceImpl implements StorageService {
 			response.setResponseCode(HttpStatus.INTERNAL_SERVER_ERROR);
 			return response;
 		} finally {
-			if (file != null) {
-				file.delete();
-			}
+			ProjectUtil.deleteFileSafely(file);
 		}
 	}
 
@@ -502,13 +488,8 @@ public class StorageServiceImpl implements StorageService {
 			logger.error("Failed to read the downloaded file: " + fileName + ", Exception: ", e);
 			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
 		} finally {
-			try {
 				File file = new File(Constants.LOCAL_BASE_PATH + fileName);
-				if (file.exists()) {
-					file.delete();
-				}
-			} catch (Exception e1) {
-			}
+				ProjectUtil.deleteFileSafely(file);
 		}
 
 	}
@@ -528,7 +509,11 @@ public class StorageServiceImpl implements StorageService {
 				return response;
 			}
 			tempFile = new File(System.currentTimeMillis() + "_" + fileName);
-			tempFile.createNewFile();
+			if (tempFile.createNewFile()) {
+				logger.info("File created: {}", tempFile.getAbsolutePath());
+			} else {
+				logger.info("File already exists: {}", tempFile.getAbsolutePath());
+			}
 			try (FileInputStream fis = new FileInputStream(file);
 				 FileOutputStream fos = new FileOutputStream(tempFile)) {
 				byte[] buffer = new byte[1024];
@@ -548,12 +533,8 @@ public class StorageServiceImpl implements StorageService {
 			response.getParams().setErrmsg("Failed to upload log file. Exception: " + e.getMessage());
 			response.setResponseCode(HttpStatus.INTERNAL_SERVER_ERROR);
 		} finally {
-			if (file != null && file.exists()) {
-				file.delete();
-			}
-			if (tempFile != null && tempFile.exists()) {
-				tempFile.delete();
-			}
+			ProjectUtil.deleteFileSafely(file);
+			ProjectUtil.deleteFileSafely(tempFile);
 		}
 
 		return response;

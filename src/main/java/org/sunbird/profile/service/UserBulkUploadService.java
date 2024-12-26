@@ -466,8 +466,7 @@ public class UserBulkUploadService {
                 wb.close();
             if (fis != null)
                 fis.close();
-            if (file != null)
-                file.delete();
+            ProjectUtil.deleteFileSafely(file);
         }
     }
     public void processCSVBulkUploadV2(HashMap<String, String> inputDataMap) throws IOException {
@@ -492,7 +491,7 @@ public class UserBulkUploadService {
                 List<CSVRecord> csvRecords = csvParser.getRecords();
                 List<Map<String, String>> updatedRecords = new ArrayList<>();
                 List<String> headers = new ArrayList<>(csvParser.getHeaderNames());
-                headers.replaceAll(header -> header.replaceAll("^\"|\"$", ""));
+                headers.replaceAll(header -> header.replaceAll(Constants.HEADER_QUOTES_REGEX, ""));
 
                if (!headers.contains("Status")) {
                    headers.add("Status");
@@ -746,8 +745,7 @@ public class UserBulkUploadService {
                bufferedWriter.close();
            if (fileWriter != null)
                fileWriter.close();
-            if (file != null)
-                file.delete();
+           ProjectUtil.deleteFileSafely(file);
         }
    }
 

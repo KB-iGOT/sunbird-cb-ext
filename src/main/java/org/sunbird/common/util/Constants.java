@@ -1315,8 +1315,11 @@ public class Constants {
 	public static final String QR_LOGO_PATH = "qrCodeLogoPath";
 	public static final String ENABLED = "enabled";
 	public static final String INVALID_GROUP_MESSAGE = "Invalid Group : Group can be only among one of these ";
-  public static final String API_COURSE_RECOMMENDATIONS ="api.insights.get.courses.recommendations.designation";
+    public static final String API_COURSE_RECOMMENDATIONS ="api.insights.get.courses.recommendations.designation";
 	public static final String COURSE_LIST ="courseList";
+	public static final String REGEX_NAME_VALIDATION = "^(?!.*\\n)[a-zA-Z]+(?:['\\s][a-zA-Z]+)*(?<!\\.|\\s)$";
+	public static final String PRINT_URI ="printUri";
+	public static final String HEADER_QUOTES_REGEX = "^\"|\"$";
 
 	private Constants() {
 		throw new IllegalStateException("Utility class");
