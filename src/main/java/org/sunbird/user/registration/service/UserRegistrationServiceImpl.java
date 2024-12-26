@@ -3,7 +3,11 @@ package org.sunbird.user.registration.service;
 import java.io.BufferedReader;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
@@ -37,6 +41,8 @@ import org.sunbird.common.util.Constants;
 import org.sunbird.common.util.IndexerService;
 import org.sunbird.common.util.ProjectUtil;
 import org.sunbird.core.producer.Producer;
+import org.sunbird.org.model.CustomeSelfRegistrationEntity;
+import org.sunbird.org.repository.CustomSelfRegistrationRepository;
 import org.sunbird.org.service.ExtendedOrgService;
 import org.sunbird.portal.department.model.DeptPublicInfo;
 import org.sunbird.user.registration.model.UserRegistration;
@@ -81,6 +87,9 @@ public class UserRegistrationServiceImpl implements UserRegistrationService {
 	@Autowired
 	CassandraOperation cassandraOperation;
 
+	@Autowired
+	private CustomSelfRegistrationRepository qrRegistrationCodeRepository;
+
 	@Override
 	public SBApiResponse registerUser(UserRegistrationInfo userRegInfo) {
 		SBApiResponse response = createDefaultResponse(Constants.USER_REGISTRATION_REGISTER_API);
@@ -103,6 +112,14 @@ public class UserRegistrationServiceImpl implements UserRegistrationService {
 
 					if (regDocument == null
 							|| UserRegistrationStatus.FAILED.name().equalsIgnoreCase(regDocument.getStatus())) {
+						if(StringUtils.isNotEmpty(userRegInfo.getRegistrationLink())) {
+							String errorMsg = validateRegistrationDates(userRegInfo);
+							if (StringUtils.isNotBlank(errorMsg)) {
+								response.setResponseCode(HttpStatus.OK);
+								response.getResult().put(Constants.RESULT, errorMsg);
+								return response;
+							}
+						}
 						// create / update the doc in ES
 						RestStatus status = null;
 						if (regDocument == null) {
@@ -150,6 +167,7 @@ public class UserRegistrationServiceImpl implements UserRegistrationService {
 
 		return response;
 	}
+
 
 	@Override
 	public SBApiResponse getUserRegistrationDetails(String registrationCode) {
@@ -446,7 +464,7 @@ public class UserRegistrationServiceImpl implements UserRegistrationService {
 		userRegistration.setOrganisationSubType(userRegInfo.getOrganisationSubType());
 		userRegistration.setPhone(userRegInfo.getPhone());
 		userRegistration.setGroup(userRegInfo.getGroup());
-
+		userRegistration.setRegistrationLink(userRegInfo.getRegistrationLink());
 		if (StringUtils.isBlank(userRegInfo.getRegistrationCode())) {
 			userRegistration.setRegistrationCode(serverProperties.getUserRegCodePrefix() + "-"
 					+ userRegistration.getMapId() + "-" + RandomStringUtils.random(8, Boolean.TRUE, Boolean.TRUE));
@@ -642,6 +660,51 @@ public class UserRegistrationServiceImpl implements UserRegistrationService {
 		return records.stream()
 				.map(map -> (String) map.get(Constants.CONTEXT_NAME))
 				.collect(Collectors.toSet());
+	}
+
+
+	private String validateRegistrationDates(UserRegistrationInfo userRegistrationInfo) {
+		LOGGER.info("UserRegistrationServiceImpl::validateRegistrationDates : started");
+		String orgId = userRegistrationInfo.getSbOrgId();
+		String uniqueCode = extractIdFromUrl(userRegistrationInfo.getRegistrationLink());
+		if (StringUtils.isEmpty(uniqueCode)) {
+			LOGGER.info("UserRegistrationServiceImpl::validateRegistrationDates : uniqueCode is missing for orgId " + orgId);
+			return "";
+		}
+		CustomeSelfRegistrationEntity customeSelfRegistrationEntity = qrRegistrationCodeRepository.findAllByOrgIdAndUniqueId(orgId, uniqueCode);
+		if (Objects.isNull(customeSelfRegistrationEntity)) {
+			LOGGER.info("UserRegistrationServiceImpl::validateRegistrationDates : No registration data found for orgId " + orgId + " and uniqueCode " + uniqueCode);
+			return "No registration data found";
+		}
+		String registrationstartdate = customeSelfRegistrationEntity.getStartDate();
+		String registrationenddate = customeSelfRegistrationEntity.getEndDate();
+		if (StringUtils.isNotEmpty(registrationstartdate) && StringUtils.isNotEmpty(registrationenddate)) {
+			DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS");
+			ZonedDateTime registrationStartDate = ZonedDateTime.parse(registrationstartdate, formatter.withZone(ZoneId.of(Constants.ASIA_CALCUTTA_TIMEZONE)));
+			ZonedDateTime registrationEndDate = ZonedDateTime.parse(registrationenddate, formatter.withZone(ZoneId.of(Constants.ASIA_CALCUTTA_TIMEZONE)));
+			ZonedDateTime currentDateTime = ZonedDateTime.now(ZoneId.of(Constants.ASIA_CALCUTTA_TIMEZONE));
+			if (currentDateTime.isAfter(registrationStartDate) && currentDateTime.isBefore(registrationEndDate) && customeSelfRegistrationEntity.getStatus().equals(Constants.ACTIVE)) {
+				LOGGER.info("UserRegistrationServiceImpl::validateRegistrationDates : Registration time period is active for orgId" + orgId + "id : " + uniqueCode);
+				return "";
+			} else {
+				LOGGER.info("UserRegistrationServiceImpl::validateRegistrationDates : Registration time period is expired for orgId" + orgId + "id : " + uniqueCode);
+				return "Registration Time Period is expired";
+			}
+		}
+		return "";
+	}
+
+	public static String extractIdFromUrl(String url) {
+		// Regex pattern to capture the id immediately after "/crp/"
+		String regex = "/crp/(\\d+)";
+		Pattern pattern = Pattern.compile(regex);
+		Matcher matcher = pattern.matcher(url);
+
+		// If the pattern matches, return the captured id
+		if (matcher.find()) {
+			return matcher.group(1);  // The first captured group
+		}
+		return null;  // Return null if no match found
 	}
 
 }

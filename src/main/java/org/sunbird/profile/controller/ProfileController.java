@@ -174,4 +174,13 @@ public class ProfileController {
 		SBApiResponse uploadResponse = profileService.bulkUpload(multipartFile, rootOrgId, URLDecoder.decode(channel, "UTF-8"), userId, userAuthToken);
 		return new ResponseEntity<>(uploadResponse, uploadResponse.getResponseCode());
 	}
+
+	@PatchMapping("/user/private/admin/patch")
+	public ResponseEntity<?> privateAdminUpdate(
+			@RequestHeader(value = Constants.AUTH_TOKEN, required = false) String authToken,
+			@RequestHeader(value = Constants.X_AUTH_USER_ORG_ID, required = false) String rootOrgId,
+			@RequestBody Map<String, Object> request) throws Exception {
+		SBApiResponse response = profileService.profileMDOAdminUpdate(request, null, authToken, rootOrgId);
+		return new ResponseEntity<>(response, response.getResponseCode());
+	}
 }

@@ -254,7 +254,7 @@ public class PublicUserEventBulkonboardConsumer {
                     markRecordAsFailed(updatedRecord, "Failed to update enrollment");
                     return updatedRecord;
                 }
-                certificateService.generateCertificateEventAndPushToKafka(userId, eventId, batchId, completionPercentage, etsForEvent, publicCert);
+                certificateService.generateCertificateEventAndPushToKafka(userId, eventId, batchId, completionPercentage, etsForEvent, publicCert, false);
                 if (!publicCert) {
                     karmaPointsService.generateKarmaPointEventAndPushToKafka(userId, eventId, batchId, etsForEvent);
                 }
@@ -263,7 +263,7 @@ public class PublicUserEventBulkonboardConsumer {
                 if (reissue) {
                     //If enrollment status is complete and want to reissue the certificate
                     etsForEvent = ((Date) enrollmentRecord.get(Constants.COMPLETED_ON)).getTime();
-                    certificateService.generateCertificateEventAndPushToKafka(userId, eventId, batchId, completionPercentage, etsForEvent, publicCert);
+                    certificateService.generateCertificateEventAndPushToKafka(userId, eventId, batchId, completionPercentage, etsForEvent, publicCert, true);
                 } else {
                     markRecordAsFailed(updatedRecord, "Event already completed");
                     return updatedRecord;
@@ -276,7 +276,7 @@ public class PublicUserEventBulkonboardConsumer {
                 markRecordAsFailed(updatedRecord, "Failed to enroll");
                 return updatedRecord;
             }
-            certificateService.generateCertificateEventAndPushToKafka(userId, eventId, batchId, completionPercentage, etsForEvent, publicCert);
+            certificateService.generateCertificateEventAndPushToKafka(userId, eventId, batchId, completionPercentage, etsForEvent, publicCert, false);
             if (!publicCert) {
                 karmaPointsService.generateKarmaPointEventAndPushToKafka(userId, eventId, batchId, etsForEvent);
             }

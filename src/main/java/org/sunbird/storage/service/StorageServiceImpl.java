@@ -27,6 +27,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.util.ObjectUtils;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
 import org.sunbird.cloud.storage.BaseStorageService;
@@ -586,4 +587,89 @@ public class StorageServiceImpl implements StorageService {
 		}
 	}
 
+	/**
+	 * Uploads an image to a GCP container.
+	 *
+	 * @param multipartFile the image file to be uploaded
+	 * @param requestBody   the request body containing cloud folder name and container name
+	 * @param authUserToken the authentication token for the user
+	 * @return the API response
+	 */
+	@Override
+	public SBApiResponse uploadImageToGCPContainer(MultipartFile multipartFile, Map<String, Object> requestBody, String authUserToken) {
+		SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.IMAGE_UPLOAD_GCP_CONTAINER);
+		try {
+			String userId = fetchUserIdFromToken(authUserToken, response);
+			if (userId == null) {
+				logger.error("Failed to fetch user ID from token");
+				return response;
+			}
+			String errMsg = validateRequestFields(requestBody, response);
+			if (!StringUtils.isEmpty(errMsg)) {
+				logger.error("Invalid request body: {}", errMsg);
+				return response;
+			}
+			File file = File.createTempFile(String.valueOf(System.currentTimeMillis()), multipartFile.getOriginalFilename());
+			try (FileOutputStream fos = new FileOutputStream(file)) {
+				logger.info("Wrote image to temporary file: {}", file.getAbsolutePath());
+				fos.write(multipartFile.getBytes());
+				return uploadFile(file, (String) requestBody.get("cloudFolderName"), (String) requestBody.get("containerName"));
+			}
+		} catch (Exception e) {
+			logger.error("Failed to upload file. Exception: ", e);
+			response.getParams().setStatus(Constants.FAILED);
+			response.getParams().setErrmsg("Failed to upload file. Exception: " + e.getMessage());
+			response.setResponseCode(HttpStatus.INTERNAL_SERVER_ERROR);
+			return response;
+		}
+	}
+
+	/**
+	 * Validates the request fields for uploading an image to a GCP container.
+	 *
+	 * @param request  the request map containing the cloud folder and container names
+	 * @param response the response object to be updated with error information
+	 * @return an error message if the request fields are invalid, otherwise an empty string
+	 */
+	private String validateRequestFields(Map<String, Object> request, SBApiResponse response) {
+		if (StringUtils.isEmpty((String) request.get("cloudFolderName"))) {
+			response.getParams().setStatus(Constants.FAILED);
+			response.getParams().setErrmsg("Cloud folder name is missing");
+			response.setResponseCode(HttpStatus.BAD_REQUEST);
+			return "Cloud folder name is missing";
+		} else if (StringUtils.isEmpty((String) request.get("containerName"))) {
+			response.getParams().setStatus(Constants.FAILED);
+			response.getParams().setErrmsg("Cloud container name is missing");
+			response.setResponseCode(HttpStatus.BAD_REQUEST);
+			return "Cloud container name is missing";
+		}
+		return "";
+	}
+
+	/**
+	 * Fetches the user ID from the provided authentication token.
+	 *
+	 * @param authUserToken the authentication token to extract the user ID from
+	 * @param response      the API response object to update with error details if necessary
+	 * @return the user ID extracted from the token, or null if the token is invalid
+	 */
+	private String fetchUserIdFromToken(String authUserToken, SBApiResponse response) {
+		String userId = accessTokenValidator.fetchUserIdFromAccessToken(authUserToken);
+		if (ObjectUtils.isEmpty(userId)) {
+			updateErrorDetails(response, HttpStatus.BAD_REQUEST);
+		}
+		return userId;
+	}
+
+	/**
+	 * Updates the error details in the API response.
+	 *
+	 * @param response     The API response object.
+	 * @param responseCode The HTTP status code.
+	 */
+	private void updateErrorDetails(SBApiResponse response, HttpStatus responseCode) {
+		response.getParams().setStatus(Constants.FAILED);
+		response.getParams().setErrmsg(Constants.USER_ID_DOESNT_EXIST);
+		response.setResponseCode(responseCode);
+	}
 }

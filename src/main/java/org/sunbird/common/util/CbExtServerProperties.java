@@ -916,6 +916,17 @@ public class CbExtServerProperties {
 	@Value("${questionSet.publish}")
 	private String questionSetPublish;
 
+	@Value("${url.custom.self.registration}")
+	private String urlCustomerSelfRegistration;
+
+	@Value("${qr.custom.self.registration.upload.container.name}")
+	private String qrCustomerSelfRegistrationContainerName;
+
+	@Value("${qr.custom.self.registration.upload.folder.name}")
+	private String qrCustomerSelfRegistrationFolderName;
+
+	@Value("${qr.custom.self.registration.upload.path}")
+	private String qrCustomerSelfRegistrationPath;
 	@Value("${cios.logs.cloud.folder.name}")
 	private String ciosFileLogsCloudFolderName;
 
@@ -951,6 +962,19 @@ public class CbExtServerProperties {
 
 	@Value("${bp.report.default.field.map}")
 	private String bpEnrolmentReportDefaultFields;
+
+	@Value("${qr.custom.self.registration.skip.validation}")
+	private String skipQRCodeValdationCheck;
+
+	@Value("${qr.custom.self.registration.uploadlogo.folder.name}")
+	private String qrCustomerSelfRegistrationLogoFolderName;
+
+	@Value("${qr.custom.self.registration.logoupload.path}")
+	private String qrCustomerSelfRegistrationLogoPath;
+
+	@Value("${map.id.counter.enabled}")
+	private String mapIdCounterEnabled;
+
 
 	public String getCiosCloudIconFolderName() {
 		return ciosCloudIconFolderName;
@@ -3190,6 +3214,38 @@ public class CbExtServerProperties {
 		this.cqfAssessmentPostPublishTopic = cqfAssessmentPostPublishTopic;
 	}
 
+	public String getUrlCustomerSelfRegistration() {
+		return urlCustomerSelfRegistration;
+	}
+
+	public void setUrlCustomerSelfRegistration(String urlCustomerSelfRegistration) {
+		this.urlCustomerSelfRegistration = urlCustomerSelfRegistration;
+	}
+
+	public String getQrCustomerSelfRegistrationContainerName() {
+		return qrCustomerSelfRegistrationContainerName;
+	}
+
+	public void setQrCustomerSelfRegistrationContainerName(String qrCustomerSelfRegistrationContainerName) {
+		this.qrCustomerSelfRegistrationContainerName = qrCustomerSelfRegistrationContainerName;
+	}
+
+	public String getQrCustomerSelfRegistrationFolderName() {
+		return qrCustomerSelfRegistrationFolderName;
+	}
+
+	public void setQrCustomerSelfRegistrationFolderName(String qrCustomerSelfRegistrationFolderName) {
+		this.qrCustomerSelfRegistrationFolderName = qrCustomerSelfRegistrationFolderName;
+	}
+
+	public String getQrCustomerSelfRegistrationPath() {
+		return qrCustomerSelfRegistrationPath;
+	}
+
+	public void setQrCustomerSelfRegistrationPath(String qrCustomerSelfRegistrationPath) {
+		this.qrCustomerSelfRegistrationPath = qrCustomerSelfRegistrationPath;
+	}
+
 	public String getCiosFileLogsCloudFolderName() {
 		return ciosFileLogsCloudFolderName;
 	}
@@ -3284,5 +3340,37 @@ public class CbExtServerProperties {
 
 	public void setBpEnrolmentReportDefaultFields(String bpEnrolmentReportDefaultFields) {
 		this.bpEnrolmentReportDefaultFields = bpEnrolmentReportDefaultFields;
+	}
+
+	public String getSkipQRCodeValdationCheck() {
+		return skipQRCodeValdationCheck;
+	}
+
+	public void setSkipQRCodeValdationCheck(String skipQRCodeValdationCheck) {
+		this.skipQRCodeValdationCheck = skipQRCodeValdationCheck;
+	}
+
+	public String getQrCustomerSelfRegistrationLogoFolderName() {
+		return qrCustomerSelfRegistrationLogoFolderName;
+	}
+
+	public void setQrCustomerSelfRegistrationLogoFolderName(String qrCustomerSelfRegistrationLogoFolderName) {
+		this.qrCustomerSelfRegistrationLogoFolderName = qrCustomerSelfRegistrationLogoFolderName;
+	}
+
+	public String getQrCustomerSelfRegistrationLogoPath() {
+		return qrCustomerSelfRegistrationLogoPath;
+	}
+
+	public void setQrCustomerSelfRegistrationLogoPath(String qrCustomerSelfRegistrationLogoPath) {
+		this.qrCustomerSelfRegistrationLogoPath = qrCustomerSelfRegistrationLogoPath;
+	}
+
+	public String getMapIdCounterEnabled() {
+		return mapIdCounterEnabled;
+	}
+
+	public void setMapIdCounterEnabled(String mapIdCounterEnabled) {
+		this.mapIdCounterEnabled = mapIdCounterEnabled;
 	}
 }

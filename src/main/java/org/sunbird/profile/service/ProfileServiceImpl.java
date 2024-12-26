@@ -119,7 +119,10 @@ public class ProfileServiceImpl implements ProfileService {
     AccessTokenValidator accessTokenValidator;
 
 	@Autowired
-	WfStatusEntityRepository wfStatusEntityRepository;
+	CbExtServerProperties serverProperties;
+  
+  @Autowired
+  WfStatusEntityRepository wfStatusEntityRepository;
 
 	private Logger log = LoggerFactory.getLogger(getClass().getName());
 
@@ -2004,6 +2007,14 @@ public class ProfileServiceImpl implements ProfileService {
 										.get(changedObj)).get(0);
 								for (String childKey : updatedProfessionalDetailsMap.keySet()) {
 									String updatedValue = (String) updatedProfessionalDetailsMap.get(childKey);
+									if (childKey.equalsIgnoreCase(Constants.GROUP)) {
+										if (!userUtilityService.validateGroup(updatedValue)) {
+											response.setResponseCode(HttpStatus.BAD_REQUEST);
+											response.getParams().setStatus(Constants.FAILED);
+											response.getParams().setErrmsg(Constants.INVALID_GROUP_MESSAGE + serverProperties.getBulkUploadGroupValue());
+											return response;
+										}
+									}
 									if ((Constants.GROUP.equalsIgnoreCase(childKey)
 											|| Constants.DESIGNATION.equalsIgnoreCase(childKey)) &&
 											!updatedValue.equalsIgnoreCase(

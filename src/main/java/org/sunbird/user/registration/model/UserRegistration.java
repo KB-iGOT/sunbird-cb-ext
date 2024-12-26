@@ -21,6 +21,7 @@ public class UserRegistration extends UserRegistrationInfo {
 	private String userName;
 	private String proposedDeptName;
 	private String userAuthToken;
+	private boolean isWhatsappConsent;
 
 	public String getWfId() {
 		return wfId;
@@ -108,6 +109,14 @@ public class UserRegistration extends UserRegistrationInfo {
 
 	public void setUserAuthToken(String userAuthToken) {
 		this.userAuthToken = userAuthToken;
+	}
+
+	public boolean isWhatsappConsent() {
+		return isWhatsappConsent;
+	}
+
+	public void setWhatsappConsent(boolean whatsappConsent) {
+		isWhatsappConsent = whatsappConsent;
 	}
 
 	public String toMininumString() {

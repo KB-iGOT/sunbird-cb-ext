@@ -5,12 +5,7 @@ import java.util.Map;
 import org.apache.commons.lang.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import org.sunbird.common.model.SBApiResponse;
 import org.sunbird.common.util.Constants;
 import org.sunbird.org.service.ExtendedOrgService;
@@ -25,6 +20,13 @@ public class ExtendedOrgController {
 	public ResponseEntity<SBApiResponse> createOrg(@RequestBody Map<String, Object> orgRequest,
 			@RequestHeader(Constants.X_AUTH_TOKEN) String userToken) throws Exception {
 		SBApiResponse response = orgService.createOrg(orgRequest, userToken);
+		return new ResponseEntity<>(response, response.getResponseCode());
+	}
+
+	@PatchMapping("/org/ext/v1/update")
+	public ResponseEntity<SBApiResponse> updateOrg(@RequestBody Map<String, Object> orgRequest,
+												   @RequestHeader(Constants.X_AUTH_TOKEN) String userToken) {
+		SBApiResponse response = orgService.update(orgRequest, userToken);
 		return new ResponseEntity<>(response, response.getResponseCode());
 	}
 
