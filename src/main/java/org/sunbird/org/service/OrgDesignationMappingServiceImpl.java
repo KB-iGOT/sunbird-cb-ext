@@ -90,8 +90,7 @@ public class OrgDesignationMappingServiceImpl implements OrgDesignationMappingSe
      */
     @Override
     public ResponseEntity<?> getSampleFileForOrgDesignationMapping(String rootOrgId, String userAuthToken, String frameworkId) {
-        try {
-            Workbook workbook = new XSSFWorkbook();
+        try(Workbook workbook = new XSSFWorkbook()) {
 
             // Create sheets with safe names
             Sheet yourWorkspaceSheet = workbook.createSheet(WorkbookUtil.createSafeSheetName(serverProperties.getBulkUploadCompetencyYourWorkSpaceName()));
@@ -483,13 +482,8 @@ public class OrgDesignationMappingServiceImpl implements OrgDesignationMappingSe
             logger.error("Failed to read the downloaded file: " + fileName + ", Exception: ", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         } finally {
-            try {
                 File file = new File(Constants.LOCAL_BASE_PATH + fileName);
-                if (file.exists()) {
-                    file.delete();
-                }
-            } catch (Exception e1) {
-            }
+                ProjectUtil.deleteFileSafely(file);
         }
     }
 
@@ -809,7 +803,8 @@ public class OrgDesignationMappingServiceImpl implements OrgDesignationMappingSe
             }
             updateOrgCompetencyDesignationMappingBulkUploadStatus(inputDataMap.get(Constants.ROOT_ORG_ID), inputDataMap.get(Constants.IDENTIFIER),
                     status, totalNumberOfRecordInSheet, noOfSuccessfulRecords, failedRecordsCount);
-        } catch (Exception e) {
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
             logger.error(String.format("Error in Process Bulk Upload %s", e.getMessage()), e);
             updateOrgCompetencyDesignationMappingBulkUploadStatus(inputDataMap.get(Constants.ROOT_ORG_ID), inputDataMap.get(Constants.IDENTIFIER),
                     Constants.FAILED_UPPERCASE, 0, 0, 0);
@@ -818,8 +813,7 @@ public class OrgDesignationMappingServiceImpl implements OrgDesignationMappingSe
                 wb.close();
             if (fis != null)
                 fis.close();
-            if (file != null)
-                file.delete();
+            ProjectUtil.deleteFileSafely(file);
         }
     }
 

@@ -93,4 +93,12 @@ public class CbExtLogger {
 	public boolean isTraceEnabled() {
 		return isTraceEnabled;
 	}
+
+	public void warn(String message, Object... params) {
+		if (params != null && params.length > 0) {
+			logger.log(Level.WARN, message, params);
+		} else {
+			logger.log(Level.WARN, message);
+		}
+	}
 }

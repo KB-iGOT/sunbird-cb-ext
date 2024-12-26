@@ -20,6 +20,7 @@ import org.sunbird.cassandra.utils.CassandraOperation;
 import org.sunbird.common.model.SBApiResponse;
 import org.sunbird.common.util.CbExtServerProperties;
 import org.sunbird.common.util.Constants;
+import org.sunbird.common.util.ProjectUtil;
 import org.sunbird.consumer.security.EncryptionService;
 import org.sunbird.storage.service.StorageService;
 
@@ -143,7 +144,7 @@ public class KafkaConsumer {
             throw new RuntimeException(e);
         } finally {
             if (mFile != null)
-                mFile.delete();
+                ProjectUtil.deleteFileSafely(mFile);
         }
     }
 
@@ -183,12 +184,15 @@ public class KafkaConsumer {
                     entity,
                     JsonNode.class
             );
-            if (response.getStatusCode().is2xxSuccessful()) {
-                String printUri = response.getBody().path("result").get("printUri").asText();
-                return printUri;
-            } else {
-                throw new RuntimeException("Failed to retrieve externalId. Status code: " + response.getStatusCodeValue());
+            JsonNode responseBody = response.getBody();
+            if (response.getStatusCode().is2xxSuccessful() && responseBody != null) {
+                JsonNode resultNode = responseBody.path("result");
+                if (resultNode != null && resultNode.has(Constants.PRINT_URI)) {
+                    return resultNode.get(Constants.PRINT_URI).asText();
+                }
             }
+            throw new RuntimeException("Failed to retrieve externalId. Status code: " + response.getStatusCodeValue());
+
         } catch (Exception e) {
             throw new RuntimeException(e);
         }

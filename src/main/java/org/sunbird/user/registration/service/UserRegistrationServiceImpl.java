@@ -556,26 +556,26 @@ public class UserRegistrationServiceImpl implements UserRegistrationService {
 		int iterateCount = 0;
 		do {
 			// request body
+			Map<String, Object> filtersMap = new HashMap<>();
+			filtersMap.put(Constants.IS_TENANT, Boolean.TRUE);
+
+			Map<String, Object> sortByMap = new HashMap<>();
+			sortByMap.put(Constants.CHANNEL, Constants.ASC_ORDER);
+
+
 			Map<String, Object> requestMap = new HashMap<>();
 			requestMap.put(Constants.OFFSET, iterateCount);
 			requestMap.put(Constants.LIMIT, 1000);
 			requestMap.put(Constants.FIELDS, new ArrayList<>(Arrays.asList(Constants.CHANNEL, Constants.IDENTIFIER)));
-			Map<String, Object> sortByMap = new HashMap<String, Object>();
-			sortByMap.put(Constants.CHANNEL, Constants.ASC_ORDER);
 			requestMap.put(Constants.SORT_BY, sortByMap);
-			requestMap.put(Constants.FILTERS, new HashMap<String, Object>() {
-				{
-					put(Constants.IS_TENANT, Boolean.TRUE);
-				}
-			});
+			requestMap.put(Constants.FILTERS, filtersMap);
+
+			Map<String, Object> requestPayload = new HashMap<>();
+			requestPayload.put(Constants.REQUEST, requestMap);
 
 			String serviceURL = serverProperties.getSbUrl() + serverProperties.getSbOrgSearchPath();
 			SunbirdApiResp orgResponse = mapper.convertValue(
-					outboundRequestHandlerService.fetchResultUsingPost(serviceURL, new HashMap<String, Object>() {
-						{
-							put(Constants.REQUEST, requestMap);
-						}
-					}), SunbirdApiResp.class);
+					outboundRequestHandlerService.fetchResultUsingPost(serviceURL, requestPayload), SunbirdApiResp.class);
 
 			SunbirdApiResultResponse resultResp = orgResponse.getResult().getResponse();
 			count = resultResp.getCount();

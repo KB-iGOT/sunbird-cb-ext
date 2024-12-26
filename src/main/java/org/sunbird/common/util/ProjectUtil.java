@@ -1,7 +1,12 @@
 package org.sunbird.common.util;
 
+import java.io.File;
+import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
@@ -134,7 +139,7 @@ public class ProjectUtil {
 	}
 
 	public static Boolean validateFullName(String firstName) {
-		return firstName.matches("^(?!.*\\n)[a-zA-Z]+(?:['\\s][a-zA-Z]+)*(?<!\\.|\\s)$");
+		return firstName.matches(Constants.REGEX_NAME_VALIDATION);
 	}
 
 	public static Boolean validateTag(List<String> tags) {
@@ -213,5 +218,21 @@ public class ProjectUtil {
 
 	public static Boolean validatesNewLine(String value) {
 		return value.matches(".*\\n.*");
+	}
+
+	/**
+	 * Safely deletes a file.
+	 *
+	 * @param file The file to be deleted.
+	 */
+	public static void deleteFileSafely(File file) {
+		if (file != null && file.exists()) {
+			Path path = Paths.get(file.getAbsolutePath());
+			try {
+				Files.delete(path);
+			} catch (IOException e) {
+				logger.warn("Failed to delete file: {}", path, e);
+			}
+		}
 	}
 }

@@ -78,8 +78,7 @@ public class OrgDesignationCompetencyMappingServiceImpl implements OrgDesignatio
 
     @Override
     public ResponseEntity<ByteArrayResource> bulkUploadOrganisationCompetencyMapping(String rootOrgId, String userAuthToken, String frameworkId) {
-        try {
-            Workbook workbook = new XSSFWorkbook();
+        try (Workbook workbook = new XSSFWorkbook()){
 
             // Create sheets with safe names
             Sheet yourWorkspaceSheet = workbook.createSheet(WorkbookUtil.createSafeSheetName(serverProperties.getBulkUploadCompetencyYourWorkSpaceName()));
@@ -588,13 +587,8 @@ public class OrgDesignationCompetencyMappingServiceImpl implements OrgDesignatio
             logger.error("Failed to read the downloaded file: " + fileName + ", Exception: ", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         } finally {
-            try {
                 File file = new File(Constants.LOCAL_BASE_PATH + fileName);
-                if (file.exists()) {
-                    file.delete();
-                }
-            } catch (Exception e1) {
-            }
+                ProjectUtil.deleteFileSafely(file);
         }
     }
 
@@ -929,8 +923,7 @@ public class OrgDesignationCompetencyMappingServiceImpl implements OrgDesignatio
                 wb.close();
             if (fis != null)
                 fis.close();
-            if (file != null)
-                file.delete();
+            ProjectUtil.deleteFileSafely(file);
         }
     }
 
