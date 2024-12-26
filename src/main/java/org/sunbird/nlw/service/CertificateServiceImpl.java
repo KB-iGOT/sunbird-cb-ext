@@ -25,16 +25,16 @@ public class CertificateServiceImpl {
 
     ObjectMapper mapper = new ObjectMapper();
 
-    public void generateCertificateEventAndPushToKafka(String userId, String eventId, String batchId, double completionPercentage, long etsForEvent, boolean publicCert) throws IOException {
+    public void generateCertificateEventAndPushToKafka(String userId, String eventId, String batchId, double completionPercentage, long etsForEvent, boolean publicCert, boolean reissue) throws IOException {
         List<String> userIds = Collections.singletonList(userId);
-        String eventJson = generateIssueCertificateEvent(batchId, eventId, userIds, completionPercentage, userId, etsForEvent, publicCert);
+        String eventJson = generateIssueCertificateEvent(batchId, eventId, userIds, completionPercentage, userId, etsForEvent, publicCert, reissue);
         if (pushTokafkaEnabled) {
             String topic = serverProperties.getUserIssueCertificateForEventTopic();
             kafkaTemplate.send(topic, userId, eventJson);
         }
     }
 
-    public String generateIssueCertificateEvent(String batchId, String eventId, List<String> userIds, double eventCompletionPercentage, String userId, long ets, boolean publicCert) throws JsonProcessingException {
+    public String generateIssueCertificateEvent(String batchId, String eventId, List<String> userIds, double eventCompletionPercentage, String userId, long ets, boolean publicCert, boolean reissue) throws JsonProcessingException {
 
         // Generate a UUID for the message ID
         String mid = UUID.randomUUID().toString();
@@ -58,6 +58,9 @@ public class CertificateServiceImpl {
         edata.put("eventType", "offline");
         if (publicCert) {
             edata.put("certStore", "public");
+        }
+        if (reissue) {
+            edata.put("reIssue", true);
         }
         edata.put("batchId", batchId);
         edata.put("eventId", eventId);
