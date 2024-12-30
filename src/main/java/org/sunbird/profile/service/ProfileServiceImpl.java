@@ -2464,6 +2464,8 @@ public class ProfileServiceImpl implements ProfileService {
 			pendingApprovalRequests.forEach(request -> {
 				request.setCurrentStatus(Constants.REJECTED_UPPER_CASE);
 				request.setInWorkflow(Boolean.FALSE);
+				request.setComment(Constants.PROFILE_APPROVAL_AUTO_REJECT_MESSAGE);
+				request.setLastUpdatedOn(new Date());
 			});
 			wfStatusEntityRepository.saveAll(pendingApprovalRequests);
 			log.info("Successfully rejected {} profile approval requests for user: {}",
