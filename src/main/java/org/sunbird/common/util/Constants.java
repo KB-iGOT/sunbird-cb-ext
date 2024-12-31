@@ -1319,7 +1319,7 @@ public class Constants {
     public static final String SEND_FOR_APPROVAL = "SEND_FOR_APPROVAL";
 	public static final String ERR_MSG_APPROVAL_REQUEST = "Error while rejecting approval requests";
 	public static final String FAILED_MSG_APPROVAL_REQUEST = "Failed to reject approval requests for userId: {}";
-	public static final String PROFILE_APPROVAL_AUTO_REJECT_MESSAGE ="You are no longer recognized as a user by your current organization. Your access will expire in 48 hours. Reach out to your MDO or submit a \"Transfer Request\".";
+	public static final String PROFILE_APPROVAL_AUTO_REJECT_MESSAGE ="You are no longer recognized as a user by your current organization. Reach out to your MDO or submit a \"Transfer Request\".";
 
 	private Constants() {
 		throw new IllegalStateException("Utility class");
