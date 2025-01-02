@@ -344,7 +344,12 @@ public class InsightsServiceImpl implements InsightsService {
             log.warn("User profile details are missing in the provided user data.");
             return "Profile details are unavailable";
         }
-        JsonNode professionalDetails = profileDetails.get("professionalDetails").get(0);
+        JsonNode professionalDetailsArray = profileDetails.get("professionalDetails");
+        if (professionalDetailsArray == null || professionalDetailsArray.size() == 0) {
+            log.warn("Professional details are missing or not an array in the user profile.");
+            return "Professional details are unavailable";
+        }
+        JsonNode professionalDetails = professionalDetailsArray.get(0);
         if (professionalDetails == null) {
             log.warn("Professional details are missing in the user profile.");
             return "Professional details are unavailable";
