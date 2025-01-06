@@ -292,6 +292,9 @@ public class InsightsServiceImpl implements InsightsService {
             Map<String, Object> userData = userUtilityService.getUsersReadData(userId, null, null);
             if (CollectionUtils.isNotEmpty(Collections.singleton(userData))) {
                 designation = extractDesignation(userData);
+                if (designation != null) {
+                    designation = designation.toUpperCase();
+                }
                 orgId = (String) userData.get(Constants.ROOT_ORG_ID);
             }
             String errMsg = validateUserInfo(orgId, response, designation);
