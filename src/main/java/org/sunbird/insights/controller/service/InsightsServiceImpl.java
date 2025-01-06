@@ -353,6 +353,7 @@ public class InsightsServiceImpl implements InsightsService {
             return "Professional details are unavailable";
         }
         JsonNode professionalDetails = professionalDetailsArray.get(0);
+      
         if (professionalDetails == null) {
             log.warn("Professional details are missing in the user profile.");
             return "Professional details are unavailable";
