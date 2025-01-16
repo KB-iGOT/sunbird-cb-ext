@@ -146,7 +146,7 @@ public class OrgDesignationMappingServiceImpl implements OrgDesignationMappingSe
      * @return
      */
     @Override
-    public SBApiResponse bulkUploadDesignationMapping(MultipartFile file, String rootOrgId, String userAuthToken, String frameworkId) {
+    public SBApiResponse bulkUploadDesignationMapping(MultipartFile file, String rootOrgId, String userAuthToken, String frameworkId, String orgId) {
         SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.API_ORG_DESIGNATION_EVENT_BULK_UPLOAD);
         try {
             String userId = validateAuthTokenAndFetchUserId(userAuthToken);
@@ -157,6 +157,14 @@ public class OrgDesignationMappingServiceImpl implements OrgDesignationMappingSe
                 return response;
             }
 
+            if (!validateUserOrgId(orgId, userId)) {
+                logger.error("User is not authorized to get the upload the file for other org for rootOrgId: " + rootOrgId + ", request orgId " + orgId);
+                response.getParams().setStatus(Constants.FAILED);
+                response.getParams().setErrmsg("User is not authorized upload the file for other org.");
+                response.setResponseCode(HttpStatus.UNAUTHORIZED);
+                return response;
+            }
+            rootOrgId = orgId;
             if (isFileExistForProcessingForMDO(rootOrgId)) {
                 setErrorDataForMdo(response, "Failed to upload for another request as previous request is in processing state, please try after some time.");
                 return response;
