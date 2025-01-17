@@ -975,8 +975,11 @@ public class CbExtServerProperties {
 	@Value("${map.id.counter.enabled}")
 	private String mapIdCounterEnabled;
 
-  @Value("${course.recommendation.designation.redis.key}")
+  	@Value("${course.recommendation.designation.redis.key}")
 	private String courseRecommendationsByDesignationKey;
+
+	@Value("${user.designation.bulk.upload.status.fields}")
+	private String designationBulkUploadStatusFields;
 
 
 	public String getCiosCloudIconFolderName() {
@@ -3385,4 +3388,12 @@ public class CbExtServerProperties {
 	public void setCourseRecommendationsByDesignationKey(String courseRecommendationsByDesignationKey) {
 		this.courseRecommendationsByDesignationKey = courseRecommendationsByDesignationKey;
   }
+
+	public List<String> getDesignationBulkUploadStatusFields() {
+		return Arrays.asList(designationBulkUploadStatusFields.split(",", -1));
+	}
+
+	public void setDesignationBulkUploadStatusFields(String designationBulkUploadStatusFields) {
+		this.designationBulkUploadStatusFields = designationBulkUploadStatusFields;
+	}
 }

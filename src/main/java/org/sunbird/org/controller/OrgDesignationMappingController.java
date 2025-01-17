@@ -23,13 +23,14 @@ public class OrgDesignationMappingController {
         return orgDesignationMappingService.getSampleFileForOrgDesignationMapping(rootOrgId, userAuthToken, frameworkId);
     }
 
-    @PostMapping("/v1/orgMapping/bulkUpload/{frameworkId}")
+    @PostMapping("/v1/orgMapping/bulkUpload/{orgId}/{frameworkId}")
     public ResponseEntity<?> bulkUploadCompetencyDesignationMapping(@RequestHeader(Constants.X_AUTH_USER_ORG_ID) String rootOrgId,
+                                                                    @PathVariable(Constants.ORG_ID) String orgId,
                                                                     @RequestParam(value = "file", required = true) MultipartFile file,
                                                                     @PathVariable(Constants.FRAMEWORK_ID) String frameworkId,
                                                                     @RequestHeader(Constants.X_AUTH_TOKEN) String userAuthToken) {
 
-        SBApiResponse uploadResponse = orgDesignationMappingService.bulkUploadDesignationMapping(file, rootOrgId, userAuthToken, frameworkId);
+        SBApiResponse uploadResponse = orgDesignationMappingService.bulkUploadDesignationMapping(file, rootOrgId, userAuthToken, frameworkId, orgId);
         return new ResponseEntity<>(uploadResponse, uploadResponse.getResponseCode());
     }
 

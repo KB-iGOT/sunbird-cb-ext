@@ -7,7 +7,7 @@ import org.sunbird.common.model.SBApiResponse;
 public interface OrgDesignationMappingService {
     ResponseEntity<?> getSampleFileForOrgDesignationMapping(String rootOrgId, String userAuthToken, String frameworkId);
 
-    SBApiResponse bulkUploadDesignationMapping(MultipartFile file, String rootOrgId, String userAuthToken, String frameworkId);
+    SBApiResponse bulkUploadDesignationMapping(MultipartFile file, String rootOrgId, String userAuthToken, String frameworkId, String orgId);
 
     void initiateOrgDesignationBulkUploadProcess(String value);
 

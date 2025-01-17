@@ -146,7 +146,7 @@ public class OrgDesignationMappingServiceImpl implements OrgDesignationMappingSe
      * @return
      */
     @Override
-    public SBApiResponse bulkUploadDesignationMapping(MultipartFile file, String rootOrgId, String userAuthToken, String frameworkId) {
+    public SBApiResponse bulkUploadDesignationMapping(MultipartFile file, String rootOrgId, String userAuthToken, String frameworkId, String orgId) {
         SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.API_ORG_DESIGNATION_EVENT_BULK_UPLOAD);
         try {
             String userId = validateAuthTokenAndFetchUserId(userAuthToken);
@@ -157,6 +157,14 @@ public class OrgDesignationMappingServiceImpl implements OrgDesignationMappingSe
                 return response;
             }
 
+            if (!validateUserOrgId(orgId, userId)) {
+                logger.error("User is not authorized to get the upload the file for other org for rootOrgId: " + rootOrgId + ", request orgId " + orgId);
+                response.getParams().setStatus(Constants.FAILED);
+                response.getParams().setErrmsg("User is not authorized upload the file for other org.");
+                response.setResponseCode(HttpStatus.UNAUTHORIZED);
+                return response;
+            }
+            rootOrgId = orgId;
             if (isFileExistForProcessingForMDO(rootOrgId)) {
                 setErrorDataForMdo(response, "Failed to upload for another request as previous request is in processing state, please try after some time.");
                 return response;
@@ -441,7 +449,8 @@ public class OrgDesignationMappingServiceImpl implements OrgDesignationMappingSe
                 return response;
             }
             List<Map<String, Object>> bulkUploadList = cassandraOperation.getRecordsByProperties(Constants.KEYSPACE_SUNBIRD,
-                    Constants.TABLE_ORG_DESIGNATION_MAPPING_BULK_UPLOAD, propertyMap, serverProperties.getBulkUploadStatusFields());
+                    Constants.TABLE_ORG_DESIGNATION_MAPPING_BULK_UPLOAD, propertyMap, serverProperties.getDesignationBulkUploadStatusFields());
+            enrichUserInfo(bulkUploadList);
             response.getParams().setStatus(Constants.SUCCESSFUL);
             response.setResponseCode(HttpStatus.OK);
             response.getResult().put(Constants.CONTENT, bulkUploadList);
@@ -1095,5 +1104,19 @@ public class OrgDesignationMappingServiceImpl implements OrgDesignationMappingSe
         response.getParams().setStatus(Constants.FAILED);
         response.getParams().setErrmsg(errMsg);
         response.setResponseCode(HttpStatus.TOO_MANY_REQUESTS);
+    }
+
+    private void enrichUserInfo(List<Map<String, Object>> bulkUploadList) {
+        if (CollectionUtils.isNotEmpty(bulkUploadList)) {
+            Map<String, Map<String, String>> userInfoMap = new HashMap<>();
+            Set<String> userIdList = bulkUploadList.stream().map(bulkObject -> (String)bulkObject.get(Constants.CREATED_BY)).collect(Collectors.toSet());
+            userUtilityService.getUserDetailsFromDB(new ArrayList<>(userIdList), Arrays.asList(Constants.FIRSTNAME, Constants.USER_ID),
+                    userInfoMap);
+            for (Map<String, Object> bulkUpload: bulkUploadList) {
+                Map<String, String> userDetails = userInfoMap.get((String) bulkUpload.get(Constants.CREATED_BY));
+                bulkUpload.put(Constants.USER_DETAILS, userDetails);
+            }
+        }
+
     }
 }
