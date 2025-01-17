@@ -449,7 +449,8 @@ public class OrgDesignationMappingServiceImpl implements OrgDesignationMappingSe
                 return response;
             }
             List<Map<String, Object>> bulkUploadList = cassandraOperation.getRecordsByProperties(Constants.KEYSPACE_SUNBIRD,
-                    Constants.TABLE_ORG_DESIGNATION_MAPPING_BULK_UPLOAD, propertyMap, serverProperties.getBulkUploadStatusFields());
+                    Constants.TABLE_ORG_DESIGNATION_MAPPING_BULK_UPLOAD, propertyMap, serverProperties.getDesignationBulkUploadStatusFields());
+            enrichUserInfo(bulkUploadList);
             response.getParams().setStatus(Constants.SUCCESSFUL);
             response.setResponseCode(HttpStatus.OK);
             response.getResult().put(Constants.CONTENT, bulkUploadList);
@@ -1103,5 +1104,19 @@ public class OrgDesignationMappingServiceImpl implements OrgDesignationMappingSe
         response.getParams().setStatus(Constants.FAILED);
         response.getParams().setErrmsg(errMsg);
         response.setResponseCode(HttpStatus.TOO_MANY_REQUESTS);
+    }
+
+    private void enrichUserInfo(List<Map<String, Object>> bulkUploadList) {
+        if (CollectionUtils.isNotEmpty(bulkUploadList)) {
+            Map<String, Map<String, String>> userInfoMap = new HashMap<>();
+            Set<String> userIdList = bulkUploadList.stream().map(bulkObject -> (String)bulkObject.get(Constants.CREATED_BY)).collect(Collectors.toSet());
+            userUtilityService.getUserDetailsFromDB(new ArrayList<>(userIdList), Arrays.asList(Constants.FIRSTNAME, Constants.USER_ID),
+                    userInfoMap);
+            for (Map<String, Object> bulkUpload: bulkUploadList) {
+                Map<String, String> userDetails = userInfoMap.get((String) bulkUpload.get(Constants.CREATED_BY));
+                bulkUpload.put(Constants.USER_DETAILS, userDetails);
+            }
+        }
+
     }
 }
