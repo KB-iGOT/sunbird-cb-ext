@@ -1320,6 +1320,13 @@ public class Constants {
 	public static final String ERR_MSG_APPROVAL_REQUEST = "Error while rejecting approval requests";
 	public static final String FAILED_MSG_APPROVAL_REQUEST = "Failed to reject approval requests for userId: {}";
 	public static final String PROFILE_APPROVAL_AUTO_REJECT_MESSAGE ="You are no longer recognized as a user by your current organization. Reach out to your MDO or submit a \"Transfer Request\".";
+	public static final String API_COURSE_RECOMMENDATIONS ="api.insights.get.courses.recommendations.designation";
+	public static final String COURSE_LIST ="courseList";
+	public static final String DESIGNATION_FILLED_DURING_ENROLLMENT = "Designation (filled during enrollment)";
+	public static final String GROUP_FILLED_DURING_ENROLLMENT = "Group (filled during enrollment)";
+	public static final String PROFILE_SURVEY_ID = "profileSurveyId";
+	public static final String GROUP_TITLE_CASE = "Group";
+	public static final String DESIGNATION_TITLE_CASE = "Designation";
 
 	private Constants() {
 		throw new IllegalStateException("Utility class");

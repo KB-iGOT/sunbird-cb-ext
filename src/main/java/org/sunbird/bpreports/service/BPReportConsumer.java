@@ -119,13 +119,13 @@ public class BPReportConsumer {
 
         try (Workbook workbook = new XSSFWorkbook()) {
 
-            Map<String, Object> batchReadApiResp = getBatchDetails(courseId, batchId);
-            if (ObjectUtils.isEmpty(batchReadApiResp)) {
+            Map<String, Object> batchReadResp = getBatchDetails(courseId, batchId);
+            if (ObjectUtils.isEmpty(batchReadResp)) {
                 logger.info("No batch details found for batchId: {}", batchId);
                 updateDataBase(adminOrgId, courseId, batchId, reportRequester, null, null, Constants.FAILED_UPPERCASE, 0, 0, 0, new Date());
                 return;
             }
-            List<String> createdFor = (List<String>) batchReadApiResp.get(Constants.CREATED_FOR);
+            List<String> createdFor = (List<String>) batchReadResp.get(Constants.CREATED_FOR);
             String contentOrgid = createdFor.get(0);
             List<WfStatusEntity> wfStatusEntities = getAllWfStatusEntitiesByBatchId(batchId);
             if (CollectionUtils.isEmpty(wfStatusEntities)) {
@@ -135,20 +135,28 @@ public class BPReportConsumer {
             }
 
             String surveyId = (String) request.get(Constants.SURVEY_ID);
-            // Get survey data if survey ID is present
+            // Get BP survey data if survey ID is present
             Map<String, Object> dataObject = getSurveyData(surveyId, null);
 
-            Sheet sheet = workbook.createSheet("Enrollment Report");
+            //Get BP Profile survey data
+            String batchAttributesStr = (String) batchReadResp.get(Constants.BATCH_ATTRIBUTES);
+            if (batchAttributesStr == null) {
+                logger.info("No batch attributes found for batchId: {}", batchId);
+                updateDataBase(adminOrgId, courseId, batchId, reportRequester, null, null, Constants.FAILED_UPPERCASE, 0, 0, 0, new Date());
+                return;
+            }
+            Map<String, Object> batchAttributes = mapper.readValue(batchAttributesStr, new TypeReference<Map<String, Object>>() {
+            });
+            String profileSurveyId = (String) batchAttributes.get(Constants.PROFILE_SURVEY_ID);
+            Map<String, Object> profileSurveyData = getSurveyResponse(profileSurveyId);
+
             // Create header row and apply styles
+            Sheet sheet = workbook.createSheet("Enrollment Report");
             if (Constants.MDO_ADMIN.equalsIgnoreCase(reportRequester) || Constants.MDO_LEADER.equalsIgnoreCase(reportRequester)) {
-                String bpReportDefaultFieldsStr = serverProperties.getBpEnrolmentReportDefaultFields();
-                Map<String, String> bpReportDefaultFieldsMap = mapper.readValue(bpReportDefaultFieldsStr, new TypeReference<LinkedHashMap<String, Object>>() {
-                });
-                headerKeyMapping.putAll(bpReportDefaultFieldsMap);
                 createHeaderRowWithDefaultFields(workbook, sheet, dataObject, headerKeyMapping);
             } else {
-                mandatoryProfileFieldsKeyMappingForPC(batchReadApiResp, headerKeyMapping);
-                createHeaderRow(workbook, sheet, batchReadApiResp, dataObject, headerKeyMapping);
+                mandatoryProfileFieldsKeyMappingForPC(batchAttributes, headerKeyMapping);
+                createHeaderRow(workbook, sheet, dataObject, headerKeyMapping);
             }
             int rowNum = 1;
 
@@ -187,7 +195,7 @@ public class BPReportConsumer {
                     Map<String, Object> userSurveyDataObject = StringUtils.isNotEmpty(surveyId) ? getSurveyData(surveyId, userId) : new HashMap<>();
                     Map<String, Object> userInfo = getUserInfo(userDetailsObj);
                     String enrollmentStatus = getEnrollmentStatus(currentStatus);
-                    processReport(userInfo, enrollmentStatus, MapUtils.isNotEmpty(userSurveyDataObject) ? userSurveyDataObject : new HashMap<>(), sheet, headerKeyMapping, rowNum);
+                    processReport(userInfo, enrollmentStatus, MapUtils.isNotEmpty(userSurveyDataObject) ? userSurveyDataObject : new HashMap<>(), (Map<String, Object>) profileSurveyData.get(userId), sheet, headerKeyMapping, rowNum);
 
                 } catch (Exception e) {
                     logger.error("Error processing report for userId: {}", userId, e);
@@ -453,10 +461,10 @@ public class BPReportConsumer {
         return result;
     }
 
-    private void processReport(Map<String, Object> userInfo, String enrollmentStatus, Map<String, Object> userSurveyDataObject, Sheet sheet, Map<String, Object> headerKeyMapping, int rowNum) {
+    private void processReport(Map<String, Object> userInfo, String enrollmentStatus, Map<String, Object> userSurveyDataObject, Map<String, Object> userBatchFormData, Sheet sheet, Map<String, Object> headerKeyMapping, int rowNum) {
         try {
             // Create a new sheet or get existing one based on requirement
-            Map<String, Object> reportInfo = prepareReportInfo(userInfo, enrollmentStatus, userSurveyDataObject);
+            Map<String, Object> reportInfo = prepareReportInfo(userInfo, enrollmentStatus, userSurveyDataObject, userBatchFormData);
 
             // Add user data to the sheet
             fillDataRows(sheet, rowNum, headerKeyMapping, reportInfo);
@@ -466,29 +474,16 @@ public class BPReportConsumer {
         }
     }
 
-    private void createHeaderRow(Workbook workbook, Sheet sheet, Map<String, Object> batchDetails,
+    private void createHeaderRow(Workbook workbook, Sheet sheet,
                                  Map<String, Object> formQuestionsMap, Map<String, Object> headerKeyMapping) throws IOException {
 
         Row headerRow = sheet.createRow(0);
         CellStyle headerStyle = createHeaderCellStyle(workbook);
         int currentColumnIndex = 0;
 
-        String batchAttributesStr = (String) batchDetails.get(Constants.BATCH_ATTRIBUTES);
-        if (batchAttributesStr == null) {
-            throw new IllegalArgumentException("Batch attributes cannot be null");
-        }
-
-        Map<String, Object> batchAttributes = mapper.readValue(batchAttributesStr, new TypeReference<Map<String, Object>>() {
-        });
-
-        List<Map<String, Object>> mandatoryProfileFields = (List<Map<String, Object>>) batchAttributes.get(Constants.BATCH_ENROL_MANDATORY_PROFILE_FIELDS);
-        if (mandatoryProfileFields == null) {
-            throw new IllegalArgumentException("Mandatory profile fields cannot be null");
-        }
-
         // Populate header row with mandatory profile field display names
-        for (Map<String, Object> profileField : mandatoryProfileFields) {
-            String displayName = profileField.get(Constants.DISPLAY_NAME).toString();
+        for (Map.Entry<String, Object> entry : headerKeyMapping.entrySet()) {
+            String displayName = (String) entry.getValue();
             if (displayName == null || displayName.isEmpty()) {
                 throw new IllegalArgumentException("Profile field display name cannot be null or empty");
             }
@@ -497,17 +492,6 @@ public class BPReportConsumer {
             cell.setCellValue(displayName.trim());
             cell.setCellStyle(headerStyle);
             sheet.autoSizeColumn(currentColumnIndex - 1);
-
-            // Extract and map the last part of the field key to display name
-            String[] fieldKeyParts = ((String) profileField.get(Constants.FIELD)).split("\\.");
-            String fieldKey = fieldKeyParts[fieldKeyParts.length - 1];
-
-            // Map the field key to the display name
-            if (fieldKey.equalsIgnoreCase(Constants.FIRSTNAME)) {
-                headerKeyMapping.put(Constants.FIRSTNAME, displayName);
-            } else {
-                headerKeyMapping.put(fieldKey, displayName);
-            }
         }
 
         // Add a column for Enrollment Status
@@ -516,6 +500,19 @@ public class BPReportConsumer {
         cell.setCellStyle(headerStyle);
         sheet.autoSizeColumn(currentColumnIndex - 1);
         headerKeyMapping.put(Constants.ENROLLMENT_STATUS, Constants.ENROLLMENT_STATUS_COLUMN);
+
+        //Add profile survey group and designation
+        cell = headerRow.createCell(currentColumnIndex++);
+        cell.setCellValue(Constants.DESIGNATION_FILLED_DURING_ENROLLMENT);
+        cell.setCellStyle(headerStyle);
+        sheet.autoSizeColumn(currentColumnIndex - 1);
+        headerKeyMapping.put(Constants.DESIGNATION_TITLE_CASE, Constants.DESIGNATION_FILLED_DURING_ENROLLMENT);
+
+        cell = headerRow.createCell(currentColumnIndex++);
+        cell.setCellValue(Constants.GROUP_FILLED_DURING_ENROLLMENT);
+        cell.setCellStyle(headerStyle);
+        sheet.autoSizeColumn(currentColumnIndex - 1);
+        headerKeyMapping.put(Constants.GROUP_TITLE_CASE, Constants.GROUP_FILLED_DURING_ENROLLMENT);
 
         List<String> formQuestionsList = new ArrayList<>();
 
@@ -577,16 +574,27 @@ public class BPReportConsumer {
         }
     }
 
-    private Map<String, Object> prepareReportInfo(Map<String, Object> userInfo, String enrollmentStatus, Map<String, Object> userSurveyDataObject) {
+    private Map<String, Object> prepareReportInfo(Map<String, Object> userInfo, String enrollmentStatus, Map<String, Object> userSurveyDataObject, Map<String, Object> userProfileSurveyData) {
 
         Map<String, Object> reportInfo = new HashMap<>(userInfo);
         reportInfo.put(Constants.ENROLLMENT_STATUS, enrollmentStatus);
 
-        // Extract and add survey questions
-        Map<String, Object> formQuestions = new LinkedHashMap<>();
+        // Extract and add survey questions and ans.
         if (MapUtils.isNotEmpty(userSurveyDataObject)) {
-            formQuestions.putAll(userSurveyDataObject);
+            Map<String, Object> formQuestions = new LinkedHashMap<>(userSurveyDataObject);
             reportInfo.put("formQuestions", formQuestions);
+        }
+
+        // Add batch for questions and ans.
+        if (MapUtils.isNotEmpty(userProfileSurveyData)) {
+            Map<String, Object> userProfileSurveyDataObject = (Map<String, Object>) userProfileSurveyData.get(Constants.DATA_OBJECT);
+            if (userProfileSurveyDataObject.containsKey(Constants.GROUP_TITLE_CASE)) {
+                reportInfo.put(Constants.GROUP_TITLE_CASE, userProfileSurveyDataObject.get(Constants.GROUP_TITLE_CASE));
+            }
+            if (userProfileSurveyDataObject.containsKey(Constants.DESIGNATION_TITLE_CASE)) {
+                reportInfo.put(Constants.DESIGNATION_TITLE_CASE, userProfileSurveyDataObject.get(Constants.DESIGNATION_TITLE_CASE));
+            }
+
         }
         return reportInfo;
     }
@@ -660,6 +668,20 @@ public class BPReportConsumer {
         sheet.autoSizeColumn(currentColumnIndex - 1);
         headerKeyMapping.put(Constants.ENROLLMENT_STATUS, Constants.ENROLLMENT_STATUS_COLUMN);
 
+        //Add profile survey group and designation
+        cell = headerRow.createCell(currentColumnIndex++);
+        cell.setCellValue(Constants.DESIGNATION_FILLED_DURING_ENROLLMENT);
+        cell.setCellStyle(headerStyle);
+        sheet.autoSizeColumn(currentColumnIndex - 1);
+        headerKeyMapping.put(Constants.DESIGNATION_TITLE_CASE, Constants.DESIGNATION_FILLED_DURING_ENROLLMENT);
+
+        cell = headerRow.createCell(currentColumnIndex++);
+        cell.setCellValue(Constants.GROUP_FILLED_DURING_ENROLLMENT);
+        cell.setCellStyle(headerStyle);
+        sheet.autoSizeColumn(currentColumnIndex - 1);
+        headerKeyMapping.put(Constants.GROUP_TITLE_CASE, Constants.GROUP_FILLED_DURING_ENROLLMENT);
+
+
         List<String> formQuestionsList = new ArrayList<>();
 
         // Populate header row with form questions that are not already mapped
@@ -680,15 +702,7 @@ public class BPReportConsumer {
         headerKeyMapping.put("formQuestions", formQuestionsList);
     }
 
-    private void mandatoryProfileFieldsKeyMappingForPC(Map<String, Object> batchDetails, Map<String, Object> headerKeyMapping) throws IOException {
-
-        String batchAttributesStr = (String) batchDetails.get(Constants.BATCH_ATTRIBUTES);
-        if (batchAttributesStr == null) {
-            throw new IllegalArgumentException("Batch attributes cannot be null");
-        }
-
-        Map<String, Object> batchAttributes = mapper.readValue(batchAttributesStr, new TypeReference<Map<String, Object>>() {
-        });
+    private void mandatoryProfileFieldsKeyMappingForPC(Map<String, Object> batchAttributes, Map<String, Object> headerKeyMapping) throws IOException {
 
         List<Map<String, Object>> mandatoryProfileFields = (List<Map<String, Object>>) batchAttributes.get(Constants.BATCH_ENROL_MANDATORY_PROFILE_FIELDS);
         if (mandatoryProfileFields == null) {
@@ -713,5 +727,47 @@ public class BPReportConsumer {
                 headerKeyMapping.put(fieldKey, displayName);
             }
         }
+    }
+
+    private Map<String, Object> getSurveyResponse(String surveyId) {
+        Map<String, Object> resultMap = new HashMap<>();
+        try {
+            // Query construction
+            SearchSourceBuilder sourceBuilder = new SearchSourceBuilder();
+
+            // Build the query for surveyId
+            MatchQueryBuilder matchFormIdQuery = QueryBuilders.matchQuery(Constants.FORM_ID, surveyId);
+            BoolQueryBuilder boolQuery = new BoolQueryBuilder().must(matchFormIdQuery);
+            sourceBuilder.query(boolQuery);
+
+            // Sorting by timestamp in ascending order
+            sourceBuilder.sort("timestamp", SortOrder.DESC);
+
+            // Execute the search request
+            SearchResponse searchResponse = indexerService.getEsResult(
+                    serverProperties.getIgotEsUserFormIndex(),
+                    serverProperties.getEsFormIndexType(),
+                    sourceBuilder,
+                    false
+            );
+
+            if (searchResponse != null && searchResponse.getHits().getHits().length > 0) {
+                // Process each record (hit)
+                for (SearchHit hit : searchResponse.getHits().getHits()) {
+                    Map<String, Object> sourceMap = hit.getSourceAsMap();
+                    if (sourceMap != null) {
+                        // Put the result in the map using the "updatedBy" field as the key
+                        resultMap.put((String) sourceMap.get(Constants.UPDATED_BY), sourceMap);
+                    }
+                }
+            } else {
+                logger.warn("No results found for surveyId: {}", surveyId);
+            }
+
+        } catch (IOException e) {
+            logger.error("Error while processing user form response for surveyId: {}", surveyId, e);
+        }
+
+        return resultMap;
     }
 }
