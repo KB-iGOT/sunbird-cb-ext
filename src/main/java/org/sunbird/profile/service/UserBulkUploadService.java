@@ -502,198 +502,204 @@ public class UserBulkUploadService {
                 }
 
                 for (CSVRecord record : csvRecords) {
-                    if (record.size() > headers.size() - 2) {
-                        Map<String, String> errorRecord = new LinkedHashMap<>(record.toMap());
-                        errorRecord.put("Status", "FAILED");
-                        errorRecord.put("Error Details", "Number of fields in the record exceeds expected number. Please check your data.");
-                        updatedRecords.add(errorRecord);
-                        totalRecordsCount++;
-                        failedRecordsCount++;
-                        continue;
-                    }
-                   Map<String, String> updatedRecord = new LinkedHashMap<>(record.toMap());
-                    List<String> errList = new ArrayList<>();
-                    List<String> invalidErrList = new ArrayList<>();
+                    Map<String, String> updatedRecord = new LinkedHashMap<>(record.toMap());
+                    try {
+                        if (record.size() > headers.size() - 2) {
+                            Map<String, String> errorRecord = new LinkedHashMap<>(record.toMap());
+                            errorRecord.put("Status", "FAILED");
+                            errorRecord.put("Error Details", "Number of fields in the record exceeds expected number. Please check your data.");
+                            updatedRecords.add(errorRecord);
+                            totalRecordsCount++;
+                            failedRecordsCount++;
+                            continue;
+                        }
+                        List<String> errList = new ArrayList<>();
+                        List<String> invalidErrList = new ArrayList<>();
 
-                    UserRegistration userRegistration = new UserRegistration();
+                        UserRegistration userRegistration = new UserRegistration();
 
-                    if (isFieldEmpty(record, 0)) {
-                        errList.add("Full Name");
-                    } else {
-                        String fullName = record.get(0).trim();
-                        if (!fullName.matches("[a-zA-Z ]+")) {
-                            invalidErrList.add("Invalid value for Full Name column type. Expecting string format");
+                        if (isFieldEmpty(record, 0)) {
+                            errList.add("Full Name");
                         } else {
-                            userRegistration.setFirstName(fullName);
-                            if (!ProjectUtil.validateFullName(userRegistration.getFirstName())) {
-                                invalidErrList.add("Invalid Full Name");
-                            }
-                        }
-                    }
-
-                    if (isFieldEmpty(record, 1)) {
-                        errList.add("Email");
-                    } else {
-                        String email = record.get(1).trim();
-                        userRegistration.setEmail(email);
-                    }
-
-                    if (isFieldEmpty(record, 2)) {
-                        errList.add("Mobile Number");
-                    } else {
-                        String phone = record.get(2).trim();
-                        if (phone.matches("^\\d+$")) {
-                            userRegistration.setPhone(phone);
-                        } else {
-                            invalidErrList.add("Invalid value for Mobile Number column type. Expecting number format");
-                        }
-                    }
-                    if (!StringUtils.isBlank(userRegistration.getPhone()) && !ProjectUtil.validateContactPattern(userRegistration.getPhone())) {
-                        invalidErrList.add("The Mobile Number provided is Invalid");
-                    }
-
-                    if (isFieldEmpty(record, 3)) {
-                        errList.add("Group");
-                    } else {
-                        String group = record.get(3).trim();
-                        userRegistration.setGroup(group);
-                        if (!userUtilityService.validateGroup(userRegistration.getGroup())) {
-                            invalidErrList.add("Invalid Group : Group can be only among one of these " + String.join("|", serverProperties.getBulkUploadGroupValue()));
-                        }
-                    }
-
-                    if (isFieldEmpty(record, 4)) {
-                        errList.add("Designation");
-                    } else {
-                        String position = record.get(4).trim();
-                        userRegistration.setPosition(position);
-                        if (!ProjectUtil.validateRegexPatternWithNoSpecialCharacter(userRegistration.getPosition()) || this.validateFieldValue(Constants.POSITION, userRegistration.getPosition())) {
-                            invalidErrList.add("Invalid Designation: Designation should be added from default list and/or cannot contain special character");
-                        }
-                    }
-
-                    if (!isFieldEmpty(record, 5)) {
-                        String gender = record.get(5).trim();
-                        if (userUtilityService.validateGender(gender)) {
-                            userRegistration.setGender(gender);
-                        } else {
-                            invalidErrList.add("Invalid Gender : Gender can be only among one of these " + String.join("|", serverProperties.getBulkUploadGenderValue()));
-                        }
-                    }
-
-                    if (!isFieldEmpty(record, 6)) {
-                        String category = record.get(6).trim();
-                        if (userUtilityService.validateCategory(category)) {
-                            userRegistration.setCategory(category);
-                        } else {
-                            invalidErrList.add("Invalid Category : Category can be only among one of these " + String.join("|", serverProperties.getBulkUploadCategoryValue()));
-                        }
-                    }
-
-                    if (!isFieldEmpty(record, 7)) {
-                        String dob = record.get(7).trim();
-                        if (ProjectUtil.validateDate(dob)) {
-                            userRegistration.setDob(dob);
-                        } else {
-                            invalidErrList.add("Invalid format for Date of Birth type. Expecting in dd-mm-yyyy format");
-                        }
-                   }
-
-                    if (!isFieldEmpty(record, 8)) {
-                        String motherTongue = record.get(8).trim();
-                        userRegistration.setDomicileMedium(motherTongue);
-                        if (!ProjectUtil.validateRegexPatternWithNoSpecialCharacter(userRegistration.getDomicileMedium()) || this.validateFieldValue(Constants.LANGUAGES, userRegistration.getDomicileMedium())) {
-                            invalidErrList.add("Invalid Mother Tongue: Mother Tongue should be added from default list and/or cannot contain special character");
-                        }
-                    }
-
-                   if (!isFieldEmpty(record, 9)) {
-                        String employeeId = record.get(9).trim();
-                        userRegistration.setEmployeeId(employeeId);
-                        if (!ProjectUtil.validateEmployeeId(userRegistration.getEmployeeId())) {
-                            invalidErrList.add("Invalid Employee ID : Employee ID can contain alphabetic, alphanumeric or numeric character(s) and have a max length of 30");
-                        }
-                        if (userRegistration.getEmployeeId().contains(Constants.SPACE)) {
-                            invalidErrList.add("Employee Id cannot contain spaces");
-                        }
-                    }
-
-                    if (!isFieldEmpty(record, 10)) {
-                        String pincode = record.get(10).trim();
-                        userRegistration.setPincode(pincode);
-                        if (!ProjectUtil.validatePinCode(userRegistration.getPincode())) {
-                            invalidErrList.add("Invalid Office Pin Code : Office Pin Code should be numeric and is of 6 digit.");
-                        }
-                    }
-
-                    if (!isFieldEmpty(record, 11)) {
-                        String externalSystemId = record.get(11).trim();
-                        userRegistration.setExternalSystemId(externalSystemId);
-                        if (!ProjectUtil.validateExternalSystemId(userRegistration.getExternalSystemId())) {
-                            invalidErrList.add("Invalid External System ID : External System Id can contain alphanumeric characters and have a max length of 30");
-                        }
-                    }
-                    if (!isFieldEmpty(record, 12)) {
-                        String externalSystem = record.get(12).trim();
-                        userRegistration.setExternalSystem(externalSystem);
-                        if (!ProjectUtil.validateExternalSystem(userRegistration.getExternalSystem())) {
-                            invalidErrList.add("Invalid External System Name : External System Name can contain only alphabets and alphanumeric and can have a max length of 255");
-                        }
-                    }
-
-                    if (!isFieldEmpty(record, 13)) {
-                        String tagStr = record.get(13).trim();
-                        List<String> tagList = new ArrayList<>();
-                        if (!StringUtils.isEmpty(tagStr)) {
-                            String[] tagStrList = record.get(13).trim().split(Pattern.quote(tagsDelimiter), -1);
-                            for (String tag : tagStrList) {
-                                tagList.add(tag.trim());
-                            }
-                        }
-                        userRegistration.setTag(tagList);
-                        if (!ProjectUtil.validateTag(userRegistration.getTag())) {
-                            invalidErrList.add("Invalid Tag: Tags are separated by ';' and can contain only alphabets with spaces. e.g., Bihar Circle;Patna Division");
-                        }
-                    }
-                    userRegistration.setOrgName(inputDataMap.get(Constants.ORG_NAME));
-                    userRegistration.setChannel(inputDataMap.get(Constants.ORG_NAME));
-                    userRegistration.setSbOrgId(inputDataMap.get(Constants.ROOT_ORG_ID));
-
-                    if (totalRecordsCount == 0 && errList.size() == 4) {
-                        updatedRecord.put("Status", "FAILED");
-                        updatedRecord.put("Error Details", String.join(serverProperties.getTagsDelimiter(), errList));
-                        failedRecordsCount++;
-                        break;
-                    } else if (totalRecordsCount > 0 && errList.size() == 4) {
-                        break;
-                    }
-                    totalRecordsCount++;
-
-                    if (!errList.isEmpty()) {
-                        failedRecordsCount++;
-                        updatedRecord.put("Status", "FAILED");
-                        updatedRecord.put("Error Details", String.join(", ", errList));
-                    } else {
-                        invalidErrList.addAll(validateEmailContactAndDomain(userRegistration));
-                        if (invalidErrList.isEmpty()) {
-                            userRegistration.setUserAuthToken(inputDataMap.get(Constants.X_AUTH_TOKEN));
-                          String responseCode = userUtilityService.createBulkUploadUser(userRegistration);
-                            if (!Constants.OK.equalsIgnoreCase(responseCode)) {
-                                failedRecordsCount++;
-                                updatedRecord.put("Status", "FAILED");
-                                updatedRecord.put("Error Details", responseCode);
+                            String fullName = record.get(0).trim();
+                            if (!fullName.matches("[a-zA-Z ]+")) {
+                                invalidErrList.add("Invalid value for Full Name column type. Expecting string format");
                             } else {
-                                noOfSuccessfulRecords++;
-                                updatedRecord.put("Status", Constants.SUCCESSFUL_UPPERCASE);
-                                updatedRecord.put("Error Details", "");
+                                userRegistration.setFirstName(fullName);
+                                if (!ProjectUtil.validateFullName(userRegistration.getFirstName())) {
+                                    invalidErrList.add("Invalid Full Name");
+                                }
                             }
+                        }
+
+                        if (isFieldEmpty(record, 1)) {
+                            errList.add("Email");
                         } else {
+                            String email = record.get(1).trim();
+                            userRegistration.setEmail(email);
+                        }
+
+                        if (isFieldEmpty(record, 2)) {
+                            errList.add("Mobile Number");
+                        } else {
+                            String phone = record.get(2).trim();
+                            if (phone.matches("^\\d+$")) {
+                                userRegistration.setPhone(phone);
+                            } else {
+                                invalidErrList.add("Invalid value for Mobile Number column type. Expecting number format");
+                            }
+                        }
+                        if (!StringUtils.isBlank(userRegistration.getPhone()) && !ProjectUtil.validateContactPattern(userRegistration.getPhone())) {
+                            invalidErrList.add("The Mobile Number provided is Invalid");
+                        }
+
+                        if (isFieldEmpty(record, 3)) {
+                            errList.add("Group");
+                        } else {
+                            String group = record.get(3).trim();
+                            userRegistration.setGroup(group);
+                            if (!userUtilityService.validateGroup(userRegistration.getGroup())) {
+                                invalidErrList.add("Invalid Group : Group can be only among one of these " + String.join("|", serverProperties.getBulkUploadGroupValue()));
+                            }
+                        }
+
+                        if (isFieldEmpty(record, 4)) {
+                            errList.add("Designation");
+                        } else {
+                            String position = record.get(4).trim();
+                            userRegistration.setPosition(position);
+                            if (!ProjectUtil.validateRegexPatternWithNoSpecialCharacter(userRegistration.getPosition()) || this.validateFieldValue(Constants.POSITION, userRegistration.getPosition())) {
+                                invalidErrList.add("Invalid Designation: Designation should be added from default list and/or cannot contain special character");
+                            }
+                        }
+
+                        if (!isFieldEmpty(record, 5)) {
+                            String gender = record.get(5).trim();
+                            if (userUtilityService.validateGender(gender)) {
+                                userRegistration.setGender(gender);
+                            } else {
+                                invalidErrList.add("Invalid Gender : Gender can be only among one of these " + String.join("|", serverProperties.getBulkUploadGenderValue()));
+                            }
+                        }
+
+                        if (!isFieldEmpty(record, 6)) {
+                            String category = record.get(6).trim();
+                            if (userUtilityService.validateCategory(category)) {
+                                userRegistration.setCategory(category);
+                            } else {
+                                invalidErrList.add("Invalid Category : Category can be only among one of these " + String.join("|", serverProperties.getBulkUploadCategoryValue()));
+                            }
+                        }
+
+                        if (!isFieldEmpty(record, 7)) {
+                            String dob = record.get(7).trim();
+                            if (ProjectUtil.validateDate(dob)) {
+                                userRegistration.setDob(dob);
+                            } else {
+                                invalidErrList.add("Invalid format for Date of Birth type. Expecting in dd-mm-yyyy format");
+                            }
+                        }
+
+                        if (!isFieldEmpty(record, 8)) {
+                            String motherTongue = record.get(8).trim();
+                            userRegistration.setDomicileMedium(motherTongue);
+                            if (!ProjectUtil.validateRegexPatternWithNoSpecialCharacter(userRegistration.getDomicileMedium()) || this.validateFieldValue(Constants.LANGUAGES, userRegistration.getDomicileMedium())) {
+                                invalidErrList.add("Invalid Mother Tongue: Mother Tongue should be added from default list and/or cannot contain special character");
+                            }
+                        }
+
+                        if (!isFieldEmpty(record, 9)) {
+                            String employeeId = record.get(9).trim();
+                            userRegistration.setEmployeeId(employeeId);
+                            if (!ProjectUtil.validateEmployeeId(userRegistration.getEmployeeId())) {
+                                invalidErrList.add("Invalid Employee ID : Employee ID can contain alphabetic, alphanumeric or numeric character(s) and have a max length of 30");
+                            }
+                            if (userRegistration.getEmployeeId().contains(Constants.SPACE)) {
+                                invalidErrList.add("Employee Id cannot contain spaces");
+                            }
+                        }
+
+                        if (!isFieldEmpty(record, 10)) {
+                            String pincode = record.get(10).trim();
+                            userRegistration.setPincode(pincode);
+                            if (!ProjectUtil.validatePinCode(userRegistration.getPincode())) {
+                                invalidErrList.add("Invalid Office Pin Code : Office Pin Code should be numeric and is of 6 digit.");
+                            }
+                        }
+
+                        if (!isFieldEmpty(record, 11)) {
+                            String externalSystemId = record.get(11).trim();
+                            userRegistration.setExternalSystemId(externalSystemId);
+                            if (!ProjectUtil.validateExternalSystemId(userRegistration.getExternalSystemId())) {
+                                invalidErrList.add("Invalid External System ID : External System Id can contain alphanumeric characters and have a max length of 30");
+                            }
+                        }
+                        if (!isFieldEmpty(record, 12)) {
+                            String externalSystem = record.get(12).trim();
+                            userRegistration.setExternalSystem(externalSystem);
+                            if (!ProjectUtil.validateExternalSystem(userRegistration.getExternalSystem())) {
+                                invalidErrList.add("Invalid External System Name : External System Name can contain only alphabets and alphanumeric and can have a max length of 255");
+                            }
+                        }
+
+                        if (!isFieldEmpty(record, 13)) {
+                            String tagStr = record.get(13).trim();
+                            List<String> tagList = new ArrayList<>();
+                            if (!StringUtils.isEmpty(tagStr)) {
+                                String[] tagStrList = record.get(13).trim().split(Pattern.quote(tagsDelimiter), -1);
+                                for (String tag : tagStrList) {
+                                    tagList.add(tag.trim());
+                                }
+                            }
+                            userRegistration.setTag(tagList);
+                            if (!ProjectUtil.validateTag(userRegistration.getTag())) {
+                                invalidErrList.add("Invalid Tag: Tags are separated by ';' and can contain only alphabets with spaces. e.g., Bihar Circle;Patna Division");
+                            }
+                        }
+                        userRegistration.setOrgName(inputDataMap.get(Constants.ORG_NAME));
+                        userRegistration.setChannel(inputDataMap.get(Constants.ORG_NAME));
+                        userRegistration.setSbOrgId(inputDataMap.get(Constants.ROOT_ORG_ID));
+
+                        if (totalRecordsCount == 0 && errList.size() == 4) {
+                            updatedRecord.put("Status", "FAILED");
+                            updatedRecord.put("Error Details", String.join(serverProperties.getTagsDelimiter(), errList));
+                            failedRecordsCount++;
+                            break;
+                        } else if (totalRecordsCount > 0 && errList.size() == 4) {
+                            break;
+                        }
+                        totalRecordsCount++;
+
+                        if (!errList.isEmpty()) {
                             failedRecordsCount++;
                             updatedRecord.put("Status", "FAILED");
-                            updatedRecord.put("Error Details", String.join(serverProperties.getTagsDelimiter(), invalidErrList));
+                            updatedRecord.put("Error Details", String.join(", ", errList));
+                        } else {
+                            invalidErrList.addAll(validateEmailContactAndDomain(userRegistration));
+                            if (invalidErrList.isEmpty()) {
+                                userRegistration.setUserAuthToken(inputDataMap.get(Constants.X_AUTH_TOKEN));
+                                String responseCode = userUtilityService.createBulkUploadUser(userRegistration);
+                                if (!Constants.OK.equalsIgnoreCase(responseCode)) {
+                                    failedRecordsCount++;
+                                    updatedRecord.put("Status", "FAILED");
+                                    updatedRecord.put("Error Details", responseCode);
+                                } else {
+                                    noOfSuccessfulRecords++;
+                                    updatedRecord.put("Status", Constants.SUCCESSFUL_UPPERCASE);
+                                    updatedRecord.put("Error Details", "");
+                                }
+                            } else {
+                                failedRecordsCount++;
+                                updatedRecord.put("Status", "FAILED");
+                                updatedRecord.put("Error Details", String.join(serverProperties.getTagsDelimiter(), invalidErrList));
+                            }
                         }
+                    } catch (Exception e) {
+                        failedRecordsCount++;
+                        updatedRecord.put("Status", "FAILED");
+                        updatedRecord.put("Error Details", "Invalid record.");
+                        logger.error("Error processing bulk upload for organization {}. Record No: {}", inputDataMap.get(Constants.ROOT_ORG_ID), noOfSuccessfulRecords + failedRecordsCount, e);
                     }
-
                     updatedRecords.add(updatedRecord);
                 }
                 logger.info("total noOfSuccessfulRecords {}, total noOfFailedRecordsCount {}, and total totalRecordsCount {}", noOfSuccessfulRecords,failedRecordsCount,totalRecordsCount);
