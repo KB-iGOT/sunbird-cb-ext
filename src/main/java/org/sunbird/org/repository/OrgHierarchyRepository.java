@@ -11,7 +11,7 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.sunbird.org.model.OrgHierarchy;
 
 public interface OrgHierarchyRepository extends JpaRepository<OrgHierarchy, Integer> {
-    @Query(value = "SELECT * FROM org_hierarchy_v4 org WHERE org.orgname ~* ?1", nativeQuery = true)
+    @Query(value = "SELECT * FROM org_hierarchy_v4 org WHERE org.orgname ~* ?1 AND org.sborgid IS NOT NULL AND org.sborgid != ''", nativeQuery = true)
     List<OrgHierarchy> searchOrgWithHierarchy(String orgName);
 
     List<OrgHierarchy> findAllByOrgName(String orgName);
