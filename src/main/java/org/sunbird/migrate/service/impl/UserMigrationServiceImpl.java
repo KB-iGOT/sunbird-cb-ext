@@ -195,7 +195,7 @@ public class UserMigrationServiceImpl implements UserMigrationService {
 
         Map<String, Object> body = new HashMap<>();
         body.put(Constants.REQUEST, request);
-        System.out.println("printing request :: "+body);
+        
         return body;
     }
 
