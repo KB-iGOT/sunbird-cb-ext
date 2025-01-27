@@ -173,7 +173,7 @@ public class UserMigrationServiceImpl implements UserMigrationService {
 
 
         ZonedDateTime yesterdayAtOneAM = currentTime
-                .minusDays(1) // Subtract one day to get yesterday
+                .minusDays(2) // Subtract one day to get yesterday
                 .toLocalDate()
                 .atStartOfDay(zoneId);
 
