@@ -10,6 +10,8 @@ import com.google.gson.Gson;
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.collections.ListUtils;
 import org.apache.commons.collections.MapUtils;
+import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVParser;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.elasticsearch.action.search.SearchResponse;
@@ -52,8 +54,8 @@ import org.sunbird.storage.service.StorageServiceImpl;
 import org.sunbird.user.report.UserReportService;
 import org.sunbird.user.service.UserUtilityService;
 
-import java.io.File;
-import java.io.IOException;
+import java.io.*;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -2412,6 +2414,15 @@ public class ProfileServiceImpl implements ProfileService {
 				setErrorDataForMdo(response, "Failed to upload for another request as previous request is in processing state, please try after some time.");
 				return response;
 			}
+			try (BufferedReader reader = new BufferedReader(new InputStreamReader(mFile.getInputStream(), StandardCharsets.UTF_8))) {
+				char csvDelimiter = serverProperties.getCsvDelimiter();
+				CSVParser csvParser = new CSVParser(reader, CSVFormat.newFormat(csvDelimiter).withFirstRecordAsHeader());
+				log.info("System successfully parsed the uploaded CSV file for user bulk upload.");
+			} catch (Exception e) {
+				setErrorData(response,
+						String.format("Failed to parse the uploaded csv file for user bulkUpload request. Error: %s", e.getMessage()));
+				return response;
+			}
 			SBApiResponse uploadResponse = storageService.uploadFile(mFile, serverConfig.getBulkUploadContainerName());
 			if (!HttpStatus.OK.equals(uploadResponse.getResponseCode())) {
 				setErrorData(response, String.format("Failed to upload file. Error: %s",
@@ -2446,7 +2457,7 @@ public class ProfileServiceImpl implements ProfileService {
 			sendBulkUploadNotification(orgId, channel, (String) uploadResponse.getResult().get(Constants.URL));
 		} catch (Exception e) {
 			setErrorData(response,
-					String.format("Failed to process user bulk upload request. Error: ", e.getMessage()));
+					String.format("Failed to process user bulk upload request. Error: %s ", e.getMessage()));
 		}
 		return response;
 	}

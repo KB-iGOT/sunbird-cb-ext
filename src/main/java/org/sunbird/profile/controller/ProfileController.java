@@ -171,7 +171,7 @@ public class ProfileController {
 										@RequestHeader(Constants.X_AUTH_TOKEN) String userAuthToken) throws UnsupportedEncodingException {
 		log.info(String.format("bulkupload channel name:%s,OrgId:%s",
 				URLDecoder.decode(channel, "UTF-8"), rootOrgId));
-		SBApiResponse uploadResponse = profileService.bulkUpload(multipartFile, rootOrgId, URLDecoder.decode(channel, "UTF-8"), userId, userAuthToken);
+		SBApiResponse uploadResponse = profileService.bulkUploadV2(multipartFile, rootOrgId, URLDecoder.decode(channel, "UTF-8"), userId, userAuthToken);
 		return new ResponseEntity<>(uploadResponse, uploadResponse.getResponseCode());
 	}
 
