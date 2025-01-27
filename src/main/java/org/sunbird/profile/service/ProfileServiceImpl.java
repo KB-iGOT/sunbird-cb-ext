@@ -2417,10 +2417,11 @@ public class ProfileServiceImpl implements ProfileService {
 			try (BufferedReader reader = new BufferedReader(new InputStreamReader(mFile.getInputStream(), StandardCharsets.UTF_8))) {
 				char csvDelimiter = serverProperties.getCsvDelimiter();
 				CSVParser csvParser = new CSVParser(reader, CSVFormat.newFormat(csvDelimiter).withFirstRecordAsHeader());
-				log.info("System successfully parsed the uploaded CSV file for user bulk upload.");
+				log.info("userBulkUpload::System successfully parsed the uploaded CSV file for orgId: {}", orgId);
 			} catch (Exception e) {
+				log.error("userBulkUpload::Failed to parse the uploaded csv file for orgId: {}, Error: {}", orgId, e.getMessage());
 				setErrorData(response,
-						String.format("Failed to parse the uploaded csv file for user bulkUpload request. Error: %s", e.getMessage()));
+						String.format("Failed to parse the uploaded csv file of user bulkUpload request. Error: %s", e.getMessage()));
 				return response;
 			}
 			SBApiResponse uploadResponse = storageService.uploadFile(mFile, serverConfig.getBulkUploadContainerName());
@@ -2444,6 +2445,7 @@ public class ProfileServiceImpl implements ProfileService {
 					Constants.TABLE_USER_BULK_UPLOAD, uploadedFile);
 
 			if (!Constants.SUCCESS.equalsIgnoreCase((String) insertResponse.get(Constants.RESPONSE))) {
+				log.error("Failed to update database with user bulk upload file details. for orgId: {}", orgId);
 				setErrorData(response, "Failed to update database with user bulk upload file details.");
 				return response;
 			}
@@ -2456,6 +2458,7 @@ public class ProfileServiceImpl implements ProfileService {
 			kafkaProducer.pushWithKey(serverConfig.getUserBulkUploadTopic(), uploadedFile, orgId);
 			sendBulkUploadNotification(orgId, channel, (String) uploadResponse.getResult().get(Constants.URL));
 		} catch (Exception e) {
+			log.error("userBulkUpload::Failed to process user bulk upload request for orgId: {}, Error: {}", orgId, e.getMessage());
 			setErrorData(response,
 					String.format("Failed to process user bulk upload request. Error: %s ", e.getMessage()));
 		}
