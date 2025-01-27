@@ -168,29 +168,21 @@ public class UserMigrationServiceImpl implements UserMigrationService {
 
         ZonedDateTime currentTime = ZonedDateTime.now(zoneId);
 
+        ZonedDateTime fortyEightHoursAgo =  currentTime.minusHours(48);
+
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss:SSSZ");
-        String formattedCurrentTime = currentTime.format(formatter);
+        String formattedFortyEightHoursAgo = fortyEightHoursAgo.format(formatter);
 
-
-        ZonedDateTime yesterdayAtOneAM = currentTime
-                .minusDays(1) // Subtract one day to get yesterday
-                .toLocalDate()
-                .atStartOfDay(zoneId);
-
-        // Format yesterday's time
-        String formattedYesterdayAtOneAM = yesterdayAtOneAM.format(formatter);
 
         // Construct the request body using Map
         Map<String, Object> filters = new HashMap<>();
         filters.put(Constants.PROFILE_DETAILS_PROFILE_STATUS, Constants.NOT_MY_USER);
 
-        log.info("printing formattedYesterdayAtOneAM "+formattedYesterdayAtOneAM);
-        log.info("printing formattedCurrentTime "+formattedCurrentTime);
+        log.info("printing formattedFortyEightHoursAgo "+formattedFortyEightHoursAgo);
 
         // Create a separate HashMap for the inner filter
         Map<String, String> innerFilter = new HashMap<>();
-        innerFilter.put("<=", formattedCurrentTime);
-        innerFilter.put(">=", formattedYesterdayAtOneAM);
+        innerFilter.put("<=", formattedFortyEightHoursAgo);
         filters.put(Constants.PROFILE_DETAILS_UPDATEDAS_NOT_MY_USER_ON, innerFilter);
         List<String> fields = Arrays.asList("userId", "profileDetails", "organisations", "rootOrgName");
 
