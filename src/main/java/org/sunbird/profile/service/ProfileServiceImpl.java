@@ -2419,7 +2419,7 @@ public class ProfileServiceImpl implements ProfileService {
 				CSVParser csvParser = new CSVParser(reader, CSVFormat.newFormat(csvDelimiter).withFirstRecordAsHeader());
 				log.info("userBulkUpload::System successfully parsed the uploaded CSV file for orgId: {}", orgId);
 			} catch (Exception e) {
-				log.error("userBulkUpload::Failed to parse the uploaded csv file for orgId: {}, Error: {}", orgId, e.getMessage());
+				log.error("userBulkUpload::Failed to parse the uploaded csv file for orgId: {}, Error: ", orgId, e);
 				setErrorData(response,
 						String.format("Failed to parse the uploaded csv file of user bulkUpload request. Error: %s", e.getMessage()));
 				return response;
@@ -2458,7 +2458,7 @@ public class ProfileServiceImpl implements ProfileService {
 			kafkaProducer.pushWithKey(serverConfig.getUserBulkUploadTopic(), uploadedFile, orgId);
 			sendBulkUploadNotification(orgId, channel, (String) uploadResponse.getResult().get(Constants.URL));
 		} catch (Exception e) {
-			log.error("userBulkUpload::Failed to process user bulk upload request for orgId: {}, Error: {}", orgId, e.getMessage());
+			log.error("userBulkUpload::Failed to process user bulk upload request for orgId: {}, Error: ", orgId, e);
 			setErrorData(response,
 					String.format("Failed to process user bulk upload request. Error: %s ", e.getMessage()));
 		}
