@@ -8,6 +8,8 @@ public class SBApiOrgSearchRequest {
 
 	private Map<String, String> sortBy = new HashMap<>();
 	private String query;
+	private int limit;
+	private int offset;
 
 	public String getQuery() {
 		return query;
@@ -33,4 +35,20 @@ public class SBApiOrgSearchRequest {
 		this.sortBy = sortBy;
 	}
 
+
+	public int getLimit() {
+		return limit;
+	}
+
+	public int getOffset() {
+		return offset;
+	}
+
+	public void setLimit(int limit) {
+		this.limit = limit;
+	}
+
+	public void setOffset(int offset) {
+		this.offset = offset;
+	}
 }

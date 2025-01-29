@@ -12,6 +12,10 @@ import org.codehaus.jackson.map.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.util.ObjectUtils;
@@ -249,8 +253,15 @@ public class ExtendedOrgServiceImpl implements ExtendedOrgService {
 			String sbRootOrgId = (String) filters.get(Constants.SB_ROOT_ORG_ID);
 
 			// sbRootOrgId is State Id. Let's get all the children (i.e. departments)
-			List<String> orgIdList = orgRepository.findAllBySbRootOrgId(sbRootOrgId);
 
+			int limit = Optional.ofNullable((Integer) requestData.get(Constants.LIMIT)).orElse(20);
+			int offset = Optional.ofNullable((Integer) requestData.get(Constants.OFFSET)).orElse(0);
+
+			Pageable pageable = PageRequest.of(offset, limit);
+
+			Page<String> orgIdPage = orgRepository.findAllBySbRootOrgId(sbRootOrgId, pageable);
+			List<String> unmodifiableorgIdList = orgIdPage.getContent();
+			List<String> orgIdList = new ArrayList<>(unmodifiableorgIdList);
 			if (CollectionUtils.isNotEmpty(orgIdList)) {
 				List<String> orgIdChildList = orgRepository.fetchL2LevelOrgList(orgIdList);
 				if (CollectionUtils.isNotEmpty(orgIdChildList)) {
@@ -262,6 +273,7 @@ public class ExtendedOrgServiceImpl implements ExtendedOrgService {
 					orgSearchRequest.setQuery((String) requestData.get(Constants.QUERY));
 				}
 				orgSearchRequest.setSortBy((Map<String, String>) requestData.get(Constants.SORT_BY_KEYWORD));
+				logger.info("Constructing the request body for organization search with the necessary parameters.");
 				Map<String, Object> orgSearchRequestBody = new HashMap<String, Object>() {
 					private static final long serialVersionUID = 1L;
 					{
