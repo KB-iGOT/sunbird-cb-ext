@@ -5,6 +5,8 @@ import java.util.Set;
 
 import javax.transaction.Transactional;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
@@ -41,7 +43,7 @@ public interface OrgHierarchyRepository extends JpaRepository<OrgHierarchy, Inte
     void updateSbOrgIdAndSbOrgRootIdForChannel(String channel, String sbOrgId, String sbRootOrgId);
 
     @Query(value = "SELECT sborgid from org_hierarchy_v4 where sbrootorgid=?1", nativeQuery = true)
-    List<String> findAllBySbRootOrgId(String sbRootOrgId);
+    Page<String> findAllBySbRootOrgId(String sbRootOrgId, Pageable pageable);
 
     @Query(value = "SELECT sborgid from org_hierarchy_v4 where sbrootorgid in (?1)", nativeQuery = true)
     List<String> fetchL2LevelOrgList(List<String> orgIdList);
