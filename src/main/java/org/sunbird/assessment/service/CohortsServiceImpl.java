@@ -12,6 +12,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import org.apache.commons.collections.MapUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -459,19 +460,35 @@ public class CohortsServiceImpl implements CohortsService {
 				ProjectUtil.updateErrorDetails(finalResponse, Constants.BATCH_NOT_AVAILABLE_ERROR_MSG, HttpStatus.BAD_REQUEST);
 				return finalResponse;
 			}
+
+			SunbirdApiBatchResp batchDetail = batchDetails.get(0);
+			if (batchDetails.size() > 1) {
+				SunbirdApiBatchResp activeBatch = batchDetails.stream()
+						.filter(batch -> {
+							Map<String, Object> batchAttributes = batch.getBatchAttributes();
+							return MapUtils.isNotEmpty(batchAttributes) &&
+									Boolean.TRUE.equals(batchAttributes.get("isActiveBatch"));
+						})
+						.findFirst()
+						.orElse(null);
+
+				if (activeBatch != null) {
+					batchDetail = activeBatch;
+				} else {
+					ProjectUtil.updateErrorDetails(finalResponse, Constants.BATCH_NOT_AVAILABLE_ERROR_MSG, HttpStatus.BAD_REQUEST);
+					return finalResponse;
+				}
+			}
 			Map<String, String> headers = new HashMap<>();
 			headers.put(Constants.X_AUTH_TOKEN, authUserToken);
 			headers.put(Constants.AUTHORIZATION, cbExtServerProperties.getSbApiKey());
 			headers.put(Constants.X_AUTH_USER_ORG_ID, rootOrgId);
-			List<String> batchIdList = batchDetails.stream().map(batchDetail -> batchDetail.getBatchId()).collect(Collectors.toList());
-			List<Map<String, Object>> userActiveEnrollmentForBatch = getActiveEnrollmentForUser(batchIdList, userUUID);
 			boolean isEnrolledWithBatch = false;
-			if (userActiveEnrollmentForBatch.size() > 0) {
-				ProjectUtil.updateErrorDetails(finalResponse, Constants.BATCH_ALREADY_ENROLLED_MSG, HttpStatus.BAD_REQUEST);
-				return finalResponse;
+			SBApiResponse errResponse = isActiveEnrollmentExistsForUser(userUUID, contentId, batchDetail);
+			if (!ObjectUtils.isEmpty(errResponse)) {
+				return errResponse;
 			}
 			//Enroll for the 1st batch for the course, Standalone Assessment
-			SunbirdApiBatchResp batchDetail = batchDetails.get(0);
 			Map<String, Object> enrollResponse = enrollInCourse(contentId, userUUID, headers, batchDetail.getBatchId());
 			if (!ObjectUtils.isEmpty(enrollResponse) && Constants.OK.equals(enrollResponse.get(Constants.RESPONSE_CODE))) {
 				finalResponse = constructAutoEnrollResponse(batchDetail);
@@ -494,5 +511,35 @@ public class CohortsServiceImpl implements CohortsService {
 		List<Map<String, Object>> activeEnrollmentForUser = cassandraOperation.getRecordsByPropertiesWithoutFiltering(Constants.KEYSPACE_SUNBIRD_COURSES,
 				Constants.TABLE_ENROLLMENT_BATCH_LOOKUP, propertyMap, Arrays.asList(Constants.BATCH_ID, Constants.USER_ID, Constants.ACTIVE));
 		return activeEnrollmentForUser.stream().filter(enrollmentForUser -> (boolean) enrollmentForUser.get(Constants.ACTIVE)).collect(Collectors.toList());
+	}
+
+	private SBApiResponse isActiveEnrollmentExistsForUser(String userId, String courseId, SunbirdApiBatchResp batchDetail) {
+		SBApiResponse finalResponse = ProjectUtil.createDefaultResponse(Constants.API_USER_ENROLMENT);
+		if (batchDetail == null || batchDetail.getBatchId() == null) {
+			ProjectUtil.updateErrorDetails(finalResponse, "Invalid batch details", HttpStatus.BAD_REQUEST);
+			return finalResponse;
+		}
+		Map<String, Object> propertyMap = new HashMap<>();
+		propertyMap.put(Constants.COURSE_ID, courseId);
+		propertyMap.put(Constants.USER_ID, userId);
+		List<Map<String, Object>> activeEnrollmentsForUser = cassandraOperation.getRecordsByPropertiesWithoutFiltering(Constants.KEYSPACE_SUNBIRD_COURSES,
+				Constants.TABLE_USER_ENROLMENT, propertyMap, Arrays.asList(Constants.USER_ID, Constants.COURSE_ID, Constants.BATCH_ID, Constants.ACTIVE));
+		if (CollectionUtils.isEmpty(activeEnrollmentsForUser)) {
+			return null;
+		} else {
+			for (Map<String, Object> activeEnrollmentForUser : activeEnrollmentsForUser) {
+				Boolean active = (Boolean) activeEnrollmentForUser.get(Constants.ACTIVE);
+				if (Boolean.TRUE.equals(active)) {
+					String enrollmentBatchId = (String) activeEnrollmentForUser.get(Constants.BATCH_ID);
+					if (batchDetail.getBatchId().equalsIgnoreCase(enrollmentBatchId)) {
+						return constructAutoEnrollResponse(batchDetail);
+					} else {
+						ProjectUtil.updateErrorDetails(finalResponse, Constants.BATCH_ALREADY_ENROLLED_MSG, HttpStatus.BAD_REQUEST);
+						return finalResponse;
+					}
+				}
+			}
+		}
+		return null;
 	}
 }
