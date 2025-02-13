@@ -461,6 +461,8 @@ public class CohortsServiceImpl implements CohortsService {
 				return finalResponse;
 			}
 
+			List<String> batchIds = batchDetails.stream().map(SunbirdApiBatchResp::getBatchId).collect(Collectors.toList());
+			logger.info("Batches available for the courseId: " + contentId + " are : " + batchIds);
 			SunbirdApiBatchResp batchDetail = batchDetails.get(0);
 			if (batchDetails.size() > 1) {
 				SunbirdApiBatchResp activeBatch = batchDetails.stream()
@@ -474,6 +476,7 @@ public class CohortsServiceImpl implements CohortsService {
 
 				if (activeBatch != null) {
 					batchDetail = activeBatch;
+					logger.info("Selected active batch for enrolment is: " + activeBatch.getBatchId() + " for userId: " + userUUID + " and courseId: " + contentId);
 				} else {
 					ProjectUtil.updateErrorDetails(finalResponse, Constants.BATCH_NOT_AVAILABLE_ERROR_MSG, HttpStatus.BAD_REQUEST);
 					return finalResponse;
