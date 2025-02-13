@@ -258,15 +258,10 @@ public class ExtendedOrgServiceImpl implements ExtendedOrgService {
 			int offset = Optional.ofNullable((Integer) requestData.get(Constants.OFFSET)).orElse(0);
 
 			Pageable pageable = PageRequest.of(offset, limit);
-
 			Page<String> orgIdPage = orgRepository.findAllBySbRootOrgId(sbRootOrgId, pageable);
-			List<String> unmodifiableorgIdList = orgIdPage.getContent();
-			List<String> orgIdList = new ArrayList<>(unmodifiableorgIdList);
+			long totalOrgCount = orgIdPage.getTotalElements();
+			List<String> orgIdList = orgIdPage.getContent();
 			if (CollectionUtils.isNotEmpty(orgIdList)) {
-				List<String> orgIdChildList = orgRepository.fetchL2LevelOrgList(orgIdList);
-				if (CollectionUtils.isNotEmpty(orgIdChildList)) {
-					orgIdList.addAll(orgIdChildList);
-				}
 				SBApiOrgSearchRequest orgSearchRequest = new SBApiOrgSearchRequest();
 				orgSearchRequest.getFilters().setId(orgIdList);
 				if (!ProjectUtil.isStringNullOREmpty((String) requestData.get(Constants.QUERY))) {
@@ -288,7 +283,9 @@ public class ExtendedOrgServiceImpl implements ExtendedOrgService {
 						orgSearchRequestBody, headers);
 				if (Constants.OK.equalsIgnoreCase((String) apiResponse.get(Constants.RESPONSE_CODE))) {
 					Map<String, Object> apiResponseResult = (Map<String, Object>) apiResponse.get(Constants.RESULT);
-					response.put(Constants.RESPONSE, apiResponseResult.get(Constants.RESPONSE));
+					Map<String, Object> resultResponse = (Map<String, Object>) apiResponseResult.get(Constants.RESPONSE);
+					resultResponse.put(Constants.COUNT, totalOrgCount);
+					response.put(Constants.RESPONSE, resultResponse);
 				} else {
 					response.getParams().setErrmsg("Failed to search org details");
 					response.setResponseCode(HttpStatus.INTERNAL_SERVER_ERROR);
