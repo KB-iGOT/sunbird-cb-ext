@@ -462,7 +462,7 @@ public class CohortsServiceImpl implements CohortsService {
 			}
 
 			List<String> batchIds = batchDetails.stream().map(SunbirdApiBatchResp::getBatchId).collect(Collectors.toList());
-			logger.info("Batches available for the courseId: " + contentId + " are :" + batchIds);
+			logger.info("Batches available for the courseId: " + contentId + " are : " + batchIds);
 			SunbirdApiBatchResp batchDetail = batchDetails.get(0);
 			if (batchDetails.size() > 1) {
 				SunbirdApiBatchResp activeBatch = batchDetails.stream()
