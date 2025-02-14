@@ -478,7 +478,8 @@ public class CohortsServiceImpl implements CohortsService {
 					batchDetail = activeBatch;
 					logger.info("Selected active batch for enrolment is: " + activeBatch.getBatchId() + " for userId: " + userUUID + " and courseId: " + contentId);
 				} else {
-					ProjectUtil.updateErrorDetails(finalResponse, Constants.BATCH_NOT_AVAILABLE_ERROR_MSG, HttpStatus.BAD_REQUEST);
+					logger.info("Multiple batches available for enrollment. No batch is marked as active (isActiveBatch=true) for courseId: " + contentId);
+					ProjectUtil.updateErrorDetails(finalResponse, Constants.ACTIVE_BATCH_NOT_AVAILABLE_ERROR_MSG, HttpStatus.INTERNAL_SERVER_ERROR);
 					return finalResponse;
 				}
 			}
