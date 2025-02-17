@@ -1326,7 +1326,7 @@ public class Constants {
 	public static final String PROFILE_SURVEY_ID = "profileSurveyId";
 	public static final String GROUP_TITLE_CASE = "Group";
 	public static final String DESIGNATION_TITLE_CASE = "Designation";
-    public static final String COURSE_RECOMMENDATIONS = "course_recommendations";
+    public static final String USER_NON_RELEVANT_RECOMMENDATIONS = "user_non_relevant_recommendations";
 	public static final String API_COURSE_RECOMMENDATION_READ = "api.course.recommendation.read";
 	public static final String API_COURSE_RECOMMENDATION_SAVE = "api.course.recommendation.save";
 	public static final String USER_ID_COURSE_IDs_DOESNT_EXIST = "User Id and Course Ids doesn't exist";
