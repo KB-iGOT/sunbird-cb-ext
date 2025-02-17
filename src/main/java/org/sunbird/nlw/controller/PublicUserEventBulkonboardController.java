@@ -5,9 +5,12 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.sunbird.common.model.SBApiResponse;
+import org.sunbird.common.util.Constants;
 import org.sunbird.nlw.service.PublicUserEventBulkonboardService;
 
+import javax.validation.Valid;
 import java.io.IOException;
+import java.util.Map;
 
 @RestController
 public class PublicUserEventBulkonboardController {
@@ -30,5 +33,24 @@ public class PublicUserEventBulkonboardController {
     @GetMapping("/user/event/bulkonboard/download/{fileName}")
     public ResponseEntity<?> downloadFile(@PathVariable("fileName") String fileName) {
         return nlwService.downloadFile(fileName);
+    }
+
+    @PostMapping("/v2/user/event/bulkOnboard")
+    public ResponseEntity<?> processEventUsersForCertificateV2(@RequestParam(value = "file", required = true) MultipartFile multipartFile, @Valid @RequestBody Map<String, Object> requestBody ) {
+        String eventId = getStringValue(requestBody, Constants.EVENT_ID);
+        String batchId = getStringValue(requestBody, Constants.BATCH_ID);
+        String publicCert = getStringValue(requestBody, Constants.PUBLIC_CERT);
+        String reissue = getStringValue(requestBody, Constants.REISSUE);
+        SBApiResponse uploadResponse = nlwService.bulkOnboard(multipartFile, eventId, batchId, publicCert, reissue);
+        return new ResponseEntity<>(uploadResponse, uploadResponse.getResponseCode());
+
+    }
+
+    private String getStringValue(Map<String, Object> map, String key) {
+        return map.keySet().stream()
+                .filter(k -> k.equals(key))
+                .map(k -> (String) map.get(k))
+                .findFirst()
+                .orElse(null);  // Return null if the key is not found
     }
 }
