@@ -10,9 +10,6 @@ import org.sunbird.common.model.SBApiResponse;
 import org.sunbird.common.util.Constants;
 import org.sunbird.common.util.ProjectUtil;
 import org.sunbird.recommendation.dto.RecommendationDto;
-import java.time.ZoneId;
-import java.time.ZonedDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.*;
 
 @Slf4j
@@ -37,7 +34,7 @@ public class RecommendationServiceImpl implements RecommendationService {
             propertyMap.put(Constants.USER_ID_LOWER, userId);
             List<Map<String, Object>> courseRecommendations = cassandraOperation.getRecordsByProperties(
                     Constants.KEYSPACE_SUNBIRD,
-                    Constants.COURSE_RECOMMENDATIONS,
+                    Constants.USER_NON_RELEVANT_RECOMMENDATIONS,
                     propertyMap,
                     null
             );
@@ -74,7 +71,7 @@ public class RecommendationServiceImpl implements RecommendationService {
 
             List<Map<String, Object>> existingRecords = cassandraOperation.getRecordsByProperties(
                     Constants.KEYSPACE_SUNBIRD,
-                    Constants.COURSE_RECOMMENDATIONS,
+                    Constants.USER_NON_RELEVANT_RECOMMENDATIONS,
                     propertyMap,
                     null
             );
@@ -94,7 +91,7 @@ public class RecommendationServiceImpl implements RecommendationService {
                 userCourseEnrollMap.put(Constants.CREATED_ON_KEY, existingRecord.get(Constants.CREATED_ON));
             }
 
-            SBApiResponse insertResponse = cassandraOperation.insertRecord(Constants.KEYSPACE_SUNBIRD, Constants.COURSE_RECOMMENDATIONS, userCourseEnrollMap);
+            SBApiResponse insertResponse = cassandraOperation.insertRecord(Constants.KEYSPACE_SUNBIRD, Constants.USER_NON_RELEVANT_RECOMMENDATIONS, userCourseEnrollMap);
 
             if (!Constants.SUCCESS.equalsIgnoreCase((String) insertResponse.get(Constants.RESPONSE))) {
                 log.error("Failed to update database");
