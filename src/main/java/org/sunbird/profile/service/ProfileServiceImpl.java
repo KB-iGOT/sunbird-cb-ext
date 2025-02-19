@@ -1302,6 +1302,14 @@ public class ProfileServiceImpl implements ProfileService {
 		}
 		professionalDetails.get(0).put(Constants.GROUP, request.get(Constants.GROUP));
 		professionalDetails.get(0).put(Constants.ORGANIZATION_TYPE, Constants.GOVERNMENT);
+		if (userUtilityService.validateGroup(request.get(Constants.GROUP).toString()))
+			existingProfile.put(Constants.PROFILE_GROUP_STATUS, Constants.VERIFIED);
+		else existingProfile.put(Constants.PROFILE_GROUP_STATUS, Constants.NOT_VERIFIED);
+
+		if (existingProfile.get(Constants.PROFILE_GROUP_STATUS).equals(Constants.VERIFIED) &&
+				existingProfile.get(Constants.PROFILE_DESIGNATION_STATUS).equals(Constants.VERIFIED)) {
+			existingProfile.put(Constants.PROFILE_STATUS, Constants.VERIFIED);
+		} else existingProfile.put(Constants.PROFILE_STATUS, Constants.NOT_VERIFIED);
 
 		Map<String, Object> empDetails;
 		if (existingProfile.containsKey(Constants.EMPLOYMENTDETAILS)) {
