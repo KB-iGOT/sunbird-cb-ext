@@ -1300,7 +1300,8 @@ public class ProfileServiceImpl implements ProfileService {
 			};
 			existingProfile.put(Constants.PROFESSIONAL_DETAILS, professionalDetails);
 		}
-		if (StringUtils.isNotEmpty((String) request.get(Constants.GROUP))) {
+		if (StringUtils.isNotEmpty((String) request.get(Constants.GROUP))
+				&& userUtilityService.validateGroup((String) request.get(Constants.GROUP))) {
 			professionalDetails.get(0).put(Constants.GROUP, request.get(Constants.GROUP));
 			existingProfile.put(Constants.PROFILE_GROUP_STATUS, Constants.VERIFIED);
 		} else {
@@ -1534,7 +1535,8 @@ public class ProfileServiceImpl implements ProfileService {
 		} else {
 			profileDetails.put(Constants.PROFILE_DESIGNATION_STATUS, Constants.NOT_VERIFIED);
 		}
-		if (StringUtils.isNotEmpty((String) requestObject.get(Constants.GROUP))) {
+		if (StringUtils.isNotEmpty((String) requestObject.get(Constants.GROUP))
+				&& userUtilityService.validateGroup((String) requestObject.get(Constants.GROUP))) {
 			professionDetailObj.put(Constants.GROUP, requestObject.get(Constants.GROUP));
 			profileDetails.put(Constants.PROFILE_GROUP_STATUS, Constants.VERIFIED);
 		} else {
