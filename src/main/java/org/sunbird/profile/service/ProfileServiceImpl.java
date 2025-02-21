@@ -912,7 +912,7 @@ public class ProfileServiceImpl implements ProfileService {
 					request.put(Constants.USER_NAME, userData.get(Constants.USER_NAME));
 					request.put(Constants.ROOT_ORG_ID, userData.get(Constants.ROOT_ORG_ID));
 					request.put(Constants.ORG_NAME, userData.get(Constants.CHANNEL));
-					retValue = updateUser(request);
+					retValue = updateUserForParichaySignup(request);
 					if (retValue) {
 						response.getResult().put(Constants.RESPONSE, Constants.SUCCESS);
 						response.getResult().put(Constants.USER_ID, userId);
@@ -1288,7 +1288,8 @@ public class ProfileServiceImpl implements ProfileService {
 		}
 
 		List<Map<String, Object>> professionalDetails;
-		if (existingProfile.containsKey(Constants.PROFESSIONAL_DETAILS)) {
+		if (existingProfile.containsKey(Constants.PROFESSIONAL_DETAILS)
+			&& ((List<Map<String, Object>>)existingProfile.get(Constants.PROFESSIONAL_DETAILS)).size() > 0) {
 			professionalDetails = (List<Map<String, Object>>) existingProfile.get(Constants.PROFESSIONAL_DETAILS);
 		} else {
 			professionalDetails = new ArrayList<Map<String, Object>>() {
@@ -1300,8 +1301,34 @@ public class ProfileServiceImpl implements ProfileService {
 			};
 			existingProfile.put(Constants.PROFESSIONAL_DETAILS, professionalDetails);
 		}
-		professionalDetails.get(0).put(Constants.GROUP, request.get(Constants.GROUP));
+		if (StringUtils.isNotEmpty((String) request.get(Constants.GROUP))
+				&& userUtilityService.validateGroup((String) request.get(Constants.GROUP))) {
+			professionalDetails.get(0).put(Constants.GROUP, request.get(Constants.GROUP));
+		}
 		professionalDetails.get(0).put(Constants.ORGANIZATION_TYPE, Constants.GOVERNMENT);
+		if (StringUtils.isNotEmpty((String) request.get(Constants.DESIGNATION))) {
+			professionalDetails.get(0).put(Constants.DESIGNATION, request.get(Constants.DESIGNATION));
+		}
+
+		if (StringUtils.isNotEmpty((String) professionalDetails.get(0).get(Constants.DESIGNATION))) {
+			existingProfile.put(Constants.PROFILE_DESIGNATION_STATUS, Constants.VERIFIED);
+		} else {
+			existingProfile.put(Constants.PROFILE_DESIGNATION_STATUS, Constants.NOT_VERIFIED);
+		}
+
+		if (StringUtils.isNotEmpty((String) professionalDetails.get(0).get(Constants.GROUP))) {
+			existingProfile.put(Constants.PROFILE_GROUP_STATUS, Constants.VERIFIED);
+		} else {
+			existingProfile.put(Constants.PROFILE_GROUP_STATUS, Constants.NOT_VERIFIED);
+		}
+
+		if (Constants.VERIFIED.equalsIgnoreCase((String) existingProfile.get(Constants.PROFILE_GROUP_STATUS)) &&
+				Constants.VERIFIED
+						.equalsIgnoreCase((String) existingProfile.get(Constants.PROFILE_DESIGNATION_STATUS))) {
+			existingProfile.put(Constants.PROFILE_STATUS, Constants.VERIFIED);
+		} else {
+			existingProfile.put(Constants.PROFILE_STATUS, Constants.NOT_VERIFIED);
+		}
 
 		Map<String, Object> empDetails;
 		if (existingProfile.containsKey(Constants.EMPLOYMENTDETAILS)) {
@@ -1480,7 +1507,7 @@ public class ProfileServiceImpl implements ProfileService {
 		return resultArray;
 	}
 
-	private boolean updateUser(Map<String, Object> requestObject) {
+	private boolean updateUserForParichaySignup(Map<String, Object> requestObject) {
 		boolean retValue = false;
 		Map<String, Object> updateRequest = new HashMap<>();
 		Map<String, Object> updateRequestBody = new HashMap<String, Object>();
@@ -1511,6 +1538,30 @@ public class ProfileServiceImpl implements ProfileService {
 		professionDetailObj.put(Constants.ORGANIZATION_TYPE, Constants.GOVERNMENT);
 		if (StringUtils.isNotEmpty((String) requestObject.get(Constants.POSITION))) {
 			professionDetailObj.put(Constants.DESIGNATION, requestObject.get(Constants.POSITION));
+		}
+		if (StringUtils.isNotEmpty((String) requestObject.get(Constants.GROUP))
+				&& userUtilityService.validateGroup((String) requestObject.get(Constants.GROUP))) {
+			professionDetailObj.put(Constants.GROUP, requestObject.get(Constants.GROUP));
+		} 
+
+		if (StringUtils.isNotEmpty((String) professionDetailObj.get(Constants.DESIGNATION))) {
+			profileDetails.put(Constants.PROFILE_DESIGNATION_STATUS, Constants.VERIFIED);
+		} else {
+			profileDetails.put(Constants.PROFILE_DESIGNATION_STATUS, Constants.NOT_VERIFIED);
+		}
+
+		if (StringUtils.isNotEmpty((String) professionDetailObj.get(Constants.GROUP))) {
+			profileDetails.put(Constants.PROFILE_GROUP_STATUS, Constants.VERIFIED);
+		} else {
+			profileDetails.put(Constants.PROFILE_GROUP_STATUS, Constants.NOT_VERIFIED);
+		}
+
+		if (Constants.VERIFIED.equalsIgnoreCase((String) profileDetails.get(Constants.PROFILE_GROUP_STATUS)) &&
+				Constants.VERIFIED
+						.equalsIgnoreCase((String) profileDetails.get(Constants.PROFILE_DESIGNATION_STATUS))) {
+			profileDetails.put(Constants.PROFILE_STATUS, Constants.VERIFIED);
+		} else {
+			profileDetails.put(Constants.PROFILE_STATUS, Constants.NOT_VERIFIED);
 		}
 		List<Map<String, Object>> professionalDetailsList = new ArrayList<Map<String, Object>>();
 		professionalDetailsList.add(professionDetailObj);

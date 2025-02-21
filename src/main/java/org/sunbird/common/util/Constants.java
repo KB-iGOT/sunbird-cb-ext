@@ -1333,7 +1333,7 @@ public class Constants {
 	public static final String CREATED_ON_KEY = "createdon";
 	public static final String COURSE_RECOMMENDATION = "courserecommendations";
 	public static final String UPDATED_ON_KEY = "updatedon";
-
+	public static final String ACTIVE_BATCH_NOT_AVAILABLE_ERROR_MSG = "No Active Batch Available.";
 	private Constants() {
 		throw new IllegalStateException("Utility class");
 	}
