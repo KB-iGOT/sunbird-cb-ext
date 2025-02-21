@@ -1,9 +1,7 @@
 package org.sunbird.common.model;
 
 import java.io.Serializable;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
@@ -17,7 +15,6 @@ public class SunbirdApiBatchResp implements Serializable {
 	private String enrollmentEndDate;
 	private String startDate;
 	private int status;
-	private Map<String, Object> batchAttributes = new HashMap<>();
 	public List<String> getCreatedFor() {
 		return createdFor;
 	}
@@ -65,13 +62,5 @@ public class SunbirdApiBatchResp implements Serializable {
 	}
 	public void setStatus(int status) {
 		this.status = status;
-	}
-
-	public Map<String, Object> getBatchAttributes() {
-		return batchAttributes;
-	}
-
-	public void setBatchAttributes(Map<String, Object> batchAttributes) {
-		this.batchAttributes = batchAttributes;
 	}
 }
