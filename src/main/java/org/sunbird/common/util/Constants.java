@@ -1326,7 +1326,6 @@ public class Constants {
 	public static final String PROFILE_SURVEY_ID = "profileSurveyId";
 	public static final String GROUP_TITLE_CASE = "Group";
 	public static final String DESIGNATION_TITLE_CASE = "Designation";
-	public static final String ACTIVE_BATCH_NOT_AVAILABLE_ERROR_MSG = "No Active Batch Available.";
 	private Constants() {
 		throw new IllegalStateException("Utility class");
 	}
