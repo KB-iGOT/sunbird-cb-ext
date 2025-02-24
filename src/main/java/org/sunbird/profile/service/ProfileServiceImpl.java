@@ -2542,6 +2542,56 @@ public class ProfileServiceImpl implements ProfileService {
 			return false;
 		}
 	}
+	@Override
+	public SBApiResponse userSignupV2(Map<String, Object> request) {
+
+		boolean retValue = false;
+		SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.API_USER_SIGNUP);
+
+		String errMsg = validateSignupRequest(request);
+		if (!StringUtils.isEmpty(errMsg)) {
+			response.getParams().setErrmsg(errMsg);
+			response.setResponseCode(HttpStatus.BAD_REQUEST);
+			return response;
+		}
+
+		try {
+			Map<String, Object> requestBody = (Map<String, Object>) request.get(Constants.REQUEST);
+			requestBody.put(Constants.EMAIL_VERIFIED, true);
+			Map<String, Object> readData = (Map<String, Object>) outboundRequestHandlerService.fetchResultUsingPost(
+					serverConfig.getSbUrl() + serverConfig.getLmsUserSelfRegisterPath(), request,
+					ProjectUtil.getDefaultHeaders());
+			if (Constants.OK.equalsIgnoreCase((String) readData.get(Constants.RESPONSE_CODE))) {
+				Map<String, Object> result = (Map<String, Object>) readData.get(Constants.RESULT);
+				String userId = (String) result.get(Constants.USER_ID);
+				request.put(Constants.USER_ID, userId);
+				Map<String, Object> userData = userUtilityService.getUsersReadData(userId, StringUtils.EMPTY,
+						StringUtils.EMPTY);
+				if (!userData.isEmpty()) {
+					request.put(Constants.USER_NAME, userData.get(Constants.USER_NAME));
+					request.put(Constants.ROOT_ORG_ID, userData.get(Constants.ROOT_ORG_ID));
+					request.put(Constants.ORG_NAME, userData.get(Constants.CHANNEL));
+					retValue = updateUserForParichaySignup(request);
+					if (retValue) {
+						response.getResult().put(Constants.RESPONSE, Constants.SUCCESS);
+						response.getResult().put(Constants.USER_ID, userId);
+					}
+				} else {
+					errMsg = "Failed to read the user data after Signup.";
+				}
+			} else {
+				errMsg = "Failed to signup the user account";
+			}
+		} catch (Exception e) {
+			errMsg = "Failed to process message. Exception: " + e.getMessage();
+		}
+		if (StringUtils.isNotBlank(errMsg) || !retValue) {
+			response.getParams().setStatus(Constants.FAILED);
+			response.getParams().setErrmsg(errMsg);
+			response.setResponseCode(HttpStatus.BAD_REQUEST);
+		}
+		return response;
+	}
 
 }
 

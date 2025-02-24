@@ -56,4 +56,6 @@ public interface ProfileService {
 	SBApiResponse profileUpdateV2(Map<String, Object> request, String userToken, String authToken, String rootOrgId) ;
 
 	SBApiResponse bulkUploadV2(MultipartFile mFile, String orgId, String orgName, String userId, String userAuthToken);
+
+	SBApiResponse userSignupV2(Map<String, Object> request);
 }

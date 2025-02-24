@@ -183,4 +183,10 @@ public class ProfileController {
 		SBApiResponse response = profileService.profileMDOAdminUpdate(request, null, authToken, rootOrgId);
 		return new ResponseEntity<>(response, response.getResponseCode());
 	}
+
+	@PostMapping("/user/v2/ext/signup")
+	public ResponseEntity<?> userSignupV2(@RequestBody Map<String, Object> request) {
+		SBApiResponse response = profileService.userSignupV2(request);
+		return new ResponseEntity<>(response, response.getResponseCode());
+	}
 }

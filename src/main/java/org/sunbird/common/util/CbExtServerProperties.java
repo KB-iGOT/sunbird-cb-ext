@@ -981,6 +981,9 @@ public class CbExtServerProperties {
 	@Value("${user.designation.bulk.upload.status.fields}")
 	private String designationBulkUploadStatusFields;
 
+	@Value("${sb.service.self.register.user}")
+	private String lmsUserSelfRegisterPath;
+
 
 	public String getCiosCloudIconFolderName() {
 		return ciosCloudIconFolderName;
@@ -3395,5 +3398,9 @@ public class CbExtServerProperties {
 
 	public void setDesignationBulkUploadStatusFields(String designationBulkUploadStatusFields) {
 		this.designationBulkUploadStatusFields = designationBulkUploadStatusFields;
+	}
+
+	public String getLmsUserSelfRegisterPath() {
+		return lmsUserSelfRegisterPath;
 	}
 }
