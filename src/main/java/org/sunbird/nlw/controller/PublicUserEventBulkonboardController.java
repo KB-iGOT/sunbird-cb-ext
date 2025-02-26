@@ -35,22 +35,13 @@ public class PublicUserEventBulkonboardController {
         return nlwService.downloadFile(fileName);
     }
 
-    @PostMapping("/v2/user/event/bulkOnboard")
-    public ResponseEntity<?> processEventUsersForCertificateV2(@RequestParam(value = "file", required = true) MultipartFile multipartFile, @Valid @RequestBody Map<String, Object> requestBody ) {
-        String eventId = getStringValue(requestBody, Constants.EVENT_ID);
-        String batchId = getStringValue(requestBody, Constants.BATCH_ID);
-        String publicCert = getStringValue(requestBody, Constants.PUBLIC_CERT);
-        String reissue = getStringValue(requestBody, Constants.REISSUE);
-        SBApiResponse uploadResponse = nlwService.bulkOnboard(multipartFile, eventId, batchId, publicCert, reissue);
+    @PostMapping("/v2/user/event/bulkOnboard/{eventId}/{batchId}")
+    public ResponseEntity<?> processEventUsersForCertificateV2(@RequestParam(value = "file", required = true) MultipartFile multipartFile,
+                                                               @PathVariable("eventId") String eventId,
+                                                               @PathVariable("batchId") String batchId,
+                                                               @RequestHeader("x-authenticated-user-token") String authUserToken) {
+        SBApiResponse uploadResponse = nlwService.bulkMarkAttendance(multipartFile, eventId, batchId, "false", "false",authUserToken);
         return new ResponseEntity<>(uploadResponse, uploadResponse.getResponseCode());
 
-    }
-
-    private String getStringValue(Map<String, Object> map, String key) {
-        return map.keySet().stream()
-                .filter(k -> k.equals(key))
-                .map(k -> (String) map.get(k))
-                .findFirst()
-                .orElse(null);  // Return null if the key is not found
     }
 }
