@@ -714,7 +714,6 @@ public class ExtendedOrgServiceImpl implements ExtendedOrgService {
 	}
 
 	private void checkParentType(List<String> parentTypeList, Object parentTypeValue) {
-		parentTypeList.clear();
 		if (parentTypeValue instanceof List) {
 			List<?> valueList = (List<?>) parentTypeValue;
 			if (valueList.stream().allMatch(String.class::isInstance)) {
