@@ -763,7 +763,7 @@ public class ExtendedOrgServiceImpl implements ExtendedOrgService {
 				if (!parentTypeList.isEmpty() && !(parentTypeList.size() == 1 && "".equals(parentTypeList.get(0))) && parentTypeList.stream().allMatch(item -> item instanceof String)) {
 					searchFilters.put(Constants.PARENT_TYPE, (List<String>) parentTypeList);
 				} else {
-					errMsg = "Invalid data type for ParentType list";
+					errMsg = "ParentType is empty in search request";
 				}
 			} else if (parentTypeValue instanceof String) {
 				String parentTypeStr = ((String) parentTypeValue).trim();
