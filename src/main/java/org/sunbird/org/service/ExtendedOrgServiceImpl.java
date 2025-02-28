@@ -254,8 +254,13 @@ public class ExtendedOrgServiceImpl implements ExtendedOrgService {
 			String sbRootOrgId = (String) filters.get(Constants.SB_ROOT_ORG_ID);
 			String query = Optional.ofNullable(requestData.get(Constants.QUERY)).map(Object::toString).orElse(null);
 
-			int limit = Optional.ofNullable((Integer) requestData.get(Constants.LIMIT)).orElse(20);
-			int offset = Optional.ofNullable((Integer) requestData.get(Constants.OFFSET)).orElse(0);
+			int limit = Optional.ofNullable((Integer) requestData.get(Constants.LIMIT))
+					.filter(l -> l > 0) // Ensure positive value
+					.orElse(20); // Default to 20 if null or <= 0
+			int offset = Optional.ofNullable((Integer) requestData.get(Constants.OFFSET))
+					.filter(o -> o >= 0) // Ensure non-negative value
+					.orElse(0);          // Default to 0 if null or negative
+
 			int page = offset / limit;
 			Pageable pageable = PageRequest.of(page, limit);
 

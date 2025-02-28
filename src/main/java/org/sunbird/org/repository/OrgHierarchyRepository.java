@@ -73,5 +73,4 @@ public interface OrgHierarchyRepository extends JpaRepository<OrgHierarchy, Inte
     @Query(value = "SELECT sborgid FROM org_hierarchy_v4 WHERE sbrootorgid = ?1 AND orgname ILIKE CONCAT('%', ?2, '%')",
             countQuery = "SELECT COUNT(*) FROM org_hierarchy_v4 WHERE sbrootorgid = ?1 AND orgname ILIKE CONCAT('%', ?2, '%')", nativeQuery = true)
     Page<String> findAllBySbRootOrgIdAndQuery(String sbRootOrgId, String query, Pageable pageable);
-
 }
