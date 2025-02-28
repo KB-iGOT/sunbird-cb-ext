@@ -670,9 +670,12 @@ public class ExtendedOrgServiceImpl implements ExtendedOrgService {
 				orgList = orgRepository
 						.searchOrgWithHierarchy((String) searchFilters.get(Constants.ORG_NAME));
 			}
+			Object parentTypeValue = searchFilters.get(Constants.PARENT_TYPE);
+			List<String> parentTypeList = new ArrayList<String>();
+			checkParentType(parentTypeList, parentTypeValue);
 			if (CollectionUtils.isEmpty(orgList)) {
 				orgList = Collections.emptyList();
-			} else if (StringUtils.isBlank((String) searchFilters.get(Constants.PARENT_TYPE))) {
+			} else if (parentTypeList.isEmpty()) {
 				for (OrgHierarchy org : orgList) {
 					orgInfoList.add(org.toOrgInfo());
 				}
@@ -683,19 +686,22 @@ public class ExtendedOrgServiceImpl implements ExtendedOrgService {
 				List<OrgHierarchy> parentList = orgRepository.searchOrgForL1MapId(l1MapIdSet);
 				Map<String, OrgHierarchy> parentListMap = parentList.stream()
 						.collect(Collectors.toMap(OrgHierarchy::getMapId, orgHierarchy -> orgHierarchy));
-				String parentType = (String) searchFilters.get(Constants.PARENT_TYPE);
 				for (OrgHierarchy org : orgList) {
 					OrgHierarchy parentObj = parentListMap.get(org.getL1MapId());
 					if (parentObj != null) {
 						// We found the parent for this orgObj.. check this parent's sbOrgType is given
 						// parentType
-						if (parentType.equalsIgnoreCase(parentObj.getSbOrgType())) {
-							orgInfoList.add(org.toOrgInfo());
+						for (String parentType : parentTypeList) {
+							if (parentType.equalsIgnoreCase(parentObj.getSbOrgType())) {
+								orgInfoList.add(org.toOrgInfo());
+							}
 						}
 					} else {
 						// If Org doesn't have l1MapId then it could be State / Ministry
-						if (parentType.equalsIgnoreCase(org.getSbOrgType())) {
-							orgInfoList.add(org.toOrgInfo());
+						for (String parentType : parentTypeList) {
+							if (parentType.equalsIgnoreCase(org.getSbOrgType())) {
+								orgInfoList.add(org.toOrgInfo());
+							}
 						}
 					}
 				}
@@ -712,6 +718,18 @@ public class ExtendedOrgServiceImpl implements ExtendedOrgService {
 		}
 		return response;
 	}
+
+	private void checkParentType(List<String> parentTypeList, Object parentTypeValue) {
+		if (parentTypeValue instanceof List) {
+			List<?> valueList = (List<?>) parentTypeValue;
+			if (valueList.stream().allMatch(String.class::isInstance)) {
+				parentTypeList.addAll((List<String>) valueList);
+			}
+		} else if (parentTypeValue instanceof String) {
+			parentTypeList.add((String) parentTypeValue);
+		}
+	}
+
 
 	private String validateSearchRequest(Map<String, Object> request, Map<String, Object> searchFilters) {
 		String errMsg = "";
@@ -745,10 +763,23 @@ public class ExtendedOrgServiceImpl implements ExtendedOrgService {
 				errMsg = "OrgName is empty in search request.";
 			}
 
-			if (StringUtils.isNotBlank((String) filters.get(Constants.PARENT_TYPE))) {
-				searchFilters.put(Constants.PARENT_TYPE, ((String) filters.get(Constants.PARENT_TYPE)).trim());
+			Object parentTypeValue = filters.get(Constants.PARENT_TYPE);
+			if (parentTypeValue instanceof List<?>) {
+				List<?> parentTypeList = (List<?>) parentTypeValue;
+				if (!parentTypeList.isEmpty() && !(parentTypeList.size() == 1 && "".equals(parentTypeList.get(0))) && parentTypeList.stream().allMatch(item -> item instanceof String)) {
+					searchFilters.put(Constants.PARENT_TYPE, (List<String>) parentTypeList);
+				} else {
+					errMsg = "ParentType is empty in search request";
+				}
+			} else if (parentTypeValue instanceof String) {
+				String parentTypeStr = ((String) parentTypeValue).trim();
+				if (StringUtils.isNotBlank(parentTypeStr)) {
+					searchFilters.put(Constants.PARENT_TYPE, parentTypeStr);
+				} else {
+					errMsg = "ParentType is empty in search request";
+				}
 			} else {
-				errMsg = "ParentType is empty in search request";
+				errMsg = "Invalid data type for ParentType";
 			}
 		}
 

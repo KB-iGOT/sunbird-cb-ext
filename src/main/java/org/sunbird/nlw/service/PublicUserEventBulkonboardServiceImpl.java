@@ -13,9 +13,11 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.util.ObjectUtils;
 import org.springframework.web.multipart.MultipartFile;
 import org.sunbird.cassandra.utils.CassandraOperation;
 import org.sunbird.common.model.SBApiResponse;
+import org.sunbird.common.util.AccessTokenValidator;
 import org.sunbird.common.util.CbExtServerProperties;
 import org.sunbird.common.util.Constants;
 import org.sunbird.common.util.ProjectUtil;
@@ -47,6 +49,9 @@ public class PublicUserEventBulkonboardServiceImpl implements PublicUserEventBul
 
     @Autowired
     CassandraOperation cassandraOperation;
+
+    @Autowired
+    AccessTokenValidator accessTokenValidator;
 
     @Override
     public SBApiResponse bulkOnboard(MultipartFile mFile, String eventId, String batchId, String publicCert, String reissue) {
@@ -246,6 +251,41 @@ public class PublicUserEventBulkonboardServiceImpl implements PublicUserEventBul
             } catch (Exception e1) {
             }
         }
+    }
+
+
+    @Override
+    public SBApiResponse bulkMarkAttendance(MultipartFile multipartFile, String eventId, String batchId, String publicCert, String reissue,String authUserToken) {
+        SBApiResponse outgoingResponse = ProjectUtil.createDefaultResponse(Constants.CUSTOM_SELF_REGISTRATION_CREATE_API);
+        String userId = fetchUserIdFromToken(authUserToken, outgoingResponse);
+        if (userId == null) return outgoingResponse;
+        return bulkOnboard(multipartFile, eventId, batchId, publicCert, reissue);
+    }
+
+    /**
+     * Fetches the user ID from the provided authentication token.
+     *
+     * @param authUserToken the authentication token to extract the user ID from
+     * @param response      the API response object to update with error details if necessary
+     * @return the user ID extracted from the token, or null if the token is invalid
+     */
+    private String fetchUserIdFromToken(String authUserToken, SBApiResponse response) {
+        String userId = accessTokenValidator.fetchUserIdFromAccessToken(authUserToken);
+        if (ObjectUtils.isEmpty(userId)) {
+            updateErrorDetails(response);
+        }
+        return userId;
+    }
+
+    /**
+     * Updates the error details in the API response.
+     *
+     * @param response The API response object.
+     */
+    private void updateErrorDetails(SBApiResponse response) {
+        response.getParams().setStatus(Constants.FAILED);
+        response.getParams().setErrmsg(Constants.USER_ID_DOESNT_EXIST);
+        response.setResponseCode(HttpStatus.BAD_REQUEST);
     }
 
 }
