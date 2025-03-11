@@ -327,6 +327,50 @@ public class InsightsServiceImpl implements InsightsService {
         return response;
     }
 
+    @Override
+    public SBApiResponse fetchStateLearningData(Map<String,Object> request) {
+        SBApiResponse response = ProjectUtil.createDefaultResponse(API_STATE_LEARNING_WEEK_INSIGHTS);
+        Map<String, Object> requestData = (Map<String, Object>) request.get(Constants.REQUEST);
+        String orgId = (String) requestData.get(MDOID);
+        try {
+            String redisKeyMappingStr = serverProperties.getStateLearningInsightsRedisKeyMapping();
+            String fieldIconsStr = serverProperties.getNationalLearningInsightsFields();
+            String uiPropertiesStr = serverProperties.getNationalLearningInsightsPropertyFields();
+
+            ObjectMapper objectMapper = new ObjectMapper();
+            Map<String, String> redisKeyMapping = objectMapper.readValue(redisKeyMappingStr, new TypeReference<Map<String, String>>() {
+            });
+            Map<String, String> fieldIcons = objectMapper.readValue(fieldIconsStr, new TypeReference<Map<String, String>>() {
+            });
+            Map<String, Object> uiProperties = objectMapper.readValue(uiPropertiesStr, new TypeReference<Map<String, Object>>() {
+            });
+
+            List<Map<String, Object>> insightsList = new ArrayList<>();
+            for (Map.Entry<String, String> entry : redisKeyMapping.entrySet()) {
+                String insightLabel = entry.getKey();
+                String redisKey = entry.getValue();
+                String redisData = redisCacheMgr.getHashedCacheFromDataRedis(redisKey, serverProperties.getRedisInsightIndex(),orgId);
+                Map<String, Object> insightData = new HashMap<>();
+                String iconUrl = fieldIcons.get(insightLabel);
+                insightData.put(ICON, iconUrl);
+                insightData.put(LABEL, insightLabel);
+                insightData.put(VALUE, redisData);
+                insightData.putAll(uiProperties);
+                insightsList.add(insightData);
+            }
+            response.getResult().put(DATA, insightsList);
+            response.getParams().setStatus(Constants.SUCCESS);
+            response.setResponseCode(HttpStatus.OK);
+            log.info("successfully fetching data from redis for State Learning week Insights of org : "+orgId);
+        } catch (Exception e) {
+            log.error("Error while fetching State Learning Week Insights of org : "+orgId, e);
+            response.getParams().setStatus(Constants.FAILED);
+            response.getParams().setErrmsg(e.getMessage());
+            response.setResponseCode(HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+        return response;
+    }
+
     private String validateUserInfo(String orgId, SBApiResponse response, String designation) {
         if (StringUtils.isEmpty(orgId)) {
             response.getParams().setStatus(Constants.FAILED);

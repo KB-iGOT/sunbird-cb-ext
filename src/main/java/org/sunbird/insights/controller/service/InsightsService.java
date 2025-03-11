@@ -13,4 +13,7 @@ public interface InsightsService {
     public  SBApiResponse fetchNationalLearningData();
 
     public SBApiResponse getCourseRecommendationsByDesignation(String authToken);
+
+    public  SBApiResponse fetchStateLearningData(Map<String,Object> request);
+
 }
