@@ -8,7 +8,6 @@ import java.util.Map;
 import org.codehaus.plexus.util.StringUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
-import org.sunbird.common.model.SBApiResponse;
 
 @Component
 public class CbExtServerProperties {
@@ -981,6 +980,16 @@ public class CbExtServerProperties {
 	@Value("${user.designation.bulk.upload.status.fields}")
 	private String designationBulkUploadStatusFields;
 
+	@Value("${state.learning.insights.redis.key.mapping}")
+	private String stateLearningInsightsRedisKeyMapping;
+
+	public String getStateLearningInsightsRedisKeyMapping() {
+		return stateLearningInsightsRedisKeyMapping;
+	}
+
+	public void setStateLearningInsightsRedisKeyMapping(String stateLearningInsightsRedisKeyMapping) {
+		this.stateLearningInsightsRedisKeyMapping = stateLearningInsightsRedisKeyMapping;
+	}
 
 	public String getCiosCloudIconFolderName() {
 		return ciosCloudIconFolderName;

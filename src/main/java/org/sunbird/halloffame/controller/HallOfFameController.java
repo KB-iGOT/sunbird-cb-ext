@@ -51,4 +51,19 @@ public class HallOfFameController {
         SBApiResponse response = hallOfFameService.getMdoLeaderBoard();
         return new ResponseEntity<>(response, response.getResponseCode());
     }
+
+    @PostMapping("v1/halloffame/state/mdoleaderboard")
+    public ResponseEntity<SBApiResponse> getStateMdoLeaderBoard(@RequestBody Map<String, Object> request) {
+        SBApiResponse response = hallOfFameService.getStateMdoLeaderBoard(request);
+        return new ResponseEntity<>(response, response.getResponseCode());
+    }
+
+    @GetMapping("/v1/state/top/learners/{stateOrgId}")
+    public ResponseEntity<SBApiResponse> fetchingStateTopLearners
+            (@RequestHeader(Constants.X_AUTH_TOKEN) String authToken,
+             @PathVariable String stateOrgId) throws Exception {
+        SBApiResponse response = hallOfFameService.fetchingStateTop10Learners(stateOrgId, authToken);
+        return new ResponseEntity<>(response, response.getResponseCode());
+    }
+
 }

@@ -197,6 +197,18 @@ public class RedisCacheMgr {
         }
     }
 
+    public String getHashedCacheFromDataRedis(String key, Integer index, String field) {
+        try (Jedis jedis = jedisDataPopulationPool.getResource()) {
+            if (index != null) {
+                jedis.select(index);
+            }
+            return jedis.hget(key,field);
+        } catch (Exception e) {
+            logger.error(e);
+            return null;
+        }
+    }
+
     public String getContentFromCache(String key) {
         try (Jedis jedis = jedisPool.getResource()) {
             return jedis.get(key);
