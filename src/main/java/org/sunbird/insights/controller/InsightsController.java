@@ -41,4 +41,9 @@ public class InsightsController {
         return new ResponseEntity<>(response, response.getResponseCode());
     }
 
+    @PostMapping("/state/learning/week/insights")
+    public ResponseEntity<SBApiResponse> getStateLearningWeekInsights(@RequestBody Map<String, Object> request) {
+        SBApiResponse response = insightsService.fetchStateLearningData(request);
+        return new ResponseEntity<>(response, response.getResponseCode());
+    }
 }
