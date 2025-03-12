@@ -359,8 +359,6 @@ public class InsightsServiceImpl implements InsightsService {
                 insightsList.add(insightData);
             }
             response.getResult().put(DATA, insightsList);
-            response.getParams().setStatus(Constants.SUCCESS);
-            response.setResponseCode(HttpStatus.OK);
             log.info("successfully fetching data from redis for State Learning week Insights of org : "+orgId);
         } catch (Exception e) {
             log.error("Error while fetching State Learning Week Insights of org : "+orgId, e);

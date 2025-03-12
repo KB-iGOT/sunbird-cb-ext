@@ -225,7 +225,7 @@ public class HallOfFameServiceImpl implements HallOfFameService {
         } catch (Exception e) {
             response.getParams().setErrmsg(String.format("%s , %s", Constants.ERROR_WHILE_PROCESSING_MDO_LEADERBOARD, e.getMessage()));            response.setResponseCode(HttpStatus.INTERNAL_SERVER_ERROR);
             response.getParams().setStatus(Constants.FAILED);
-            logger.error("failed to process mdoLeaderBoard :: "+ e.getMessage());
+            logger.error("failed to process mdoLeaderBoard :: ", e);
         }
         return response;
     }
@@ -260,7 +260,7 @@ public class HallOfFameServiceImpl implements HallOfFameService {
         } catch (Exception e) {
             setInternalServerErrorResponse(response);
             response.getParams().setErrmsg(e.getMessage());
-            logger.error("failed to process top learners :: " + e.getMessage());
+            logger.error("failed to process top learners :: " , e);
         }
         return response;
     }
