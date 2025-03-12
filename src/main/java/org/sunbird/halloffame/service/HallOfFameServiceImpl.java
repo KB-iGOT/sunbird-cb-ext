@@ -220,14 +220,12 @@ public class HallOfFameServiceImpl implements HallOfFameService {
             if (CollectionUtils.isEmpty(mdoLeaderBoard)) {
                 response.getParams().setErrmsg(Constants.NO_DATA_FOUND);
             } else {
-                response.getParams().setStatus(Constants.SUCCESS);
                 response.put(Constants.MDO_LEADERBOARD, mdoLeaderBoard);
-                response.setResponseCode(HttpStatus.OK);
             }
         } catch (Exception e) {
             response.getParams().setErrmsg(String.format("%s , %s", Constants.ERROR_WHILE_PROCESSING_MDO_LEADERBOARD, e.getMessage()));            response.setResponseCode(HttpStatus.INTERNAL_SERVER_ERROR);
             response.getParams().setStatus(Constants.FAILED);
-            logger.error("failed to process mdoLeaderBoard :: {}", String.valueOf(e));
+            logger.error("failed to process mdoLeaderBoard :: "+ e.getMessage());
         }
         return response;
     }
@@ -262,7 +260,7 @@ public class HallOfFameServiceImpl implements HallOfFameService {
         } catch (Exception e) {
             setInternalServerErrorResponse(response);
             response.getParams().setErrmsg(e.getMessage());
-            logger.error("failed to process top learners :: {}", String.valueOf(e));
+            logger.error("failed to process top learners :: " + e.getMessage());
         }
         return response;
     }
