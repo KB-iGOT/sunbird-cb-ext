@@ -981,6 +981,16 @@ public class CbExtServerProperties {
 	@Value("${user.designation.bulk.upload.status.fields}")
 	private String designationBulkUploadStatusFields;
 
+	@Value("${state.learning.insights.redis.key.mapping}")
+	private String stateLearningInsightsRedisKeyMapping;
+
+	public String getStateLearningInsightsRedisKeyMapping() {
+		return stateLearningInsightsRedisKeyMapping;
+	}
+
+	public void setStateLearningInsightsRedisKeyMapping(String stateLearningInsightsRedisKeyMapping) {
+		this.stateLearningInsightsRedisKeyMapping = stateLearningInsightsRedisKeyMapping;
+	}
 
 	public String getCiosCloudIconFolderName() {
 		return ciosCloudIconFolderName;

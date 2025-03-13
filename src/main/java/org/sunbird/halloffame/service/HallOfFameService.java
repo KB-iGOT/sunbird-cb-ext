@@ -18,4 +18,8 @@ public interface HallOfFameService {
 
     public SBApiResponse getMdoLeaderBoard();
 
+    public SBApiResponse getStateMdoLeaderBoard(Map<String, Object> request);
+
+    public SBApiResponse fetchingStateTop10Learners(String stateOrgId, String authToken);
+
 }

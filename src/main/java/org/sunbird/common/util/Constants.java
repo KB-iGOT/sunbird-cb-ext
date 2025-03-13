@@ -1333,6 +1333,14 @@ public class Constants {
 	public static final String COURSE_RECOMMENDATION = "courserecommendations";
 	public static final String UPDATED_ON_KEY = "updatedon";
 	public static final String API_COURSE_RECOMMENDATION_READ = "api.course.recommendation.read";
+	public static final String PARENT_ID = "parent_id";
+	public static final String MDOID ="mdoId";
+	public static final String STATE_TOP_10_LEARNERS ="stateTop10Learners";
+	public static final String TABLE_STATE_TOP_10_LEARNER ="slw_mdo_top_learners";
+	public static final String SLW_MDO_LEADERBOARD= "slw_mdo_leaderboard";
+	public static final String API_HALL_OF_FAME_STATE_MDO_LEADERBOARD = "api.v1.halloffame.state.mdoleaderboard";
+	public static final String API_STATE_LEARNING_WEEK_INSIGHTS ="api.state-learning-week.insights";
+
 	private Constants() {
 		throw new IllegalStateException("Utility class");
 	}
