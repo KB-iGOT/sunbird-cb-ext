@@ -324,6 +324,10 @@ public class ExtendedOrgServiceImpl implements ExtendedOrgService {
 			return strBuilder.toString();
 		}
 
+		if(StringUtils.isEmpty((String) requestData.get(Constants.SB_ROOT_ORG_ID))){
+			params.add(Constants.SB_ROOT_ORG_ID);
+		}
+
 		if (StringUtils.isEmpty((String) requestData.get(Constants.ORG_NAME))) {
 			params.add(Constants.ORG_NAME);
 		}
