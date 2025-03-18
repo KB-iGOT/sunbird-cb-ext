@@ -324,10 +324,6 @@ public class ExtendedOrgServiceImpl implements ExtendedOrgService {
 			return strBuilder.toString();
 		}
 
-		if(StringUtils.isEmpty((String) requestData.get(Constants.SB_ROOT_ORG_ID))){
-			params.add(Constants.SB_ROOT_ORG_ID);
-		}
-
 		if (StringUtils.isEmpty((String) requestData.get(Constants.ORG_NAME))) {
 			params.add(Constants.ORG_NAME);
 		}
@@ -338,6 +334,10 @@ public class ExtendedOrgServiceImpl implements ExtendedOrgService {
 		} else if (!Constants.STATE.equalsIgnoreCase(orgType) && !Constants.MINISTRY.equalsIgnoreCase(orgType)) {
 			if (StringUtils.isEmpty((String) requestData.get(Constants.PARENT_MAP_ID))) {
 				params.add(Constants.PARENT_MAP_ID);
+			}
+		} else if (!(Constants.STATE.equalsIgnoreCase(orgType) || Constants.MINISTRY.equalsIgnoreCase(orgType))) {
+			if (StringUtils.isEmpty((String) requestData.get(Constants.SB_ROOT_ORG_ID))) {
+				params.add(Constants.SB_ROOT_ORG_ID);
 			}
 		}
 
