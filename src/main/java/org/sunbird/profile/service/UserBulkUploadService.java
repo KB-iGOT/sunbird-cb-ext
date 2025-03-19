@@ -234,7 +234,7 @@ public class UserBulkUploadService {
                             invalidErrList.add("Invalid value for Designation column type. Expecting string format");
                         }
                         if (StringUtils.isNotBlank(userRegistration.getPosition())) {
-                            if (!ProjectUtil.validateRegexPatternWithNoSpecialCharacter(userRegistration.getPosition()) || this.validateFieldValue(Constants.POSITION, userRegistration.getPosition())) {
+                            if (!ProjectUtil.validateRegexPatternWithSpecialCharacter(userRegistration.getPosition()) || this.validateFieldValue(Constants.POSITION, userRegistration.getPosition())) {
                                 invalidErrList.add("Invalid Designation: Designation should be added from default list and/or cannot contain special character");
                             }
                         }
@@ -568,7 +568,7 @@ public class UserBulkUploadService {
                         } else {
                             String position = record.get(4).trim();
                             userRegistration.setPosition(position);
-                            if (!ProjectUtil.validateRegexPatternWithNoSpecialCharacter(userRegistration.getPosition()) || this.validateFieldValue(Constants.POSITION, userRegistration.getPosition())) {
+                            if (!ProjectUtil.validateRegexPatternWithSpecialCharacter(userRegistration.getPosition()) || this.validateFieldValue(Constants.POSITION, userRegistration.getPosition())) {
                                 invalidErrList.add("Invalid Designation: Designation should be added from default list and/or cannot contain special character");
                             }
                         }

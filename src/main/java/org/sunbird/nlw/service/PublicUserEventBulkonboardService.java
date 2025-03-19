@@ -10,4 +10,5 @@ public interface PublicUserEventBulkonboardService {
     SBApiResponse bulkOnboard(MultipartFile multipartFile, String eventId, String batchId, String publicCert, String reissue);
     ResponseEntity<Resource> downloadFile(String fileName);
     SBApiResponse getUserEventBulkOnboardDetails(String eventId);
+    SBApiResponse bulkMarkAttendance(MultipartFile multipartFile, String eventId, String batchId, String publicCert, String reissue,String authUserToken);
 }

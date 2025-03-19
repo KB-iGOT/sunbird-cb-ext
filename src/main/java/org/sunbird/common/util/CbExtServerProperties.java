@@ -8,7 +8,6 @@ import java.util.Map;
 import org.codehaus.plexus.util.StringUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
-import org.sunbird.common.model.SBApiResponse;
 
 @Component
 public class CbExtServerProperties {

@@ -5,9 +5,12 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.sunbird.common.model.SBApiResponse;
+import org.sunbird.common.util.Constants;
 import org.sunbird.nlw.service.PublicUserEventBulkonboardService;
 
+import javax.validation.Valid;
 import java.io.IOException;
+import java.util.Map;
 
 @RestController
 public class PublicUserEventBulkonboardController {
@@ -30,5 +33,15 @@ public class PublicUserEventBulkonboardController {
     @GetMapping("/user/event/bulkonboard/download/{fileName}")
     public ResponseEntity<?> downloadFile(@PathVariable("fileName") String fileName) {
         return nlwService.downloadFile(fileName);
+    }
+
+    @PostMapping("/v2/user/event/bulkOnboard/{eventId}/{batchId}")
+    public ResponseEntity<?> processEventUsersForCertificateV2(@RequestParam(value = "file", required = true) MultipartFile multipartFile,
+                                                               @PathVariable("eventId") String eventId,
+                                                               @PathVariable("batchId") String batchId,
+                                                               @RequestHeader("x-authenticated-user-token") String authUserToken) {
+        SBApiResponse uploadResponse = nlwService.bulkMarkAttendance(multipartFile, eventId, batchId, "false", "false",authUserToken);
+        return new ResponseEntity<>(uploadResponse, uploadResponse.getResponseCode());
+
     }
 }
