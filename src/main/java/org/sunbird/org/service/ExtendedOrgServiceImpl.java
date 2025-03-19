@@ -250,15 +250,21 @@ public class ExtendedOrgServiceImpl implements ExtendedOrgService {
 
 			Map<String, Object> requestData = (Map<String, Object>) request.get(Constants.REQUEST);
 			Map<String, Object> filters = (Map<String, Object>) requestData.get(Constants.FILTERS);
+			// sbRootOrgId is State Id. Let's get all the children.
 			String sbRootOrgId = (String) filters.get(Constants.SB_ROOT_ORG_ID);
-
-			// sbRootOrgId is State Id. Let's get all the children (i.e. departments)
+			String query = Optional.ofNullable(requestData.get(Constants.QUERY)).map(Object::toString).orElse(null);
 
 			int limit = Optional.ofNullable((Integer) requestData.get(Constants.LIMIT)).orElse(20);
 			int offset = Optional.ofNullable((Integer) requestData.get(Constants.OFFSET)).orElse(0);
+			int page = offset / limit;
+			Pageable pageable = PageRequest.of(page, limit);
 
-			Pageable pageable = PageRequest.of(offset, limit);
-			Page<String> orgIdPage = orgRepository.findAllBySbRootOrgId(sbRootOrgId, pageable);
+			Page<String> orgIdPage;
+			if (StringUtils.isNotEmpty(query)) {
+				orgIdPage = orgRepository.findAllBySbRootOrgIdAndQuery(sbRootOrgId, query, pageable);
+			} else {
+				orgIdPage = orgRepository.findAllBySbRootOrgId(sbRootOrgId, pageable);
+			}
 			long totalOrgCount = orgIdPage.getTotalElements();
 			List<String> orgIdList = orgIdPage.getContent();
 			if (CollectionUtils.isNotEmpty(orgIdList)) {
