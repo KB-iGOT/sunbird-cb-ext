@@ -1139,8 +1139,8 @@ public class Constants {
 	public static final String CADRE_BATCH_EXCLUSION_YR = "exculsionYearList";
 	public static final String NLW_USER_LEADERBOARD = "nlw_user_leaderboard";
 	public static final String NLW_MDO_LEADERBOARD= "nlw_mdo_leaderboard";
-	public static final String API_HALL_OF_FAME_USER_READ = "api.v1.halloffame.user.read";
-	public static final String API_HALL_OF_FAME_MDO_LEADERBOARD = "api.v1.halloffame.mdoleaderboard";
+	public static final String API_WALL_OF_FAME_USER_READ = "api.v1.walloffame.user.read";
+	public static final String API_WALL_OF_FAME_MDO_LEADERBOARD = "api.v1.walloffame.mdoleaderboard";
 	public static final String USER_LEADERBOARD = "userLeaderBoard";
 	public static final String SIZE = "size";
 	public static final String INVALID_ORG_ID = "invalid organisation id";
@@ -1339,7 +1339,7 @@ public class Constants {
 	public static final String STATE_TOP_10_LEARNERS ="stateTop10Learners";
 	public static final String TABLE_STATE_TOP_10_LEARNER ="slw_mdo_top_learners";
 	public static final String SLW_MDO_LEADERBOARD= "slw_mdo_leaderboard";
-	public static final String API_HALL_OF_FAME_STATE_MDO_LEADERBOARD = "api.v1.halloffame.state.mdoleaderboard";
+	public static final String API_WALL_OF_FAME_STATE_MDO_LEADERBOARD = "api.v1.walloffame.state.mdoleaderboard";
 	public static final String API_STATE_LEARNING_WEEK_INSIGHTS ="api.state-learning-week.insights";
 
 	private Constants() {
