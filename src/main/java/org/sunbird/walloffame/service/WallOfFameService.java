@@ -1,4 +1,4 @@
-package org.sunbird.halloffame.service;
+package org.sunbird.walloffame.service;
 
 import org.sunbird.common.model.SBApiResponse;
 
@@ -7,8 +7,8 @@ import java.util.Map;
 /**
  * @author mahesh.vakkund
  */
-public interface HallOfFameService {
-    public Map<String, Object> fetchHallOfFameData();
+public interface WallOfFameService {
+    public Map<String, Object> fetchWallOfFameData();
 
     public SBApiResponse learnerLeaderBoard(String rootOrgId, String authToken);
 
