@@ -335,6 +335,10 @@ public class ExtendedOrgServiceImpl implements ExtendedOrgService {
 			if (StringUtils.isEmpty((String) requestData.get(Constants.PARENT_MAP_ID))) {
 				params.add(Constants.PARENT_MAP_ID);
 			}
+		} else if (!(Constants.STATE.equalsIgnoreCase(orgType) || Constants.MINISTRY.equalsIgnoreCase(orgType))) {
+			if (StringUtils.isEmpty((String) requestData.get(Constants.SB_ROOT_ORG_ID))) {
+				params.add(Constants.SB_ROOT_ORG_ID);
+			}
 		}
 
 		if (StringUtils.isEmpty((String) requestData.get(Constants.ORGANIZATION_SUB_TYPE))) {
