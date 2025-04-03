@@ -1,4 +1,4 @@
-package org.sunbird.halloffame.service;
+package org.sunbird.walloffame.service;
 
 import org.apache.commons.collections.ListUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -22,7 +22,7 @@ import java.util.*;
  * @author mahesh.vakkund
  */
 @Service
-public class HallOfFameServiceImpl implements HallOfFameService {
+public class WallOfFameServiceImpl implements WallOfFameService {
     @Autowired
     private CassandraOperation cassandraOperation;
 
@@ -31,7 +31,7 @@ public class HallOfFameServiceImpl implements HallOfFameService {
     AccessTokenValidator accessTokenValidator;
 
     @Override
-    public Map<String, Object> fetchHallOfFameData() {
+    public Map<String, Object> fetchWallOfFameData() {
         Map<String, Object> resultMap = new HashMap<>();
         LocalDate currentDate = LocalDate.now();
         LocalDate lastMonthDate = LocalDate.now().minusMonths(1);
@@ -151,7 +151,7 @@ public class HallOfFameServiceImpl implements HallOfFameService {
 
     @Override
     public SBApiResponse getUserLeaderBoard(String authToken) {
-        SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.API_HALL_OF_FAME_USER_READ);
+        SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.API_WALL_OF_FAME_USER_READ);
         String userId = validateAuthTokenAndFetchUserId(authToken);
         if (StringUtils.isBlank(userId)) {
             setBadRequestResponse(response, Constants.USER_ID_DOESNT_EXIST);
@@ -182,7 +182,7 @@ public class HallOfFameServiceImpl implements HallOfFameService {
 
     @Override
     public SBApiResponse getMdoLeaderBoard() {
-        SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.API_HALL_OF_FAME_MDO_LEADERBOARD);
+        SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.API_WALL_OF_FAME_MDO_LEADERBOARD);
         Map<String, Object> propertyMap = new HashMap<>();
         propertyMap.put(Constants.SIZE, Arrays.asList("XS","S", "M", "L", "XL"));
         try {
@@ -208,7 +208,7 @@ public class HallOfFameServiceImpl implements HallOfFameService {
 
     @Override
     public SBApiResponse getStateMdoLeaderBoard(Map<String, Object> request) {
-        SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.API_HALL_OF_FAME_STATE_MDO_LEADERBOARD);
+        SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.API_WALL_OF_FAME_STATE_MDO_LEADERBOARD);
         Map<String, Object> requestData = (Map<String, Object>) request.get(Constants.REQUEST);
         String orgId = (String) requestData.get(Constants.MDOID);
         Map<String, Object> propertyMap = new HashMap<>();
