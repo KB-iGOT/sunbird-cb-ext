@@ -607,7 +607,7 @@ public class UserUtilityServiceImpl implements UserUtilityService {
 		}
 		try {
 			Map<String, Object> readData = (Map<String, Object>) outboundRequestHandlerService.fetchResultUsingPost(
-					props.getSbUrl() + props.getLmsUserCreatePath(), request, headerValues);
+					props.getSbUrl() + props.getLmsBulkUserCreatePath(), request, headerValues);
 			if (readData != null && !Constants.OK.equalsIgnoreCase((String) readData.get(Constants.RESPONSE_CODE))) {
 				Map<String, Object> params = (Map<String, Object>) readData.get(Constants.PARAMS);
 				if (!MapUtils.isEmpty(params)) {
