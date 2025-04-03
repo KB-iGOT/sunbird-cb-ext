@@ -1,4 +1,4 @@
-package org.sunbird.halloffame.service;
+package org.sunbird.walloffame.service;
 
 import org.apache.commons.collections.ListUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -22,7 +22,7 @@ import java.util.*;
  * @author mahesh.vakkund
  */
 @Service
-public class HallOfFameServiceImpl implements HallOfFameService {
+public class WallOfFameServiceImpl implements WallOfFameService {
     @Autowired
     private CassandraOperation cassandraOperation;
 
@@ -31,7 +31,7 @@ public class HallOfFameServiceImpl implements HallOfFameService {
     AccessTokenValidator accessTokenValidator;
 
     @Override
-    public Map<String, Object> fetchHallOfFameData() {
+    public Map<String, Object> fetchWallOfFameData() {
         Map<String, Object> resultMap = new HashMap<>();
         LocalDate currentDate = LocalDate.now();
         LocalDate lastMonthDate = LocalDate.now().minusMonths(1);
@@ -151,7 +151,7 @@ public class HallOfFameServiceImpl implements HallOfFameService {
 
     @Override
     public SBApiResponse getUserLeaderBoard(String authToken) {
-        SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.API_HALL_OF_FAME_USER_READ);
+        SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.API_WALL_OF_FAME_USER_READ);
         String userId = validateAuthTokenAndFetchUserId(authToken);
         if (StringUtils.isBlank(userId)) {
             setBadRequestResponse(response, Constants.USER_ID_DOESNT_EXIST);
@@ -182,7 +182,7 @@ public class HallOfFameServiceImpl implements HallOfFameService {
 
     @Override
     public SBApiResponse getMdoLeaderBoard() {
-        SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.API_HALL_OF_FAME_MDO_LEADERBOARD);
+        SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.API_WALL_OF_FAME_MDO_LEADERBOARD);
         Map<String, Object> propertyMap = new HashMap<>();
         propertyMap.put(Constants.SIZE, Arrays.asList("XS","S", "M", "L", "XL"));
         try {
@@ -202,6 +202,65 @@ public class HallOfFameServiceImpl implements HallOfFameService {
             response.setResponseCode(HttpStatus.INTERNAL_SERVER_ERROR);
             response.getParams().setStatus(Constants.FAILED);
             logger.error("failed to process mdoLeaderBoard :: {}", String.valueOf(e));
+        }
+        return response;
+    }
+
+    @Override
+    public SBApiResponse getStateMdoLeaderBoard(Map<String, Object> request) {
+        SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.API_WALL_OF_FAME_STATE_MDO_LEADERBOARD);
+        Map<String, Object> requestData = (Map<String, Object>) request.get(Constants.REQUEST);
+        String orgId = (String) requestData.get(Constants.MDOID);
+        Map<String, Object> propertyMap = new HashMap<>();
+        propertyMap.put(Constants.SIZE, Arrays.asList("XS","S", "M", "L", "XL"));
+        propertyMap.put(Constants.PARENT_ID,orgId);
+        try {
+            List<Map<String, Object>> mdoLeaderBoard = cassandraOperation.getRecordsByPropertiesWithoutFiltering(
+                    Constants.KEYSPACE_SUNBIRD, Constants.SLW_MDO_LEADERBOARD, propertyMap, null);
+            if (CollectionUtils.isEmpty(mdoLeaderBoard)) {
+                response.getParams().setErrmsg(Constants.NO_DATA_FOUND);
+            } else {
+                response.put(Constants.MDO_LEADERBOARD, mdoLeaderBoard);
+            }
+        } catch (Exception e) {
+            response.getParams().setErrmsg(String.format("%s , %s", Constants.ERROR_WHILE_PROCESSING_MDO_LEADERBOARD, e.getMessage()));            response.setResponseCode(HttpStatus.INTERNAL_SERVER_ERROR);
+            response.getParams().setStatus(Constants.FAILED);
+            logger.error("failed to process mdoLeaderBoard :: "+e.getMessage(), e);
+        }
+        return response;
+    }
+
+    @Override
+    public SBApiResponse fetchingStateTop10Learners(String stateOrgId, String authToken) {
+        SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.STATE_TOP_10_LEARNERS);
+        try {
+            if (StringUtils.isEmpty(stateOrgId)) {
+                setBadRequestResponse(response, Constants.ORG_ID_MISSING);
+                return response;
+            }
+            String userId = validateAuthTokenAndFetchUserId(authToken);
+            if (StringUtils.isBlank(userId)) {
+                setBadRequestResponse(response, Constants.USER_ID_DOESNT_EXIST);
+                return response;
+            }
+            Map<String, Object> propMap = new HashMap<>();
+            List<Integer> ranksFilter = Arrays.asList(1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
+            propMap.put(Constants.DB_COLUMN_ROW_NUM, ranksFilter);
+            propMap.put(Constants.ORGID, stateOrgId);
+
+            List<Map<String, Object>> result = cassandraOperation.getRecordsByPropertiesWithoutFiltering(
+                    Constants.SUNBIRD_KEY_SPACE_NAME,
+                    Constants.TABLE_STATE_TOP_10_LEARNER,
+                    propMap,
+                    null
+            );
+            response.put(Constants.RESULT, result);
+            return response;
+
+        } catch (Exception e) {
+            setInternalServerErrorResponse(response);
+            response.getParams().setErrmsg(e.getMessage());
+            logger.error("failed to process top learners :: "+e.getMessage() , e);
         }
         return response;
     }
