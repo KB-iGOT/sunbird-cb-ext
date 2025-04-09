@@ -261,6 +261,7 @@ public class UserRegistrationServiceImpl implements UserRegistrationService {
 		}
 		if (StringUtils.isNotBlank(errMsg)) {
 			LOGGER.error("OTP generation request failed, error message : ",errMsg);
+			response.setResponseCode(HttpStatus.BAD_REQUEST);
 			response.getParams().setErrmsg(errMsg);
 		}
 		return response;
@@ -394,7 +395,7 @@ public class UserRegistrationServiceImpl implements UserRegistrationService {
 		}
 		// email Validation
 		if (StringUtils.isNotBlank(userRegInfo.getEmail())) {
-			String validateErr = emailValidation(userRegInfo.getEmail());
+			String validateErr = emailValidation(userRegInfo.getEmail(), StringUtils.isBlank(userRegInfo.getRegistrationLink()));
 			if (StringUtils.isNotBlank(validateErr)){
 				str.setLength(0);
 				str.append(validateErr);
@@ -499,11 +500,20 @@ public class UserRegistrationServiceImpl implements UserRegistrationService {
 	 * @return Boolean
 	 */
 	public String emailValidation(String email) {
+		return emailValidation(email, true);
+	}
+
+	private String emailValidation(String email, boolean isSelfRegister) {
 		StringBuffer str = new StringBuffer();
 		String emailRegex = "^[a-zA-Z0-9_+&*-]+(?:\\." + "[a-zA-Z0-9_+&*-]+)*@" + "(?:[a-zA-Z0-9-]+\\.)+[a-z"
 				+ "A-Z]{2,7}$";
 		Pattern pat = Pattern.compile(emailRegex);
 		if (pat.matcher(email).matches()) {
+			if (!isSelfRegister) {
+				LOGGER.info("Ignoring email domain validation for custom self registration request with email: " + email);
+				return str.toString();
+			}
+			LOGGER.info("Validating email domain for self registration request with email: " + email);
 			String emailDomain = email.split("@")[1];
 			Boolean retValue = isApprovedDomains(emailDomain, Constants.USER_REGISTRATION_DOMAIN)
 					|| isApprovedDomains(emailDomain, Constants.USER_REGISTRATION_PRE_APPROVED_DOMAIN);
