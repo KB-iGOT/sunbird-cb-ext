@@ -57,4 +57,6 @@ public interface UserUtilityService {
 	boolean validateGender(String gender);
 
 	boolean validateCategory(String category);
+
+	boolean selfRegisterUser(UserRegistration userRegistration);
 }

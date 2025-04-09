@@ -986,6 +986,9 @@ public class CbExtServerProperties {
 	@Value("${state.learning.insights.redis.key.mapping}")
 	private String stateLearningInsightsRedisKeyMapping;
 
+	@Value("${self.registration.user.endpoint.url}")
+	private String selfRegistrationUserEndpointUrl;
+
 	public String getStateLearningInsightsRedisKeyMapping() {
 		return stateLearningInsightsRedisKeyMapping;
 	}
@@ -3412,5 +3415,9 @@ public class CbExtServerProperties {
 
 	public String getLmsBulkUserCreatePath() {
 		return lmsBulkUserCreatePath;
+	}
+
+	public String getSelfRegistrationUserEndpointUrl() {
+		return selfRegistrationUserEndpointUrl;
 	}
 }
