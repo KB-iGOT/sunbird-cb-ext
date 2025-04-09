@@ -302,7 +302,13 @@ public class UserRegistrationServiceImpl implements UserRegistrationService {
 			}
 
 			UserRegistrationStatus regStatus = UserRegistrationStatus.WF_APPROVED;
-			if (userUtilityService.createUser(userReg)) {
+			boolean createResult = false;
+			if (StringUtils.isBlank(userReg.getRegistrationLink())) {
+				createResult = userUtilityService.selfRegisterUser(userReg);
+			} else {
+				createResult = userUtilityService.customRegisterUser(userReg);
+			}
+			if (createResult) {
 				LOGGER.info("Successfully completed user creation flow.");
 			} else {
 				LOGGER.error("Failed to create user for Reg.Code :: " + registrationCode);
