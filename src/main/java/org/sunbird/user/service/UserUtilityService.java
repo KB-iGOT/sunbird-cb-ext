@@ -59,4 +59,6 @@ public interface UserUtilityService {
 	boolean validateCategory(String category);
 
 	boolean selfRegisterUser(UserRegistration userRegistration);
+
+	boolean customRegisterUser(UserRegistration userRegistration);
 }

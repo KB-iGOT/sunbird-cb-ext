@@ -1110,7 +1110,41 @@ public class UserUtilityServiceImpl implements UserUtilityService {
 			logger.error("Failed to run the create user flow. UserRegCode : " + userRegistration.getRegistrationCode(),
 					e);
 		}
-		printMethodExecutionResult("Create User", userRegistration.toMininumString(), retValue);
+		printMethodExecutionResult("Self Register User", userRegistration.toMininumString(), retValue);
+		return retValue;
+	}
+
+	@Override
+	public boolean customRegisterUser(UserRegistration userRegistration) {
+		boolean retValue = false;
+		Map<String, Object> request = new HashMap<>();
+		Map<String, Object> requestBody = new HashMap<String, Object>();
+		requestBody.put(Constants.EMAIL, userRegistration.getEmail());
+		requestBody.put(Constants.CHANNEL, userRegistration.getChannel());
+		requestBody.put(Constants.FIRSTNAME, userRegistration.getFirstName());
+		requestBody.put(Constants.EMAIL_VERIFIED, true);
+		requestBody.put(Constants.PHONE, userRegistration.getPhone());
+		requestBody.put(Constants.PHONE_VERIFIED, true);
+		request.put(Constants.REQUEST, requestBody);
+		try {
+			Map<String, Object> readData = (Map<String, Object>) outboundRequestHandlerService.fetchResultUsingPost(
+					props.getSbUrl() + props.getCustomRegistrationUserEndpointUrl(), request, ProjectUtil.getDefaultHeaders());
+			if (Constants.OK.equalsIgnoreCase((String) readData.get(Constants.RESPONSE_CODE))) {
+				Map<String, Object> result = (Map<String, Object>) readData.get(Constants.RESULT);
+				userRegistration.setUserId((String) result.get(Constants.USER_ID));
+				Map<String, Object> userData = getUsersReadData(userRegistration.getUserId(), StringUtils.EMPTY,
+						StringUtils.EMPTY);
+				if (!CollectionUtils.isEmpty(userData)) {
+					userRegistration.setUserName((String) userData.get(Constants.USER_NAME));
+					userRegistration.setSbOrgId((String) userData.get(Constants.ROOT_ORG_ID) );
+					retValue = updateUser(userRegistration);
+				}
+			}
+		} catch (Exception e) {
+			logger.error("Failed to run the create user flow. UserRegCode : " + userRegistration.getRegistrationCode(),
+					e);
+		}
+		printMethodExecutionResult("Custom Register User", userRegistration.toMininumString(), retValue);
 		return retValue;
 	}
 }

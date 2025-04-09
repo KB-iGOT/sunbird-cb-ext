@@ -306,7 +306,7 @@ public class UserRegistrationServiceImpl implements UserRegistrationService {
 			if (StringUtils.isBlank(userReg.getRegistrationLink())) {
 				createResult = userUtilityService.selfRegisterUser(userReg);
 			} else {
-				createResult = userUtilityService.createUser(userReg);
+				createResult = userUtilityService.customRegisterUser(userReg);
 			}
 			if (createResult) {
 				LOGGER.info("Successfully completed user creation flow.");
