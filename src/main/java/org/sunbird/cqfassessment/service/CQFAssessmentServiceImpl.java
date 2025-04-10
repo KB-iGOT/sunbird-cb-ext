@@ -194,7 +194,7 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
             searchSourceBuilder.from((Integer.parseInt(requestBody.get(Constants.CURRENT_PAGE).toString()) - 1) * Integer.parseInt(requestBody.get(Constants.PAGE_SIZE).toString()));
             searchSourceBuilder.size(Integer.parseInt(requestBody.get(Constants.PAGE_SIZE).toString()));
             if(indexerService.isIndexPresent(serverProperties.getQuestionSetHierarchyIndex())) {
-                searchResponse = indexerService.getEsResult(serverProperties.getQuestionSetHierarchyIndex(), serverConfig.getEsProfileIndexType(), searchSourceBuilder, false);
+                searchResponse = indexerService.getEsResult(serverProperties.getQuestionSetHierarchyIndex(), serverConfig.getEsProfileIndexType(), searchSourceBuilder, true);
                 long totalCount = searchResponse.getHits().getTotalHits();
                 int pageSize = Integer.parseInt(requestBody.get(Constants.PAGE_SIZE).toString());
                 int totalPages = (int) Math.ceil((double) totalCount / pageSize);
