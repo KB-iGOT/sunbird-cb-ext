@@ -136,7 +136,7 @@ public class UserRegistrationServiceImpl implements UserRegistrationService {
 						}
 
 						if (status.equals(RestStatus.CREATED) || status.equals(RestStatus.OK)) {
-							if (isPreApprovedDomain(regDocument.getEmail())) {
+							if (StringUtils.isNotBlank(userRegInfo.getRegistrationLink()) || isPreApprovedDomain(regDocument.getEmail())) {
 								// Fire createUser event
 								kafkaProducer.push(serverProperties.getUserRegistrationAutoCreateUserTopic(),
 										regDocument);
