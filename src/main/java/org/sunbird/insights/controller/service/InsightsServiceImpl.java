@@ -465,6 +465,13 @@ public class InsightsServiceImpl implements InsightsService {
                 return response;
             }
             String recommendationsString = redisData.get(0);
+            if (CollectionUtils.isEmpty(Collections.singleton(recommendationsString))) {
+                log.info("No recommendations courses found with this orgId{}",subKey);
+                response.getParams().setStatus(Constants.FAILED);
+                response.put(Constants.MESSAGE, "No recommendations courses found");
+                response.setResponseCode(HttpStatus.OK);
+                return response;
+            }
             List<String> recommendations = Arrays.asList(recommendationsString.split(","));
             response.getParams().setStatus(Constants.SUCCESS);
             response.put(Constants.COURSE_LIST, recommendations);
