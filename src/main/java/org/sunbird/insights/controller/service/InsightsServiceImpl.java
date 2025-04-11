@@ -438,5 +438,61 @@ public class InsightsServiceImpl implements InsightsService {
         response.getParams().setErrmsg(Constants.USER_ID_DOESNT_EXIST);
         response.setResponseCode(responseCode);
     }
+
+    @Override
+    public SBApiResponse getCourseRecommendationsByDesignationV2(String authToken) {
+        SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.API_COURSE_RECOMMENDATIONS);
+        String orgId = null;
+        try {
+            String userId = fetchUserIdFromToken(authToken, response);
+            if (userId == null) return response;
+            Map<String, Object> userData = userUtilityService.getUsersReadData(userId, null, null);
+
+            if (CollectionUtils.isNotEmpty(Collections.singleton(userData))) {
+                orgId = (String) userData.get(Constants.ROOT_ORG_ID);
+            }
+            String errMsg = validateUserInfoV2(orgId, response);
+            if (StringUtils.isNotEmpty(errMsg)) return response;
+
+            String subKey = orgId;
+            String redisKey = serverProperties.getCourseRecommendationsByDesignationKey();
+            List<String> redisData = redisCacheMgr.hget(redisKey, serverProperties.getRedisInsightIndex(), subKey);
+            if (CollectionUtils.isEmpty(redisData) || StringUtils.isBlank(redisData.get(0))) {
+                log.info("No recommendations courses found with this subKey{}",subKey);
+                response.getParams().setStatus(Constants.FAILED);
+                response.put(Constants.MESSAGE, "No recommendations courses found");
+                response.setResponseCode(HttpStatus.OK);
+                return response;
+            }
+            String recommendationsString = redisData.get(0);
+            if (CollectionUtils.isEmpty(Collections.singleton(recommendationsString))) {
+                log.info("No recommendations courses found with this orgId{}",subKey);
+                response.getParams().setStatus(Constants.FAILED);
+                response.put(Constants.MESSAGE, "No recommendations courses found");
+                response.setResponseCode(HttpStatus.OK);
+                return response;
+            }
+            List<String> recommendations = Arrays.asList(recommendationsString.split(","));
+            response.getParams().setStatus(Constants.SUCCESS);
+            response.put(Constants.COURSE_LIST, recommendations);
+            response.setResponseCode(HttpStatus.OK);
+        } catch (Exception e) {
+            log.error("Error while fetching recommendation course", e);
+            response.getParams().setStatus(Constants.FAILED);
+            response.put(Constants.MESSAGE, "Internal Server Error");
+            response.setResponseCode(HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+        return response;
+    }
+
+    private String validateUserInfoV2(String orgId, SBApiResponse response) {
+        if (StringUtils.isEmpty(orgId)) {
+            response.getParams().setStatus(Constants.FAILED);
+            response.put(Constants.MESSAGE, "OrgId is Missing");
+            response.setResponseCode(HttpStatus.BAD_REQUEST);
+            return "OrgId is Missing";
+        }
+        return null;
+    }
 }
 
