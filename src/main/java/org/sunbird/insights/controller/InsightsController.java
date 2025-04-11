@@ -37,7 +37,7 @@ public class InsightsController {
     @GetMapping("/recommendations/v1/courses")
     public ResponseEntity<SBApiResponse> getCourseRecommendationsByDesignation(
             @RequestHeader(X_AUTH_TOKEN) String authToken) {
-        SBApiResponse response = insightsService.getCourseRecommendationsByDesignation(authToken);
+        SBApiResponse response = insightsService.getCourseRecommendationsByDesignationV2(authToken);
         return new ResponseEntity<>(response, response.getResponseCode());
     }
 
