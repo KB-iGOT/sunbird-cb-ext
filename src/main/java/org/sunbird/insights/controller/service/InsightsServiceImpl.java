@@ -355,7 +355,6 @@ public class InsightsServiceImpl implements InsightsService {
                 } else {
                     redisData = redisCacheMgr.getHashedCacheFromDataRedis(redisKey, serverProperties.getRedisInsightIndex(), orgId);
                 }
-                String redisData = redisCacheMgr.getCacheFromDataRedish(redisKey, serverProperties.getRedisInsightIndex());
                 Map<String, Object> insightData = new HashMap<>();
                 String iconUrl = fieldIcons.get(insightLabel);
                 insightData.put(ICON, iconUrl);
