@@ -1095,7 +1095,7 @@ public class ExtendedOrgServiceImpl implements ExtendedOrgService {
 		}
 		orgHierarchyInfo.setSbOrgId((String) orgRequest.get(Constants.ORG_ID));
 		Map<String, Object> orgDataUpdateResonse = updateOrgDetailsToDB(userToken, orgHierarchyInfo, orgRequest);
-		if (MapUtils.isEmpty(orgDataUpdateResonse) || !orgDataUpdateResonse.get(Constants.RESPONSE_CODE).equals(Constants.OK)) {
+		if (MapUtils.isEmpty(orgDataUpdateResonse) || !Constants.OK.equals(orgDataUpdateResonse.get(Constants.RESPONSE_CODE))) {
 			logger.info("ExtendedOrgServiceImpl::updateV2::Failed to update Org details for organization: " + orgHierarchyInfo.getSbOrgId());
 			setInternalServerError(outgoingResponse, "Error while updating the organization details");
 		} else {
@@ -1114,7 +1114,7 @@ public class ExtendedOrgServiceImpl implements ExtendedOrgService {
 		for (String fieldName : request.keySet()) {
 			if (!validateUpdatableFields(fieldName)) {
 				logger.info("ExtendedOrgServiceImpl::updateV2::Invalid field in request: {}", fieldName);
-				response.getParams().setStatus("Field : " + fieldName + " is not allowed to be updated.");
+				response.getParams().setStatus("Field");
 				response.setResponseCode(HttpStatus.BAD_REQUEST);
 				return "Field : " + fieldName + " is not allowed to be updated.";
 			} else {
