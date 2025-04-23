@@ -188,7 +188,7 @@ public class WallOfFameServiceImpl implements WallOfFameService {
     public SBApiResponse getMdoLeaderBoard() {
         SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.API_WALL_OF_FAME_MDO_LEADERBOARD);
         Map<String, Object> propertyMap = new HashMap<>();
-        propertyMap.put(Constants.SIZE, Arrays.asList("XS","S", "M", "L", "XL"));
+        propertyMap.put(Constants.SIZE, properties.getMdoLeaderBoardSizeList());
         try {
             List<Map<String, Object>> mdoLeaderBoard = cassandraOperation.getRecordsByPropertiesWithoutFiltering(
                     Constants.KEYSPACE_SUNBIRD, Constants.NLW_MDO_LEADERBOARD, propertyMap, null);
