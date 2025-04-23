@@ -1114,7 +1114,7 @@ public class ExtendedOrgServiceImpl implements ExtendedOrgService {
 		for (String fieldName : request.keySet()) {
 			if (!validateUpdatableFields(fieldName)) {
 				logger.info("ExtendedOrgServiceImpl::updateV2::Invalid field in request: {}", fieldName);
-				response.getParams().setStatus("Field");
+				response.getParams().setStatus("Failed");
 				response.setResponseCode(HttpStatus.BAD_REQUEST);
 				return "Field : " + fieldName + " is not allowed to be updated.";
 			} else {
