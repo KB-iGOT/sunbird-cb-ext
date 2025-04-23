@@ -986,6 +986,9 @@ public class CbExtServerProperties {
 	@Value("${state.learning.insights.redis.key.mapping}")
 	private String stateLearningInsightsRedisKeyMapping;
 
+	@Value("${org.updatable.fields}")
+	private String orgUpdatableFields;
+
 	public String getStateLearningInsightsRedisKeyMapping() {
 		return stateLearningInsightsRedisKeyMapping;
 	}
@@ -3413,4 +3416,13 @@ public class CbExtServerProperties {
 	public String getLmsBulkUserCreatePath() {
 		return lmsBulkUserCreatePath;
 	}
+
+	public List<String> getOrgUpdatableFields() {
+		return Arrays.asList(orgUpdatableFields.split(",", -1));
+	}
+
+	public void setOrgUpdatableFields(String orgUpdatableFields) {
+		this.orgUpdatableFields = orgUpdatableFields;
+	}
+
 }
