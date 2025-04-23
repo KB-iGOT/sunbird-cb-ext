@@ -992,6 +992,12 @@ public class CbExtServerProperties {
 	@Value("${custom.registration.user.endpoint.url}")
 	private String customRegistrationUserEndpointUrl;
 
+	@Value("${state.mdo.leader.board.size.list}")
+	private String stateMdoLeaderBoardSizeList;
+
+	@Value("${mdo.leader.board.size.list}")
+	private String mdoLeaderBoardSizeList;
+
 	public String getStateLearningInsightsRedisKeyMapping() {
 		return stateLearningInsightsRedisKeyMapping;
 	}
@@ -3426,5 +3432,21 @@ public class CbExtServerProperties {
 
 	public String getCustomRegistrationUserEndpointUrl() {
 		return customRegistrationUserEndpointUrl;
+	}
+
+	public List<String> getStateMdoLeaderBoardSizeList() {
+		return Arrays.asList(stateMdoLeaderBoardSizeList.split(",", -1));
+	}
+
+	public void setStateMdoLeaderBoardSizeList(String stateMdoLeaderBoardSizeList) {
+		this.stateMdoLeaderBoardSizeList = stateMdoLeaderBoardSizeList;
+	}
+
+	public List<String> getMdoLeaderBoardSizeList() {
+		return Arrays.asList(mdoLeaderBoardSizeList.split(",", -1));
+	}
+
+	public void setMdoLeaderBoardSizeList(String mdoLeaderBoardSizeList) {
+		this.mdoLeaderBoardSizeList = mdoLeaderBoardSizeList;
 	}
 }

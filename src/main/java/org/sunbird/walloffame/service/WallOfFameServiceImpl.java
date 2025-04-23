@@ -11,6 +11,7 @@ import org.springframework.util.CollectionUtils;
 import org.sunbird.cassandra.utils.CassandraOperation;
 import org.sunbird.common.model.SBApiResponse;
 import org.sunbird.common.util.AccessTokenValidator;
+import org.sunbird.common.util.CbExtServerProperties;
 import org.sunbird.common.util.Constants;
 import org.sunbird.common.util.ProjectUtil;
 
@@ -29,6 +30,9 @@ public class WallOfFameServiceImpl implements WallOfFameService {
     private Logger logger = LoggerFactory.getLogger(getClass().getName());
     @Autowired
     AccessTokenValidator accessTokenValidator;
+
+    @Autowired
+    CbExtServerProperties properties;
 
     @Override
     public Map<String, Object> fetchWallOfFameData() {
@@ -184,7 +188,7 @@ public class WallOfFameServiceImpl implements WallOfFameService {
     public SBApiResponse getMdoLeaderBoard() {
         SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.API_WALL_OF_FAME_MDO_LEADERBOARD);
         Map<String, Object> propertyMap = new HashMap<>();
-        propertyMap.put(Constants.SIZE, Arrays.asList("XS","S", "M", "L", "XL"));
+        propertyMap.put(Constants.SIZE, properties.getMdoLeaderBoardSizeList());
         try {
             List<Map<String, Object>> mdoLeaderBoard = cassandraOperation.getRecordsByPropertiesWithoutFiltering(
                     Constants.KEYSPACE_SUNBIRD, Constants.NLW_MDO_LEADERBOARD, propertyMap, null);
@@ -212,7 +216,7 @@ public class WallOfFameServiceImpl implements WallOfFameService {
         Map<String, Object> requestData = (Map<String, Object>) request.get(Constants.REQUEST);
         String orgId = (String) requestData.get(Constants.MDOID);
         Map<String, Object> propertyMap = new HashMap<>();
-        propertyMap.put(Constants.SIZE, Arrays.asList("XS","S", "M", "L", "XL"));
+        propertyMap.put(Constants.SIZE, properties.getStateMdoLeaderBoardSizeList());
         propertyMap.put(Constants.PARENT_ID,orgId);
         try {
             List<Map<String, Object>> mdoLeaderBoard = cassandraOperation.getRecordsByPropertiesWithoutFiltering(
