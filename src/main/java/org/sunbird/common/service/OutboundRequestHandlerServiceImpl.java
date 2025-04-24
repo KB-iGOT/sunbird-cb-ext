@@ -13,6 +13,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestTemplate;
 import org.sunbird.common.util.Constants;
 import org.sunbird.core.logger.CbExtLogger;
@@ -199,7 +200,7 @@ public class OutboundRequestHandlerServiceImpl {
 				str.append(mapper.writeValueAsString(response)).append(System.lineSeparator());
 				log.debug(str.toString());
 			}
-		} catch (HttpClientErrorException hce) {
+		} catch (HttpStatusCodeException hce) {
 			try {
 				response = (new ObjectMapper()).readValue(hce.getResponseBodyAsString(),
 						new TypeReference<HashMap<String, Object>>() {

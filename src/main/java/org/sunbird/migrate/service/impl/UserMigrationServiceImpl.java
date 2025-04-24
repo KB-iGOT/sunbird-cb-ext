@@ -17,6 +17,7 @@ import org.sunbird.common.util.PropertiesCache;
 import org.sunbird.core.config.PropertiesConfig;
 import org.sunbird.migrate.service.UserMigrationService;
 import org.sunbird.profile.service.ProfileService;
+import org.sunbird.user.service.UserUtilityService;
 
 import java.text.SimpleDateFormat;
 import java.time.LocalDateTime;
@@ -42,6 +43,9 @@ public class UserMigrationServiceImpl implements UserMigrationService {
     @Autowired
     ProfileService profileService;
 
+    @Autowired
+    UserUtilityService userUtilityService;
+
     @Override
     public SBApiResponse migrateUsers() {
         SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.API_USER_MIGRATION);
@@ -50,16 +54,28 @@ public class UserMigrationServiceImpl implements UserMigrationService {
 
         int offset = 0;
         int limit = 250;
-        boolean allOperationsSuccessful = true;
+        final int MAX_RETRIES = 3;
+        int totalProcessed = 0;
+        int successCount = 0;
+        int failedCount = 0;
+        int alreadyMigratedUsers = 0;
+        boolean partialFailureOccurred = false;
         String custodianOrgName = serverConfig.getCustodianOrgName();
-        String custodianOrgId   = serverConfig.getCustodianOrgId();
+        String custodianOrgId = serverConfig.getCustodianOrgId();
         try {
+            int searchUserFailedAttemptCount = 0;
             while (true) {
+                if (searchUserFailedAttemptCount >= MAX_RETRIES) {
+                    log.error("Max retry limit ({}) reached. Exiting user fetch loop.", MAX_RETRIES);
+                    partialFailureOccurred = true; // mark for client awareness
+                    break;
+                }
                 Map<String, Object> request = userSearchRequestBody(offset, limit);
-                Map<String, Object> updateResponse = outboundRequestHandlerService.fetchResultUsingPost(url.toString(), request, null);
+                Map<String, Object> searchResponse = outboundRequestHandlerService.fetchResultUsingPost(url.toString(), request, null);
 
-                if (Constants.OK.equalsIgnoreCase((String) updateResponse.get(Constants.RESPONSE_CODE))) {
-                    Map<String, Object> result = (Map<String, Object>) updateResponse.get(Constants.RESULT);
+                if (searchResponse.containsKey(Constants.RESPONSE_CODE) && Constants.OK.equalsIgnoreCase((String) searchResponse.get(Constants.RESPONSE_CODE))) {
+                    searchUserFailedAttemptCount = 0;
+                    Map<String, Object> result = (Map<String, Object>) searchResponse.get(Constants.RESULT);
                     Map<String, Object> responseData = (Map<String, Object>) result.get(Constants.RESPONSE);
                     List<Map<String, Object>> users = (List<Map<String, Object>>) responseData.get(Constants.CONTENT);
 
@@ -69,6 +85,7 @@ public class UserMigrationServiceImpl implements UserMigrationService {
                     }
 
                     for (Map<String, Object> user : users) {
+                        totalProcessed++;
                         String userId = (String) user.get(Constants.USER_ID);
                         boolean orgFound = false;
                         String rootOrgName = (String) user.get("rootOrgName");
@@ -79,11 +96,11 @@ public class UserMigrationServiceImpl implements UserMigrationService {
                                 String errMsg = executeMigrateUser(getUserMigrateRequest(userId, custodianOrgName, false), null);
                                 if (StringUtils.isNotEmpty(errMsg)) {
                                     log.info("Migration failed for user ID '{}'. Error: {}", userId, errMsg);
-                                    allOperationsSuccessful = false;
+                                    failedCount++;
+                                    partialFailureOccurred = true;
                                 } else {
                                     log.info("Successfully migrated user ID '{}'.", userId);
-                                    Map<String, Object> userPatchRequest = getUserExtPatchRequest(userId, custodianOrgName);
-                                    SBApiResponse userPatchResponse = profileService.profileMDOAdminUpdate(userPatchRequest, null, serverConfig.getSbApiKey(), null);
+                                    SBApiResponse userPatchResponse = profileUpdateAfterNMUMigration(custodianOrgName, serverConfig.getSbApiKey(), userId);
                                     log.info("userPatchResponse for user ID '{}'.", userPatchResponse);
                                     if (userPatchResponse.getResponseCode().is2xxSuccessful()) {
                                         log.info("Successfully patched user ID '{}'. Response: {}", userId, userPatchResponse);
@@ -101,35 +118,44 @@ public class UserMigrationServiceImpl implements UserMigrationService {
 
                                         if (Constants.OK.equalsIgnoreCase((String) assignRole.get(Constants.RESPONSE_CODE))) {
                                             log.info("Successfully assigned public role for user ID '{}'. Response: {}", userId, assignRole);
+                                            successCount++;
                                         } else {
                                             String assignRoleErrorMessage = (String) assignRole.get(Constants.ERROR_MESSAGE);
                                             log.info("Failed to assign 'PUBLIC' role for user ID '{}'. Response: {}. Error: {}", userId, assignRole, assignRoleErrorMessage);
-                                            allOperationsSuccessful = false;
+                                            failedCount++;
+                                            partialFailureOccurred = true;
                                         }
                                     } else {
                                         log.info("Patch failed for user ID '{}'. Response: {}", userId, userPatchResponse);
-                                        allOperationsSuccessful = false;
+                                        failedCount++;
+                                        partialFailureOccurred = true;
                                     }
                                 }
                             } else {
                                 log.info("Organization '{}' found for user ID '{}'. No migration needed.", custodianOrgName, userId);
+                                alreadyMigratedUsers++;
                             }
                         }
                     }
 
                     offset += users.size();
                 } else {
-                    handleErrorResponse(updateResponse, response);
-                    return response;
+                    log.error("Malformed searchResponse (missing RESPONSE_CODE): {}", searchResponse);
+                    searchUserFailedAttemptCount++;
+                    try {
+                        Thread.sleep(1000); // 1-second delay before retrying to give the server a short break
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt(); // restore interrupt status
+                        log.warn("Thread sleep interrupted during retry delay", ie);
+                    }
                 }
             }
 
-            if (allOperationsSuccessful) {
-                response.setResponseCode(HttpStatus.OK);
-                response.getParams().setStatus(Constants.SUCCESS);
-            } else {
-                response.setResponseCode(HttpStatus.INTERNAL_SERVER_ERROR);
-                response.getParams().setStatus(Constants.FAILED);
+            // Always return SUCCESS unless exception occurs
+            response.setResponseCode(HttpStatus.OK);
+            response.getParams().setStatus(Constants.SUCCESS);
+            if (partialFailureOccurred) {
+                response.getParams().setErrmsg("User migration completed with some failures. Check counts.");
             }
 
         } catch (Exception e) {
@@ -138,6 +164,10 @@ public class UserMigrationServiceImpl implements UserMigrationService {
             response.getParams().setStatus(Constants.FAILED);
             response.getParams().setErrmsg(e.getMessage());
         }
+        response.getResult().put("totalUsersProcessed", totalProcessed);
+        response.getResult().put("usersMigratedSuccessfully", successCount);
+        response.getResult().put("usersFailedToMigrate", failedCount);
+        response.getResult().put("alreadyMigratedUsers", alreadyMigratedUsers);
 
         return response;
     }
@@ -246,5 +276,65 @@ public class UserMigrationServiceImpl implements UserMigrationService {
             put("request", requestBody);
         }};
 
+    }
+
+    private SBApiResponse profileUpdateAfterNMUMigration(String defaultDepartment, String authToken, String userId) {
+        SBApiResponse response = new SBApiResponse(Constants.ORG_PROFILE_UPDATE);
+
+        try {
+            Map<String, Object> responseMap = userUtilityService.getUsersReadData(userId, StringUtils.EMPTY,
+                    StringUtils.EMPTY);
+            Map<String, Object> existingProfileDetails = (Map<String, Object>) responseMap.get(Constants.PROFILE_DETAILS);
+            existingProfileDetails.remove(Constants.UPDATE_AS_NOT_MY_USER);
+
+            Map<String, Object> employmentDetails = new HashMap<>();
+            employmentDetails.put("departmentName", defaultDepartment);
+            existingProfileDetails.put(Constants.EMPLOYMENT_DETAILS, employmentDetails);
+
+            HashMap<String, String> headerValue = new HashMap<>();
+            headerValue.put(Constants.AUTH_TOKEN, authToken);
+            headerValue.put(Constants.CONTENT_TYPE, Constants.APPLICATION_JSON);
+
+            String updatedUrl = serverConfig.getSbUrl() + serverConfig.getLmsUserUpdatePrivatePath();
+            Map<String, Object> request = new HashMap<>();
+            request.put(Constants.USER_ID, userId);
+            request.put(Constants.PROFILE_DETAILS, existingProfileDetails);
+            Map<String, Object> updateRequest = new HashMap<>();
+            updateRequest.put(Constants.REQUEST, request);
+            Map<String, Object> updateResponse = outboundRequestHandlerService.fetchResultUsingPatch(updatedUrl, updateRequest, headerValue);
+
+            if (Constants.OK.equalsIgnoreCase((String) updateResponse.get(Constants.RESPONSE_CODE))) {
+                log.info("Successfully processed profile update for userId: {}", userId);
+                response.setResponseCode(HttpStatus.OK);
+                response.getResult().put(Constants.RESPONSE, Constants.SUCCESS);
+                response.getParams().setStatus(Constants.SUCCESS);
+            } else {
+                if (Constants.CLIENT_ERROR.equalsIgnoreCase((String) updateResponse.get(Constants.RESPONSE_CODE))) {
+                    Map<String, Object> responseParams = (Map<String, Object>) updateResponse.get(Constants.PARAMS);
+                    if (MapUtils.isNotEmpty(responseParams)) {
+                        String errorMessage = (String) responseParams.get(Constants.ERROR_MESSAGE);
+                        response.getParams().setErrmsg(errorMessage);
+                    }
+                    response.setResponseCode(HttpStatus.BAD_REQUEST);
+                } else {
+                    response.setResponseCode(HttpStatus.INTERNAL_SERVER_ERROR);
+                }
+                response.getParams().setStatus(Constants.FAILED);
+                String errMsg = response.getParams().getErrmsg();
+                if (StringUtils.isEmpty(errMsg)) {
+                    errMsg = (String) ((Map<String, Object>) updateResponse.get(Constants.PARAMS)).get(Constants.ERROR_MESSAGE);
+                    errMsg = PropertiesCache.getInstance().readCustomError(errMsg);
+                    response.getParams().setErrmsg(errMsg);
+                }
+                log.error(errMsg, new Exception(errMsg));
+                return response;
+            }
+        } catch (Exception e) {
+            log.error("Failed to process profile update. Exception: ", e);
+            response.getParams().setStatus(Constants.FAILED);
+            response.getParams().setErr(e.getMessage());
+            response.setResponseCode(HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+        return response;
     }
 }
