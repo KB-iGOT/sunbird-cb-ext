@@ -73,7 +73,7 @@ public class UserMigrationServiceImpl implements UserMigrationService {
                 Map<String, Object> request = userSearchRequestBody(offset, limit);
                 Map<String, Object> searchResponse = outboundRequestHandlerService.fetchResultUsingPost(url.toString(), request, null);
 
-                if (searchResponse.containsKey(Constants.RESPONSE_CODE) && Constants.OK.equalsIgnoreCase((String) searchResponse.get(Constants.RESPONSE_CODE))) {
+                if (MapUtils.isNotEmpty(searchResponse) && searchResponse.containsKey(Constants.RESPONSE_CODE) && Constants.OK.equalsIgnoreCase((String) searchResponse.get(Constants.RESPONSE_CODE))) {
                     searchUserFailedAttemptCount = 0;
                     Map<String, Object> result = (Map<String, Object>) searchResponse.get(Constants.RESULT);
                     Map<String, Object> responseData = (Map<String, Object>) result.get(Constants.RESPONSE);
