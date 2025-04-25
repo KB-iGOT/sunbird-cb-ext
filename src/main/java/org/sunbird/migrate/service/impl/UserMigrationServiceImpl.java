@@ -307,24 +307,24 @@ public class UserMigrationServiceImpl implements UserMigrationService {
                 return response;
             }
             try {
-                Map<String, Object> profileDetails = mapper.readValue(profileDetailsStr,
+                Map<String, Object> existingProfileDetails = mapper.readValue(profileDetailsStr,
                         new TypeReference<Map<String, Object>>() {
                         });
-                profileDetails.remove(Constants.UPDATE_AS_NOT_MY_USER);
+                existingProfileDetails.remove(Constants.UPDATE_AS_NOT_MY_USER);
                 Map<String, Object> employmentDetails = null;
-                if (profileDetails.containsKey(Constants.EMPLOYMENT_DETAILS)) {
-                    employmentDetails = (Map<String, Object>) profileDetails.get(Constants.EMPLOYMENT_DETAILS);
+                if (existingProfileDetails.containsKey(Constants.EMPLOYMENT_DETAILS)) {
+                    employmentDetails = (Map<String, Object>) existingProfileDetails.get(Constants.EMPLOYMENT_DETAILS);
                 } else {
                     employmentDetails = new HashMap<>();
                 }
                 employmentDetails.put(Constants.DEPARTMENTNAME, defaultDepartment);
                 employmentDetails.put(Constants.DEPARTMENT_ID, (String) userData.get(Constants.ROOT_ORG_ID));
-                profileDetails.put(Constants.EMPLOYMENT_DETAILS, employmentDetails);
+                existingProfileDetails.put(Constants.EMPLOYMENT_DETAILS, employmentDetails);
 
                 Map<String, Object> professionalDetail = null;
-                if (profileDetails.containsKey(Constants.PROFESSIONAL_DETAILS)
-                        && !ObjectUtils.isEmpty(profileDetails.get(Constants.PROFESSIONAL_DETAILS))) {
-                    professionalDetail = ((List<Map<String, Object>>) profileDetails.get(Constants.PROFESSIONAL_DETAILS))
+                if (existingProfileDetails.containsKey(Constants.PROFESSIONAL_DETAILS)
+                        && !ObjectUtils.isEmpty(existingProfileDetails.get(Constants.PROFESSIONAL_DETAILS))) {
+                    professionalDetail = ((List<Map<String, Object>>) existingProfileDetails.get(Constants.PROFESSIONAL_DETAILS))
                             .get(0);
                 } else {
                     professionalDetail = new HashMap<>();
@@ -333,9 +333,9 @@ public class UserMigrationServiceImpl implements UserMigrationService {
 
                 professionalDetail.put(Constants.NAME, defaultDepartment);
                 professionalDetail.put(Constants.ID, (String) userData.get(Constants.ROOT_ORG_ID));
-                profileDetails.put(Constants.PROFESSIONAL_DETAILS, Arrays.asList(professionalDetail));
+                existingProfileDetails.put(Constants.PROFESSIONAL_DETAILS, Arrays.asList(professionalDetail));
 
-                updateDBRequest.put(Constants.PROFILE_DETAILS_LOWER, mapper.writeValueAsString(profileDetails));
+                updateDBRequest.put(Constants.PROFILE_DETAILS_LOWER, mapper.writeValueAsString(existingProfileDetails));
             } catch (Exception e) {
                 errMsg = String.format("Failed to parse profileDetails object for userId: %s. Exception: ", userId);
                 log.error(errMsg, e);
