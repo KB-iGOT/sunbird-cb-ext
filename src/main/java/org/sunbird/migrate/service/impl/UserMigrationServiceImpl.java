@@ -100,7 +100,7 @@ public class UserMigrationServiceImpl implements UserMigrationService {
                                     partialFailureOccurred = true;
                                 } else {
                                     log.info("Successfully migrated user ID '{}'.", userId);
-                                    SBApiResponse userPatchResponse = profileUpdateAfterNMUMigration(custodianOrgName, serverConfig.getSbApiKey(), userId);
+                                    SBApiResponse userPatchResponse = profileUpdateAfterNMUMigration(custodianOrgName, userId);
                                     log.info("userPatchResponse for user ID '{}'.", userPatchResponse);
                                     if (userPatchResponse.getResponseCode().is2xxSuccessful()) {
                                         log.info("Successfully patched user ID '{}'. Response: {}", userId, userPatchResponse);
@@ -278,7 +278,7 @@ public class UserMigrationServiceImpl implements UserMigrationService {
 
     }
 
-    private SBApiResponse profileUpdateAfterNMUMigration(String defaultDepartment, String authToken, String userId) {
+    private SBApiResponse profileUpdateAfterNMUMigration(String defaultDepartment, String userId) {
         SBApiResponse response = new SBApiResponse(Constants.ORG_PROFILE_UPDATE);
 
         try {
@@ -292,7 +292,6 @@ public class UserMigrationServiceImpl implements UserMigrationService {
             existingProfileDetails.put(Constants.EMPLOYMENT_DETAILS, employmentDetails);
 
             HashMap<String, String> headerValue = new HashMap<>();
-            headerValue.put(Constants.AUTH_TOKEN, authToken);
             headerValue.put(Constants.CONTENT_TYPE, Constants.APPLICATION_JSON);
 
             String updatedUrl = serverConfig.getSbUrl() + serverConfig.getLmsUserUpdatePrivatePath();
