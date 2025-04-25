@@ -312,7 +312,6 @@ public class UserMigrationServiceImpl implements UserMigrationService {
             professionalDetail.put(Constants.ID, (String) responseMap.get(Constants.ROOT_ORG_ID));
             existingProfileDetails.put(Constants.PROFESSIONAL_DETAILS, Arrays.asList(professionalDetail));
 
-
             HashMap<String, String> headerValue = new HashMap<>();
             headerValue.put(Constants.CONTENT_TYPE, Constants.APPLICATION_JSON);
 
