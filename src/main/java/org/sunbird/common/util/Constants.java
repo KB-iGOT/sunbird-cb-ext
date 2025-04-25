@@ -1342,7 +1342,9 @@ public class Constants {
 	public static final String API_WALL_OF_FAME_STATE_MDO_LEADERBOARD = "api.v1.walloffame.state.mdoleaderboard";
 	public static final String API_STATE_LEARNING_WEEK_INSIGHTS ="api.state-learning-week.insights";
 	public static final String EVENTS_PUBLISHED = "Events Published";
-
+	public static final String API_UPDATE_CONTENT_ATTENDANCE = "api.content.progress.ext.attendance.update";
+	public static final String UPDATE_CONTENT_ATTENDANCE_PROGRESS_ERROR_MSG = "Error in updating the content attendance progress.";
+	public static final String ACTIVE_SESSION_ID_NOT_AVAILABLE_ERROR_MSG = "Session Id not found from content.";
 	private Constants() {
 		throw new IllegalStateException("Utility class");
 	}
