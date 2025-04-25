@@ -15,4 +15,6 @@ public interface ContentProgressService {
      * @return - Return the response of success/failure after processing the request.
      */
     SBApiResponse getUserSessionDetailsAndCourseProgress(String authUserToken, SunbirdApiRequest requestBody);
+
+    public SBApiResponse updateContentAttendance( SunbirdApiRequest requestBody);
 }
