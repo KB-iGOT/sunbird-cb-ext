@@ -1,5 +1,8 @@
 package org.sunbird.migrate.service.impl;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.collections.MapUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.elasticsearch.common.recycler.Recycler;
@@ -9,6 +12,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.util.ObjectUtils;
+import org.sunbird.cassandra.utils.CassandraOperation;
 import org.sunbird.common.model.SBApiResponse;
 import org.sunbird.common.service.OutboundRequestHandlerServiceImpl;
 import org.sunbird.common.util.CbExtServerProperties;
@@ -46,6 +50,12 @@ public class UserMigrationServiceImpl implements UserMigrationService {
 
     @Autowired
     UserUtilityService userUtilityService;
+
+    @Autowired
+    CassandraOperation cassandraOperation;
+
+    @Autowired
+    ObjectMapper mapper;
 
     @Override
     public SBApiResponse migrateUsers() {
@@ -283,72 +293,73 @@ public class UserMigrationServiceImpl implements UserMigrationService {
         SBApiResponse response = new SBApiResponse(Constants.ORG_PROFILE_UPDATE);
 
         try {
-            Map<String, Object> responseMap = userUtilityService.getUsersReadData(userId, StringUtils.EMPTY,
-                    StringUtils.EMPTY);
-            Map<String, Object> existingProfileDetails = (Map<String, Object>) responseMap.get(Constants.PROFILE_DETAILS);
-            existingProfileDetails.remove(Constants.UPDATE_AS_NOT_MY_USER);
-
-            Map<String, Object> employmentDetails = null;
-            if (existingProfileDetails.containsKey(Constants.EMPLOYMENT_DETAILS)) {
-                employmentDetails = (Map<String, Object>) existingProfileDetails.get(Constants.EMPLOYMENT_DETAILS);
-            } else {
-                employmentDetails = new HashMap<>();
-            }
-            employmentDetails.put(Constants.DEPARTMENTNAME, defaultDepartment);
-            employmentDetails.put(Constants.DEPARTMENT_ID, (String) responseMap.get(Constants.ROOT_ORG_ID));
-            existingProfileDetails.put(Constants.EMPLOYMENT_DETAILS, employmentDetails);
-
-            Map<String, Object> professionalDetail = null;
-            if (existingProfileDetails.containsKey(Constants.PROFESSIONAL_DETAILS)
-                    && !ObjectUtils.isEmpty(existingProfileDetails.get(Constants.PROFESSIONAL_DETAILS))) {
-                professionalDetail = ((List<Map<String, Object>>) existingProfileDetails.get(Constants.PROFESSIONAL_DETAILS))
-                        .get(0);
-            } else {
-                professionalDetail = new HashMap<>();
-                professionalDetail.put(Constants.OSID, UUID.randomUUID().toString());
+            String errMsg = "";
+            Map<String, Object> userData = getUserDetailsForId(userId);
+            if (ObjectUtils.isEmpty(userData)) {
+                response.getParams().setErrmsg(String.format("Failed to get User record from DB. UserId: %s", userId));
+                return response;
             }
 
-            professionalDetail.put(Constants.NAME, defaultDepartment);
-            professionalDetail.put(Constants.ID, (String) responseMap.get(Constants.ROOT_ORG_ID));
-            existingProfileDetails.put(Constants.PROFESSIONAL_DETAILS, Arrays.asList(professionalDetail));
+            Map<String, Object> updateDBRequest = new HashMap<>();
+            String profileDetailsStr = (String) userData.get(Constants.PROFILE_DETAILS_LOWER);
+            if (StringUtils.isEmpty(profileDetailsStr)) {
+                response.getParams().setErrmsg("ProfileDetails is null for User.");
+                return response;
+            }
+            try {
+                Map<String, Object> existingProfileDetails = mapper.readValue(profileDetailsStr,
+                        new TypeReference<Map<String, Object>>() {
+                        });
+                existingProfileDetails.remove(Constants.UPDATE_AS_NOT_MY_USER);
+                Map<String, Object> employmentDetails = null;
+                if (existingProfileDetails.containsKey(Constants.EMPLOYMENT_DETAILS)) {
+                    employmentDetails = (Map<String, Object>) existingProfileDetails.get(Constants.EMPLOYMENT_DETAILS);
+                } else {
+                    employmentDetails = new HashMap<>();
+                }
+                employmentDetails.put(Constants.DEPARTMENTNAME, defaultDepartment);
+                employmentDetails.put(Constants.DEPARTMENT_ID, (String) userData.get(Constants.ROOT_ORG_ID));
+                existingProfileDetails.put(Constants.EMPLOYMENT_DETAILS, employmentDetails);
 
-            HashMap<String, String> headerValue = new HashMap<>();
-            headerValue.put(Constants.CONTENT_TYPE, Constants.APPLICATION_JSON);
+                Map<String, Object> professionalDetail = null;
+                if (existingProfileDetails.containsKey(Constants.PROFESSIONAL_DETAILS)
+                        && !ObjectUtils.isEmpty(existingProfileDetails.get(Constants.PROFESSIONAL_DETAILS))) {
+                    professionalDetail = ((List<Map<String, Object>>) existingProfileDetails.get(Constants.PROFESSIONAL_DETAILS))
+                            .get(0);
+                } else {
+                    professionalDetail = new HashMap<>();
+                    professionalDetail.put(Constants.OSID, UUID.randomUUID().toString());
+                }
 
-            String updatedUrl = serverConfig.getSbUrl() + serverConfig.getLmsUserUpdatePrivatePath();
-            Map<String, Object> request = new HashMap<>();
-            request.put(Constants.USER_ID, userId);
-            request.put(Constants.PROFILE_DETAILS, existingProfileDetails);
-            Map<String, Object> updateRequest = new HashMap<>();
-            updateRequest.put(Constants.REQUEST, request);
-            Map<String, Object> updateResponse = outboundRequestHandlerService.fetchResultUsingPatch(updatedUrl, updateRequest, headerValue);
+                professionalDetail.put(Constants.NAME, defaultDepartment);
+                professionalDetail.put(Constants.ID, (String) userData.get(Constants.ROOT_ORG_ID));
+                existingProfileDetails.put(Constants.PROFESSIONAL_DETAILS, Arrays.asList(professionalDetail));
 
-            if (Constants.OK.equalsIgnoreCase((String) updateResponse.get(Constants.RESPONSE_CODE))) {
+                updateDBRequest.put(Constants.PROFILE_DETAILS_LOWER, mapper.writeValueAsString(existingProfileDetails));
+            } catch (Exception e) {
+                errMsg = String.format("Failed to parse profileDetails object for userId: %s. Exception: ", userId);
+                log.error(errMsg, e);
+                response.getParams().setErrmsg(errMsg);
+                return response;
+            }
+
+            Map<String, Object> compositeKey = new HashMap<String, Object>();
+            compositeKey.put(Constants.ID, userId);
+            Map<String, Object> updateDBResponse = cassandraOperation.updateRecord(Constants.KEYSPACE_SUNBIRD,
+                    Constants.TABLE_USER, updateDBRequest, compositeKey);
+            if (updateDBResponse != null
+                    && !Constants.SUCCESS.equalsIgnoreCase((String) updateDBResponse.get(Constants.RESPONSE))) {
+                errMsg = String.format("Failed to update profileDetails for UserId : %s", userId);
+                response.getParams().setErrmsg(errMsg);
+                response.getParams().setStatus(Constants.FAILED);
+                response.setResponseCode(HttpStatus.INTERNAL_SERVER_ERROR);
+                return response;
+            } else {
+                syncUserData(userId);
                 log.info("Successfully processed profile update for userId: {}", userId);
                 response.setResponseCode(HttpStatus.OK);
                 response.getResult().put(Constants.RESPONSE, Constants.SUCCESS);
                 response.getParams().setStatus(Constants.SUCCESS);
-            } else {
-                log.error("Failed to process profile update for userId: {}", userId);
-                if (Constants.CLIENT_ERROR.equalsIgnoreCase((String) updateResponse.get(Constants.RESPONSE_CODE))) {
-                    Map<String, Object> responseParams = (Map<String, Object>) updateResponse.get(Constants.PARAMS);
-                    if (MapUtils.isNotEmpty(responseParams)) {
-                        String errorMessage = (String) responseParams.get(Constants.ERROR_MESSAGE);
-                        response.getParams().setErrmsg(errorMessage);
-                    }
-                    response.setResponseCode(HttpStatus.BAD_REQUEST);
-                } else {
-                    response.setResponseCode(HttpStatus.INTERNAL_SERVER_ERROR);
-                }
-                response.getParams().setStatus(Constants.FAILED);
-                String errMsg = response.getParams().getErrmsg();
-                if (StringUtils.isEmpty(errMsg)) {
-                    errMsg = (String) ((Map<String, Object>) updateResponse.get(Constants.PARAMS)).get(Constants.ERROR_MESSAGE);
-                    errMsg = PropertiesCache.getInstance().readCustomError(errMsg);
-                    response.getParams().setErrmsg(errMsg);
-                }
-                log.error(errMsg, new Exception(errMsg));
-                return response;
             }
         } catch (Exception e) {
             log.error("Failed to process profile update. Exception: ", e);
@@ -357,5 +368,35 @@ public class UserMigrationServiceImpl implements UserMigrationService {
             response.setResponseCode(HttpStatus.INTERNAL_SERVER_ERROR);
         }
         return response;
+    }
+
+    private Map<String, Object> getUserDetailsForId(String userId) {
+        Map<String, Object> request = new HashMap<>();
+        request.put(Constants.ID, userId);
+        List<Map<String, Object>> userList = cassandraOperation.getRecordsByPropertiesWithoutFiltering(Constants.KEYSPACE_SUNBIRD,
+                Constants.TABLE_USER, request, null);
+        if (CollectionUtils.isNotEmpty(userList)) {
+            return userList.get(0);
+        } else {
+            return MapUtils.EMPTY_MAP;
+        }
+    }
+
+    private String syncUserData(String userId) {
+        String errMsg = null;
+        Map<String, Object> requestBody = new HashMap<String, Object>();
+        Map<String, Object> request = new HashMap<String, Object>();
+        request.put(Constants.OPERATION_TYPE, Constants.SYNC);
+        request.put(Constants.OBJECT_IDS, Arrays.asList(userId));
+        request.put(Constants.OBJECT_TYPE, Constants.USER);
+        requestBody.put(Constants.REQUEST, request);
+
+        Map<String, Object> syncDataResp = (Map<String, Object>) outboundRequestHandlerService.fetchResultUsingPost(
+                serverConfig.getSbUrl() + serverConfig.getLmsDataSyncPath(), requestBody, MapUtils.EMPTY_MAP);
+        if (syncDataResp == null
+                || !Constants.OK.equalsIgnoreCase((String) syncDataResp.get(Constants.RESPONSE_CODE))) {
+            errMsg = "Failed to call Data Sync after updating Profile for User: " + userId;
+        }
+        return errMsg;
     }
 }
