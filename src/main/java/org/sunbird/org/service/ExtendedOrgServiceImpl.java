@@ -993,7 +993,9 @@ public class ExtendedOrgServiceImpl implements ExtendedOrgService {
 		Map<String, String> headerValues = new HashMap<>();
 		headerValues.put(Constants.X_AUTH_TOKEN, authUserToken);
 		request.put(Constants.ORGANIZATION_ID, orgHierarchyInfo.getSbOrgId());
-		request.put(Constants.ORG_NAME, orgHierarchyInfo.getOrgName());
+		if (MapUtils.getObject(orgRequest, Constants.ORG_NAME) != null) {
+			request.put(Constants.ORG_NAME, orgRequest.get(Constants.ORG_NAME));
+		}
 		if (MapUtils.getObject(orgRequest, Constants.DESCRIPTION) != null) {
 			request.put(Constants.DESCRIPTION, orgRequest.get(Constants.DESCRIPTION));
 		}
@@ -1078,5 +1080,55 @@ public class ExtendedOrgServiceImpl implements ExtendedOrgService {
 				request.put(Constants.MINISTRY_STATE_TYPE, deptOrgDetails.getSbOrgType());
 			}
 		}
+	}
+
+	@Override
+	public SBApiResponse updateV2(Map<String, Object> orgRequest, String userToken) {
+		logger.info("ExtendedOrgServiceImpl::updateV2::Starting the update of the organization");
+		SBApiResponse outgoingResponse = ProjectUtil.createDefaultResponse(Constants.API_ORG_EXT_UPDATE);
+		String errMsg = validateRequestFieldsV2(orgRequest, outgoingResponse);
+		if (!StringUtils.isEmpty(errMsg)) return outgoingResponse;
+		OrgHierarchyInfo orgHierarchyInfo = new OrgHierarchyInfo();
+		if(!StringUtils.isBlank(MapUtils.getString(orgRequest, Constants.ORG_NAME))){
+			orgRepository.updateOrgNameBySbOrgId((String) orgRequest.get(Constants.ORG_ID), (String) orgRequest.get(Constants.ORG_NAME));
+			orgHierarchyInfo.setOrgName((String) orgRequest.get(Constants.ORG_NAME));
+		}
+		orgHierarchyInfo.setSbOrgId((String) orgRequest.get(Constants.ORG_ID));
+		Map<String, Object> orgDataUpdateResonse = updateOrgDetailsToDB(userToken, orgHierarchyInfo, orgRequest);
+		if (MapUtils.isEmpty(orgDataUpdateResonse) || !Constants.OK.equals(orgDataUpdateResonse.get(Constants.RESPONSE_CODE))) {
+			logger.info("ExtendedOrgServiceImpl::updateV2::Failed to update Org details for organization: " + orgHierarchyInfo.getSbOrgId());
+			setInternalServerError(outgoingResponse, "Error while updating the organization details");
+		} else {
+			populateSuccessResponse(outgoingResponse);
+		}
+		return outgoingResponse;
+	}
+
+	private String validateRequestFieldsV2(Map<String, Object> request, SBApiResponse response) {
+		String errMsg = "";
+		if (StringUtils.isBlank(MapUtils.getString(request, Constants.ORG_ID))) {
+			errMsg = "Organization ID is missing";
+			response.getParams().setStatus(Constants.FAILED);
+			response.getParams().setErrmsg(errMsg);
+			response.setResponseCode(HttpStatus.BAD_REQUEST);
+			return errMsg;
+		}
+		for (String fieldName : request.keySet()) {
+			if (!validateUpdatableFields(fieldName)) {
+				errMsg = "Field : " + fieldName + " is not allowed to be updated.";
+				logger.info("ExtendedOrgServiceImpl::updateV2::Invalid field in request: {}", fieldName);
+				response.getParams().setStatus(Constants.FAILED);
+				response.getParams().setErrmsg(errMsg);
+				response.setResponseCode(HttpStatus.BAD_REQUEST);
+				return errMsg;
+			}
+			logger.info("Updating organisation for field: {}", fieldName);
+		}
+		return errMsg;
+	}
+
+	public boolean validateUpdatableFields(String field) {
+		List<String> groupValues = configProperties.getOrgUpdatableFields();
+		return groupValues != null && groupValues.contains(field);
 	}
 }

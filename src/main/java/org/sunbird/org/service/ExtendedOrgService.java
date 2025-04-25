@@ -21,4 +21,7 @@ public interface ExtendedOrgService {
 	SBApiResponse listAllOrg(String parentMapId);
 
 	SBApiResponse update(Map<String, Object> orgRequest, String userToken);
+
+	SBApiResponse updateV2(Map<String, Object> orgRequest, String userToken);
+
 }
