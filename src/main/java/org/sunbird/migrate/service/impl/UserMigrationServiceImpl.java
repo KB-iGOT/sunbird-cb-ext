@@ -8,6 +8,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.util.ObjectUtils;
 import org.sunbird.common.model.SBApiResponse;
 import org.sunbird.common.service.OutboundRequestHandlerServiceImpl;
 import org.sunbird.common.util.CbExtServerProperties;
@@ -287,9 +288,30 @@ public class UserMigrationServiceImpl implements UserMigrationService {
             Map<String, Object> existingProfileDetails = (Map<String, Object>) responseMap.get(Constants.PROFILE_DETAILS);
             existingProfileDetails.remove(Constants.UPDATE_AS_NOT_MY_USER);
 
-            Map<String, Object> employmentDetails = new HashMap<>();
-            employmentDetails.put("departmentName", defaultDepartment);
+            Map<String, Object> employmentDetails = null;
+            if (existingProfileDetails.containsKey(Constants.EMPLOYMENT_DETAILS)) {
+                employmentDetails = (Map<String, Object>) existingProfileDetails.get(Constants.EMPLOYMENT_DETAILS);
+            } else {
+                employmentDetails = new HashMap<>();
+            }
+            employmentDetails.put(Constants.DEPARTMENTNAME, defaultDepartment);
+            employmentDetails.put(Constants.DEPARTMENT_ID, (String) responseMap.get(Constants.ROOT_ORG_ID));
             existingProfileDetails.put(Constants.EMPLOYMENT_DETAILS, employmentDetails);
+
+            Map<String, Object> professionalDetail = null;
+            if (existingProfileDetails.containsKey(Constants.PROFESSIONAL_DETAILS)
+                    && !ObjectUtils.isEmpty(existingProfileDetails.get(Constants.PROFESSIONAL_DETAILS))) {
+                professionalDetail = ((List<Map<String, Object>>) existingProfileDetails.get(Constants.PROFESSIONAL_DETAILS))
+                        .get(0);
+            } else {
+                professionalDetail = new HashMap<>();
+                professionalDetail.put(Constants.OSID, UUID.randomUUID().toString());
+            }
+
+            professionalDetail.put(Constants.NAME, defaultDepartment);
+            professionalDetail.put(Constants.ID, (String) responseMap.get(Constants.ROOT_ORG_ID));
+            existingProfileDetails.put(Constants.PROFESSIONAL_DETAILS, Arrays.asList(professionalDetail));
+
 
             HashMap<String, String> headerValue = new HashMap<>();
             headerValue.put(Constants.CONTENT_TYPE, Constants.APPLICATION_JSON);
@@ -308,6 +330,7 @@ public class UserMigrationServiceImpl implements UserMigrationService {
                 response.getResult().put(Constants.RESPONSE, Constants.SUCCESS);
                 response.getParams().setStatus(Constants.SUCCESS);
             } else {
+                log.error("Failed to process profile update for userId: {}", userId);
                 if (Constants.CLIENT_ERROR.equalsIgnoreCase((String) updateResponse.get(Constants.RESPONSE_CODE))) {
                     Map<String, Object> responseParams = (Map<String, Object>) updateResponse.get(Constants.PARAMS);
                     if (MapUtils.isNotEmpty(responseParams)) {
