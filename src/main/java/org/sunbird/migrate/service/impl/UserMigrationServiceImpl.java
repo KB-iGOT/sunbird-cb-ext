@@ -64,7 +64,7 @@ public class UserMigrationServiceImpl implements UserMigrationService {
         log.info("Printing user search URL: {}", url);
 
         int offset = 0;
-        int limit = 250;
+        int limit = 2; // this limit is just for testing purpose, need to remove after testing
         final int MAX_RETRIES = 3;
         int totalProcessed = 0;
         int successCount = 0;
