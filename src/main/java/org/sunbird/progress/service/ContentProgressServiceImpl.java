@@ -234,7 +234,15 @@ public class ContentProgressServiceImpl implements ContentProgressService {
         Map<String, Object> contentProgressAttributes;
         try {
             Map<String, Object> req = (Map<String, Object>) requestBody.getRequest();
-            String courseId = (String) req.get(Constants.COURSE_ID);
+            String externalCourseID = (String) req.get(Constants.EXTERNAL_CONTENT_ID);
+            String courseId = fetchIgotContentIdByExternalId(externalCourseID);
+            if (StringUtils.isEmpty(courseId)) {
+                logger.warn("No courseId found for given externalContentId: " + externalCourseID);
+                response.getParams().setErrmsg(Constants.COURSE_ID_NOT_AVAILABLE_ERROR_MSG);
+                response.getParams().setStatus(Constants.FAILED);
+                response.setResponseCode(HttpStatus.NOT_FOUND);
+                return response;
+            }
             String batchId = "";
             String userId = (String) req.get(Constants.USER_ID);
             Optional<String> result = extractBatchId(userId, courseId);
@@ -350,4 +358,24 @@ public class ContentProgressServiceImpl implements ContentProgressService {
         }
         return Optional.empty();
     }
+
+    public String fetchIgotContentIdByExternalId(String externalContentId) {
+        Map<String, Object> properties = new HashMap<>();
+        properties.put("external_content_id", externalContentId);
+        List<String> fieldsToFetch = Arrays.asList("igot_content_id", "content_partner_name");
+
+        List<Map<String, Object>> records = cassandraOperation.getRecordsByPropertiesWithoutFiltering(
+                Constants.KEYSPACE_SUNBIRD,
+                Constants.KEYSPACE_EXTERNAL_INTEGRATION_COURSES,
+                properties,
+                fieldsToFetch
+        );
+        if (CollectionUtils.isNotEmpty(records)) {
+            return (String) records.get(0).get("igot_content_id");
+        } else {
+            logger.warn("No record found in external_course_mapping for external_content_id: " + externalContentId);
+            return null;
+        }
+    }
+
 }
