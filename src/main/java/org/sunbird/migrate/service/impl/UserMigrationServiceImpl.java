@@ -1,5 +1,8 @@
 package org.sunbird.migrate.service.impl;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.collections.MapUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.elasticsearch.common.recycler.Recycler;
@@ -8,6 +11,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.util.ObjectUtils;
+import org.sunbird.cassandra.utils.CassandraOperation;
 import org.sunbird.common.model.SBApiResponse;
 import org.sunbird.common.service.OutboundRequestHandlerServiceImpl;
 import org.sunbird.common.util.CbExtServerProperties;
@@ -17,6 +22,7 @@ import org.sunbird.common.util.PropertiesCache;
 import org.sunbird.core.config.PropertiesConfig;
 import org.sunbird.migrate.service.UserMigrationService;
 import org.sunbird.profile.service.ProfileService;
+import org.sunbird.user.service.UserUtilityService;
 
 import java.text.SimpleDateFormat;
 import java.time.LocalDateTime;
@@ -42,6 +48,15 @@ public class UserMigrationServiceImpl implements UserMigrationService {
     @Autowired
     ProfileService profileService;
 
+    @Autowired
+    UserUtilityService userUtilityService;
+
+    @Autowired
+    CassandraOperation cassandraOperation;
+
+    @Autowired
+    ObjectMapper mapper;
+
     @Override
     public SBApiResponse migrateUsers() {
         SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.API_USER_MIGRATION);
@@ -50,16 +65,28 @@ public class UserMigrationServiceImpl implements UserMigrationService {
 
         int offset = 0;
         int limit = 250;
-        boolean allOperationsSuccessful = true;
+        final int MAX_RETRIES = 3;
+        int totalProcessed = 0;
+        int successCount = 0;
+        int failedCount = 0;
+        int alreadyMigratedUsers = 0;
+        boolean partialFailureOccurred = false;
         String custodianOrgName = serverConfig.getCustodianOrgName();
-        String custodianOrgId   = serverConfig.getCustodianOrgId();
+        String custodianOrgId = serverConfig.getCustodianOrgId();
         try {
+            int searchUserFailedAttemptCount = 0;
             while (true) {
+                if (searchUserFailedAttemptCount >= MAX_RETRIES) {
+                    log.error("Max retry limit ({}) reached. Exiting user fetch loop.", MAX_RETRIES);
+                    partialFailureOccurred = true; // mark for client awareness
+                    break;
+                }
                 Map<String, Object> request = userSearchRequestBody(offset, limit);
-                Map<String, Object> updateResponse = outboundRequestHandlerService.fetchResultUsingPost(url.toString(), request, null);
+                Map<String, Object> searchResponse = outboundRequestHandlerService.fetchResultUsingPost(url.toString(), request, null);
 
-                if (Constants.OK.equalsIgnoreCase((String) updateResponse.get(Constants.RESPONSE_CODE))) {
-                    Map<String, Object> result = (Map<String, Object>) updateResponse.get(Constants.RESULT);
+                if (MapUtils.isNotEmpty(searchResponse) && searchResponse.containsKey(Constants.RESPONSE_CODE) && Constants.OK.equalsIgnoreCase((String) searchResponse.get(Constants.RESPONSE_CODE))) {
+                    searchUserFailedAttemptCount = 0;
+                    Map<String, Object> result = (Map<String, Object>) searchResponse.get(Constants.RESULT);
                     Map<String, Object> responseData = (Map<String, Object>) result.get(Constants.RESPONSE);
                     List<Map<String, Object>> users = (List<Map<String, Object>>) responseData.get(Constants.CONTENT);
 
@@ -69,6 +96,7 @@ public class UserMigrationServiceImpl implements UserMigrationService {
                     }
 
                     for (Map<String, Object> user : users) {
+                        totalProcessed++;
                         String userId = (String) user.get(Constants.USER_ID);
                         boolean orgFound = false;
                         String rootOrgName = (String) user.get("rootOrgName");
@@ -79,11 +107,11 @@ public class UserMigrationServiceImpl implements UserMigrationService {
                                 String errMsg = executeMigrateUser(getUserMigrateRequest(userId, custodianOrgName, false), null);
                                 if (StringUtils.isNotEmpty(errMsg)) {
                                     log.info("Migration failed for user ID '{}'. Error: {}", userId, errMsg);
-                                    allOperationsSuccessful = false;
+                                    failedCount++;
+                                    partialFailureOccurred = true;
                                 } else {
                                     log.info("Successfully migrated user ID '{}'.", userId);
-                                    Map<String, Object> userPatchRequest = getUserExtPatchRequest(userId, custodianOrgName);
-                                    SBApiResponse userPatchResponse = profileService.profileMDOAdminUpdate(userPatchRequest, null, serverConfig.getSbApiKey(), null);
+                                    SBApiResponse userPatchResponse = profileUpdateAfterNMUMigration(custodianOrgName, userId);
                                     log.info("userPatchResponse for user ID '{}'.", userPatchResponse);
                                     if (userPatchResponse.getResponseCode().is2xxSuccessful()) {
                                         log.info("Successfully patched user ID '{}'. Response: {}", userId, userPatchResponse);
@@ -101,35 +129,44 @@ public class UserMigrationServiceImpl implements UserMigrationService {
 
                                         if (Constants.OK.equalsIgnoreCase((String) assignRole.get(Constants.RESPONSE_CODE))) {
                                             log.info("Successfully assigned public role for user ID '{}'. Response: {}", userId, assignRole);
+                                            successCount++;
                                         } else {
                                             String assignRoleErrorMessage = (String) assignRole.get(Constants.ERROR_MESSAGE);
                                             log.info("Failed to assign 'PUBLIC' role for user ID '{}'. Response: {}. Error: {}", userId, assignRole, assignRoleErrorMessage);
-                                            allOperationsSuccessful = false;
+                                            failedCount++;
+                                            partialFailureOccurred = true;
                                         }
                                     } else {
                                         log.info("Patch failed for user ID '{}'. Response: {}", userId, userPatchResponse);
-                                        allOperationsSuccessful = false;
+                                        failedCount++;
+                                        partialFailureOccurred = true;
                                     }
                                 }
                             } else {
                                 log.info("Organization '{}' found for user ID '{}'. No migration needed.", custodianOrgName, userId);
+                                alreadyMigratedUsers++;
                             }
                         }
                     }
 
                     offset += users.size();
                 } else {
-                    handleErrorResponse(updateResponse, response);
-                    return response;
+                    log.error("Malformed searchResponse (missing RESPONSE_CODE): {}", searchResponse);
+                    searchUserFailedAttemptCount++;
+                    try {
+                        Thread.sleep(1000); // 1-second delay before retrying to give the server a short break
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt(); // restore interrupt status
+                        log.warn("Thread sleep interrupted during retry delay", ie);
+                    }
                 }
             }
 
-            if (allOperationsSuccessful) {
-                response.setResponseCode(HttpStatus.OK);
-                response.getParams().setStatus(Constants.SUCCESS);
-            } else {
-                response.setResponseCode(HttpStatus.INTERNAL_SERVER_ERROR);
-                response.getParams().setStatus(Constants.FAILED);
+            // Always return SUCCESS unless exception occurs
+            response.setResponseCode(HttpStatus.OK);
+            response.getParams().setStatus(Constants.SUCCESS);
+            if (partialFailureOccurred) {
+                response.getParams().setErrmsg("User migration completed with some failures. Check counts.");
             }
 
         } catch (Exception e) {
@@ -138,6 +175,10 @@ public class UserMigrationServiceImpl implements UserMigrationService {
             response.getParams().setStatus(Constants.FAILED);
             response.getParams().setErrmsg(e.getMessage());
         }
+        response.getResult().put("totalUsersProcessed", totalProcessed);
+        response.getResult().put("usersMigratedSuccessfully", successCount);
+        response.getResult().put("usersFailedToMigrate", failedCount);
+        response.getResult().put("alreadyMigratedUsers", alreadyMigratedUsers);
 
         return response;
     }
@@ -246,5 +287,116 @@ public class UserMigrationServiceImpl implements UserMigrationService {
             put("request", requestBody);
         }};
 
+    }
+
+    private SBApiResponse profileUpdateAfterNMUMigration(String defaultDepartment, String userId) {
+        SBApiResponse response = new SBApiResponse(Constants.ORG_PROFILE_UPDATE);
+
+        try {
+            String errMsg = "";
+            Map<String, Object> userData = getUserDetailsForId(userId);
+            if (ObjectUtils.isEmpty(userData)) {
+                response.getParams().setErrmsg(String.format("Failed to get User record from DB. UserId: %s", userId));
+                return response;
+            }
+
+            Map<String, Object> updateDBRequest = new HashMap<>();
+            String profileDetailsStr = (String) userData.get(Constants.PROFILE_DETAILS_LOWER);
+            if (StringUtils.isEmpty(profileDetailsStr)) {
+                response.getParams().setErrmsg("ProfileDetails is null for User.");
+                return response;
+            }
+            try {
+                Map<String, Object> existingProfileDetails = mapper.readValue(profileDetailsStr,
+                        new TypeReference<Map<String, Object>>() {
+                        });
+                existingProfileDetails.remove(Constants.UPDATE_AS_NOT_MY_USER);
+                Map<String, Object> employmentDetails = null;
+                if (existingProfileDetails.containsKey(Constants.EMPLOYMENT_DETAILS)) {
+                    employmentDetails = (Map<String, Object>) existingProfileDetails.get(Constants.EMPLOYMENT_DETAILS);
+                } else {
+                    employmentDetails = new HashMap<>();
+                }
+                employmentDetails.put(Constants.DEPARTMENTNAME, defaultDepartment);
+                employmentDetails.put(Constants.DEPARTMENT_ID, (String) userData.get(Constants.ROOT_ORG_ID));
+                existingProfileDetails.put(Constants.EMPLOYMENT_DETAILS, employmentDetails);
+
+                Map<String, Object> professionalDetail = null;
+                if (existingProfileDetails.containsKey(Constants.PROFESSIONAL_DETAILS)
+                        && !ObjectUtils.isEmpty(existingProfileDetails.get(Constants.PROFESSIONAL_DETAILS))) {
+                    professionalDetail = ((List<Map<String, Object>>) existingProfileDetails.get(Constants.PROFESSIONAL_DETAILS))
+                            .get(0);
+                } else {
+                    professionalDetail = new HashMap<>();
+                    professionalDetail.put(Constants.OSID, UUID.randomUUID().toString());
+                }
+
+                professionalDetail.put(Constants.NAME, defaultDepartment);
+                professionalDetail.put(Constants.ID, (String) userData.get(Constants.ROOT_ORG_ID));
+                existingProfileDetails.put(Constants.PROFESSIONAL_DETAILS, Arrays.asList(professionalDetail));
+
+                updateDBRequest.put(Constants.PROFILE_DETAILS_LOWER, mapper.writeValueAsString(existingProfileDetails));
+            } catch (Exception e) {
+                errMsg = String.format("Failed to parse profileDetails object for userId: %s. Exception: ", userId);
+                log.error(errMsg, e);
+                response.getParams().setErrmsg(errMsg);
+                return response;
+            }
+
+            Map<String, Object> compositeKey = new HashMap<String, Object>();
+            compositeKey.put(Constants.ID, userId);
+            Map<String, Object> updateDBResponse = cassandraOperation.updateRecord(Constants.KEYSPACE_SUNBIRD,
+                    Constants.TABLE_USER, updateDBRequest, compositeKey);
+            if (updateDBResponse != null
+                    && !Constants.SUCCESS.equalsIgnoreCase((String) updateDBResponse.get(Constants.RESPONSE))) {
+                errMsg = String.format("Failed to update profileDetails for UserId : %s", userId);
+                response.getParams().setErrmsg(errMsg);
+                response.getParams().setStatus(Constants.FAILED);
+                response.setResponseCode(HttpStatus.INTERNAL_SERVER_ERROR);
+                return response;
+            } else {
+                syncUserData(userId);
+                log.info("Successfully processed profile update for userId: {}", userId);
+                response.setResponseCode(HttpStatus.OK);
+                response.getResult().put(Constants.RESPONSE, Constants.SUCCESS);
+                response.getParams().setStatus(Constants.SUCCESS);
+            }
+        } catch (Exception e) {
+            log.error("Failed to process profile update. Exception: ", e);
+            response.getParams().setStatus(Constants.FAILED);
+            response.getParams().setErr(e.getMessage());
+            response.setResponseCode(HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+        return response;
+    }
+
+    private Map<String, Object> getUserDetailsForId(String userId) {
+        Map<String, Object> request = new HashMap<>();
+        request.put(Constants.ID, userId);
+        List<Map<String, Object>> userList = cassandraOperation.getRecordsByPropertiesWithoutFiltering(Constants.KEYSPACE_SUNBIRD,
+                Constants.TABLE_USER, request, null);
+        if (CollectionUtils.isNotEmpty(userList)) {
+            return userList.get(0);
+        } else {
+            return MapUtils.EMPTY_MAP;
+        }
+    }
+
+    private String syncUserData(String userId) {
+        String errMsg = null;
+        Map<String, Object> requestBody = new HashMap<String, Object>();
+        Map<String, Object> request = new HashMap<String, Object>();
+        request.put(Constants.OPERATION_TYPE, Constants.SYNC);
+        request.put(Constants.OBJECT_IDS, Arrays.asList(userId));
+        request.put(Constants.OBJECT_TYPE, Constants.USER);
+        requestBody.put(Constants.REQUEST, request);
+
+        Map<String, Object> syncDataResp = (Map<String, Object>) outboundRequestHandlerService.fetchResultUsingPost(
+                serverConfig.getSbUrl() + serverConfig.getLmsDataSyncPath(), requestBody, MapUtils.EMPTY_MAP);
+        if (syncDataResp == null
+                || !Constants.OK.equalsIgnoreCase((String) syncDataResp.get(Constants.RESPONSE_CODE))) {
+            errMsg = "Failed to call Data Sync after updating Profile for User: " + userId;
+        }
+        return errMsg;
     }
 }
