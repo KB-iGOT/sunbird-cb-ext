@@ -1344,6 +1344,9 @@ public class Constants {
 	public static final String API_UPDATE_CONTENT_ATTENDANCE = "api.content.progress.ext.attendance.update";
 	public static final String UPDATE_CONTENT_ATTENDANCE_PROGRESS_ERROR_MSG = "Error in updating the content attendance progress.";
 	public static final String ACTIVE_SESSION_ID_NOT_AVAILABLE_ERROR_MSG = "Session Id not found from content.";
+	public static final String EXTERNAL_CONTENT_ID = "externalContentId";
+	public static final String KEYSPACE_EXTERNAL_INTEGRATION_COURSES = "external_content_integration";
+	public static final String COURSE_ID_NOT_AVAILABLE_ERROR_MSG = "No courseId found for given externalContentId";
 	private Constants() {
 		throw new IllegalStateException("Utility class");
 	}
