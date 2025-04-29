@@ -380,6 +380,12 @@ public class AssessmentServiceV4Impl implements AssessmentServiceV4 {
                                 }
                                 writeDataToDatabaseAndTriggerKafkaEvent(submitRequest, userId, questionSetFromAssessment, finalRes,
                                         (String) assessmentHierarchy.get(Constants.PRIMARY_CATEGORY),assessmentPrimaryCategory,userAuthToken,true);
+                            } else if (Constants.PRACTICE_QUESTION_SET.equalsIgnoreCase(assessmentPrimaryCategory)){
+                                SBApiResponse contentUpdateResponse = new SBApiResponse();
+                                String response=contentService.updateContentProgress(userAuthToken,submitRequest,userId,contentUpdateResponse);
+                                if(!Constants.SUCCESS.equalsIgnoreCase(response)){
+                                    logger.error("AssessmentServiceV4Impl : submitAssessmentAsync : Update while updating the progress of practice assessment");
+                                }
                             }
 
                             return outgoingResponse;
@@ -412,6 +418,12 @@ public class AssessmentServiceV4Impl implements AssessmentServiceV4 {
                         }
                         writeDataToDatabaseAndTriggerKafkaEvent(submitRequest, userId, questionSetFromAssessment, result,
                                 (String) assessmentHierarchy.get(Constants.PRIMARY_CATEGORY),assessmentPrimaryCategory,userAuthToken,true);
+                    } else {
+                        SBApiResponse contentUpdateResponse = new SBApiResponse();
+                        String response=contentService.updateContentProgress(userAuthToken,submitRequest,userId,contentUpdateResponse);
+                        if(!Constants.SUCCESS.equalsIgnoreCase(response)){
+                            logger.error("AssessmentServiceV4Impl : submitAssessmentAsync : Update while updating the progress of practice assessment");
+                        }
                     }
                     return outgoingResponse;
                 }
