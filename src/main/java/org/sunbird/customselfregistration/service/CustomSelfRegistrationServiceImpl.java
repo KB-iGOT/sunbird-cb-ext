@@ -77,6 +77,9 @@ public class CustomSelfRegistrationServiceImpl implements CustomSelfRegistration
     @Autowired
     private CustomSelfRegistrationRepository qrRegistrationCodeRepository;
 
+    @Autowired
+    CbExtServerProperties configProperties;
+
     /**
      * Generates a self-registration QR code and link for the organisation.
      *
@@ -104,8 +107,11 @@ public class CustomSelfRegistrationServiceImpl implements CustomSelfRegistration
         String uniqueId = String.valueOf(System.currentTimeMillis());
         String registrationLink = generateRegistrationLink(orgId,uniqueId);
         String qrCodeFilePath = createQRCodeFilePath(orgId);
+        String orgLogo = getOrganisationLogo(orgId);
+        if (StringUtils.isEmpty(orgLogo))
+            logger.info("Could not find Organisation logo for org : " + orgId);
         try {
-            File qrCodeFile = generateQRCodeFile(registrationLink, qrCodeFilePath, orgId);
+            File qrCodeFile = generateQRCodeFile(registrationLink, qrCodeFilePath, orgId, orgLogo);
             File qrCodeLogoFile = QRCode.from(registrationLink).to(ImageType.JPG).withSize(750, 750).file(qrCodeFilePath);
             outgoingResponse = uploadQRCodeFile(qrCodeFile);
             SBApiResponse qrLogoUploadResponse = uploadQRCodeFile(qrCodeLogoFile);
@@ -241,12 +247,13 @@ public class CustomSelfRegistrationServiceImpl implements CustomSelfRegistration
      * @param orgId Id of the organisation
      * @return A HashMap containing the session information.
      */
-    private HashMap<String, String> populateSession(String qrCodeBody, String filePath, String orgId) {
+    private HashMap<String, String> populateSession(String qrCodeBody, String filePath, String orgId, String orgLogo) {
         // Initialize an empty HashMap to store the session information
         HashMap<String, String> session = new HashMap<>();
         session.put(Constants.QR_CODE_URL, generateCustomSelfRegistrationQRCode(qrCodeBody, filePath));
         session.put(Constants.ORGANIZATION_ID, orgId);
         session.put(Constants.REGISTRATION_LINK_CSR, qrCodeBody);
+        session.put(Constants.ORGANISATIONLOGO, orgLogo);
         List<Map<String, Object>> cassandraResponse = fetchOrgDetailsById(orgId);
         String orgName= (String) cassandraResponse.get(0).get(Constants.ORG_NAME_LOWERCASE);
         session.put(Constants.ORGANISATION_NAME,orgName);
@@ -427,10 +434,10 @@ public class CustomSelfRegistrationServiceImpl implements CustomSelfRegistration
      * @return the generated QR code file
      * @throws IOException if an error occurs during QR code generation
      */
-    private File generateQRCodeFile(String registrationLink, String filePath, String orgId) throws IOException {
+    private File generateQRCodeFile(String registrationLink, String filePath, String orgId, String orgLogo) throws IOException {
         String qrCodeBody = registrationLink;
         HashMap<String, HashMap> pdfParams = populatePDFParams();
-        pdfParams.put(Constants.SESSION, populateSession(qrCodeBody, filePath,orgId));
+        pdfParams.put(Constants.SESSION, populateSession(qrCodeBody, filePath,orgId, orgLogo));
         HashMap<String, HashMap<String, String>> pdfDetails = populatePDFTemplateDetails();
         return pdfGeneratorService.generatePdfV2(pdfDetails, pdfParams);
     }
@@ -879,6 +886,29 @@ public class CustomSelfRegistrationServiceImpl implements CustomSelfRegistration
         properyMap.put(Constants.ID, orgId);
         return cassandraOperation.getRecordsByPropertiesWithoutFiltering(Constants.KEYSPACE_SUNBIRD,
                 Constants.TABLE_ORGANIZATION, properyMap, null);
+    }
+
+    private String getOrganisationLogo(String orgId) {
+        String url = configProperties.getSbUrl() + configProperties.getSbOrgSearchPath();
+        Map<String, Object> filters = new HashMap<>();
+        filters.put(Constants.IDENTIFIER, orgId);
+
+        Map<String, Object> request = new HashMap<>();
+        request.put(Constants.FILTERS, filters);
+
+        Map<String, Object> requestBody = new HashMap<>();
+        requestBody.put(Constants.REQUEST, request);
+        Map<String, String> headers = new HashMap<String, String>();
+        headers.put(Constants.CONTENT_TYPE, Constants.APPLICATION_JSON);
+        Map<String, Object> apiResponse = (Map<String, Object>) outboundRequestHandlerService.fetchResultUsingPost(url,
+                requestBody, headers);
+        if (Constants.OK.equalsIgnoreCase((String) apiResponse.get(Constants.RESPONSE_CODE))) {
+            Map<String, Object> apiResponseResult = (Map<String, Object>) apiResponse.get(Constants.RESULT);
+            Map<String, Object> resultResponse = (Map<String, Object>) apiResponseResult.get(Constants.RESPONSE);
+            Map<String, Object> content = ((List<Map<String, Object>>) resultResponse.get(Constants.CONTENT)).get(0);
+            return (String) content.get(Constants.LOGO);
+        }
+        return null;
     }
 
 }
