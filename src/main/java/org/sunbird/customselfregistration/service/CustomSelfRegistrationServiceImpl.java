@@ -92,17 +92,16 @@ public class CustomSelfRegistrationServiceImpl implements CustomSelfRegistration
         SBApiResponse outgoingResponse = ProjectUtil.createDefaultResponse(Constants.CUSTOM_SELF_REGISTRATION_CREATE_API);
 
         // Validate the access token and fetch the user ID
-//        String userId = fetchUserIdFromToken(authUserToken, outgoingResponse);
-        String userId = "";
+        String userId = fetchUserIdFromToken(authUserToken, outgoingResponse);
         if (userId == null) return outgoingResponse;
         // Validate the request body
         String orgId = validateRequestBody(requestBody, outgoingResponse);
         if (orgId == null) return outgoingResponse;
-//        String errMsg = validateRequestFields(requestBody, outgoingResponse);
-//        if(!StringUtils.isEmpty(errMsg)) return outgoingResponse;
-//        isRegistrationQRCodeActive(orgId);
+        String errMsg = validateRequestFields(requestBody, outgoingResponse);
+        if(!StringUtils.isEmpty(errMsg)) return outgoingResponse;
+        isRegistrationQRCodeActive(orgId);
         //Validate the designation
-//        if (!isDesignationMappedToOrg(orgId, outgoingResponse)) return outgoingResponse;
+        if (!isDesignationMappedToOrg(orgId, outgoingResponse)) return outgoingResponse;
         String uniqueId = String.valueOf(System.currentTimeMillis());
         String registrationLink = generateRegistrationLink(orgId,uniqueId);
         String qrCodeFilePath = createQRCodeFilePath(orgId);
