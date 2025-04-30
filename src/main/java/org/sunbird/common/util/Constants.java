@@ -1139,8 +1139,8 @@ public class Constants {
 	public static final String CADRE_BATCH_EXCLUSION_YR = "exculsionYearList";
 	public static final String NLW_USER_LEADERBOARD = "nlw_user_leaderboard";
 	public static final String NLW_MDO_LEADERBOARD= "nlw_mdo_leaderboard";
-	public static final String API_WALL_OF_FAME_USER_READ = "api.v1.walloffame.user.read";
-	public static final String API_WALL_OF_FAME_MDO_LEADERBOARD = "api.v1.walloffame.mdoleaderboard";
+	public static final String API_HALL_OF_FAME_USER_READ = "api.v1.halloffame.user.read";
+	public static final String API_HALL_OF_FAME_MDO_LEADERBOARD = "api.v1.halloffame.mdoleaderboard";
 	public static final String USER_LEADERBOARD = "userLeaderBoard";
 	public static final String SIZE = "size";
 	public static final String INVALID_ORG_ID = "invalid organisation id";
@@ -1326,27 +1326,22 @@ public class Constants {
 	public static final String PROFILE_SURVEY_ID = "profileSurveyId";
 	public static final String GROUP_TITLE_CASE = "Group";
 	public static final String DESIGNATION_TITLE_CASE = "Designation";
-  public static final String ACTIVE_BATCH_NOT_AVAILABLE_ERROR_MSG = "No Active Batch Available.";
-  public static final String USER_NON_RELEVANT_RECOMMENDATIONS = "user_non_relevant_recommendations";
-	public static final String API_COURSE_RECOMMENDATION_READ = "api.course.recommendation.read";
+	public static final String USER_NON_RELEVANT_RECOMMENDATIONS = "user_non_relevant_recommendations";
 	public static final String API_COURSE_RECOMMENDATION_SAVE = "api.course.recommendation.save";
 	public static final String USER_ID_COURSE_IDs_DOESNT_EXIST = "User Id and Course Ids doesn't exist";
 	public static final String CREATED_ON_KEY = "createdon";
 	public static final String COURSE_RECOMMENDATION = "courserecommendations";
 	public static final String UPDATED_ON_KEY = "updatedon";
+	public static final String API_COURSE_RECOMMENDATION_READ = "api.course.recommendation.read";
 	public static final String PARENT_ID = "parent_id";
 	public static final String MDOID ="mdoId";
 	public static final String STATE_TOP_10_LEARNERS ="stateTop10Learners";
 	public static final String TABLE_STATE_TOP_10_LEARNER ="slw_mdo_top_learners";
 	public static final String SLW_MDO_LEADERBOARD= "slw_mdo_leaderboard";
-	public static final String API_WALL_OF_FAME_STATE_MDO_LEADERBOARD = "api.v1.walloffame.state.mdoleaderboard";
+	public static final String API_HALL_OF_FAME_STATE_MDO_LEADERBOARD = "api.v1.halloffame.state.mdoleaderboard";
 	public static final String API_STATE_LEARNING_WEEK_INSIGHTS ="api.state-learning-week.insights";
-	public static final String API_UPDATE_CONTENT_ATTENDANCE = "api.content.progress.ext.attendance.update";
-	public static final String UPDATE_CONTENT_ATTENDANCE_PROGRESS_ERROR_MSG = "Error in updating the content attendance progress.";
-	public static final String ACTIVE_SESSION_ID_NOT_AVAILABLE_ERROR_MSG = "Session Id not found from content.";
-	public static final String EXTERNAL_CONTENT_ID = "externalContentId";
-	public static final String KEYSPACE_EXTERNAL_INTEGRATION_COURSES = "external_content_integration";
-	public static final String COURSE_ID_NOT_AVAILABLE_ERROR_MSG = "No courseId found for given externalContentId";
+	public static final String ORGANISATIONLOGO = "organisationLogo";
+
 	private Constants() {
 		throw new IllegalStateException("Utility class");
 	}
