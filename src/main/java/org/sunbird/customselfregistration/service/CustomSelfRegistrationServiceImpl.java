@@ -28,6 +28,7 @@ import org.sunbird.org.repository.CustomSelfRegistrationRepository;
 import org.sunbird.storage.service.StorageServiceImpl;
 import org.sunbird.workallocation.service.PdfGeneratorServiceImpl;
 
+import javax.ws.rs.InternalServerErrorException;
 import java.io.File;
 import java.io.IOException;
 import java.time.Instant;
@@ -257,7 +258,7 @@ public class CustomSelfRegistrationServiceImpl implements CustomSelfRegistration
             return session;
         } else {
             logger.info("Cassadra records not found for this orgid : "+orgId);
-            throw new BadRequestException("No data found for this orgId : "+orgId);
+            throw new InternalServerErrorException("No data found for this orgId : "+orgId);
         }
     }
 
