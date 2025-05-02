@@ -344,6 +344,11 @@ public class AssessmentServiceV5Impl implements AssessmentServiceV5 {
             }else {
                 scoreCutOffType= Constants.ASSESSMENT_LEVEL_SCORE_CUTOFF;
             }
+            Map<String,Object> courseCategoryMap=contentService.readContent((String) submitRequest.get(Constants.COURSE_ID));
+            String courseCategory = "";
+            if (MapUtils.isNotEmpty(courseCategoryMap)) {
+                courseCategory = (String) courseCategoryMap.get(Constants.COURSE_CATEGORY);
+            }
                 List<Map<String, Object>> sectionLevelsResults = new ArrayList<>();
                 for (Map<String, Object> hierarchySection : hierarchySectionList) {
                     String hierarchySectionId = (String) hierarchySection.get(Constants.IDENTIFIER);
@@ -389,7 +394,14 @@ public class AssessmentServiceV5Impl implements AssessmentServiceV5 {
                                             });
                                 }
                                 writeDataToDatabaseAndTriggerKafkaEvent(submitRequest, userId, questionSetFromAssessment, finalRes,
-                                        (String) assessmentHierarchy.get(Constants.PRIMARY_CATEGORY), assessmentPrimaryCategory,userAuthToken);
+                                        (String) assessmentHierarchy.get(Constants.PRIMARY_CATEGORY), courseCategory,userAuthToken);
+                            }
+                            else if (Constants.PRACTICE_QUESTION_SET.equalsIgnoreCase(assessmentPrimaryCategory)){
+                                SBApiResponse contentUpdateResponse = new SBApiResponse();
+                                String response=contentService.updateContentProgress(userAuthToken,submitRequest,userId,contentUpdateResponse);
+                                if(!Constants.SUCCESS.equalsIgnoreCase(response)){
+                                    logger.error("AssessmentServiceV5Impl : submitAssessmentAsync : Update while updating the progress of practice assessment");
+                                }
                             }
                             return outgoingResponse;
                         }
@@ -425,7 +437,13 @@ public class AssessmentServiceV5Impl implements AssessmentServiceV5 {
                                     });
                         }
                         writeDataToDatabaseAndTriggerKafkaEvent(submitRequest, userId, questionSetFromAssessment, result,
-                                (String) assessmentHierarchy.get(Constants.PRIMARY_CATEGORY),assessmentPrimaryCategory, userAuthToken);
+                                (String) assessmentHierarchy.get(Constants.PRIMARY_CATEGORY),courseCategory, userAuthToken);
+                    } else if (Constants.PRACTICE_QUESTION_SET.equalsIgnoreCase(assessmentPrimaryCategory)){
+                        SBApiResponse contentUpdateResponse = new SBApiResponse();
+                        String response =contentService.updateContentProgress(userAuthToken,submitRequest,userId,contentUpdateResponse);
+                        if(!Constants.SUCCESS.equalsIgnoreCase(response)){
+                            logger.error("AssessmentServiceV5Impl : submitAssessmentAsync : Update while updating the progress of practice assessment");
+                        }
                     }
                     return outgoingResponse;
                 }
@@ -770,7 +788,7 @@ public class AssessmentServiceV5Impl implements AssessmentServiceV5 {
     }
 
     private void writeDataToDatabaseAndTriggerKafkaEvent(Map<String, Object> submitRequest, String userId,
-                                                         Map<String, Object> questionSetFromAssessment, Map<String, Object> result, String primaryCategory, String assessmentPrimaryCategory, String userAuthToken) {
+                                                         Map<String, Object> questionSetFromAssessment, Map<String, Object> result, String primaryCategory, String courseCategory, String userAuthToken) {
         try {
             if (questionSetFromAssessment.get(Constants.START_TIME) != null) {
                 Long existingAssessmentStartTime = (Long) questionSetFromAssessment.get(Constants.START_TIME);
@@ -779,7 +797,7 @@ public class AssessmentServiceV5Impl implements AssessmentServiceV5 {
                         (String) submitRequest.get(Constants.IDENTIFIER), submitRequest, result, Constants.SUBMITTED,
                         startTime,null);
                 //If the assessment is of the type of Standalone assessment it should be mandatory to pass to generate the certificate and updateContentProgess
-                if (Boolean.TRUE.equals(isAssessmentUpdatedToDB) && ((boolean) result.get(Constants.PASS) || !"Standalone Assessment".equalsIgnoreCase(assessmentPrimaryCategory))) {
+                if (Boolean.TRUE.equals(isAssessmentUpdatedToDB) && ((boolean) result.get(Constants.PASS) || !"Standalone Assessment".equalsIgnoreCase(courseCategory))) {
                     SBApiResponse contentUpdateResponse = new SBApiResponse();
                     contentService.updateContentProgress(userAuthToken,submitRequest,userId,contentUpdateResponse);
                     Map<String, Object> kafkaResult = new HashMap<>();
@@ -1302,6 +1320,11 @@ public class AssessmentServiceV5Impl implements AssessmentServiceV5 {
                 scoreCutOffType= Constants.ASSESSMENT_LEVEL_SCORE_CUTOFF;
             }
             List<Map<String, Object>> sectionLevelsResults = new ArrayList<>();
+            Map<String,Object> courseCategoryMap=contentService.readContent((String) submitRequest.get(Constants.COURSE_ID));
+            String courseCategory = "";
+            if (MapUtils.isNotEmpty(courseCategoryMap)) {
+                courseCategory = (String) courseCategoryMap.get(Constants.COURSE_CATEGORY);
+            }
             for (Map<String, Object> hierarchySection : hierarchySectionList) {
                 String hierarchySectionId = (String) hierarchySection.get(Constants.IDENTIFIER);
                 String userSectionId = "";
@@ -1346,7 +1369,13 @@ public class AssessmentServiceV5Impl implements AssessmentServiceV5 {
                                         });
                             }
                             writeDataToDatabaseAndTriggerKafkaEvent(submitRequest, userId, questionSetFromAssessment, finalRes,
-                                    (String) assessmentHierarchy.get(Constants.PRIMARY_CATEGORY), assessmentPrimaryCategory, userAuthToken);
+                                    (String) assessmentHierarchy.get(Constants.PRIMARY_CATEGORY), courseCategory, userAuthToken);
+                        } else if (Constants.PRACTICE_QUESTION_SET.equalsIgnoreCase(assessmentPrimaryCategory)){
+                            SBApiResponse contentUpdateResponse = new SBApiResponse();
+                            String response=contentService.updateContentProgress(userAuthToken,submitRequest,userId,contentUpdateResponse);
+                            if(!Constants.SUCCESS.equalsIgnoreCase(response)){
+                                logger.error("AssessmentServiceV5Impl : submitAssessmentAsync : Update while updating the progress of practice assessment");
+                            }
                         }
                         return outgoingResponse;
                     }
@@ -1372,7 +1401,7 @@ public class AssessmentServiceV5Impl implements AssessmentServiceV5 {
                 outgoingResponse.getParams().setStatus(Constants.SUCCESS);
                 outgoingResponse.setResponseCode(HttpStatus.OK);
                 outgoingResponse.getResult().put(Constants.PRIMARY_CATEGORY, assessmentPrimaryCategory);
-                if (!Constants.PRACTICE_QUESTION_SET.equalsIgnoreCase(assessmentPrimaryCategory) && !editMode  && Constants.SUCCESS.equalsIgnoreCase(progressUpdateAPIRespone)) {
+                if (!Constants.PRACTICE_QUESTION_SET.equalsIgnoreCase(assessmentPrimaryCategory) && !editMode) {
                     String questionSetFromAssessmentString = (String) existingAssessmentData
                             .get(Constants.ASSESSMENT_READ_RESPONSE_KEY);
                     Map<String,Object> questionSetFromAssessment = null;
@@ -1382,7 +1411,13 @@ public class AssessmentServiceV5Impl implements AssessmentServiceV5 {
                                 });
                     }
                     writeDataToDatabaseAndTriggerKafkaEvent(submitRequest, userId, questionSetFromAssessment, result,
-                            (String) assessmentHierarchy.get(Constants.PRIMARY_CATEGORY), assessmentPrimaryCategory, userAuthToken);
+                            (String) assessmentHierarchy.get(Constants.PRIMARY_CATEGORY), courseCategory, userAuthToken);
+                } else if (Constants.PRACTICE_QUESTION_SET.equalsIgnoreCase(assessmentPrimaryCategory)){
+                    SBApiResponse contentUpdateResponse = new SBApiResponse();
+                    String response=contentService.updateContentProgress(userAuthToken,submitRequest,userId,contentUpdateResponse);
+                    if(!Constants.SUCCESS.equalsIgnoreCase(response)){
+                        logger.error("AssessmentServiceV5Impl : submitAssessmentAsync : Update while updating the progress of practice assessment");
+                    }
                 }
                 return outgoingResponse;
             }

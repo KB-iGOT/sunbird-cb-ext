@@ -1348,6 +1348,8 @@ public class Constants {
 	public static final String EXTERNAL_CONTENT_ID = "externalContentId";
 	public static final String KEYSPACE_EXTERNAL_INTEGRATION_COURSES = "external_content_integration";
 	public static final String COURSE_ID_NOT_AVAILABLE_ERROR_MSG = "No courseId found for given externalContentId";
+	public static final String ORGANISATIONLOGO = "organisationLogo";
+
 	private Constants() {
 		throw new IllegalStateException("Utility class");
 	}
