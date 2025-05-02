@@ -333,7 +333,11 @@ public class AssessmentServiceV4Impl implements AssessmentServiceV4 {
                 return outgoingResponse;
             }
             String assessmentPrimaryCategory = (String) assessmentHierarchy.get(Constants.PRIMARY_CATEGORY);
-
+            Map<String,Object> courseCategoryMap=contentService.readContent((String) submitRequest.get(Constants.COURSE_ID));
+            String courseCategory = "";
+            if (MapUtils.isNotEmpty(courseCategoryMap)) {
+                courseCategory = (String) courseCategoryMap.get(Constants.COURSE_CATEGORY);
+            }
                 String scoreCutOffType = ((String) assessmentHierarchy.get(Constants.SCORE_CUTOFF_TYPE)).toLowerCase();
                 List<Map<String, Object>> sectionLevelsResults = new ArrayList<>();
                 for (Map<String, Object> hierarchySection : hierarchySectionList) {
@@ -379,7 +383,7 @@ public class AssessmentServiceV4Impl implements AssessmentServiceV4 {
                                             });
                                 }
                                 writeDataToDatabaseAndTriggerKafkaEvent(submitRequest, userId, questionSetFromAssessment, finalRes,
-                                        (String) assessmentHierarchy.get(Constants.PRIMARY_CATEGORY),assessmentPrimaryCategory,userAuthToken,true);
+                                        (String) assessmentHierarchy.get(Constants.PRIMARY_CATEGORY),courseCategory,userAuthToken,true);
                             } else if (Constants.PRACTICE_QUESTION_SET.equalsIgnoreCase(assessmentPrimaryCategory)){
                                 SBApiResponse contentUpdateResponse = new SBApiResponse();
                                 String response=contentService.updateContentProgress(userAuthToken,submitRequest,userId,contentUpdateResponse);
@@ -417,7 +421,7 @@ public class AssessmentServiceV4Impl implements AssessmentServiceV4 {
                                     });
                         }
                         writeDataToDatabaseAndTriggerKafkaEvent(submitRequest, userId, questionSetFromAssessment, result,
-                                (String) assessmentHierarchy.get(Constants.PRIMARY_CATEGORY),assessmentPrimaryCategory,userAuthToken,true);
+                                (String) assessmentHierarchy.get(Constants.PRIMARY_CATEGORY),courseCategory,userAuthToken,true);
                     } else {
                         SBApiResponse contentUpdateResponse = new SBApiResponse();
                         String response=contentService.updateContentProgress(userAuthToken,submitRequest,userId,contentUpdateResponse);
@@ -877,7 +881,7 @@ public class AssessmentServiceV4Impl implements AssessmentServiceV4 {
     }
 
     private void writeDataToDatabaseAndTriggerKafkaEvent(Map<String, Object> submitRequest, String userId,
-            Map<String, Object> questionSetFromAssessment, Map<String, Object> result, String primaryCategory,String assessmentPrimaryCategory,
+            Map<String, Object> questionSetFromAssessment, Map<String, Object> result, String primaryCategory,String courseCategory,
                                                          String userAuthToken, boolean shouldUpdateContentProgress) {
         try {
             if (questionSetFromAssessment.get(Constants.START_TIME) != null) {
@@ -886,7 +890,7 @@ public class AssessmentServiceV4Impl implements AssessmentServiceV4 {
                 Boolean isAssessmentUpdatedToDB = assessmentRepository.updateUserAssesmentDataToDB(userId,
                         (String) submitRequest.get(Constants.IDENTIFIER), submitRequest, result, Constants.SUBMITTED,
                         startTime,null);
-                if (Boolean.TRUE.equals(isAssessmentUpdatedToDB) && ((boolean) result.get(Constants.PASS) || !"Standalone Assessment".equalsIgnoreCase(assessmentPrimaryCategory))) {
+                if (Boolean.TRUE.equals(isAssessmentUpdatedToDB) && ((boolean) result.get(Constants.PASS) || !"Standalone Assessment".equalsIgnoreCase(courseCategory))) {
                     if (shouldUpdateContentProgress) {
                         SBApiResponse contentUpdateResponse = new SBApiResponse();
                         contentService.updateContentProgress(userAuthToken, submitRequest, userId, contentUpdateResponse);
