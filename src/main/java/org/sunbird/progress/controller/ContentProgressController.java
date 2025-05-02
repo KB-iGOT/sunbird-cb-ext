@@ -46,4 +46,15 @@ public class ContentProgressController {
         SBApiResponse response = service.getUserSessionDetailsAndCourseProgress(authUserToken, requestBody);
         return new ResponseEntity<>(response, response.getResponseCode());
     }
+
+    /**
+     * @param requestBody   -Request body of the API which needs to be processed.
+     * @return - Return the response of success/failure after processing the request.
+     */
+    @PostMapping("/v1/ext/attendance/update")
+    public ResponseEntity<?> updateContentAttendance(@RequestBody SunbirdApiRequest requestBody) {
+        SBApiResponse response = service.updateContentAttendance( requestBody);
+        return new ResponseEntity<>(response, response.getResponseCode());
+    }
+
 }

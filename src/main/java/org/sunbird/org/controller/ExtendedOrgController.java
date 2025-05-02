@@ -59,4 +59,11 @@ public class ExtendedOrgController {
 		SBApiResponse response = orgService.listAllOrg(parentMapId);
 		return new ResponseEntity<>(response, response.getResponseCode());
 	}
+
+	@PatchMapping("/org/ext/v2/update")
+	public ResponseEntity<SBApiResponse> updateOrgV2(@RequestBody Map<String, Object> orgRequest,
+												   @RequestHeader(Constants.X_AUTH_TOKEN) String userToken) {
+		SBApiResponse response = orgService.updateV2(orgRequest, userToken);
+		return new ResponseEntity<>(response, response.getResponseCode());
+	}
 }

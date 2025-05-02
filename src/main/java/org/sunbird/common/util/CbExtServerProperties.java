@@ -998,6 +998,9 @@ public class CbExtServerProperties {
 	@Value("${mdo.leader.board.size.list}")
 	private String mdoLeaderBoardSizeList;
 
+	@Value("${org.updatable.fields}")
+	private String orgUpdatableFields;
+
 	@Value("${bulk.user.migrate.max.size}")
 	private String bulkUserMigrateMaxSize;
 
@@ -3452,6 +3455,15 @@ public class CbExtServerProperties {
 	public void setMdoLeaderBoardSizeList(String mdoLeaderBoardSizeList) {
 		this.mdoLeaderBoardSizeList = mdoLeaderBoardSizeList;
 	}
+
+	public List<String> getOrgUpdatableFields() {
+		return Arrays.asList(orgUpdatableFields.split(",", -1));
+	}
+
+	public void setOrgUpdatableFields(String orgUpdatableFields) {
+		this.orgUpdatableFields = orgUpdatableFields;
+	}
+
 
 	public String getBulkUserMigrateMaxSize() {
 		return bulkUserMigrateMaxSize;
