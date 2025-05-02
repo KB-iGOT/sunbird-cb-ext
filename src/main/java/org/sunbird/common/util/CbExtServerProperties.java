@@ -1001,6 +1001,9 @@ public class CbExtServerProperties {
 	@Value("${org.updatable.fields}")
 	private String orgUpdatableFields;
 
+	@Value("${bulk.user.migrate.max.size}")
+	private String bulkUserMigrateMaxSize;
+
 	public String getStateLearningInsightsRedisKeyMapping() {
 		return stateLearningInsightsRedisKeyMapping;
 	}
@@ -3461,4 +3464,12 @@ public class CbExtServerProperties {
 		this.orgUpdatableFields = orgUpdatableFields;
 	}
 
+
+	public String getBulkUserMigrateMaxSize() {
+		return bulkUserMigrateMaxSize;
+	}
+
+	public void setBulkUserMigrateMaxSize(String bulkUserMigrateMaxSize) {
+		this.bulkUserMigrateMaxSize = bulkUserMigrateMaxSize;
+	}
 }
