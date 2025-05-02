@@ -1342,6 +1342,7 @@ public class Constants {
 	public static final String API_WALL_OF_FAME_STATE_MDO_LEADERBOARD = "api.v1.walloffame.state.mdoleaderboard";
 	public static final String API_STATE_LEARNING_WEEK_INSIGHTS ="api.state-learning-week.insights";
 	public static final String EVENTS_PUBLISHED = "Events Published";
+	public static final String ORGANISATIONLOGO = "organisationLogo";
 
 	private Constants() {
 		throw new IllegalStateException("Utility class");

@@ -21,12 +21,14 @@ import org.sunbird.common.util.AccessTokenValidator;
 import org.sunbird.common.util.CbExtServerProperties;
 import org.sunbird.common.util.Constants;
 import org.sunbird.common.util.ProjectUtil;
+import org.sunbird.core.exception.BadRequestException;
 import org.sunbird.org.model.CustomeSelfRegistrationEntity;
 import org.sunbird.customselfregistration.model.CustomSelfRegistrationModel;
 import org.sunbird.org.repository.CustomSelfRegistrationRepository;
 import org.sunbird.storage.service.StorageServiceImpl;
 import org.sunbird.workallocation.service.PdfGeneratorServiceImpl;
 
+import javax.ws.rs.InternalServerErrorException;
 import java.io.File;
 import java.io.IOException;
 import java.time.Instant;
@@ -248,11 +250,16 @@ public class CustomSelfRegistrationServiceImpl implements CustomSelfRegistration
         session.put(Constants.ORGANIZATION_ID, orgId);
         session.put(Constants.REGISTRATION_LINK_CSR, qrCodeBody);
         List<Map<String, Object>> cassandraResponse = fetchOrgDetailsById(orgId);
-        String orgName= (String) cassandraResponse.get(0).get(Constants.ORG_NAME_LOWERCASE);
-        session.put(Constants.ORGANISATION_NAME,orgName);
-
-        logger.info("CustomSelfRegistrationServiceImpl::populateSession : Session information: " + session.get(Constants.ORGANIZATION_ID) +" "+ session.get(Constants.ORGANISATION_NAME));
-        return session;
+        if (CollectionUtils.isNotEmpty(cassandraResponse)){
+            String orgName= (String) cassandraResponse.get(0).get(Constants.ORG_NAME_LOWERCASE);
+            session.put(Constants.ORGANISATION_NAME,orgName);
+            session.put(Constants.ORGANISATIONLOGO, (String) cassandraResponse.get(0).get(Constants.LOGO));
+            logger.info("CustomSelfRegistrationServiceImpl::populateSession : Session information: " + session.get(Constants.ORGANIZATION_ID) +" "+ session.get(Constants.ORGANISATION_NAME));
+            return session;
+        } else {
+            logger.info("Cassadra records not found for this orgid : "+orgId);
+            throw new InternalServerErrorException("No data found for this orgId : "+orgId);
+        }
     }
 
     /**
