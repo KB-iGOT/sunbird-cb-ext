@@ -998,6 +998,9 @@ public class CbExtServerProperties {
 	@Value("${mdo.leader.board.size.list}")
 	private String mdoLeaderBoardSizeList;
 
+	@Value("${bulk.user.migrate.max.size}")
+	private String bulkUserMigrateMaxSize;
+
 	public String getStateLearningInsightsRedisKeyMapping() {
 		return stateLearningInsightsRedisKeyMapping;
 	}
@@ -3448,5 +3451,13 @@ public class CbExtServerProperties {
 
 	public void setMdoLeaderBoardSizeList(String mdoLeaderBoardSizeList) {
 		this.mdoLeaderBoardSizeList = mdoLeaderBoardSizeList;
+	}
+
+	public String getBulkUserMigrateMaxSize() {
+		return bulkUserMigrateMaxSize;
+	}
+
+	public void setBulkUserMigrateMaxSize(String bulkUserMigrateMaxSize) {
+		this.bulkUserMigrateMaxSize = bulkUserMigrateMaxSize;
 	}
 }

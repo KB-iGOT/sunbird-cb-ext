@@ -66,6 +66,7 @@ public class UserMigrationServiceImpl implements UserMigrationService {
         int offset = 0;
         int limit = 250;
         final int MAX_RETRIES = 3;
+        int syncUserBatchSize = 10;
         int totalProcessed = 0;
         int successCount = 0;
         int failedCount = 0;
@@ -73,9 +74,12 @@ public class UserMigrationServiceImpl implements UserMigrationService {
         boolean partialFailureOccurred = false;
         String custodianOrgName = serverConfig.getCustodianOrgName();
         String custodianOrgId = serverConfig.getCustodianOrgId();
+        int MAX_OFFSET = Integer.parseInt(serverConfig.getBulkUserMigrateMaxSize());
+        List<String> successfullyMigratedUsers = new ArrayList<>();
         try {
             int searchUserFailedAttemptCount = 0;
-            while (true) {
+            List<Map<String, Object>> usersList = new ArrayList<>();
+            while (offset < MAX_OFFSET) {
                 if (searchUserFailedAttemptCount >= MAX_RETRIES) {
                     log.error("Max retry limit ({}) reached. Exiting user fetch loop.", MAX_RETRIES);
                     partialFailureOccurred = true; // mark for client awareness
@@ -89,66 +93,11 @@ public class UserMigrationServiceImpl implements UserMigrationService {
                     Map<String, Object> result = (Map<String, Object>) searchResponse.get(Constants.RESULT);
                     Map<String, Object> responseData = (Map<String, Object>) result.get(Constants.RESPONSE);
                     List<Map<String, Object>> users = (List<Map<String, Object>>) responseData.get(Constants.CONTENT);
-
                     if (users.isEmpty()) {
-                        log.info("No more users found. Exiting pagination.");
+                        log.info("Total users fetched to migrate: {}, No more users found. Exiting pagination.", usersList.size());
                         break;
                     }
-
-                    for (Map<String, Object> user : users) {
-                        totalProcessed++;
-                        String userId = (String) user.get(Constants.USER_ID);
-                        boolean orgFound = false;
-                        String rootOrgName = (String) user.get("rootOrgName");
-                        if (rootOrgName != null) {
-                            orgFound = rootOrgName.equalsIgnoreCase(custodianOrgName);
-                            if (!orgFound) {
-                                log.info("Organization '{}' not found for user ID '{}'. Initiating migration API call.", custodianOrgName, userId);
-                                String errMsg = executeMigrateUser(getUserMigrateRequest(userId, custodianOrgName, false), null);
-                                if (StringUtils.isNotEmpty(errMsg)) {
-                                    log.info("Migration failed for user ID '{}'. Error: {}", userId, errMsg);
-                                    failedCount++;
-                                    partialFailureOccurred = true;
-                                } else {
-                                    log.info("Successfully migrated user ID '{}'.", userId);
-                                    SBApiResponse userPatchResponse = profileUpdateAfterNMUMigration(custodianOrgName, userId);
-                                    log.info("userPatchResponse for user ID '{}'.", userPatchResponse);
-                                    if (userPatchResponse.getResponseCode().is2xxSuccessful()) {
-                                        log.info("Successfully patched user ID '{}'. Response: {}", userId, userPatchResponse);
-                                        Map<String, Object> requestBody = new HashMap<String, Object>() {{
-                                            put(Constants.ORGANIZATION_ID, custodianOrgId);
-                                            put(Constants.USER_ID, userId);
-                                            put(Constants.ROLES, Arrays.asList(Constants.PUBLIC));
-                                        }};
-                                        Map<String, Object> roleRequest = new HashMap<String, Object>() {{
-                                            put("request", requestBody);
-                                        }};
-                                        StringBuilder assignRoleUrl = new StringBuilder(serverConfig.getSbUrl()).append(serverConfig.getSbAssignRolePath());
-                                        log.info("printing assignRoleUrl: {}", assignRoleUrl);
-                                        Map<String, Object> assignRole = outboundRequestHandlerService.fetchResultUsingPost(assignRoleUrl.toString(), roleRequest, null);
-
-                                        if (Constants.OK.equalsIgnoreCase((String) assignRole.get(Constants.RESPONSE_CODE))) {
-                                            log.info("Successfully assigned public role for user ID '{}'. Response: {}", userId, assignRole);
-                                            successCount++;
-                                        } else {
-                                            String assignRoleErrorMessage = (String) assignRole.get(Constants.ERROR_MESSAGE);
-                                            log.info("Failed to assign 'PUBLIC' role for user ID '{}'. Response: {}. Error: {}", userId, assignRole, assignRoleErrorMessage);
-                                            failedCount++;
-                                            partialFailureOccurred = true;
-                                        }
-                                    } else {
-                                        log.info("Patch failed for user ID '{}'. Response: {}", userId, userPatchResponse);
-                                        failedCount++;
-                                        partialFailureOccurred = true;
-                                    }
-                                }
-                            } else {
-                                log.info("Organization '{}' found for user ID '{}'. No migration needed.", custodianOrgName, userId);
-                                alreadyMigratedUsers++;
-                            }
-                        }
-                    }
-
+                    usersList.addAll(users);
                     offset += users.size();
                 } else {
                     log.error("Malformed searchResponse (missing RESPONSE_CODE): {}", searchResponse);
@@ -160,6 +109,93 @@ public class UserMigrationServiceImpl implements UserMigrationService {
                         log.warn("Thread sleep interrupted during retry delay", ie);
                     }
                 }
+            }
+
+            for (Map<String, Object> user : usersList) {
+                totalProcessed++;
+                String userId = (String) user.get(Constants.USER_ID);
+                try {
+                    boolean orgFound = false;
+                    String rootOrgName = (String) user.get("rootOrgName");
+                    if (rootOrgName != null) {
+                        orgFound = rootOrgName.equalsIgnoreCase(custodianOrgName);
+                        if (!orgFound) {
+                            log.info("Organization '{}' not found for user ID '{}'. Initiating migration API call.", custodianOrgName, userId);
+                            String errMsg = executeMigrateUser(getUserMigrateRequest(userId, custodianOrgName, false), null);
+                            if (StringUtils.isNotEmpty(errMsg)) {
+                                log.info("Migration failed for user ID '{}'. Error: {}", userId, errMsg);
+                                failedCount++;
+                                partialFailureOccurred = true;
+                                continue; // skip rest of the steps for this user
+                            }
+
+                            SBApiResponse userPatchResponse = profileUpdateAfterNMUMigration(custodianOrgName, userId);
+                            if (!userPatchResponse.getResponseCode().is2xxSuccessful()) {
+                                log.info("Profile Update failed for user ID: {}", userId);
+                                failedCount++;
+                                partialFailureOccurred = true;
+                                continue;
+                            }
+
+                            Map<String, Object> requestBody = new HashMap<String, Object>() {{
+                                put(Constants.ORGANIZATION_ID, custodianOrgId);
+                                put(Constants.USER_ID, userId);
+                                put(Constants.ROLES, Arrays.asList(Constants.PUBLIC));
+                            }};
+                            Map<String, Object> roleRequest = new HashMap<String, Object>() {{
+                                put("request", requestBody);
+                            }};
+                            String assignRoleUrl = serverConfig.getSbUrl() + serverConfig.getSbAssignRolePath();
+                            Map<String, Object> assignRole = outboundRequestHandlerService.fetchResultUsingPost(assignRoleUrl, roleRequest, null);
+
+                            if (!Constants.OK.equalsIgnoreCase((String) assignRole.get(Constants.RESPONSE_CODE))) {
+                                log.info("Failed to assign role for user '{}'. Response: {}", userId, assignRole);
+                                failedCount++;
+                                partialFailureOccurred = true;
+                                continue;
+                            }
+
+                            // All steps passed
+                            successCount++;
+                            successfullyMigratedUsers.add(userId);
+                            log.info("Successfully migrated and updated user ID '{}'.", userId);
+
+                        } else {
+                            log.info("Organization '{}' found for user ID '{}'. No migration needed.", custodianOrgName, userId);
+                            alreadyMigratedUsers++;
+                        }
+                    }
+                } catch (Exception ex) {
+                    log.error("Unexpected error while processing user '{}': {}", userId, ex.getMessage(), ex);
+                    failedCount++;
+                    partialFailureOccurred = true;
+                }
+            }
+
+            for (int i = 0; i < successfullyMigratedUsers.size(); i += syncUserBatchSize) {
+                List<String> userIds = successfullyMigratedUsers.subList(i, Math.min(i + syncUserBatchSize, successfullyMigratedUsers.size()));
+                int retryCount = 0;
+                boolean syncSuccessful = false;
+
+                while (retryCount < MAX_RETRIES && !syncSuccessful) {
+                    log.info("Syncing batch of user IDs: {} (Attempt {}/{})", userIds, retryCount + 1, MAX_RETRIES);
+                    String errMsg = syncUserData(userIds);
+                    if (StringUtils.isNotEmpty(errMsg)) {
+                        retryCount++;
+                        log.error("Data sync failed for batch: {}. Error: {}", userIds, errMsg);
+                        if (retryCount < MAX_RETRIES) {
+                            Thread.sleep(500 * (long) Math.pow(2, retryCount)); // 500ms, 1000ms, 2000ms: small delay before retry
+                        }
+                    } else {
+                        log.info("Successfully synced user batch: {}", userIds);
+                        syncSuccessful = true;
+                    }
+                }
+
+                if (!syncSuccessful) {
+                    log.error("Data sync permanently failed for batch after {} attempts: {}", MAX_RETRIES, userIds);
+                }
+                Thread.sleep(100); // small delay between batches
             }
 
             // Always return SUCCESS unless exception occurs
@@ -355,7 +391,6 @@ public class UserMigrationServiceImpl implements UserMigrationService {
                 response.setResponseCode(HttpStatus.INTERNAL_SERVER_ERROR);
                 return response;
             } else {
-                syncUserData(userId);
                 log.info("Successfully processed profile update for userId: {}", userId);
                 response.setResponseCode(HttpStatus.OK);
                 response.getResult().put(Constants.RESPONSE, Constants.SUCCESS);
@@ -382,20 +417,27 @@ public class UserMigrationServiceImpl implements UserMigrationService {
         }
     }
 
-    private String syncUserData(String userId) {
+    private String syncUserData(List<String> userIds) {
         String errMsg = null;
-        Map<String, Object> requestBody = new HashMap<String, Object>();
-        Map<String, Object> request = new HashMap<String, Object>();
-        request.put(Constants.OPERATION_TYPE, Constants.SYNC);
-        request.put(Constants.OBJECT_IDS, Arrays.asList(userId));
-        request.put(Constants.OBJECT_TYPE, Constants.USER);
-        requestBody.put(Constants.REQUEST, request);
+        try {
+            Map<String, Object> requestBody = new HashMap<>();
+            Map<String, Object> request = new HashMap<>();
+            request.put(Constants.OPERATION_TYPE, Constants.SYNC);
+            request.put(Constants.OBJECT_IDS, userIds);
+            request.put(Constants.OBJECT_TYPE, Constants.USER);
+            requestBody.put(Constants.REQUEST, request);
 
-        Map<String, Object> syncDataResp = (Map<String, Object>) outboundRequestHandlerService.fetchResultUsingPost(
-                serverConfig.getSbUrl() + serverConfig.getLmsDataSyncPath(), requestBody, MapUtils.EMPTY_MAP);
-        if (syncDataResp == null
-                || !Constants.OK.equalsIgnoreCase((String) syncDataResp.get(Constants.RESPONSE_CODE))) {
-            errMsg = "Failed to call Data Sync after updating Profile for User: " + userId;
+            Map<String, Object> syncDataResp = (Map<String, Object>) outboundRequestHandlerService.fetchResultUsingPost(
+                    serverConfig.getSbUrl() + serverConfig.getLmsDataSyncPath(), requestBody, MapUtils.EMPTY_MAP);
+
+            if (syncDataResp == null
+                    || !Constants.OK.equalsIgnoreCase((String) syncDataResp.get(Constants.RESPONSE_CODE))) {
+                errMsg = "Failed to call Data Sync after updating Profile for Users: " + userIds;
+                log.error("syncUserData failed: response={}", syncDataResp);
+            }
+        } catch (Exception e) {
+            errMsg = "Exception during syncUserData for Users: " + userIds + ". Error: " + e.getMessage();
+            log.error(errMsg, e);
         }
         return errMsg;
     }
