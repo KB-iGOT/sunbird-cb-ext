@@ -998,6 +998,9 @@ public class CbExtServerProperties {
 	@Value("${mdo.leader.board.size.list}")
 	private String mdoLeaderBoardSizeList;
 
+	@Value("${org.updatable.fields}")
+	private String orgUpdatableFields;
+
 	public String getStateLearningInsightsRedisKeyMapping() {
 		return stateLearningInsightsRedisKeyMapping;
 	}
@@ -3449,4 +3452,13 @@ public class CbExtServerProperties {
 	public void setMdoLeaderBoardSizeList(String mdoLeaderBoardSizeList) {
 		this.mdoLeaderBoardSizeList = mdoLeaderBoardSizeList;
 	}
+
+	public List<String> getOrgUpdatableFields() {
+		return Arrays.asList(orgUpdatableFields.split(",", -1));
+	}
+
+	public void setOrgUpdatableFields(String orgUpdatableFields) {
+		this.orgUpdatableFields = orgUpdatableFields;
+	}
+
 }
