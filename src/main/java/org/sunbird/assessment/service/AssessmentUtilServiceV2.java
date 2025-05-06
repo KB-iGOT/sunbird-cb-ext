@@ -1,5 +1,7 @@
 package org.sunbird.assessment.service;
 
+import org.sunbird.common.model.SBApiResponse;
+
 import java.util.List;
 import java.util.Map;
 import java.io.IOException;
@@ -51,4 +53,8 @@ public interface AssessmentUtilServiceV2 {
 	 */
 	 Map<String, Object> validateQumlAssessmentV3(Map<String, Object> questionSetDetailsMap, List<String> originalQuestionList,
 														List<Map<String, Object>> userQuestionList, Map<String,Object> questionMap);
+
+	String validateContextLocking(Map<String, Object> assessmentAllDetail, String parentContextId,
+								  SBApiResponse response, String userId);
+
 }

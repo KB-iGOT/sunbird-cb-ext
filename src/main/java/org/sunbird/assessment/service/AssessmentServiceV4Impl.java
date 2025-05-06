@@ -115,7 +115,7 @@ public class AssessmentServiceV4Impl implements AssessmentServiceV4 {
     }
 
     @Override
-    public SBApiResponse readAssessment(String assessmentIdentifier, String token,boolean editMode) {
+    public SBApiResponse readAssessment(String assessmentIdentifier, String token,boolean editMode, String parentContextId) {
         logger.info("AssessmentServiceV4Impl::readAssessment... Started");
         SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.API_READ_ASSESSMENT);
         String errMsg = "";
@@ -158,6 +158,10 @@ public class AssessmentServiceV4Impl implements AssessmentServiceV4 {
                 if(null == assessmentAllDetail.get(Constants.EXPECTED_DURATION)){
                     errMsg = Constants.ASSESSMENT_INVALID; }
                 else {
+                    errMsg = assessUtilServ.validateContextLocking(assessmentAllDetail, parentContextId, response, userId);
+                    if (StringUtils.isNotBlank(errMsg)) {
+                        return response;
+                    }
                     int expectedDuration = (Integer) assessmentAllDetail.get(Constants.EXPECTED_DURATION);
                     Timestamp assessmentEndTime = calculateAssessmentSubmitTime(expectedDuration,
                             assessmentStartTime, 0);
@@ -196,6 +200,10 @@ public class AssessmentServiceV4Impl implements AssessmentServiceV4 {
                         || assessmentStartTime.compareTo(existingAssessmentEndTime) > 0) {
                     logger.info(
                             "Incase the assessment is submitted before the end time, or the endtime has exceeded, read assessment freshly ");
+                    errMsg = assessUtilServ.validateContextLocking(assessmentAllDetail, parentContextId, response, userId);
+                    if (StringUtils.isNotBlank(errMsg)) {
+                        return response;
+                    }
                     Map<String, Object> assessmentData = readAssessmentLevelData(assessmentAllDetail);
                     int expectedDuration = (Integer) assessmentAllDetail.get(Constants.EXPECTED_DURATION);
                     assessmentStartTime = new Timestamp(new java.util.Date().getTime());
