@@ -3,6 +3,7 @@ package org.sunbird.common.service;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.sunbird.common.model.SBApiResponse;
 import org.sunbird.common.model.SunbirdApiResp;
@@ -49,4 +50,5 @@ public interface ContentService {
 
 	public String updateContentProgress(String userAuthToken, Map<String, Object> reqBody, String userId, SBApiResponse outgoingResponse);
 
+	public Set<String> readChildCoursesFromCache(String parentDoId);
 }

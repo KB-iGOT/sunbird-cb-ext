@@ -6,7 +6,7 @@ import java.util.Map;
 
 public interface AssessmentServiceV5 {
 
-	public SBApiResponse readAssessment(String assessmentIdentifier, String token,boolean editMode);
+	public SBApiResponse readAssessment(String assessmentIdentifier, String token,boolean editMode, String parentContextId);
 
 	public SBApiResponse readQuestionList(Map<String, Object> requestBody, String authUserToken,boolean editMode);
 

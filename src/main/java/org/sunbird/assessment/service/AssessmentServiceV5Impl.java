@@ -111,7 +111,7 @@ public class AssessmentServiceV5Impl implements AssessmentServiceV5 {
     }
 
     @Override
-    public SBApiResponse readAssessment(String assessmentIdentifier, String token,boolean editMode) {
+    public SBApiResponse readAssessment(String assessmentIdentifier, String token,boolean editMode, String parentContextId) {
         logger.info("AssessmentServicev5Impl::readAssessment... Started");
         SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.API_READ_ASSESSMENT);
         String errMsg = "";
@@ -158,6 +158,10 @@ public class AssessmentServiceV5Impl implements AssessmentServiceV5 {
                 if(null == assessmentAllDetail.get(Constants.EXPECTED_DURATION)){
                     errMsg = Constants.ASSESSMENT_INVALID; }
                 else {
+                    errMsg = assessUtilServ.validateContextLocking(assessmentAllDetail, parentContextId, response, userId);
+                    if (StringUtils.isNotBlank(errMsg)) {
+                        return response;
+                    }
                     int expectedDuration = (Integer) assessmentAllDetail.get(Constants.EXPECTED_DURATION);
                     Timestamp assessmentEndTime = calculateAssessmentSubmitTime(expectedDuration,
                             assessmentStartTime, 0);
@@ -204,6 +208,10 @@ public class AssessmentServiceV5Impl implements AssessmentServiceV5 {
                             updateErrorDetails(response, errMsg, HttpStatus.INTERNAL_SERVER_ERROR);
                             return response;
                         }
+                    }
+                    errMsg = assessUtilServ.validateContextLocking(assessmentAllDetail, parentContextId, response, userId);
+                    if (org.apache.commons.lang3.StringUtils.isNotBlank(errMsg)) {
+                        return response;
                     }
                     Map<String, Object> assessmentData = readAssessmentLevelData(assessmentAllDetail);
                     int expectedDuration = (Integer) assessmentAllDetail.get(Constants.EXPECTED_DURATION);

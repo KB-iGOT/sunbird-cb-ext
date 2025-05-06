@@ -1350,6 +1350,13 @@ public class Constants {
 	public static final String COURSE_ID_NOT_AVAILABLE_ERROR_MSG = "No courseId found for given externalContentId";
 	public static final String ORGANISATIONLOGO = "organisationLogo";
 
+	public static final String CONTEXT_CATEGORY_TAG = "contextCategory";
+	public static final String FINAL_PROGRAM_ASSESSMENT = "Final Program Assessment";
+	public static final String CONTEXT_LOCKING_TYPE = "contextLockingType";
+	public static final String COURSE_ASSESSMENT_ONLY = "Course Assessment Only";
+	public static final String CHILDREN_COURSES = "childrenCourses";
+	public static final String ASSESSMENT_STATUS_COMPLETED ="2";
+
 	private Constants() {
 		throw new IllegalStateException("Utility class");
 	}

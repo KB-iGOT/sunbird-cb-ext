@@ -247,4 +247,14 @@ public class RedisCacheMgr {
             logger.error("An error occurred while saving data into Redis",e);
         }
     }
+
+    public Set<String> getSetFromCacheAsCommaSeparated(String key) {
+        try (Jedis jedis = jedisPool.getResource()) {
+            jedis.select(10);
+            return jedis.smembers(key);
+        } catch (Exception e) {
+            logger.error("Failed to fetch Set from Redis cache: ", e);
+            return null;
+        }
+    }
 }

@@ -185,9 +185,11 @@ public class AssessmentController {
 	@GetMapping("/v4/quml/assessment/read/{assessmentIdentifier}")
 	public ResponseEntity<SBApiResponse> readAssessmentV4(
 			@PathVariable("assessmentIdentifier") String assessmentIdentifier,
-			@RequestHeader(Constants.X_AUTH_TOKEN) String token,@RequestParam(name = "editMode" ,required = false) String editMode) {
+			@RequestHeader(Constants.X_AUTH_TOKEN) String token,
+			@RequestParam(name = "editMode" ,required = false) String editMode,
+			@RequestParam (name = "parentContextId" ,required = false) String parentContextId) {
 		Boolean edit = StringUtils.isEmpty(editMode)  ? false : Boolean.parseBoolean(editMode);
-		SBApiResponse readResponse = assessmentServiceV4.readAssessment(assessmentIdentifier, token,edit);
+		SBApiResponse readResponse = assessmentServiceV4.readAssessment(assessmentIdentifier, token,edit, parentContextId);
 		return new ResponseEntity<>(readResponse, readResponse.getResponseCode());
 	}
 
@@ -224,9 +226,11 @@ public class AssessmentController {
 	@GetMapping("/v5/quml/assessment/read/{assessmentIdentifier}")
 	public ResponseEntity<SBApiResponse> readAssessmentV5(
 			@PathVariable("assessmentIdentifier") String assessmentIdentifier,
-			@RequestHeader(Constants.X_AUTH_TOKEN) String token,@RequestParam(name = "editMode" ,required = false) String editMode) {
+			@RequestHeader(Constants.X_AUTH_TOKEN) String token,
+			@RequestParam(name = "editMode" ,required = false) String editMode,
+			@RequestParam (name = "parentContextId" ,required = false) String parentContextId) {
 		boolean edit = !StringUtils.isEmpty(editMode) && Boolean.parseBoolean(editMode);
-		SBApiResponse readResponse = assessmentServiceV5.readAssessment(assessmentIdentifier, token,edit);
+		SBApiResponse readResponse = assessmentServiceV5.readAssessment(assessmentIdentifier, token,edit, parentContextId);
 		return new ResponseEntity<>(readResponse, readResponse.getResponseCode());
 	}
 

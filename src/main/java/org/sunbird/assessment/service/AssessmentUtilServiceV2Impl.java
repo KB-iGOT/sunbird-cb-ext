@@ -1,12 +1,10 @@
 package org.sunbird.assessment.service;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.io.IOException;
 import java.util.stream.Collectors;
+
+import org.springframework.http.HttpStatus;
 import org.sunbird.cache.RedisCacheMgr;
 import org.apache.commons.collections.MapUtils;
 import org.codehaus.plexus.util.StringUtils;
@@ -17,12 +15,15 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.ObjectUtils;
 import org.sunbird.cassandra.utils.CassandraOperation;
+import org.sunbird.common.model.SBApiResponse;
+import org.sunbird.common.service.ContentService;
 import org.sunbird.common.service.OutboundRequestHandlerServiceImpl;
 import org.sunbird.common.util.CbExtServerProperties;
 import org.sunbird.common.util.Constants;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.sunbird.common.util.ProjectUtil;
 
 @Service
 public class AssessmentUtilServiceV2Impl implements AssessmentUtilServiceV2 {
@@ -43,6 +44,9 @@ public class AssessmentUtilServiceV2Impl implements AssessmentUtilServiceV2 {
 
 	@Autowired
 	RedisCacheMgr redisCacheMgr;
+
+	@Autowired
+	ContentService contentService;
 
 	public Map<String, Object> validateQumlAssessment(List<String> originalQuestionList,
 													  List<Map<String, Object>> userQuestionList,Map<String,Object> questionMap) {
@@ -1083,5 +1087,54 @@ public class AssessmentUtilServiceV2Impl implements AssessmentUtilServiceV2 {
 				break;
 		}
 		logger.info("Marks or index retrieved successfully.");
+	}
+
+	public String validateContextLocking(Map<String, Object> assessmentAllDetail, String parentContextId,
+										 SBApiResponse response, String userId) {
+		String errMsg = "";
+		String contextCategory = (String) assessmentAllDetail.get(Constants.CONTEXT_CATEGORY_TAG);
+		if (Constants.FINAL_PROGRAM_ASSESSMENT.equalsIgnoreCase(contextCategory) &&
+				org.apache.commons.lang3.StringUtils.isNotBlank(parentContextId)) {
+			Map<String, Object> contentDetails = contentService.readContentFromCache(parentContextId, null);
+			if (contentDetails != null) {
+				String contextLockingType = (String) contentDetails.get(Constants.CONTEXT_LOCKING_TYPE);
+				if (Constants.COURSE_ASSESSMENT_ONLY.equalsIgnoreCase(contextLockingType)) {
+					Set<String> courseIds = contentService.readChildCoursesFromCache(parentContextId);
+					if (!isAllCourseCompleted(userId, courseIds)) {
+						errMsg = "User has not completed one or more courses in this program";
+						ProjectUtil.updateErrorDetails(response, errMsg, HttpStatus.BAD_REQUEST);
+						return errMsg;
+					}
+				} else {
+					errMsg = "API doesn’t support this feature";
+					ProjectUtil.updateErrorDetails(response, errMsg, HttpStatus.INTERNAL_SERVER_ERROR);
+					return errMsg;
+				}
+			}else {
+				errMsg = "content Details not found from cache";
+				ProjectUtil.updateErrorDetails(response, errMsg, HttpStatus.INTERNAL_SERVER_ERROR);
+				return errMsg;
+			}
+		}
+		return errMsg;
+	}
+
+	private boolean isAllCourseCompleted(String userId, Set<String> courseIds) {
+		if (courseIds == null || courseIds.isEmpty()) {
+			return false;
+		}
+		Map<String, Object> propertyMap = new HashMap<>();
+		propertyMap.put(Constants.USER_ID_CONSTANT, userId);
+		for (String courseId : courseIds) {
+			propertyMap.put(Constants.COURSE_ID, courseId);
+			List<Map<String, Object>> enrolments = cassandraOperation.getRecordsByProperties(Constants.KEYSPACE_SUNBIRD_COURSES,
+					Constants.TABLE_USER_ENROLMENT, propertyMap, Arrays.asList(Constants.USER_ID_CONSTANT, Constants.COURSE_ID,
+							Constants.BATCH_ID, Constants.COMPLETION_PERCENTAGE, Constants.PROGRESS, Constants.STATUS));
+
+			if (enrolments.isEmpty() || enrolments.get(0) == null || !Constants.ASSESSMENT_STATUS_COMPLETED.equals(String.valueOf(enrolments.get(0).get(Constants.STATUS)))) {
+				return false;
+			}
+		}
+		return true;
 	}
 }
