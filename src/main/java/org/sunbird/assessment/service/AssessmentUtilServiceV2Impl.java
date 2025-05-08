@@ -1103,7 +1103,7 @@ public class AssessmentUtilServiceV2Impl implements AssessmentUtilServiceV2 {
 					if (Constants.COURSE_ASSESSMENT_ONLY.equalsIgnoreCase(contextLockingType)) {
 						Set<String> courseIds = contentService.readChildCoursesFromCache(parentContextId);
 						logger.info("AssessmentUtilServiceV2Impl:: validateContextLocking:: children courseIds: {}", courseIds);
-						if (!isAllCourseCompleted(userId, courseIds)) {
+						if (!isAllCourseCompleted(userId, new ArrayList<>(courseIds))) {
 							errMsg = "User has not completed one or more courses in this program";
 							ProjectUtil.updateErrorDetails(response, errMsg, HttpStatus.BAD_REQUEST);
 							return errMsg;
@@ -1129,7 +1129,7 @@ public class AssessmentUtilServiceV2Impl implements AssessmentUtilServiceV2 {
 		return errMsg;
 	}
 
-	private boolean isAllCourseCompleted(String userId, Set<String> courseIds) {
+	private boolean isAllCourseCompleted(String userId, List<String> courseIds) {
 		if (courseIds == null || courseIds.isEmpty()) {
 			return false;
 		}
