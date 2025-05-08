@@ -1355,7 +1355,7 @@ public class Constants {
 	public static final String CONTEXT_LOCKING_TYPE = "contextLockingType";
 	public static final String COURSE_ASSESSMENT_ONLY = "Course Assessment Only";
 	public static final String CHILDREN_COURSES = "childrenCourses";
-	public static final String ASSESSMENT_STATUS_COMPLETED = "2";
+	public static final int ASSESSMENT_STATUS_COMPLETED = 2;
 
 	private Constants() {
 		throw new IllegalStateException("Utility class");

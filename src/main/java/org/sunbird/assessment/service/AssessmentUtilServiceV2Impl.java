@@ -1147,8 +1147,7 @@ public class AssessmentUtilServiceV2Impl implements AssessmentUtilServiceV2 {
 		}
 
 		for (Map<String, Object> enrolment : enrolments) {
-			if (!Constants.ASSESSMENT_STATUS_COMPLETED
-					.equals(String.valueOf(enrolment.get(Constants.STATUS)))) {
+			if (Constants.ASSESSMENT_STATUS_COMPLETED != (int) enrolment.get(Constants.STATUS)) {
 				logger.info("AssessmentUtilServiceV2Impl:: isAllCourseCompleted: User: {}, not completed course: {}",
 						userId, (String) enrolment.get(Constants.COURSE_ID));
 				return false;
