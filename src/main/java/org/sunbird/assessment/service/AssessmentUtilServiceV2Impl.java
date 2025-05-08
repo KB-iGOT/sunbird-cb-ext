@@ -1140,11 +1140,17 @@ public class AssessmentUtilServiceV2Impl implements AssessmentUtilServiceV2 {
 				Constants.KEYSPACE_SUNBIRD_COURSES, Constants.TABLE_USER_ENROLMENT, propertyMap,
 				Arrays.asList(Constants.USER_ID_CONSTANT, Constants.COURSE_ID, Constants.STATUS));
 		if (CollectionUtils.isEmpty(enrolments) || enrolments.size() < courseIds.size()) {
+			logger.info(
+					"AssessmentUtilServiceV2Impl:: isAllCourseCompleted: Failed to fetch enrolment list for userId: {}, courseIds: {}",
+					userId, courseIds);
 			return false;
 		}
 
 		for (Map<String, Object> enrolment : enrolments) {
-			if (Constants.ASSESSMENT_STATUS_COMPLETED != (int) enrolment.get(Constants.STATUS)) {
+			if (!Constants.ASSESSMENT_STATUS_COMPLETED
+					.equals(String.valueOf(enrolment.get(Constants.STATUS)))) {
+				logger.info("AssessmentUtilServiceV2Impl:: isAllCourseCompleted: User: {}, not completed course: {}",
+						userId, (String) enrolment.get(Constants.COURSE_ID));
 				return false;
 			}
 		}
