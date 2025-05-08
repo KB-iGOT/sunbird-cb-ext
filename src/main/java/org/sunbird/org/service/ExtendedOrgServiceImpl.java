@@ -1106,7 +1106,8 @@ public class ExtendedOrgServiceImpl implements ExtendedOrgService {
 
 	private String validateRequestFieldsV2(Map<String, Object> request, SBApiResponse response) {
 		String errMsg = "";
-		if (StringUtils.isBlank(MapUtils.getString(request, Constants.ORG_ID))) {
+		String orgId = MapUtils.getString(request, Constants.ORG_ID);
+		if (StringUtils.isBlank(orgId)) {
 			errMsg = "Organization ID is missing";
 			response.getParams().setStatus(Constants.FAILED);
 			response.getParams().setErrmsg(errMsg);
@@ -1114,7 +1115,10 @@ public class ExtendedOrgServiceImpl implements ExtendedOrgService {
 			return errMsg;
 		}
 		for (String fieldName : request.keySet()) {
-			if (!validateUpdatableFields(fieldName)) {
+			if (Constants.ORG_ID.equals(fieldName)) {
+				continue;
+			}
+			if (!configProperties.getOrgUpdatableFields().contains(fieldName)) {
 				errMsg = "Field : " + fieldName + " is not allowed to be updated.";
 				logger.info("ExtendedOrgServiceImpl::updateV2::Invalid field in request: {}", fieldName);
 				response.getParams().setStatus(Constants.FAILED);
@@ -1125,10 +1129,5 @@ public class ExtendedOrgServiceImpl implements ExtendedOrgService {
 			logger.info("Updating organisation for field: {}", fieldName);
 		}
 		return errMsg;
-	}
-
-	public boolean validateUpdatableFields(String field) {
-		List<String> groupValues = configProperties.getOrgUpdatableFields();
-		return groupValues != null && groupValues.contains(field);
 	}
 }
