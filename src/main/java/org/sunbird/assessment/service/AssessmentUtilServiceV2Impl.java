@@ -1114,6 +1114,8 @@ public class AssessmentUtilServiceV2Impl implements AssessmentUtilServiceV2 {
 						errMsg = "API doesn’t support this feature";
 						ProjectUtil.updateErrorDetails(response, errMsg, HttpStatus.INTERNAL_SERVER_ERROR);
 						return errMsg;
+					} else {
+						logger.info("AssessmentUtilServiceV2Impl:: validateContextLocking:: user has completed all the children courses");
 					}
 				} else {
 					errMsg = "content Details not found from cache";
