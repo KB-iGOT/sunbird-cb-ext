@@ -373,7 +373,7 @@ public class CassandraOperationImpl implements CassandraOperation {
 	}
 
 	private Select processQueryWithoutFiltering(String keyspaceName, String tableName, Map<String, Object> propertyMap,
-			List<String> fields) {
+			List<String> fields) throws Exception {
 		Select selectQuery = null;
 		Builder selectBuilder;
 		if (CollectionUtils.isNotEmpty(fields)) {
@@ -393,9 +393,11 @@ public class CassandraOperationImpl implements CassandraOperation {
 						Clause clause = QueryBuilder.in(entry.getKey(), propertyValues);
 						selectWhere.and(clause);
 					}
-				} else {
+				} else if (entry.getValue() instanceof String) {
 					Clause clause = QueryBuilder.eq(entry.getKey(), entry.getValue());
 					selectWhere.and(clause);
+				} else {
+					throw new Exception("Unsupported key type.");
 				}
 			}
 		}

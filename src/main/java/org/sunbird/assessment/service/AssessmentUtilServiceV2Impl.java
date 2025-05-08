@@ -1094,37 +1094,42 @@ public class AssessmentUtilServiceV2Impl implements AssessmentUtilServiceV2 {
 		String errMsg = "";
 		String contextCategory = (String) assessmentAllDetail.get(Constants.CONTEXT_CATEGORY_TAG);
 		logger.info("AssessmentUtilServiceV2Impl:: validateContextLocking:: AssessmentContextCategory: {}, parentContextId: {}", contextCategory, parentContextId);
-		if (Constants.FINAL_PROGRAM_ASSESSMENT.equalsIgnoreCase(contextCategory) &&
-				org.apache.commons.lang3.StringUtils.isNotBlank(parentContextId)) {
-			Map<String, Object> contentDetails = contentService.readContentFromCache(parentContextId, null);
-			if (contentDetails != null) {
-				String contextLockingType = (String) contentDetails.get(Constants.CONTEXT_LOCKING_TYPE);
-				logger.info("AssessmentUtilServiceV2Impl:: validateContextLocking:: {}", contextLockingType);
-				if (Constants.COURSE_ASSESSMENT_ONLY.equalsIgnoreCase(contextLockingType)) {
-					Set<String> courseIds = contentService.readChildCoursesFromCache(parentContextId);
-					logger.info("AssessmentUtilServiceV2Impl:: validateContextLocking:: children courseIds: {}", courseIds);
-					if (!isAllCourseCompleted(userId, courseIds)) {
-						errMsg = "User has not completed one or more courses in this program";
-						ProjectUtil.updateErrorDetails(response, errMsg, HttpStatus.BAD_REQUEST);
-						return errMsg;
+		if (Constants.FINAL_PROGRAM_ASSESSMENT.equalsIgnoreCase(contextCategory)) {
+			if (org.apache.commons.lang3.StringUtils.isNotBlank(parentContextId)) {
+				Map<String, Object> contentDetails = contentService.readContentFromCache(parentContextId, null);
+				if (contentDetails != null) {
+					String contextLockingType = (String) contentDetails.get(Constants.CONTEXT_LOCKING_TYPE);
+					logger.info("AssessmentUtilServiceV2Impl:: validateContextLocking:: {}", contextLockingType);
+					if (Constants.COURSE_ASSESSMENT_ONLY.equalsIgnoreCase(contextLockingType)) {
+						Set<String> courseIds = contentService.readChildCoursesFromCache(parentContextId);
+						logger.info("AssessmentUtilServiceV2Impl:: validateContextLocking:: children courseIds: {}", courseIds);
+						if (!isAllCourseCompleted(userId, new ArrayList<>(courseIds))) {
+							errMsg = "User has not completed one or more courses in this program";
+							ProjectUtil.updateErrorDetails(response, errMsg, HttpStatus.BAD_REQUEST);
+							return errMsg;
+						} else {
+							logger.info("AssessmentUtilServiceV2Impl:: validateContextLocking:: user has completed all the children courses");
+						}
 					} else {
-						logger.info("AssessmentUtilServiceV2Impl:: validateContextLocking:: user has completed all the children courses");
+						errMsg = "API doesn’t support this feature";
+						ProjectUtil.updateErrorDetails(response, errMsg, HttpStatus.INTERNAL_SERVER_ERROR);
+						return errMsg;
 					}
 				} else {
-					errMsg = "API doesn’t support this feature";
+					errMsg = "Content Details not found from cache";
 					ProjectUtil.updateErrorDetails(response, errMsg, HttpStatus.INTERNAL_SERVER_ERROR);
 					return errMsg;
 				}
-			}else {
-				errMsg = "content Details not found from cache";
-				ProjectUtil.updateErrorDetails(response, errMsg, HttpStatus.INTERNAL_SERVER_ERROR);
+			} else {
+				errMsg = "Invalid request. Course / Program details are not sent.";
+				ProjectUtil.updateErrorDetails(response, errMsg, HttpStatus.BAD_REQUEST);
 				return errMsg;
 			}
 		}
 		return errMsg;
 	}
 
-	private boolean isAllCourseCompleted(String userId, Set<String> courseIds) {
+	private boolean isAllCourseCompleted(String userId, List<String> courseIds) {
 		if (courseIds == null || courseIds.isEmpty()) {
 			return false;
 		}
@@ -1135,11 +1140,16 @@ public class AssessmentUtilServiceV2Impl implements AssessmentUtilServiceV2 {
 				Constants.KEYSPACE_SUNBIRD_COURSES, Constants.TABLE_USER_ENROLMENT, propertyMap,
 				Arrays.asList(Constants.USER_ID_CONSTANT, Constants.COURSE_ID, Constants.STATUS));
 		if (CollectionUtils.isEmpty(enrolments) || enrolments.size() < courseIds.size()) {
+			logger.info(
+					"AssessmentUtilServiceV2Impl:: isAllCourseCompleted: Failed to fetch enrolment list for userId: {}, courseIds: {}",
+					userId, courseIds);
 			return false;
 		}
 
 		for (Map<String, Object> enrolment : enrolments) {
 			if (Constants.ASSESSMENT_STATUS_COMPLETED != (int) enrolment.get(Constants.STATUS)) {
+				logger.info("AssessmentUtilServiceV2Impl:: isAllCourseCompleted: User: {}, not completed course: {}",
+						userId, (String) enrolment.get(Constants.COURSE_ID));
 				return false;
 			}
 		}
