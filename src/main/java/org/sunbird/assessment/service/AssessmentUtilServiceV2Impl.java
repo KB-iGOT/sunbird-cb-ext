@@ -1093,17 +1093,22 @@ public class AssessmentUtilServiceV2Impl implements AssessmentUtilServiceV2 {
 										 SBApiResponse response, String userId) {
 		String errMsg = "";
 		String contextCategory = (String) assessmentAllDetail.get(Constants.CONTEXT_CATEGORY_TAG);
+		logger.info("AssessmentUtilServiceV2Impl:: validateContextLocking:: AssessmentContextCategory: {}, parentContextId: {}", contextCategory, parentContextId);
 		if (Constants.FINAL_PROGRAM_ASSESSMENT.equalsIgnoreCase(contextCategory) &&
 				org.apache.commons.lang3.StringUtils.isNotBlank(parentContextId)) {
 			Map<String, Object> contentDetails = contentService.readContentFromCache(parentContextId, null);
 			if (contentDetails != null) {
 				String contextLockingType = (String) contentDetails.get(Constants.CONTEXT_LOCKING_TYPE);
+				logger.info("AssessmentUtilServiceV2Impl:: validateContextLocking:: {}", contextLockingType);
 				if (Constants.COURSE_ASSESSMENT_ONLY.equalsIgnoreCase(contextLockingType)) {
 					Set<String> courseIds = contentService.readChildCoursesFromCache(parentContextId);
+					logger.info("AssessmentUtilServiceV2Impl:: validateContextLocking:: children courseIds: {}", courseIds);
 					if (!isAllCourseCompleted(userId, courseIds)) {
 						errMsg = "User has not completed one or more courses in this program";
 						ProjectUtil.updateErrorDetails(response, errMsg, HttpStatus.BAD_REQUEST);
 						return errMsg;
+					} else {
+						logger.info("AssessmentUtilServiceV2Impl:: validateContextLocking:: user has completed all the children courses");
 					}
 				} else {
 					errMsg = "API doesn’t support this feature";
@@ -1125,13 +1130,16 @@ public class AssessmentUtilServiceV2Impl implements AssessmentUtilServiceV2 {
 		}
 		Map<String, Object> propertyMap = new HashMap<>();
 		propertyMap.put(Constants.USER_ID_CONSTANT, userId);
-		for (String courseId : courseIds) {
-			propertyMap.put(Constants.COURSE_ID, courseId);
-			List<Map<String, Object>> enrolments = cassandraOperation.getRecordsByProperties(Constants.KEYSPACE_SUNBIRD_COURSES,
-					Constants.TABLE_USER_ENROLMENT, propertyMap, Arrays.asList(Constants.USER_ID_CONSTANT, Constants.COURSE_ID,
-							Constants.BATCH_ID, Constants.COMPLETION_PERCENTAGE, Constants.PROGRESS, Constants.STATUS));
+		propertyMap.put(Constants.COURSE_ID, courseIds);
+		List<Map<String, Object>> enrolments = cassandraOperation.getRecordsByPropertiesWithoutFiltering(
+				Constants.KEYSPACE_SUNBIRD_COURSES, Constants.TABLE_USER_ENROLMENT, propertyMap,
+				Arrays.asList(Constants.USER_ID_CONSTANT, Constants.COURSE_ID, Constants.STATUS));
+		if (CollectionUtils.isEmpty(enrolments) || enrolments.size() < courseIds.size()) {
+			return false;
+		}
 
-			if (enrolments.isEmpty() || enrolments.get(0) == null || !Constants.ASSESSMENT_STATUS_COMPLETED.equals(String.valueOf(enrolments.get(0).get(Constants.STATUS)))) {
+		for (Map<String, Object> enrolment : enrolments) {
+			if (Constants.ASSESSMENT_STATUS_COMPLETED != (int) enrolment.get(Constants.STATUS)) {
 				return false;
 			}
 		}

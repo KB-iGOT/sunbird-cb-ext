@@ -519,9 +519,7 @@ public class ContentServiceImpl implements ContentService {
 
 	@Override
 	public Set<String> readChildCoursesFromCache(String parentDoId) {
-		if (serverConfig.qListFromCacheEnabled()) {
-			return redisCacheMgr.getSetFromCacheAsCommaSeparated(parentDoId +":" + parentDoId + ":" + Constants.CHILDREN_COURSES);
-		}
-		return Collections.emptySet();
+		return redisCacheMgr
+				.getSetFromCacheAsCommaSeparated(parentDoId + ":" + parentDoId + ":" + Constants.CHILDREN_COURSES);
 	}
 }
