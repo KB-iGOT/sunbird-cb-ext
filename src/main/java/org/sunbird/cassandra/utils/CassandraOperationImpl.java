@@ -393,11 +393,9 @@ public class CassandraOperationImpl implements CassandraOperation {
 						Clause clause = QueryBuilder.in(entry.getKey(), propertyValues);
 						selectWhere.and(clause);
 					}
-				} else if (entry.getValue() instanceof String) {
+				} else {
 					Clause clause = QueryBuilder.eq(entry.getKey(), entry.getValue());
 					selectWhere.and(clause);
-				} else {
-					throw new Exception("Unsupported key type.");
 				}
 			}
 		}
