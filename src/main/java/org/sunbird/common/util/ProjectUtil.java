@@ -1,5 +1,6 @@
 package org.sunbird.common.util;
 
+import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
 import java.text.ParseException;
@@ -10,8 +11,10 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import org.apache.commons.lang.StringUtils;
+import org.apache.poi.ss.usermodel.*;
 import org.joda.time.DateTime;
 import org.springframework.http.HttpStatus;
+import org.springframework.web.multipart.MultipartFile;
 import org.sunbird.common.exceptions.ProjectCommonException;
 import org.sunbird.common.exceptions.ResponseCode;
 import org.sunbird.common.model.SBApiResponse;
@@ -217,5 +220,37 @@ public class ProjectUtil {
 
 	public static Boolean validatesNewLine(String value) {
 		return value.matches(".*\\n.*");
+	}
+
+	public static boolean hasValidRowCountInXLSFile(MultipartFile file, int maximumAllowedLimit) {
+		int validRowCount = 0;
+		try (InputStream inputStream = file.getInputStream(); Workbook workbook = WorkbookFactory.create(inputStream)) {
+			Sheet sheet = workbook.getSheetAt(0);
+			Iterator<Row> rowIterator = sheet.iterator();
+			// Skip header
+			if (rowIterator.hasNext()) {
+				rowIterator.next();
+			}
+
+			while (rowIterator.hasNext()) {
+				Row row = rowIterator.next();
+				boolean isFirstColumnNotEmpty = false;
+
+				Cell cell = row.getCell(0); // Check only first column
+				if (cell != null && !(cell.getCellType() == CellType.BLANK ||
+						(cell.getCellType() == CellType.STRING && cell.getStringCellValue().trim().isEmpty()))) {
+					isFirstColumnNotEmpty = true;
+				}
+				if (isFirstColumnNotEmpty) {
+					validRowCount++;
+				}
+				if (validRowCount > maximumAllowedLimit) {
+					return false;
+				}
+			}
+		} catch (Exception e) {
+			throw new RuntimeException("Failed to validate Excel file", e);
+		}
+		return true;
 	}
 }

@@ -43,6 +43,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.sql.Timestamp;
+import java.text.MessageFormat;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
@@ -167,6 +168,15 @@ public class OrgDesignationMappingServiceImpl implements OrgDesignationMappingSe
             rootOrgId = orgId;
             if (isFileExistForProcessingForMDO(rootOrgId)) {
                 setErrorDataForMdo(response, "Failed to upload for another request as previous request is in processing state, please try after some time.");
+                return response;
+            }
+            if (!ProjectUtil.hasValidRowCountInXLSFile(file, serverProperties.getMaximumRowAllowedForDesignationUpload())) {
+                response.getParams().setStatus(Constants.FAILED);
+                response.getParams().setErrmsg(MessageFormat.format(
+                        Constants.BULK_UPLOAD_MAXIMUM_LIMIT_ERROR_MSG,
+                        serverProperties.getMaximumRowAllowedForDesignationUpload()
+                ));
+                response.setResponseCode(HttpStatus.BAD_REQUEST);
                 return response;
             }
             SBApiResponse uploadResponse = storageService.uploadFile(file, serverProperties.getOrgDesignationBulkUploadContainerName());

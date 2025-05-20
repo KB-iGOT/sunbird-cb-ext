@@ -1001,6 +1001,12 @@ public class CbExtServerProperties {
 	@Value("${org.updatable.fields}")
 	private String orgUpdatableFields;
 
+	@Value("${maximum.allow.limit.bulk.designation.upload}")
+	private int maximumRowAllowedForDesignationUpload;
+
+	@Value("${maximum.allow.limit.bulk.designation.competency.upload}")
+	private int maximumRowAllowedForDesignationCompetencyUpload;
+
 	public String getStateLearningInsightsRedisKeyMapping() {
 		return stateLearningInsightsRedisKeyMapping;
 	}
@@ -3461,4 +3467,19 @@ public class CbExtServerProperties {
 		this.orgUpdatableFields = orgUpdatableFields;
 	}
 
+	public int getMaximumRowAllowedForDesignationUpload() {
+		return maximumRowAllowedForDesignationUpload;
+	}
+
+	public void setMaximumRowAllowedForDesignationUpload(int maximumRowAllowedForDesignationUpload) {
+		this.maximumRowAllowedForDesignationUpload = maximumRowAllowedForDesignationUpload;
+	}
+
+	public int getMaximumRowAllowedForDesignationCompetencyUpload() {
+		return maximumRowAllowedForDesignationCompetencyUpload;
+	}
+
+	public void setMaximumRowAllowedForDesignationCompetencyUpload(int maximumRowAllowedForDesignationCompetencyUpload) {
+		this.maximumRowAllowedForDesignationCompetencyUpload = maximumRowAllowedForDesignationCompetencyUpload;
+	}
 }
