@@ -1,6 +1,7 @@
 package org.sunbird.org.controller;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -23,7 +24,7 @@ public class OrgDesignationMappingController {
         return orgDesignationMappingService.getSampleFileForOrgDesignationMapping(rootOrgId, userAuthToken, frameworkId);
     }
 
-    @PostMapping("/v1/orgMapping/bulkUpload/{orgId}/{frameworkId}")
+    @PostMapping(value="/v1/orgMapping/bulkUpload/{orgId}/{frameworkId}", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<?> bulkUploadCompetencyDesignationMapping(@RequestHeader(Constants.X_AUTH_USER_ORG_ID) String rootOrgId,
                                                                     @PathVariable(Constants.ORG_ID) String orgId,
                                                                     @RequestParam(value = "file", required = true) MultipartFile file,
