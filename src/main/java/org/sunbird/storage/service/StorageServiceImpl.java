@@ -13,8 +13,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
-import javax.annotation.PostConstruct;
-
+import jakarta.annotation.PostConstruct;
 import org.apache.commons.collections4.MapUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
@@ -64,9 +63,7 @@ public class StorageServiceImpl implements StorageService {
 	@PostConstruct
 	public void init() {
 		if (storageService == null) {
-			storageService = StorageServiceFactory.getStorageService(new StorageConfig(
-					serverProperties.getCloudStorageTypeName(), serverProperties.getCloudStorageKey(),
-					serverProperties.getCloudStorageSecret().replace("\\n", "\n"), Option.apply(serverProperties.getCloudStorageEndpoint()), Option.empty()));
+			storageService = StorageServiceFactory.getStorageService(new StorageConfig(serverProperties.getCloudStorageTypeName(), serverProperties.getCloudStorageKey(), serverProperties.getCloudStorageSecret().replace("\\n", "\n"), Option.apply(serverProperties.getCloudStorageEndpoint()), Option.empty()));
 		}
 	}
 
@@ -105,7 +102,7 @@ public class StorageServiceImpl implements StorageService {
 		try {
 			String objectKey = cloudFolderName + "/" + file.getName();
 			String url = storageService.upload(containerName, file.getAbsolutePath(),
-					objectKey, Option.apply(false), Option.apply(1), Option.apply(5), Option.empty());
+					objectKey, Option.apply((Object) false), Option.apply((Object) 1), Option.apply((Object) 5), Option.empty());
 			Map<String, String> uploadedFile = new HashMap<>();
 			uploadedFile.put(Constants.NAME, file.getName());
 			uploadedFile.put(Constants.URL, url);
@@ -131,7 +128,7 @@ public class StorageServiceImpl implements StorageService {
 		try {
 			String objectKey = serverProperties.getCloudContainerName() + "/" + fileName;
 			storageService.deleteObject(serverProperties.getCloudContainerName(), objectKey,
-					Option.apply(Boolean.FALSE));
+					Option.apply((Object) Boolean.FALSE));
 			response.getParams().setStatus(Constants.SUCCESSFUL);
 			response.setResponseCode(HttpStatus.OK);
 			return response;
@@ -149,7 +146,7 @@ public class StorageServiceImpl implements StorageService {
 		try {
 			String objectKey = serverProperties.getBulkUploadContainerName() + "/" + fileName;
 			storageService.download(serverProperties.getCloudContainerName(), objectKey, Constants.LOCAL_BASE_PATH,
-					Option.apply(Boolean.FALSE));
+					Option.apply((Object) Boolean.FALSE));
 			return response;
 		} catch (Exception e) {
 			logger.error("Failed to download the file: " + fileName + ", Exception: ", e);
@@ -193,7 +190,7 @@ public class StorageServiceImpl implements StorageService {
 			}
 
 			storageService.download(serverProperties.getReportDownloadContainerName(), objectKey, Constants.LOCAL_BASE_PATH,
-					Option.apply(Boolean.FALSE));
+					Option.apply((Object) Boolean.FALSE));
 			Path tmpPath = Paths.get(Constants.LOCAL_BASE_PATH + fileName);
 			ByteArrayResource resource = new ByteArrayResource(Files.readAllBytes(tmpPath));
 			HttpHeaders headers = new HttpHeaders();
@@ -254,7 +251,7 @@ public class StorageServiceImpl implements StorageService {
 				objectKey = serverProperties.getReportDownloadFolderName() + "/" + reportType + "/" + todayFormattedDate + "/" + mdoId + "/" + fileName;
 			}
 			try {
-				Model.Blob blob = storageService.getObject(serverProperties.getReportDownloadContainerName(), objectKey, Option.apply(Boolean.FALSE));
+				Model.Blob blob = storageService.getObject(serverProperties.getReportDownloadContainerName(), objectKey, Option.apply((Object) Boolean.FALSE));
 				if (blob != null) {
 					resourceMap.put("lastModified", blob.lastModified());
 					resourceMap.put("fileMetaData", blob.metadata());
@@ -270,7 +267,7 @@ public class StorageServiceImpl implements StorageService {
 					objectKey = serverProperties.getReportDownloadFolderName() + "/" + reportType + "/" + yesterdayFormattedDate + "/" + mdoId + "/" + fileName;
 				}
 				try {
-					Model.Blob blob = storageService.getObject(serverProperties.getReportDownloadContainerName(), objectKey, Option.apply(Boolean.FALSE));
+					Model.Blob blob = storageService.getObject(serverProperties.getReportDownloadContainerName(), objectKey, Option.apply((Object) Boolean.FALSE));
 					if (blob != null) {
 						resourceMap.put("lastModified", blob.lastModified());
 						resourceMap.put("fileMetaData", blob.metadata());
@@ -313,7 +310,7 @@ public class StorageServiceImpl implements StorageService {
 			Map<String, String> spvReportSubFolderTypeMap = serverProperties.getSpvReportSubFolderTypeMap();
 			String objectKey = serverProperties.getReportDownloadFolderName() + "/" + spvReportSubFolderTypeMap.get(fileName) + "/" + date + "/" + reportType + "/" + fileName;
 			storageService.download(serverProperties.getReportDownloadContainerName(), objectKey, Constants.LOCAL_BASE_PATH,
-					Option.apply(Boolean.FALSE));
+					Option.apply((Object) Boolean.FALSE));
 			Path tmpPath = Paths.get(Constants.LOCAL_BASE_PATH + fileName);
 			ByteArrayResource resource = new ByteArrayResource(Files.readAllBytes(tmpPath));
 			HttpHeaders headers = new HttpHeaders();
@@ -371,7 +368,7 @@ public class StorageServiceImpl implements StorageService {
 
 			String objectKey = serverProperties.getReportDownloadFolderName() + "/" + spvReportSubFolderTypeMap.get(fileName) + "/" + date + "/" + reportType + "/" + fileName;
 			try {
-				Model.Blob blob = storageService.getObject(serverProperties.getReportDownloadContainerName(), objectKey, Option.apply(Boolean.FALSE));
+				Model.Blob blob = storageService.getObject(serverProperties.getReportDownloadContainerName(), objectKey, Option.apply((Object) Boolean.FALSE));
 				if (blob != null) {
 					resourceMap.put("lastModified", blob.lastModified());
 					resourceMap.put("fileMetaData", blob.metadata());
@@ -392,7 +389,7 @@ public class StorageServiceImpl implements StorageService {
 		try {
 			String objectKey = containerName + "/" + fileName;
 			storageService.download(serverProperties.getCloudContainerName(), objectKey, Constants.LOCAL_BASE_PATH,
-					Option.apply(Boolean.FALSE));
+					Option.apply((Object) Boolean.FALSE));
 			return response;
 		} catch (Exception e) {
 			logger.error("Failed to download the file: " + fileName + ", Exception: ", e);
@@ -488,7 +485,7 @@ public class StorageServiceImpl implements StorageService {
 		try {
 			String objectKey = serverProperties.getCiosCloudFolderName() + "/" + fileName;
 			storageService.download(serverProperties.getCiosCloudContainerName(), objectKey, Constants.LOCAL_BASE_PATH,
-					Option.apply(Boolean.FALSE));
+					Option.apply((Object) Boolean.FALSE));
 			Path tmpPath = Paths.get(Constants.LOCAL_BASE_PATH + fileName);
 			ByteArrayResource resource = new ByteArrayResource(Files.readAllBytes(tmpPath));
 			HttpHeaders headers = new HttpHeaders();
@@ -565,7 +562,7 @@ public class StorageServiceImpl implements StorageService {
 		try {
 			String objectKey = serverProperties.getCiosFileLogsCloudFolderName() + "/" + fileName;
 			storageService.download(serverProperties.getCiosCloudContainerName(), objectKey, Constants.LOCAL_BASE_PATH,
-					Option.apply(Boolean.FALSE));
+					Option.apply((Object) Boolean.FALSE));
 
 			ByteArrayResource resource = new ByteArrayResource(Files.readAllBytes(tmpPath));
 			HttpHeaders headers = new HttpHeaders();

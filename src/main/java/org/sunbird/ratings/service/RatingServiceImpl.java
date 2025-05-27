@@ -7,6 +7,7 @@ import java.util.*;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+import com.datastax.oss.driver.api.core.uuid.Uuids;
 import com.fasterxml.jackson.core.type.TypeReference;
 import org.apache.commons.collections.MapUtils;
 import org.apache.commons.lang.StringUtils;
@@ -42,7 +43,6 @@ import org.sunbird.ratings.model.ValidationBody;
 import org.sunbird.ratings.responsecode.ResponseCode;
 import org.sunbird.ratings.responsecode.ResponseMessage;
 
-import com.datastax.driver.core.utils.UUIDs;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.sunbird.user.service.UserUtilityService;
@@ -222,7 +222,7 @@ public class RatingServiceImpl implements RatingService {
 
     @Override
     public SBApiResponse upsertRating(RequestRating requestRating) {
-        UUID timeBasedUuid = UUIDs.timeBased();
+        UUID timeBasedUuid = Uuids.timeBased();
         SBApiResponse response = new SBApiResponse(Constants.API_RATINGS_UPDATE);
         RatingMessage ratingMessage;
 
@@ -327,7 +327,7 @@ public class RatingServiceImpl implements RatingService {
                 uuid = lookupRequest.getUpdateOn();
              }
             else {
-                uuid = String.valueOf(UUIDs.timeBased());
+                uuid = String.valueOf(Uuids.timeBased());
             }
 
             Map<String, Object> existingDataList = cassandraOperation.getRecordsByPropertiesWithPagination(Constants.KEYSPACE_SUNBIRD,

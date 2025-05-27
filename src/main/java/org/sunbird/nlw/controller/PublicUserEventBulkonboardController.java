@@ -5,12 +5,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.sunbird.common.model.SBApiResponse;
-import org.sunbird.common.util.Constants;
 import org.sunbird.nlw.service.PublicUserEventBulkonboardService;
 
-import javax.validation.Valid;
 import java.io.IOException;
-import java.util.Map;
 
 @RestController
 public class PublicUserEventBulkonboardController {

@@ -1,13 +1,6 @@
 package org.sunbird.staff.service;
 
-import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
-
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.lang.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -21,7 +14,8 @@ import org.sunbird.common.util.Constants;
 import org.sunbird.staff.model.StaffAuditInfo;
 import org.sunbird.staff.model.StaffInfo;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import java.text.SimpleDateFormat;
+import java.util.*;
 
 @Service
 public class StaffServiceImpl implements StaffService {

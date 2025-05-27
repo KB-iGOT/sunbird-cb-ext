@@ -24,7 +24,10 @@ import org.sunbird.common.util.Constants;
 import org.sunbird.common.util.ProjectUtil;
 
 import java.io.IOException;
-import java.util.*;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 
 @Service
 public class EhrmsProfileDetailImpl implements EhrmsService {
@@ -104,7 +107,7 @@ public class EhrmsProfileDetailImpl implements EhrmsService {
         } catch (HttpClientErrorException errorException) {
             String responseBodyString = errorException.getResponseBodyAsString();
             response.getParams().setStatus(Constants.FAILED);
-            response.setResponseCode(errorException.getStatusCode());
+            response.setResponseCode(HttpStatus.INTERNAL_SERVER_ERROR);
             response.setResult(prepareErrorResponse(responseBodyString));
         } catch (Exception e) {
             logger.error("Failed to look up user details. Exception: {}", e.getMessage(), e);

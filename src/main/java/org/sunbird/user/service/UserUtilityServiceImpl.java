@@ -20,6 +20,7 @@ import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -57,6 +58,7 @@ public class UserUtilityServiceImpl implements UserUtilityService {
 	TelemetryUtils telemetryUtils;
 
 	@Autowired
+	@Lazy
 	private CassandraOperation cassandraOperation;
 
 	@Autowired

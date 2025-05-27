@@ -1,19 +1,13 @@
 package org.sunbird.workallocation.service;
 
-import java.io.IOException;
-import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.UUID;
-
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.ser.FilterProvider;
+import com.fasterxml.jackson.databind.ser.impl.SimpleBeanPropertyFilter;
+import com.fasterxml.jackson.databind.ser.impl.SimpleFilterProvider;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.annotation.KafkaListener;
-import org.springframework.kafka.annotation.TopicPartition;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
@@ -25,17 +19,12 @@ import org.sunbird.core.logger.CbExtLogger;
 import org.sunbird.core.producer.Producer;
 import org.sunbird.workallocation.model.PropertyFilterMixIn;
 import org.sunbird.workallocation.model.WorkAllocationDTOV2;
-import org.sunbird.workallocation.model.telemetryEvent.Actor;
-import org.sunbird.workallocation.model.telemetryEvent.Context;
-import org.sunbird.workallocation.model.telemetryEvent.Event;
-import org.sunbird.workallocation.model.telemetryEvent.ObjectData;
-import org.sunbird.workallocation.model.telemetryEvent.Pdata;
+import org.sunbird.workallocation.model.telemetryEvent.*;
 import org.sunbird.workallocation.util.WorkAllocationConstants;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.ser.FilterProvider;
-import com.fasterxml.jackson.databind.ser.impl.SimpleBeanPropertyFilter;
-import com.fasterxml.jackson.databind.ser.impl.SimpleFilterProvider;
+import java.io.IOException;
+import java.text.SimpleDateFormat;
+import java.util.*;
 
 @Service
 public class WATConsumer {

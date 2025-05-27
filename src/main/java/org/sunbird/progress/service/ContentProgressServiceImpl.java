@@ -2,7 +2,6 @@ package org.sunbird.progress.service;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -299,8 +298,10 @@ public class ContentProgressServiceImpl implements ContentProgressService {
                 logger.warn("Invalid content hierarchy response for programId: " + courseId);
                 return null;
             }
-            Map<String, Object> contentMap = mapper.convertValue(contentHeirarchyResult.getResult().getContent(), new TypeReference<Object>() {
-            });
+            Map<String, Object> contentMap = mapper.convertValue(
+                    contentHeirarchyResult.getResult().getContent(),
+                    new TypeReference<Map<String, Object>>() {}
+            );
             List<Map<String, Object>> batches = (List<Map<String, Object>>) contentMap.get("batches");
 
             if (batches == null || batches.isEmpty()) {
