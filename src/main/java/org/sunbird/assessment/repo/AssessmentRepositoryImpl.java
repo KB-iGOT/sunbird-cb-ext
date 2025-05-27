@@ -1,14 +1,9 @@
 package org.sunbird.assessment.repo;
 
-import java.math.BigDecimal;
-import java.sql.Timestamp;
-import java.text.SimpleDateFormat;
-import java.util.Collections;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
+import com.datastax.oss.driver.api.core.uuid.Uuids;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.gson.Gson;
 import org.apache.commons.collections4.MapUtils;
 import org.codehaus.plexus.util.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,10 +13,12 @@ import org.sunbird.cassandra.utils.CassandraOperation;
 import org.sunbird.common.model.SBApiResponse;
 import org.sunbird.common.util.Constants;
 import org.sunbird.core.logger.CbExtLogger;
-
-import com.datastax.driver.core.utils.UUIDs;
-import com.google.gson.Gson;
 import org.sunbird.cqfassessment.model.CQFAssessmentModel;
+
+import java.math.BigDecimal;
+import java.sql.Timestamp;
+import java.text.SimpleDateFormat;
+import java.util.*;
 
 @Service
 public class AssessmentRepositoryImpl implements AssessmentRepository {
@@ -32,17 +29,19 @@ public class AssessmentRepositoryImpl implements AssessmentRepository {
 	public static final String USER_ID = "userId";
 	private CbExtLogger logger = new CbExtLogger(getClass().getName());
 
-	@Autowired
+	/*@Autowired
 	UserAssessmentSummaryRepository userAssessmentSummaryRepo;
+*/
+	/*@Autowired
+	UserAssessmentMasterRepository userAssessmentMasterRepo;*/
 
-	@Autowired
-	UserAssessmentMasterRepository userAssessmentMasterRepo;
-
-	@Autowired
-	UserQuizMasterRepository userQuizMasterRepo;
-
+	/*@Autowired
+	UserQuizMasterRepository userQuizMasterRepo;*/
 	@Autowired
 	CassandraOperation cassandraOperation;
+
+	@Autowired
+	private ObjectMapper objectMapper;
 
 	SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd");
 
@@ -69,17 +68,31 @@ public class AssessmentRepositoryImpl implements AssessmentRepository {
 			UserAssessmentMasterModel assessment = new UserAssessmentMasterModel(
 					new UserAssessmentMasterPrimaryKeyModel(persist.get(ROOT_ORG).toString(), date,
 							persist.get("parent").toString(), BigDecimal.valueOf((Double) persist.get(RESULT)),
-							UUIDs.timeBased()),
+							Uuids.timeBased()),
 					Integer.parseInt(persist.get("correct").toString()), formatter.parse(formatter.format(date)),
 					Integer.parseInt(persist.get("incorrect").toString()),
 					Integer.parseInt(persist.get("blank").toString()), persist.get("parentContentType").toString(),
 					new BigDecimal(60), persist.get(SOURCE_ID).toString(), persist.get("title").toString(),
 					persist.get(USER_ID).toString());
 			UserAssessmentSummaryModel summary = new UserAssessmentSummaryModel();
-			UserAssessmentSummaryModel data = userAssessmentSummaryRepo
+			Map<String, Object> keyMap = new HashMap<>();
+			keyMap.put("root_org", persist.get("root_org").toString());
+			keyMap.put("user_id", persist.get("user_id").toString());
+			keyMap.put("source_id", persist.get("source_id").toString());
+
+			List<Map<String, Object>> resultList = cassandraOperation.getRecordsByPropertiesWithoutFiltering(
+					Constants.SUNBIRD_KEY_SPACE_NAME, Constants.ASSESSMENT_SUMMARY_TABLE,
+					keyMap,null );
+			UserAssessmentSummaryModel data = null;
+			if (resultList != null && !resultList.isEmpty()) {
+				Map<String, Object> row = resultList.get(0);
+				data = mapToUserAssessmentSummaryModel(row);
+			}
+
+			/*UserAssessmentSummaryModel data = userAssessmentSummaryRepo
 					.findById(new UserAssessmentSummaryPrimaryKeyModel(persist.get(ROOT_ORG).toString(),
 							persist.get(USER_ID).toString(), persist.get(SOURCE_ID).toString()))
-					.orElse(null);
+					.orElse(null);*/
 
 			if (persist.get("parentContentType").toString().equalsIgnoreCase("course")) {
 				if (data != null) {
@@ -101,17 +114,30 @@ public class AssessmentRepositoryImpl implements AssessmentRepository {
 							new UserAssessmentSummaryPrimaryKeyModel(persist.get(ROOT_ORG).toString(),
 									persist.get(USER_ID).toString(), persist.get(SOURCE_ID).toString()),
 							Float.parseFloat(persist.get(RESULT).toString()), date, null, null);
-					userAssessmentSummaryRepo.save(summary);
+					//userAssessmentSummaryRepo.save(summary);
+					Map<String, Object> insertMap = objectMapper.convertValue(summary, new TypeReference<Map<String, Object>>() {});
+
+					cassandraOperation.insertRecord(Constants.SUNBIRD_KEY_SPACE_NAME,
+							Constants.ASSESSMENT_SUMMARY_TABLE, insertMap);
 
 				}
 			}
-			userAssessmentMasterRepo.updateAssessment(assessment, summary);
+			//userAssessmentMasterRepo.updateAssessment(assessment, summary);
+			Map<String, Object> assessmentMap = objectMapper.convertValue(assessment, new TypeReference<Map<String, Object>>() {});
+			cassandraOperation.insertRecord(Constants.SUNBIRD_KEY_SPACE_NAME,
+					Constants.ASSESSMENT_MASTER_TABLE, assessmentMap);
+
+			if (summary.getPrimaryKey() != null) {
+				Map<String, Object> summaryMap = objectMapper.convertValue(summary, new TypeReference<Map<String, Object>>() {});
+				cassandraOperation.insertRecord(Constants.SUNBIRD_KEY_SPACE_NAME,
+						Constants.ASSESSMENT_SUMMARY_TABLE, summaryMap);
+			}
 		}
 		// insert quiz and quiz summary
 		else {
 			UserQuizMasterModel quiz = new UserQuizMasterModel(
 					new UserQuizMasterPrimaryKeyModel(persist.get(ROOT_ORG).toString(), date,
-							BigDecimal.valueOf((Double) persist.get(RESULT)), UUIDs.timeBased()),
+							BigDecimal.valueOf((Double) persist.get(RESULT)), Uuids.timeBased()),
 					Integer.parseInt(persist.get("correct").toString()), formatter.parse(formatter.format(date)),
 					Integer.parseInt(persist.get("incorrect").toString()),
 					Integer.parseInt(persist.get("blank").toString()), new BigDecimal(60),
@@ -122,7 +148,15 @@ public class AssessmentRepositoryImpl implements AssessmentRepository {
 							persist.get(USER_ID).toString(), persist.get(SOURCE_ID).toString()),
 					date);
 
-			userQuizMasterRepo.updateQuiz(quiz, summary);
+			//userQuizMasterRepo.updateQuiz(quiz, summary);
+			Map<String, Object> quizMap = objectMapper.convertValue(quiz, new TypeReference<Map<String, Object>>() {});
+			cassandraOperation.insertRecord(Constants.SUNBIRD_KEY_SPACE_NAME,
+					Constants.QUIZ_MASTER_TABLE, quizMap);
+
+			Map<String, Object> summaryMap = objectMapper.convertValue(summary, new TypeReference<Map<String, Object>>() {});
+			cassandraOperation.insertRecord(Constants.SUNBIRD_KEY_SPACE_NAME,
+					Constants.QUIZ_SUMMARY_TABLE, summaryMap);
+
 		}
 
 		response.put("response", "SUCCESS");
@@ -245,4 +279,21 @@ public class AssessmentRepositoryImpl implements AssessmentRepository {
 		cassandraOperation.updateRecord(Constants.KEYSPACE_SUNBIRD, Constants.TABLE_CQF_ASSESSMENT_DATA,
 				fieldsToBeUpdated, compositeKeys);
 	}
+
+	private UserAssessmentSummaryModel mapToUserAssessmentSummaryModel(Map<String, Object> row) {
+		UserAssessmentSummaryPrimaryKeyModel pk = new UserAssessmentSummaryPrimaryKeyModel(
+				(String) row.get("root_org"),
+				(String) row.get("user_id"),
+				(String) row.get("source_id")
+		);
+
+		Float maxScore = row.get("max_score") != null ? ((Number) row.get("max_score")).floatValue() : null;
+		Date maxScoreDate = (Date) row.get("max_score_date");
+
+		Float passedScore = row.get("first_passed_score") != null ? ((Number) row.get("first_passed_score")).floatValue() : null;
+		Date passedDate = (Date) row.get("first_passed_score_date");
+
+		return new UserAssessmentSummaryModel(pk, maxScore, maxScoreDate, passedScore, passedDate);
+	}
+
 }

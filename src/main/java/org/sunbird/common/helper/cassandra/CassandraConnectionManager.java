@@ -1,6 +1,8 @@
 package org.sunbird.common.helper.cassandra;
 
-import com.datastax.driver.core.Session;
+
+import com.datastax.oss.driver.api.core.CqlSession;
+
 import java.util.List;
 
 /**
@@ -15,7 +17,7 @@ public interface CassandraConnectionManager {
    * @param keyspaceName
    * @return Session
    */
-  Session getSession(String keyspaceName);
+  CqlSession getSession(String keyspaceName);
 
   /**
    * Method to get the cassandra cluster oject on basis of keyspace name provided .

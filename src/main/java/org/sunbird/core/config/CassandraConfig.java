@@ -17,7 +17,7 @@ public abstract class CassandraConfig extends AbstractCassandraConfiguration {
         return keyspaceName;
     }
 
-    @Override
+
     protected boolean getMetricsEnabled() {
         return false;
     }

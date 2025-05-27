@@ -8,7 +8,6 @@ import com.google.gson.reflect.TypeToken;
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.collections.MapUtils;
 import org.apache.commons.lang.StringUtils;
-import org.mortbay.util.ajax.JSON;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -822,16 +821,16 @@ public class AssessmentServiceV5Impl implements AssessmentServiceV5 {
                     if ((primaryCategory.equalsIgnoreCase("Competency Assessment")
                             && submitRequest.containsKey("competencies_v3")
                             && submitRequest.get("competencies_v3") != null)) {
-                        Object[] obj = (Object[]) JSON.parse((String) submitRequest.get("competencies_v3"));
-                        if (obj != null) {
-                            Object map = obj[0];
-                            ObjectMapper m = new ObjectMapper();
-                            Map<String, Object> props = m.convertValue(map, Map.class);
+                        String competenciesJson = (String) submitRequest.get("competencies_v3");
+                        ObjectMapper mapper = new ObjectMapper();
+                        List<Map<String, Object>> list = mapper.readValue(competenciesJson, new TypeReference<List<Map<String, Object>>>() {});
+                        if (list != null) {
+                            Map<String, Object> props = list.get(0);
                             kafkaResult.put(Constants.COMPETENCY, props.isEmpty() ? "" : props);
-                            System.out.println(obj);
+                            System.out.println(props);
 
                         }
-                        System.out.println(obj);
+                        System.out.println(list);
                     }
                     kafkaProducer.push(serverProperties.getAssessmentSubmitTopic(), kafkaResult);
                 }

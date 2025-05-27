@@ -1,15 +1,7 @@
 package org.sunbird.progress.service;
 
-import java.math.BigDecimal;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.stream.Collectors;
-
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.lang.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -17,7 +9,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.ObjectUtils;
 import org.sunbird.cassandra.utils.CassandraOperation;
-import org.sunbird.common.model.*;
+import org.sunbird.common.model.SBApiResponse;
+import org.sunbird.common.model.SearchUserApiContent;
+import org.sunbird.common.model.SunbirdApiRequest;
+import org.sunbird.common.model.SunbirdUserProfileDetail;
 import org.sunbird.common.service.ContentServiceImpl;
 import org.sunbird.common.service.OutboundRequestHandlerServiceImpl;
 import org.sunbird.common.util.CbExtServerProperties;
@@ -29,8 +24,9 @@ import org.sunbird.progress.model.MandatoryContentResponse;
 import org.sunbird.progress.model.UserProgressRequest;
 import org.sunbird.user.service.UserUtilityServiceImpl;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import java.math.BigDecimal;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 public class MandatoryContentServiceImpl implements MandatoryContentService {

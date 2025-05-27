@@ -1,10 +1,11 @@
 package org.sunbird.assessment.dto;
 
+import jakarta.validation.constraints.NotNull;
+
 import java.io.Serializable;
 import java.util.List;
 import java.util.Map;
 
-import javax.validation.constraints.NotNull;
 
 public class AssessmentSubmissionDTO implements Serializable {
 	private static final long serialVersionUID = 1L;

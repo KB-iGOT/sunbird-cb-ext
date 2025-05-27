@@ -1358,6 +1358,13 @@ public class Constants {
 	public static final int ASSESSMENT_STATUS_COMPLETED = 2;
 	public static final String BULK_UPLOAD_MAXIMUM_LIMIT_ERROR_MSG = "Your upload exceeds the limit of {0} records per file.";
 	public static final String BASIC_PROFILE_KEY = "user:basicProfile:";
+	public static final String ASSESSMENT_SUMMARY_TABLE = "user_assessment_summary";
+	public static final String ASSESSMENT_MASTER_TABLE = "user_assessment_master";
+	public static final String QUIZ_MASTER_TABLE = "user_quiz_master";
+	public static final String QUIZ_SUMMARY_TABLE = "user_quiz_summary";
+	public static final String USER_ASSESSMENT_TOP_PERFORMER_TABLE = "user_assessment_top_performer";
+
+
 	private Constants() {
 		throw new IllegalStateException("Utility class");
 	}

@@ -1,17 +1,7 @@
 package org.sunbird.assessment.service;
 
-import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.stream.Collectors;
-
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.type.CollectionType;
 import org.apache.commons.collections.MapUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -20,7 +10,6 @@ import org.springframework.util.CollectionUtils;
 import org.springframework.util.ObjectUtils;
 import org.springframework.util.StringUtils;
 import org.sunbird.assessment.repo.CohortUsers;
-import org.sunbird.assessment.repo.UserAssessmentTopPerformerRepository;
 import org.sunbird.cassandra.utils.CassandraOperation;
 import org.sunbird.common.model.*;
 import org.sunbird.common.service.ContentService;
@@ -31,8 +20,9 @@ import org.sunbird.common.util.ProjectUtil;
 import org.sunbird.core.logger.CbExtLogger;
 import org.sunbird.user.service.UserUtilityService;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.type.CollectionType;
+import java.text.SimpleDateFormat;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 public class CohortsServiceImpl implements CohortsService {
@@ -46,8 +36,8 @@ public class CohortsServiceImpl implements CohortsService {
 	@Autowired
 	ContentService contentService;
 
-	@Autowired
-	UserAssessmentTopPerformerRepository userAssessmentTopPerformerRepo;
+	/*@Autowired
+	UserAssessmentTopPerformerRepository userAssessmentTopPerformerRepo;*/
 
 	@Autowired
 	OutboundRequestHandlerServiceImpl outboundRequestHandlerService;
@@ -76,8 +66,21 @@ public class CohortsServiceImpl implements CohortsService {
 		List<Map<String, Object>> topLearnerRecords = new ArrayList<>();
 
 		if (!assessmentIdList.isEmpty()) {
-			topLearnerRecords = userAssessmentTopPerformerRepo
-					.findByPrimaryKeyRootOrgAndPrimaryKeyParentSourceIdIn(rootOrg, assessmentIdList);
+			for (String assessmentId : assessmentIdList) {
+				Map<String, Object> filters = Map.of(
+						"root_org", rootOrg,
+						"parent_source_id", assessmentId
+				);
+				List<Map<String, Object>> result = cassandraOperation.getRecordsByProperties(
+						Constants.SUNBIRD_KEY_SPACE_NAME,
+						Constants.USER_ASSESSMENT_TOP_PERFORMER_TABLE,
+						filters,
+						null
+				);
+				topLearnerRecords.addAll(result);
+			}
+			/*topLearnerRecords = userAssessmentTopPerformerRepo
+					.findByPrimaryKeyRootOrgAndPrimaryKeyParentSourceIdIn(rootOrg, assessmentIdList);*/
 			Collections.sort(topLearnerRecords, (m1, m2) -> {
 				if (m1.get(TS_CREATED) != null && m2.get(TS_CREATED) != null) {
 					return ((Date) m2.get(TS_CREATED)).compareTo((Date) (m1.get(TS_CREATED)));
