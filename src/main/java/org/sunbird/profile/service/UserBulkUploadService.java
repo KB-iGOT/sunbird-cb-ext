@@ -501,6 +501,8 @@ public class UserBulkUploadService {
                     headers.add("Error Details");
                 }
 
+                Set<String> processedEmailSet = new HashSet<>();
+                Set<String> processedPhoneSet = new HashSet<>();
                 for (CSVRecord record : csvRecords) {
                     Map<String, String> updatedRecord = new LinkedHashMap<>(record.toMap());
                     try {
@@ -535,8 +537,13 @@ public class UserBulkUploadService {
                         if (isFieldEmpty(record, 1)) {
                             errList.add("Email");
                         } else {
-                            String email = record.get(1).trim();
-                            userRegistration.setEmail(email);
+                            String email = record.get(1).trim().toLowerCase();
+                            // Check if this email has already been processed
+                            if (!processedEmailSet.add(email)) {
+                                errList.add("Duplicate email found.");
+                            } else {
+                                userRegistration.setEmail(email);
+                            }
                         }
 
                         if (isFieldEmpty(record, 2)) {
@@ -544,7 +551,12 @@ public class UserBulkUploadService {
                         } else {
                             String phone = record.get(2).trim();
                             if (phone.matches("^\\d+$")) {
-                                userRegistration.setPhone(phone);
+                                // Check if this phone has already been processed
+                                if (!processedPhoneSet.add(phone)) {
+                                    errList.add("Duplicate mobile found.");
+                                } else {
+                                    userRegistration.setPhone(phone);
+                                }
                             } else {
                                 invalidErrList.add("Invalid value for Mobile Number column type. Expecting number format");
                             }
@@ -703,6 +715,8 @@ public class UserBulkUploadService {
                     updatedRecords.add(updatedRecord);
                 }
                 logger.info("total noOfSuccessfulRecords {}, total noOfFailedRecordsCount {}, and total totalRecordsCount {}", noOfSuccessfulRecords,failedRecordsCount,totalRecordsCount);
+                processedEmailSet.clear();
+                processedPhoneSet.clear();
                 // Write back updated records to the same CSV file
                 fileWriter = new FileWriter(file);
                 bufferedWriter = new BufferedWriter(fileWriter);
