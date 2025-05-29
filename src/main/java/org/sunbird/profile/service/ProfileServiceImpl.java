@@ -2346,7 +2346,7 @@ public class ProfileServiceImpl implements ProfileService {
 			return false;
 		}
 		return bulkUploadMdoList.stream()
-				.anyMatch(entry -> Constants.STATUS_IN_PROGRESS_UPPERCASE.equalsIgnoreCase((String) entry.get(Constants.STATUS)));
+				.anyMatch(entry -> Constants.INITIATED_CAPITAL.equalsIgnoreCase((String) entry.get(Constants.STATUS)));
 	}
 
 	private void setErrorDataForMdo(SBApiResponse response, String errMsg) {
