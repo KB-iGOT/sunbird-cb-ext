@@ -1358,6 +1358,7 @@ public class Constants {
 	public static final int ASSESSMENT_STATUS_COMPLETED = 2;
 	public static final String BULK_UPLOAD_MAXIMUM_LIMIT_ERROR_MSG = "Your upload exceeds the limit of {0} records per file.";
 	public static final String BASIC_PROFILE_KEY = "user:basicProfile:";
+	public static final String USERNAME_LOWERCASE = "username";
 	private Constants() {
 		throw new IllegalStateException("Utility class");
 	}
