@@ -41,7 +41,6 @@ import org.springframework.web.multipart.MultipartFile;
 import org.sunbird.bpreports.postgres.entity.WfStatusEntity;
 import org.sunbird.bpreports.postgres.repository.WfStatusEntityRepository;
 import org.sunbird.cache.DataCacheMgr;
-import org.sunbird.cache.RedisCacheMgr;
 import org.sunbird.cassandra.utils.CassandraOperation;
 import org.sunbird.common.model.SBApiResponse;
 import org.sunbird.common.model.SunbirdApiRespParam;
