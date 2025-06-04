@@ -601,7 +601,8 @@ public class Constants {
 	public static final String TABLE_USER_ASSESSMENT_DATA = "user_assessment_data";
 	public static final String TABLE_MASTER_DATA = "master_data";
 
-
+	public static final String ACCESS_TOKEN_IS_EXPIRED = "Access token is expired";
+	public static final String ACCESS_TOKEN_VALIDATION_FAILED = "Access token validation is failed";
 	public static final String USER_ID_DOESNT_EXIST = "User Id doesn't exist! Please supply a valid auth token";
 	public static final String ASSESSMENT_DATA_START_TIME_NOT_UPDATED = "Assessment Data & Start Time not updated in the DB.";
 	public static final String FAILED_TO_GET_QUESTION_DETAILS = "Failed to get Question List data from the Question List Api.";
