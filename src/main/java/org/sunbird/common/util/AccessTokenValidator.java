@@ -7,9 +7,10 @@ import org.keycloak.common.util.Time;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
+import org.sunbird.common.model.SBApiResponse;
 
-import java.io.IOException;
 import java.util.Collections;
 import java.util.Map;
 @Component
@@ -104,6 +105,29 @@ public class AccessTokenValidator {
             } catch (Exception ex) {
                 String errMsg = "Exception occurred while fetching the userid from the access token. Exception: " + ex.getMessage();
                 logger.error(errMsg, ex);
+                clientAccessTokenId = null;
+            }
+        }
+        return clientAccessTokenId;
+    }
+
+    public String fetchUserIdFromAccessToken(String accessToken, SBApiResponse response) {
+        String clientAccessTokenId = null;
+        if (accessToken != null) {
+            try {
+                clientAccessTokenId = verifyUserToken(accessToken);
+                if (Constants._UNAUTHORIZED.equalsIgnoreCase(clientAccessTokenId)) {
+                    response.getParams().setStatus(Constants.FAILED);
+                    response.getParams().setErrmsg(Constants.ACCESS_TOKEN_IS_EXPIRED);
+                    response.setResponseCode(HttpStatus.UNAUTHORIZED);
+                    clientAccessTokenId = null;
+                }
+            } catch (Exception ex) {
+                String errMsg = "Exception occurred while fetching the userid from the access token. Exception: " + ex.getMessage();
+                logger.error(errMsg, ex);
+                response.getParams().setStatus(Constants.FAILED);
+                    response.getParams().setErrmsg(Constants.ACCESS_TOKEN_VALIDATION_FAILED);
+                    response.setResponseCode(HttpStatus.INTERNAL_SERVER_ERROR);
                 clientAccessTokenId = null;
             }
         }

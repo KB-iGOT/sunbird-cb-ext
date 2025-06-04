@@ -436,16 +436,8 @@ public class CbPlanServiceImpl implements CbPlanService {
             if (isPrivate)
                 userId = authTokenOrUserId;
             else
-                userId = validateAuthTokenAndFetchUserId(authTokenOrUserId);
-            if (Constants._UNAUTHORIZED.equals(userId)) {
-                response.getParams().setStatus(Constants.FAILED);
-                response.getParams().setErrmsg(Constants.USER_ID_DOESNT_EXIST);
-                response.setResponseCode(HttpStatus.UNAUTHORIZED);
-                return response;
-            } else if (StringUtils.isBlank(userId)) {
-                response.getParams().setStatus(Constants.FAILED);
-                response.getParams().setErrmsg(Constants.USER_ID_DOESNT_EXIST);
-                response.setResponseCode(HttpStatus.BAD_REQUEST);
+                userId = accessTokenValidator.fetchUserIdFromAccessToken(authTokenOrUserId, response);
+            if (StringUtils.isBlank(userId)) {
                 return response;
             }
             logger.info("UserId of the User : " + userId + ", User org ID : " + userOrgId);
