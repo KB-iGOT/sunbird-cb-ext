@@ -437,7 +437,18 @@ public class CbPlanServiceImpl implements CbPlanService {
                 userId = authTokenOrUserId;
             else
                 userId = validateAuthTokenAndFetchUserId(authTokenOrUserId);
-            logger.info("UserId of the User : " + userId + "User org ID : " + userOrgId);
+            if (Constants._UNAUTHORIZED.equals(userId)) {
+                response.getParams().setStatus(Constants.FAILED);
+                response.getParams().setErrmsg(Constants.USER_ID_DOESNT_EXIST);
+                response.setResponseCode(HttpStatus.UNAUTHORIZED);
+                return response;
+            } else if (StringUtils.isBlank(userId)) {
+                response.getParams().setStatus(Constants.FAILED);
+                response.getParams().setErrmsg(Constants.USER_ID_DOESNT_EXIST);
+                response.setResponseCode(HttpStatus.BAD_REQUEST);
+                return response;
+            }
+            logger.info("UserId of the User : " + userId + ", User org ID : " + userOrgId);
             List<String> fields = Arrays.asList(Constants.PROFILE_DETAILS, Constants.ROOT_ORG_ID);
             Map<String, Object> propertiesMap = new HashMap<>();
             propertiesMap.put(Constants.ID, userId);

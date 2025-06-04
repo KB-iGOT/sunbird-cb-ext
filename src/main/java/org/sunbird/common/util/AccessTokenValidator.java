@@ -42,12 +42,14 @@ public class AccessTokenValidator {
                         mapper.readValue(new String(decodeFromBase64(body)), Map.class);
                 boolean isExp = isExpired((Integer) tokenBody.get("exp"));
                 if (isExp) {
-                    return Collections.EMPTY_MAP;
+                    throw new Exception("Expired auth token is received.");
                 }
                 return tokenBody;
+            } else {
+                throw new Exception("Invalid auth token is received.");
             }
-        } catch (IOException e) {
-            return Collections.EMPTY_MAP;
+        } catch (Exception e) {
+            logger.warn("Failed to validate the user token. Exception: ", e);
         }
         return Collections.EMPTY_MAP;
     }
@@ -78,7 +80,13 @@ public class AccessTokenValidator {
 	}
 
     private boolean isExpired(Integer expiration) {
-        return (Time.currentTime() > expiration);
+        int currentTime = Time.currentTime();
+        boolean retValue = (currentTime > expiration);
+        if (retValue) {
+            logger.warn(String.format("Received expired auth token request. Current time: {}, Token expire time: {}",
+                    currentTime, expiration));
+        }
+        return retValue;
     }
 
     private byte[] decodeFromBase64(String data) {
