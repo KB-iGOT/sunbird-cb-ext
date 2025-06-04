@@ -246,7 +246,7 @@ public class ProfileServiceImpl implements ProfileService {
 					cacheData.put(Constants.ROOT_ORG_ID, responseMap.getOrDefault(Constants.ROOT_ORG_ID, ""));
 					cacheData.put(Constants.FIRSTNAME, responseMap.getOrDefault(Constants.FIRSTNAME, ""));
 					cacheData.put(Constants.ID, responseMap.getOrDefault(Constants.ID, ""));
-					cacheData.put(Constants.PROFILE_DETAILS_KEY, existingProfileDetails);
+					cacheData.put(Constants.PROFILE_DETAILS, existingProfileDetails);
 					cacheData.put(Constants.CHANNEL, responseMap.getOrDefault(Constants.CHANNEL, ""));
 					cacheData.put(Constants.USERNAME_LOWERCASE, responseMap.getOrDefault(Constants.USER_NAME,""));
 					redisCacheMgr.putInBasicProfileCache(userId, cacheData);
