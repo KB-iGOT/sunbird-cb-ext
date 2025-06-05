@@ -1,5 +1,8 @@
 package org.sunbird.portal;
 
+import org.apache.hc.client5.http.impl.classic.HttpClients;
+import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManager;
+import org.apache.hc.core5.util.Timeout;
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
@@ -42,12 +45,16 @@ public class SbCbExtApplication {
 
 	private ClientHttpRequestFactory getClientHttpRequestFactory() {
 		int timeout = 45000;
-		RequestConfig config = RequestConfig.custom().setConnectTimeout(timeout).setConnectionRequestTimeout(timeout)
-				.setSocketTimeout(timeout).build();
-		CloseableHttpClient client = HttpClientBuilder.create().setMaxConnTotal(2000).setMaxConnPerRoute(500)
-				.setDefaultRequestConfig(config).build();
-		HttpComponentsClientHttpRequestFactory cRequestFactory = new HttpComponentsClientHttpRequestFactory(client);
-		cRequestFactory.setReadTimeout(timeout);
-		return cRequestFactory;
+		org.apache.hc.client5.http.config.RequestConfig config = org.apache.hc.client5.http.config.RequestConfig.custom()
+				.setResponseTimeout(Timeout.ofMilliseconds(timeout))
+				.build();
+		PoolingHttpClientConnectionManager cm = new PoolingHttpClientConnectionManager();
+		cm.setMaxTotal(2000);
+		cm.setDefaultMaxPerRoute(500);
+		org.apache.hc.client5.http.impl.classic.CloseableHttpClient client = HttpClients.custom()
+				.setDefaultRequestConfig(config)
+				.setConnectionManager(cm)
+				.build();
+		return new HttpComponentsClientHttpRequestFactory(client);
 	}
 }

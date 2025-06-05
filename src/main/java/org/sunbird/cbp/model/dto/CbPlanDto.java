@@ -1,10 +1,10 @@
 package org.sunbird.cbp.model.dto;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
+import jakarta.validation.constraints.NotNull;
+import org.apache.logging.log4j.core.config.plugins.validation.constraints.NotBlank;
 import org.apache.logging.log4j.core.config.plugins.validation.constraints.Required;
 
-import javax.validation.constraints.NotBlank;
-import javax.validation.constraints.NotNull;
 import java.util.Date;
 import java.util.List;
 

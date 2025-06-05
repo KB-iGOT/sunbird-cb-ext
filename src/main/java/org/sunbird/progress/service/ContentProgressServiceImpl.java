@@ -299,7 +299,7 @@ public class ContentProgressServiceImpl implements ContentProgressService {
                 logger.warn("Invalid content hierarchy response for programId: " + courseId);
                 return null;
             }
-            Map<String, Object> contentMap = mapper.convertValue(contentHeirarchyResult.getResult().getContent(), new TypeReference<Object>() {
+            Map<String, Object> contentMap = mapper.convertValue(contentHeirarchyResult.getResult().getContent(), new TypeReference<Map<String, Object>>() {
             });
             List<Map<String, Object>> batches = (List<Map<String, Object>>) contentMap.get("batches");
 

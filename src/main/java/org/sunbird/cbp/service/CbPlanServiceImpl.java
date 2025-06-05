@@ -1,16 +1,13 @@
 package org.sunbird.cbp.service;
 
-import java.io.IOException;
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
-import java.util.*;
-import java.util.stream.Collectors;
-
-import javax.validation.ConstraintViolation;
-import javax.validation.Validation;
-import javax.validation.Validator;
-import javax.validation.ValidatorFactory;
-
+import com.datastax.oss.driver.api.core.uuid.Uuids;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.validation.ConstraintViolation;
+import jakarta.validation.Validation;
+import jakarta.validation.Validator;
+import jakarta.validation.ValidatorFactory;
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.collections.MapUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -33,10 +30,11 @@ import org.sunbird.common.util.ProjectUtil;
 import org.sunbird.core.producer.Producer;
 import org.sunbird.user.service.UserUtilityService;
 
-import com.datastax.driver.core.utils.UUIDs;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import java.io.IOException;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 public class CbPlanServiceImpl implements CbPlanService {
@@ -83,7 +81,7 @@ public class CbPlanServiceImpl implements CbPlanService {
             requestMap.put(Constants.CREATED_AT, new Date());
             requestMap.put(Constants.UPDATED_AT, new Date());
             requestMap.put(Constants.ORG_ID, userOrgId);
-            UUID cbPlanId = UUIDs.timeBased();
+            UUID cbPlanId = Uuids.timeBased();
             requestMap.put(Constants.ID, cbPlanId);
             CbPlanDto cbPlanDto = mapper.convertValue(request.getRequest(), CbPlanDto.class);
             List<String> validations = validateCbPlanRequest(cbPlanDto);

@@ -1,13 +1,9 @@
 package org.sunbird.ratings.service;
 
-import java.math.BigDecimal;
-import java.math.RoundingMode;
-import java.sql.Timestamp;
-import java.util.*;
-import java.util.regex.Pattern;
-import java.util.stream.Collectors;
-
+import com.datastax.oss.driver.api.core.uuid.Uuids;
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.collections.MapUtils;
 import org.apache.commons.lang.StringUtils;
 import org.apache.kafka.common.KafkaException;
@@ -29,23 +25,17 @@ import org.sunbird.core.exception.BadRequestException;
 import org.sunbird.core.logger.CbExtLogger;
 import org.sunbird.core.producer.Producer;
 import org.sunbird.ratings.exception.ValidationException;
-import org.sunbird.ratings.model.LookupDataModel;
-import org.sunbird.ratings.model.LookupRequest;
-import org.sunbird.ratings.model.LookupResponse;
-import org.sunbird.ratings.model.RatingMessage;
-import org.sunbird.ratings.model.RatingModelInfo;
-import org.sunbird.ratings.model.RequestRating;
-import org.sunbird.ratings.model.SummaryModel;
-import org.sunbird.ratings.model.SummaryNodeModel;
-import org.sunbird.ratings.model.UserModel;
-import org.sunbird.ratings.model.ValidationBody;
+import org.sunbird.ratings.model.*;
 import org.sunbird.ratings.responsecode.ResponseCode;
 import org.sunbird.ratings.responsecode.ResponseMessage;
-
-import com.datastax.driver.core.utils.UUIDs;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.sunbird.user.service.UserUtilityService;
+
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.sql.Timestamp;
+import java.util.*;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 @Service
 public class RatingServiceImpl implements RatingService {
@@ -222,7 +212,7 @@ public class RatingServiceImpl implements RatingService {
 
     @Override
     public SBApiResponse upsertRating(RequestRating requestRating) {
-        UUID timeBasedUuid = UUIDs.timeBased();
+        UUID timeBasedUuid = Uuids.timeBased();
         SBApiResponse response = new SBApiResponse(Constants.API_RATINGS_UPDATE);
         RatingMessage ratingMessage;
 
@@ -327,7 +317,7 @@ public class RatingServiceImpl implements RatingService {
                 uuid = lookupRequest.getUpdateOn();
              }
             else {
-                uuid = String.valueOf(UUIDs.timeBased());
+                uuid = String.valueOf(Uuids.timeBased());
             }
 
             Map<String, Object> existingDataList = cassandraOperation.getRecordsByPropertiesWithPagination(Constants.KEYSPACE_SUNBIRD,

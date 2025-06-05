@@ -2,8 +2,8 @@ package org.sunbird.assessment.controller;
 
 import java.util.Map;
 
-import javax.validation.Valid;
 
+import jakarta.validation.Valid;
 import org.apache.commons.lang.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -134,7 +134,6 @@ public class AssessmentController {
 	/**
 	 * 
 	 * @param assessmentIdentifier
-	 * @param rootOrg
 	 * @return
 	 * @throws Exception
 	 */
@@ -177,7 +176,6 @@ public class AssessmentController {
 	/**
 	 * 
 	 * @param assessmentIdentifier
-	 * @param rootOrg
 	 * @return
 	 * @throws Exception
 	 */

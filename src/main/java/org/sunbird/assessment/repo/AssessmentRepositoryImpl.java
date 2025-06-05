@@ -1,14 +1,7 @@
 package org.sunbird.assessment.repo;
 
-import java.math.BigDecimal;
-import java.sql.Timestamp;
-import java.text.SimpleDateFormat;
-import java.util.Collections;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
+import com.datastax.oss.driver.api.core.uuid.Uuids;
+import com.google.gson.Gson;
 import org.apache.commons.collections4.MapUtils;
 import org.codehaus.plexus.util.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,10 +11,12 @@ import org.sunbird.cassandra.utils.CassandraOperation;
 import org.sunbird.common.model.SBApiResponse;
 import org.sunbird.common.util.Constants;
 import org.sunbird.core.logger.CbExtLogger;
-
-import com.datastax.driver.core.utils.UUIDs;
-import com.google.gson.Gson;
 import org.sunbird.cqfassessment.model.CQFAssessmentModel;
+
+import java.math.BigDecimal;
+import java.sql.Timestamp;
+import java.text.SimpleDateFormat;
+import java.util.*;
 
 @Service
 public class AssessmentRepositoryImpl implements AssessmentRepository {
@@ -69,7 +64,7 @@ public class AssessmentRepositoryImpl implements AssessmentRepository {
 			UserAssessmentMasterModel assessment = new UserAssessmentMasterModel(
 					new UserAssessmentMasterPrimaryKeyModel(persist.get(ROOT_ORG).toString(), date,
 							persist.get("parent").toString(), BigDecimal.valueOf((Double) persist.get(RESULT)),
-							UUIDs.timeBased()),
+							Uuids.timeBased()),
 					Integer.parseInt(persist.get("correct").toString()), formatter.parse(formatter.format(date)),
 					Integer.parseInt(persist.get("incorrect").toString()),
 					Integer.parseInt(persist.get("blank").toString()), persist.get("parentContentType").toString(),
@@ -111,7 +106,7 @@ public class AssessmentRepositoryImpl implements AssessmentRepository {
 		else {
 			UserQuizMasterModel quiz = new UserQuizMasterModel(
 					new UserQuizMasterPrimaryKeyModel(persist.get(ROOT_ORG).toString(), date,
-							BigDecimal.valueOf((Double) persist.get(RESULT)), UUIDs.timeBased()),
+							BigDecimal.valueOf((Double) persist.get(RESULT)), Uuids.timeBased()),
 					Integer.parseInt(persist.get("correct").toString()), formatter.parse(formatter.format(date)),
 					Integer.parseInt(persist.get("incorrect").toString()),
 					Integer.parseInt(persist.get("blank").toString()), new BigDecimal(60),

@@ -1,8 +1,8 @@
 package org.sunbird.core.config;
 
-import javax.persistence.EntityManagerFactory;
 import javax.sql.DataSource;
 
+import jakarta.persistence.EntityManagerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.jdbc.DataSourceBuilder;

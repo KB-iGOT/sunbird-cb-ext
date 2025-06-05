@@ -209,11 +209,11 @@ public class CbExtServerProperties {
 		this.redisDataHostName = redisDataHostName;
 	}
 
-	public String getRedisDataPort() {
+	public int getRedisDataPort() {
 		return redisDataPort;
 	}
 
-	public void setRedisDataPort(String redisDataPort) {
+	public void setRedisDataPort(int redisDataPort) {
 		this.redisDataPort = redisDataPort;
 	}
 
@@ -221,7 +221,7 @@ public class CbExtServerProperties {
 	private String redisDataHostName;
 
 	@Value("${redis.data.port}")
-	private String redisDataPort;
+	private int redisDataPort;
 
 	@Value("${redis.timeout}")
 	private String redisTimeout;

@@ -1,17 +1,10 @@
 package org.sunbird.cassandra.utils;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.stream.Collectors;
-
+import com.datastax.oss.driver.api.core.cql.ResultSet;
+import com.datastax.oss.driver.api.core.cql.Row;
 import org.sunbird.common.util.Constants;
 
-import com.datastax.driver.core.ResultSet;
-import com.datastax.driver.core.Row;
+import java.util.*;
 
 /**
  * @author fathima
@@ -89,13 +82,11 @@ public final class CassandraUtil {
     }
 
     public static Map<String, String> fetchColumnsMapping(ResultSet results) {
-        return results
-                .getColumnDefinitions()
-                .asList()
-                .stream()
-                .collect(
-                        Collectors.toMap(
-                                d -> propertiesCache.readProperty(d.getName()).trim(),
-                                d -> d.getName()));
+        Map<String, String> columnsMapping = new HashMap<>();
+        results.getColumnDefinitions().forEach(column -> {
+            String property = propertiesCache.readProperty(column.getName().asInternal()).trim();
+            columnsMapping.put(property, column.getName().asInternal());
+        });
+        return columnsMapping;
     }
 }

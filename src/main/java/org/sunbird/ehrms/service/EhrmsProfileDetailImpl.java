@@ -104,7 +104,7 @@ public class EhrmsProfileDetailImpl implements EhrmsService {
         } catch (HttpClientErrorException errorException) {
             String responseBodyString = errorException.getResponseBodyAsString();
             response.getParams().setStatus(Constants.FAILED);
-            response.setResponseCode(errorException.getStatusCode());
+            response.setResponseCode(HttpStatus.INTERNAL_SERVER_ERROR);
             response.setResult(prepareErrorResponse(responseBodyString));
         } catch (Exception e) {
             logger.error("Failed to look up user details. Exception: {}", e.getMessage(), e);

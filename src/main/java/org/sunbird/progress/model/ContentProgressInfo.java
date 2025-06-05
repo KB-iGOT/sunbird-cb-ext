@@ -1,6 +1,7 @@
 package org.sunbird.progress.model;
 
-import javax.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotNull;
+
 import java.util.List;
 
 /**

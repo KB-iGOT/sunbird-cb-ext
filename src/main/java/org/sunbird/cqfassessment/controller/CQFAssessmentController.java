@@ -1,5 +1,6 @@
 package org.sunbird.cqfassessment.controller;
 
+import jakarta.validation.Valid;
 import org.apache.commons.lang.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -9,7 +10,6 @@ import org.sunbird.common.model.SBApiResponse;
 import org.sunbird.common.util.Constants;
 import org.sunbird.cqfassessment.service.CQFAssessmentService;
 
-import javax.validation.Valid;
 import java.util.Map;
 
 /**

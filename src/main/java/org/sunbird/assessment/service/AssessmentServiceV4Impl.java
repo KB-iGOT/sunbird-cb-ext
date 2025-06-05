@@ -1,27 +1,13 @@
 package org.sunbird.assessment.service;
 
-import static java.util.stream.Collectors.toList;
-import static org.sunbird.common.util.Constants.API_USER_INSIGHTS;
-import static org.sunbird.common.util.Constants.RESPONSE;
-
-import java.io.IOException;
-import java.sql.Timestamp;
-import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Calendar;
-import java.util.Collections;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.stream.Collectors;
-
+import com.beust.jcommander.internal.Lists;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.collections.MapUtils;
 import org.apache.commons.lang.StringUtils;
-import org.mortbay.util.ajax.JSON;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -32,14 +18,19 @@ import org.sunbird.assessment.repo.AssessmentRepository;
 import org.sunbird.common.model.SBApiResponse;
 import org.sunbird.common.service.ContentService;
 import org.sunbird.common.service.OutboundRequestHandlerServiceImpl;
-import org.sunbird.common.util.*;
+import org.sunbird.common.util.AccessTokenValidator;
+import org.sunbird.common.util.CbExtServerProperties;
+import org.sunbird.common.util.Constants;
+import org.sunbird.common.util.ProjectUtil;
 import org.sunbird.core.producer.Producer;
 
-import com.beust.jcommander.internal.Lists;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.gson.Gson;
-import com.google.gson.reflect.TypeToken;
+import java.io.IOException;
+import java.sql.Timestamp;
+import java.util.*;
+import java.util.stream.Collectors;
+
+import static java.util.stream.Collectors.toList;
+import static org.sunbird.common.util.Constants.RESPONSE;
 
 @Service
 @SuppressWarnings("unchecked")
@@ -917,7 +908,11 @@ public class AssessmentServiceV4Impl implements AssessmentServiceV4 {
                     if ((primaryCategory.equalsIgnoreCase("Competency Assessment")
                             && submitRequest.containsKey("competencies_v3")
                             && submitRequest.get("competencies_v3") != null)) {
-                        Object[] obj = (Object[]) JSON.parse((String) submitRequest.get("competencies_v3"));
+                        //Object[] obj = (Object[]) JSON.parse((String) submitRequest.get("competencies_v3"));
+                        String jsonStr = (String) submitRequest.get("competencies_v3");
+                        ObjectMapper mapper = new ObjectMapper();
+                        List<Object> competenciesList = mapper.readValue(jsonStr, new TypeReference<List<Object>>() {});
+                        Object[] obj = competenciesList.toArray();
                         if (obj != null) {
                             Object map = obj[0];
                             ObjectMapper m = new ObjectMapper();

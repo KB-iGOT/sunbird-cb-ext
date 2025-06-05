@@ -1,8 +1,8 @@
 package org.sunbird.cqfassessment.service;
 
+import jakarta.validation.Valid;
 import org.sunbird.common.model.SBApiResponse;
 
-import javax.validation.Valid;
 import java.util.Map;
 
 /**

@@ -1,5 +1,6 @@
 package org.sunbird.customselfregistration.controller;
 
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -9,7 +10,6 @@ import org.springframework.web.multipart.MultipartFile;
 import org.sunbird.common.model.SBApiResponse;
 import org.sunbird.customselfregistration.service.CustomSelfRegistrationService;
 
-import javax.validation.Valid;
 import java.util.Map;
 
 /**

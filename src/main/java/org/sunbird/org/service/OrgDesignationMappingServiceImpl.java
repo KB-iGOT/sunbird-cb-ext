@@ -1,6 +1,6 @@
 package org.sunbird.org.service;
 
-import com.datastax.driver.core.utils.UUIDs;
+import com.datastax.oss.driver.api.core.uuid.Uuids;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -15,6 +15,7 @@ import org.apache.poi.xssf.usermodel.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
@@ -63,12 +64,14 @@ public class OrgDesignationMappingServiceImpl implements OrgDesignationMappingSe
     private final Logger logger = LoggerFactory.getLogger(OrgDesignationMappingServiceImpl.class);
 
     @Autowired
+    @Lazy
     StorageServiceImpl storageService;
 
     @Autowired
     Producer kafkaProducer;
 
     @Autowired
+    @Lazy
     CassandraOperation cassandraOperation;
 
     @Autowired
@@ -412,7 +415,7 @@ public class OrgDesignationMappingServiceImpl implements OrgDesignationMappingSe
         long startTime = System.currentTimeMillis();
         try {
             HashMap<String, String> inputDataMap = objectMapper.readValue(value,
-                    new TypeReference<Object>() {
+                    new TypeReference<HashMap<String, String>>() {
                     });
             List<String> errList = validateReceivedKafkaMessage(inputDataMap);
             if (errList.isEmpty()) {
@@ -936,7 +939,7 @@ public class OrgDesignationMappingServiceImpl implements OrgDesignationMappingSe
     private Map<String, Object> designationTermObject(Map<String, Object> designationMappingObject) {
         Map<String, Object> requestBody = new HashMap<>();
         Map<String, Object> termReq = new HashMap<>();
-        termReq.put(Constants.CODE, UUIDs.timeBased());
+        termReq.put(Constants.CODE, Uuids.timeBased());
         termReq.put(Constants.CATEGORY, Constants.DESIGNATION);
         Map<String, Object> designationMap = (Map<String, Object>) designationMappingObject.get(Constants.DESIGNATION);
 
@@ -1082,7 +1085,7 @@ public class OrgDesignationMappingServiceImpl implements OrgDesignationMappingSe
         long startTime = System.currentTimeMillis();
         try {
             HashMap<String, String> inputDataMap = objectMapper.readValue(value,
-                    new TypeReference<Object>() {
+                    new TypeReference<HashMap<String, String>>() {
                     });
             List<String> errList = validateReceivedKafkaMessage(inputDataMap);
             if (errList.isEmpty()) {
