@@ -10,7 +10,6 @@ import com.google.gson.reflect.TypeToken;
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang.StringUtils;
 import org.joda.time.DateTime;
-import org.mortbay.util.ajax.JSON;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,9 +25,9 @@ import org.sunbird.common.util.CbExtServerProperties;
 import org.sunbird.common.util.Constants;
 import org.sunbird.core.producer.Producer;
 
-import java.util.*;
 import java.io.IOException;
 import java.sql.Timestamp;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import static java.util.stream.Collectors.toList;
@@ -427,7 +426,12 @@ public class AssessmentServiceV2Impl implements AssessmentServiceV2 {
                     kafkaResult.put(Constants.PRIMARY_CATEGORY, primaryCategory);
                     kafkaResult.put(Constants.TOTAL_SCORE, result.get(Constants.OVERALL_RESULT));
                     if ((primaryCategory.equalsIgnoreCase("Competency Assessment") && submitRequest.containsKey("competencies_v3") && submitRequest.get("competencies_v3") != null)) {
-                        Object[] obj = (Object[]) JSON.parse((String) submitRequest.get("competencies_v3"));
+                        //Object[] obj = (Object[]) JSON.parse((String) submitRequest.get("competencies_v3"));
+                        String jsonStr = (String) submitRequest.get("competencies_v3");
+
+                        ObjectMapper mapper = new ObjectMapper();
+                        List<Object> competenciesList = mapper.readValue(jsonStr, new TypeReference<List<Object>>() {});
+                        Object[] obj = competenciesList.toArray();
                         if (obj != null) {
                             Object map = obj[0];
                             ObjectMapper m = new ObjectMapper();

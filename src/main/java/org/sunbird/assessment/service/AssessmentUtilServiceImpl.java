@@ -1,19 +1,14 @@
 package org.sunbird.assessment.service;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
-import org.apache.htrace.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.ObjectUtils;
 import org.sunbird.assessment.model.QuestionSet;
 import org.sunbird.assessment.model.Questions;
 import org.sunbird.core.exception.ApplicationLogicError;
+
+import java.util.*;
 
 @Service
 public class AssessmentUtilServiceImpl implements AssessmentUtilService {

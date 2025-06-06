@@ -641,7 +641,7 @@ public class BPReportConsumer {
                                                   Map<String, Object> formQuestionsMap, Map<String, Object> headerKeyMapping) throws IOException {
 
         String bpReportDefaultFieldsStr = serverProperties.getBpEnrolmentReportDefaultFields();
-        Map<String, String> bpReportDefaultFieldsMap = mapper.readValue(bpReportDefaultFieldsStr, new TypeReference<LinkedHashMap<String, Object>>() {
+        Map<String, String> bpReportDefaultFieldsMap = mapper.readValue(bpReportDefaultFieldsStr, new TypeReference<Map<String, String>>() {
         });
         headerKeyMapping.putAll(bpReportDefaultFieldsMap);
         Row headerRow = sheet.createRow(0);

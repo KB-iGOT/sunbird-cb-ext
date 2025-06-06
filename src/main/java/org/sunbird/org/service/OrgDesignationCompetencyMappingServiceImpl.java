@@ -1,6 +1,6 @@
 package org.sunbird.org.service;
 
-import com.datastax.driver.core.utils.UUIDs;
+import com.datastax.oss.driver.api.core.uuid.Uuids;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.collections4.CollectionUtils;
@@ -510,7 +510,7 @@ public class OrgDesignationCompetencyMappingServiceImpl implements OrgDesignatio
         long startTime = System.currentTimeMillis();
         try {
             HashMap<String, String> inputDataMap = objectMapper.readValue(value,
-                    new TypeReference<Object>() {
+                    new TypeReference<HashMap<String, String>>() {
                     });
             List<String> errList = validateReceivedKafkaMessage(inputDataMap);
             if (errList.isEmpty()) {
@@ -1147,7 +1147,7 @@ public class OrgDesignationCompetencyMappingServiceImpl implements OrgDesignatio
     private Map<String, Object> competencyThemeTermObject(String frameworkId, Map<String, Object> competencyDesignationMappingInfoMap) {
         Map<String, Object> requestBody = new HashMap<>();
         Map<String, Object> termReq = new HashMap<>();
-        termReq.put(Constants.CODE, UUIDs.timeBased());
+        termReq.put(Constants.CODE, Uuids.timeBased());
         termReq.put(Constants.CATEGORY, Constants.COMPETENCY);
         Map<String, Object> competencyThemeMap = (Map<String, Object>) competencyDesignationMappingInfoMap.get(Constants.SEARCH_COMPETENCY_THEMES);
         competencyThemeMap.remove(Constants.IDENTIFIER);
@@ -1174,7 +1174,7 @@ public class OrgDesignationCompetencyMappingServiceImpl implements OrgDesignatio
     private Map<String, Object> competencySubThemeTermObject(String frameworkId, Map<String, Object> competencyDesignationMappingInfoMap) {
         Map<String, Object> requestBody = new HashMap<>();
         Map<String, Object> termReq = new HashMap<>();
-        termReq.put(Constants.CODE, UUIDs.timeBased());
+        termReq.put(Constants.CODE, Uuids.timeBased());
         termReq.put(Constants.CATEGORY, Constants.SUBTHEME);
         Map<String, Object> competencySubThemeMap = (Map<String, Object>) competencyDesignationMappingInfoMap.get(Constants.SEARCH_COMPETENCY_SUB_THEMES);
         competencySubThemeMap.remove(Constants.IDENTIFIER);

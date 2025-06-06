@@ -1,11 +1,11 @@
 package org.sunbird.org.repository;
 
+import jakarta.transaction.Transactional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.sunbird.org.model.CustomeSelfRegistrationEntity;
 
-import javax.transaction.Transactional;
 import java.util.List;
 
 /**

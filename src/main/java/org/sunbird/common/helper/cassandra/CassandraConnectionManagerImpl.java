@@ -1,7 +1,13 @@
 package org.sunbird.common.helper.cassandra;
 
-import com.datastax.driver.core.*;
-import com.datastax.driver.core.policies.DefaultRetryPolicy;
+import com.datastax.oss.driver.api.core.*;
+import com.datastax.oss.driver.api.core.config.DefaultDriverOption;
+import com.datastax.oss.driver.api.core.config.DriverConfigLoader;
+import com.datastax.oss.driver.api.core.metadata.Metadata;
+import com.datastax.oss.driver.api.core.metadata.Node;
+import com.datastax.oss.driver.api.core.metadata.schema.TableMetadata;
+import com.datastax.oss.driver.internal.core.retry.DefaultRetryPolicy;
+import com.datastax.oss.driver.internal.core.time.AtomicTimestampGenerator;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -13,6 +19,7 @@ import org.sunbird.core.logger.CbExtLogger;
 import org.sunbird.org.service.OrgDesignationBulkUploadConsumer;
 
 import javax.annotation.PostConstruct;
+import java.net.InetSocketAddress;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
@@ -22,10 +29,11 @@ import java.util.stream.Collectors;
 
 @Component
 public class CassandraConnectionManagerImpl implements CassandraConnectionManager {
-    private static Cluster cluster;
-    private static Map<String, Session> cassandraSessionMap = new ConcurrentHashMap<>(2);
+
+    private static Map<String, CqlSession> cassandraSessionMap = new ConcurrentHashMap<>(2);
     public static CbExtLogger logger = new CbExtLogger(CassandraConnectionManagerImpl.class.getName());
     List<String> keyspaces = Arrays.asList(Constants.KEYSPACE_SUNBIRD, Constants.KEYSPACE_SUNBIRD_COURSES);
+    private static CqlSession session;
 
     @Autowired
     private OrgDesignationBulkUploadConsumer orgDesignationBulkUploadConsumer = null;
@@ -41,61 +49,23 @@ public class CassandraConnectionManagerImpl implements CassandraConnectionManage
         logger.info("CassandraConnectionManagerImpl:: Initiated.");
     }
     @Override
-	public Session getSession(String keyspace) {
-		Session session = cassandraSessionMap.get(keyspace);
-		if (null != session) {
+	public CqlSession getSession(String keyspace) {
+        CqlSession session = cassandraSessionMap.get(keyspace);
+		if (session != null && !session.isClosed()) {
 			return session;
 		} else {
             logger.info("CassandraConnectionManagerImpl:: Creating connection for :: " + keyspace);
-			Session session2 = cluster.connect(keyspace);
-			cassandraSessionMap.put(keyspace, session2);
-			return session2;
+			CqlSession NewSession = createCassandraConnectionWithKeySpaces(keyspace);
+			cassandraSessionMap.put(keyspace, NewSession);
+			return NewSession;
 		}
 	}
 
     private void createCassandraConnection() {
         try {
-            PropertiesCache cache = PropertiesCache.getInstance();
-            PoolingOptions poolingOptions = new PoolingOptions();
-            poolingOptions.setCoreConnectionsPerHost(
-                    HostDistance.LOCAL,
-                    Integer.parseInt(cache.getProperty(Constants.CORE_CONNECTIONS_PER_HOST_FOR_LOCAL)));
-            poolingOptions.setMaxConnectionsPerHost(
-                    HostDistance.LOCAL,
-                    Integer.parseInt(cache.getProperty(Constants.MAX_CONNECTIONS_PER_HOST_FOR_LOCAl)));
-            poolingOptions.setCoreConnectionsPerHost(
-                    HostDistance.REMOTE,
-                    Integer.parseInt(cache.getProperty(Constants.CORE_CONNECTIONS_PER_HOST_FOR_REMOTE)));
-            poolingOptions.setMaxConnectionsPerHost(
-                    HostDistance.REMOTE,
-                    Integer.parseInt(cache.getProperty(Constants.MAX_CONNECTIONS_PER_HOST_FOR_REMOTE)));
-            poolingOptions.setMaxRequestsPerConnection(
-                    HostDistance.LOCAL,
-                    Integer.parseInt(cache.getProperty(Constants.MAX_REQUEST_PER_CONNECTION)));
-            poolingOptions.setHeartbeatIntervalSeconds(
-                    Integer.parseInt(cache.getProperty(Constants.HEARTBEAT_INTERVAL)));
-            poolingOptions.setPoolTimeoutMillis(
-                    Integer.parseInt(cache.getProperty(Constants.POOL_TIMEOUT)));
-            String cassandraHost = (cache.getProperty(Constants.CASSANDRA_CONFIG_HOST));
-            String[] hosts = null;
-            if (StringUtils.isNotBlank(cassandraHost)) {
-                hosts = cassandraHost.split(",");
-            }
-            cluster = createCluster(hosts, poolingOptions);
-
-            final Metadata metadata = cluster.getMetadata();
-            String msg = String.format("Connected to cluster: %s", metadata.getClusterName());
-            logger.info(msg);
-
-            for (final Host host : metadata.getAllHosts()) {
-                msg =
-                        String.format(
-                                "Datacenter: %s; Host: %s; Rack: %s",
-                                host.getDatacenter(), host.getAddress(), host.getRack());
-                logger.info(msg);
-            }
+            session = createCassandraConnectionWithKeySpaces(null);
         } catch (Exception e) {
-            logger.error(e);
+            logger.error("Error while creating Cassandra connection", e);
             throw new ProjectCommonException(
                     ResponseCode.internalError.getErrorCode(),
                     e.getMessage(),
@@ -103,7 +73,7 @@ public class CassandraConnectionManagerImpl implements CassandraConnectionManage
         }
     }
 
-    private static Cluster createCluster(String[] hosts, PoolingOptions poolingOptions) {
+    /*private static Cluster createCluster(String[] hosts, PoolingOptions poolingOptions) {
         Cluster.Builder builder =
                 Cluster.builder()
                         .addContactPoints(hosts)
@@ -120,17 +90,20 @@ public class CassandraConnectionManagerImpl implements CassandraConnectionManage
         }
 
         return builder.build();
-    }
+    }*/
 
     private static ConsistencyLevel getConsistencyLevel() {
         String consistency = PropertiesCache.getInstance().readProperty(Constants.SUNBIRD_CASSANDRA_CONSISTENCY_LEVEL);
 
         logger.info("CassandraConnectionManagerImpl:getConsistencyLevel: level = " + consistency);
 
-        if (StringUtils.isBlank(consistency)) return null;
+        if (StringUtils.isBlank(consistency)){
+            logger.warn("Cassandra consistency level is not set. Falling back to LOCAL_QUORUM.");
+            return DefaultConsistencyLevel.LOCAL_QUORUM;
+        }
 
         try {
-            return ConsistencyLevel.valueOf(consistency.toUpperCase());
+            return DefaultConsistencyLevel.valueOf(consistency.toUpperCase());
         } catch (IllegalArgumentException exception) {
             logger.info("CassandraConnectionManagerImpl:getConsistencyLevel: Exception occurred with error message = "
                     + exception.getMessage());
@@ -139,11 +112,29 @@ public class CassandraConnectionManagerImpl implements CassandraConnectionManage
     }
 
     @Override
-    public List<String> getTableList(String keyspacename) {
-        Collection<TableMetadata> tables = cluster.getMetadata().getKeyspace(keyspacename).getTables();
-
-        // to convert to list of the names
-        return tables.stream().map(tm -> tm.getName()).collect(Collectors.toList());
+    public List<String> getTableList(String keyspaceName) {
+        try {
+            // Fetch the metadata for the keyspace and list tables
+            Metadata metadata = session.getMetadata();
+            if (metadata.getKeyspace(keyspaceName).isPresent()) {
+                // Convert the Map<CqlIdentifier, TableMetadata> to a List<String> with table names
+                Map<CqlIdentifier, TableMetadata> tables = metadata.getKeyspace(keyspaceName).get().getTables();
+                return tables.keySet().stream()
+                        .map(CqlIdentifier::toString)
+                        .collect(Collectors.toList());
+            } else {
+                throw new ProjectCommonException(
+                        ResponseCode.internalError.getErrorCode(),
+                        "Keyspace not found: " + keyspaceName,
+                        ResponseCode.SERVER_ERROR.getResponseCode());
+            }
+        } catch (Exception e) {
+            logger.error("Error fetching tables for keyspace: " + keyspaceName, e);
+            throw new ProjectCommonException(
+                    ResponseCode.internalError.getErrorCode(),
+                    e.getMessage(),
+                    ResponseCode.SERVER_ERROR.getResponseCode());
+        }
     }
 
     /**
@@ -164,11 +155,11 @@ public class CassandraConnectionManagerImpl implements CassandraConnectionManage
         public void run() {
             try {
                 logger.info("started resource cleanup Cassandra.");
-                for (Map.Entry<String, Session> entry : cassandraSessionMap.entrySet()) {
+                for (Map.Entry<String, CqlSession> entry : cassandraSessionMap.entrySet()) {
                     cassandraSessionMap.get(entry.getKey()).close();
                 }
-				if (cluster != null) {
-					cluster.close();
+				if (session != null) {
+                    session.close();
 				}
                 logger.info("completed resource cleanup Cassandra.");
             } catch (Exception ex) {
@@ -204,5 +195,76 @@ public class CassandraConnectionManagerImpl implements CassandraConnectionManage
             }
         }));
         logger.info("Cassandra ShutDownHook registered.");
+    }
+
+    private CqlSession createCassandraConnectionWithKeySpaces(String keySpaceName) {
+        try {
+            // Load the properties required for connection
+            PropertiesCache cache = PropertiesCache.getInstance();
+            String cassandraHost = cache.getProperty(Constants.CASSANDRA_CONFIG_HOST);
+            if (StringUtils.isBlank(cassandraHost)) {
+                throw new ProjectCommonException(
+                        ResponseCode.internalError.getErrorCode(),
+                        "Cassandra host is not configured",
+                        ResponseCode.SERVER_ERROR.getResponseCode());
+            }
+
+            List<String> hosts = Arrays.asList(cassandraHost.split(","));
+            List<InetSocketAddress> contactPoints = hosts.stream()
+                    .map(host -> new InetSocketAddress(host.trim(), 9042)) // Assuming default port 9042
+                    .collect(Collectors.toList());
+
+            List<String> contactPointsString = hosts.stream()
+                    .map(host -> host.trim() + ":9042") // Ensure proper host:port format
+                    .collect(Collectors.toList());
+            DriverConfigLoader loader = DriverConfigLoader.programmaticBuilder()
+                    .withStringList(DefaultDriverOption.CONTACT_POINTS, contactPointsString)
+                    .withString(DefaultDriverOption.REQUEST_CONSISTENCY, getConsistencyLevel().name())
+                    .withString(DefaultDriverOption.LOAD_BALANCING_LOCAL_DATACENTER, "datacenter1")
+                    .withInt(DefaultDriverOption.CONNECTION_POOL_LOCAL_SIZE,
+                            Integer.parseInt(cache.getProperty(Constants.CORE_CONNECTIONS_PER_HOST_FOR_LOCAL)))
+                    .withInt(DefaultDriverOption.CONNECTION_POOL_REMOTE_SIZE,
+                            Integer.parseInt(cache.getProperty(Constants.CORE_CONNECTIONS_PER_HOST_FOR_REMOTE)))
+                    .withInt(DefaultDriverOption.HEARTBEAT_INTERVAL,
+                            Integer.parseInt(cache.getProperty(Constants.HEARTBEAT_INTERVAL)))
+                    .withInt(DefaultDriverOption.CONNECTION_INIT_QUERY_TIMEOUT, 10000)
+                    .withInt(DefaultDriverOption.REQUEST_TIMEOUT, 10000)
+                    .withString(DefaultDriverOption.PROTOCOL_VERSION, ProtocolVersion.V4.toString())
+                    .withClass(DefaultDriverOption.RETRY_POLICY_CLASS, DefaultRetryPolicy.class)
+                    .withClass(DefaultDriverOption.TIMESTAMP_GENERATOR_CLASS, AtomicTimestampGenerator.class)
+                    .build();
+
+            CqlSession sessionWithKeyspaces;
+            if (StringUtils.isNotBlank(keySpaceName)) {
+                sessionWithKeyspaces = CqlSession.builder()
+                        .addContactPoints(contactPoints)
+                        .withLocalDatacenter("datacenter1")
+                        .withKeyspace(keySpaceName)
+                        .withConfigLoader(loader)
+                        .build();
+            } else {
+                sessionWithKeyspaces = CqlSession.builder()
+                        .addContactPoints(contactPoints)
+                        .withLocalDatacenter("datacenter1")
+                        .withConfigLoader(loader)
+                        .build();
+            }
+            logger.info("Connected to the keyspaces: " + keySpaceName);
+            // Get metadata and log cluster information
+            final Metadata metadata = sessionWithKeyspaces.getMetadata();
+            logger.info(String.format("Connected to cluster: %s", metadata.getClusterName()));
+
+            // Log nodes in the cluster
+            for (Node host : metadata.getNodes().values()) {
+                logger.info(String.format("Datacenter: %s; Host: %s; Rack: %s", host.getDatacenter(), host.getEndPoint(), host.getRack()));
+            }
+            return sessionWithKeyspaces;
+        } catch (Exception e) {
+            logger.error("Error while creating Cassandra connection", e);
+            throw new ProjectCommonException(
+                    ResponseCode.internalError.getErrorCode(),
+                    e.getMessage(),
+                    ResponseCode.SERVER_ERROR.getResponseCode());
+        }
     }
 }

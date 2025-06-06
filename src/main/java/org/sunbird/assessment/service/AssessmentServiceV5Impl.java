@@ -8,7 +8,6 @@ import com.google.gson.reflect.TypeToken;
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.collections.MapUtils;
 import org.apache.commons.lang.StringUtils;
-import org.mortbay.util.ajax.JSON;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -822,7 +821,12 @@ public class AssessmentServiceV5Impl implements AssessmentServiceV5 {
                     if ((primaryCategory.equalsIgnoreCase("Competency Assessment")
                             && submitRequest.containsKey("competencies_v3")
                             && submitRequest.get("competencies_v3") != null)) {
-                        Object[] obj = (Object[]) JSON.parse((String) submitRequest.get("competencies_v3"));
+                        //Object[] obj = (Object[]) JSON.parse((String) submitRequest.get("competencies_v3"));
+                        String jsonStr = (String) submitRequest.get("competencies_v3");
+
+                        ObjectMapper mapper = new ObjectMapper();
+                        List<Object> competenciesList = mapper.readValue(jsonStr, new TypeReference<List<Object>>() {});
+                        Object[] obj = competenciesList.toArray();
                         if (obj != null) {
                             Object map = obj[0];
                             ObjectMapper m = new ObjectMapper();
