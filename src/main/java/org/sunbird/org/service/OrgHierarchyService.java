@@ -5,6 +5,6 @@ import org.springframework.http.ResponseEntity;
 
 public interface OrgHierarchyService {
 
-    ResponseEntity<ByteArrayResource> bulkUploadOrganisationMapping(String rootOrgId, String userAuthToken);
+    ResponseEntity<ByteArrayResource> bulkUploadOrganisationMapping(String rootOrgId, String userAuthToken, String frameworkId);
 
 }

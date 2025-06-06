@@ -53,14 +53,18 @@ public class OrgHierarchyServiceImpl implements OrgHierarchyService {
 
 
     @Override
-    public ResponseEntity<ByteArrayResource> bulkUploadOrganisationMapping(String rootOrgId, String userAuthToken) {
+    public ResponseEntity<ByteArrayResource> bulkUploadOrganisationMapping(String rootOrgId, String userAuthToken, String frameworkId) {
         try {
             Workbook workbook = new XSSFWorkbook();
 
             Sheet referenceSheetCompetency = workbook.createSheet(WorkbookUtil.createSafeSheetName(serverProperties.getBulkUploadOrgHierarchyReferenceWorkSpaceName()));
             Sheet orgDesignationMasterSheet = workbook.createSheet(WorkbookUtil.createSafeSheetName(serverProperties.getBulkUploadOrgHierarchyMasterDesignationWorkSpaceName()));
-
-            createHeaderRowForYourWorkBook(referenceSheetCompetency, serverProperties.getBulkUploadOrgHierarchyReferencesHeaders());
+            List<Map<String, Object>> categoryList = populateDataFromFrameworkTerm(frameworkId);
+            String[] referenceSheetHeaders = categoryList.stream()
+                    .map(cat -> (String) cat.get(Constants.CODE))
+                    .filter(code -> code != null)
+                    .toArray(String[]::new);
+            createHeaderRowForYourWorkBook(referenceSheetCompetency, referenceSheetHeaders);
             createHeaderRow(orgDesignationMasterSheet, serverProperties.getBulkUploadOrgHierarchyMasterDataHeaders());
 
             populateOrgDesignationMaster(orgDesignationMasterSheet);
@@ -179,7 +183,7 @@ public class OrgHierarchyServiceImpl implements OrgHierarchyService {
 
     private void setColumnWidths(Sheet sheet) {
         for (int i = 0; i < sheet.getRow(0).getPhysicalNumberOfCells(); i++) {
-            sheet.autoSizeColumn(i);
+            sheet.setColumnWidth(i, 8000);
         }
     }
 
@@ -212,44 +216,60 @@ public class OrgHierarchyServiceImpl implements OrgHierarchyService {
             int targetColumn,
             String formulaRange
     ) {
-        int firstRow = 1;  // Assuming row 1 is header row; data starts at row 2 (index 1)
-        int lastRow = 1000; // You can adjust or get dynamically from targetSheet.getLastRowNum()
+        int firstRow = 1;  // Start from row 2
+        int lastRow = 1000; // Adjust if needed
 
+        // 1. Create dropdown list using data validation
         DataValidationConstraint constraint = validationHelper.createFormulaListConstraint(formulaRange);
         CellRangeAddressList addressList = new CellRangeAddressList(firstRow, lastRow, targetColumn, targetColumn);
         DataValidation validation = validationHelper.createValidation(constraint, addressList);
 
-        if (validation instanceof XSSFDataValidation) {
-            validation.setSuppressDropDownArrow(true);
-            validation.setShowErrorBox(true);
-        }
+        // 2. Tooltip message (Prompt box)
+        validation.createPromptBox("Note", "Avoid selecting duplicate values across levels (L1 to L10).");
+        validation.setShowPromptBox(true);
 
+        // Optional error box on invalid input
+        validation.setShowErrorBox(true);
+
+        // 3. Apply the validation
         targetSheet.addValidationData(validation);
     }
+
 
     private void makeSheetReadOnly(Sheet sheet) {
         sheet.protectSheet("password");
     }
 
-
     private void addDuplicateHighlighting(Sheet sheet, int startRow, int endRow, int startCol, int endCol) {
         SheetConditionalFormatting sheetCF = sheet.getSheetConditionalFormatting();
 
-        String firstCell = CellReference.convertNumToColString(startCol) + (startRow + 1);
-        String lastCell = CellReference.convertNumToColString(endCol) + (endRow + 1);
-        String formula = "AND(" + firstCell + "<>\"\", COUNTIF($" + firstCell + ":$" + lastCell + "," + firstCell + ")>1)";
+        // Convert start and end column indices to letters, e.g. 0 -> A, 9 -> J
+        String startColLetter = CellReference.convertNumToColString(startCol);
+        String endColLetter = CellReference.convertNumToColString(endCol);
 
+        // The conditional formatting formula to check duplicates within the row only
+        // Example: =COUNTIF($A1:$J1, A1) > 1
+        // The $ locks columns, row is relative, so it works for each row and cell
+        String formula = "COUNTIF($" + startColLetter + (startRow + 1) + ":$" + endColLetter + (startRow + 1) + "," +
+                CellReference.convertNumToColString(startCol) + (startRow + 1) + ") > 1";
+
+        // Create conditional formatting rule with the formula
         ConditionalFormattingRule rule = sheetCF.createConditionalFormattingRule(formula);
+
+        // Set the fill color to Rose (pink)
         PatternFormatting fill = rule.createPatternFormatting();
         fill.setFillBackgroundColor(IndexedColors.ROSE.getIndex());
         fill.setFillPattern(PatternFormatting.SOLID_FOREGROUND);
 
+        // Define the range where this conditional formatting will apply
         CellRangeAddress[] regions = {
                 new CellRangeAddress(startRow, endRow, startCol, endCol)
         };
 
+        // Add the conditional formatting to the sheet
         sheetCF.addConditionalFormatting(regions, rule);
     }
+
 
     private void createHeaderRowForYourWorkBook(Sheet sheet, String[] headers) {
         Row headerRow = sheet.createRow(0);
@@ -289,6 +309,25 @@ public class OrgHierarchyServiceImpl implements OrgHierarchyService {
         for (int colIdx = 0; colIdx < headers.length; colIdx++) {
             sheet.setDefaultColumnStyle(colIdx, unlockedStyle);
         }
+    }
+
+    private List<Map<String, Object>> populateDataFromFrameworkTerm(String frameworkId) throws Exception {
+        Thread.sleep(500);
+        Map<String, String> headers = new HashMap<>();
+        headers.put(Constants.AUTHORIZATION, serverProperties.getSbApiKey());
+        String url = serverProperties.getKmBaseHost() + serverProperties.getKmFrameWorkPath() + "/" + frameworkId;
+        Map<String, Object> termFrameworkCompetencies = (Map<String, Object>) outboundRequestHandler.fetchUsingGetWithHeaders(
+                url, headers);
+        if (MapUtils.isNotEmpty(termFrameworkCompetencies)) {
+            Map<String, Object> result = ((Map<String, Object>) termFrameworkCompetencies.get(Constants.RESULT));
+            if (MapUtils.isNotEmpty(result)) {
+                Map<String, Object> frameworkObject = ((Map<String, Object>) result.get(Constants.FRAMEWORK));
+                if (MapUtils.isNotEmpty(frameworkObject)) {
+                    return (List<Map<String, Object>>) frameworkObject.get(Constants.CATEGORIES);
+                }
+            }
+        }
+        return null;
     }
 
 }

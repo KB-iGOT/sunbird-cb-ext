@@ -14,11 +14,12 @@ public class OrgHierarchyController {
 
     private @Autowired OrgHierarchyService orgHierarchyService;
 
-    @GetMapping("/v1/getMappingFile/sample")
+    @GetMapping("/v1/getMappingFile/sample/{frameworkId}")
     public ResponseEntity<?> getSampleMappingFileBulkUpload(@RequestHeader(Constants.X_AUTH_USER_ORG_ID) String rootOrgId,
-                                                                      @RequestHeader(Constants.X_AUTH_TOKEN) String userAuthToken) {
+                                                                      @RequestHeader(Constants.X_AUTH_TOKEN) String userAuthToken,
+                                                            @PathVariable(Constants.FRAMEWORK_ID) String frameworkId) {
 
-        return orgHierarchyService.bulkUploadOrganisationMapping(rootOrgId, userAuthToken);
+        return orgHierarchyService.bulkUploadOrganisationMapping(rootOrgId, userAuthToken, frameworkId);
     }
 
 
