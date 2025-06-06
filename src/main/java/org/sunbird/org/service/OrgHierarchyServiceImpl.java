@@ -60,7 +60,7 @@ public class OrgHierarchyServiceImpl implements OrgHierarchyService {
             Sheet referenceSheetCompetency = workbook.createSheet(WorkbookUtil.createSafeSheetName(serverProperties.getBulkUploadOrgHierarchyReferenceWorkSpaceName()));
             Sheet orgDesignationMasterSheet = workbook.createSheet(WorkbookUtil.createSafeSheetName(serverProperties.getBulkUploadOrgHierarchyMasterDesignationWorkSpaceName()));
 
-            createHeaderRow(referenceSheetCompetency, serverProperties.getBulkUploadOrgHierarchyReferencesHeaders());
+            createHeaderRowForYourWorkBook(referenceSheetCompetency, serverProperties.getBulkUploadOrgHierarchyReferencesHeaders());
             createHeaderRow(orgDesignationMasterSheet, serverProperties.getBulkUploadOrgHierarchyMasterDataHeaders());
 
             populateOrgDesignationMaster(orgDesignationMasterSheet);
@@ -79,6 +79,15 @@ public class OrgHierarchyServiceImpl implements OrgHierarchyService {
 
             ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
             workbook.write(outputStream);
+
+
+// ✅ Add this for testing output to file
+            try (FileOutputStream fos = new FileOutputStream("test-org-upload-hidden.xlsx")) {
+                workbook.write(fos);
+                System.out.println("Saved Excel to test-org-upload.xlsx");
+            } catch (IOException ioException) {
+                ioException.printStackTrace();
+            }
 
             workbook.close();
 
@@ -249,6 +258,46 @@ public class OrgHierarchyServiceImpl implements OrgHierarchyService {
         };
 
         sheetCF.addConditionalFormatting(regions, rule);
+    }
+
+    private void createHeaderRowForYourWorkBook(Sheet sheet, String[] headers) {
+        Row headerRow = sheet.createRow(0);
+
+        CellStyle headerStyle = sheet.getWorkbook().createCellStyle();
+        Font font = sheet.getWorkbook().createFont();
+        font.setBold(true);  // Make the header font bold
+        headerStyle.setFont(font);
+        headerStyle.setLocked(true);  // Lock the header cells
+
+        for (int i = 0; i < headers.length; i++) {
+            Cell cell = headerRow.createCell(i);
+            cell.setCellValue(headers[i]);
+            cell.setCellStyle(headerStyle);  // Apply the locked header style
+
+            // Auto-size the column based on header content
+            sheet.autoSizeColumn(i);
+
+            // Set a minimum fixed column width if autoSize doesn't provide enough space
+            int width = sheet.getColumnWidth(i);
+            if (width < 40 * 256) {  // Set a minimum width of 40 characters
+                sheet.setColumnWidth(i, 40 * 256);
+            }
+        }
+
+        // Freeze the header row so it stays visible when scrolling
+        sheet.createFreezePane(0, 1);  // Freeze the first row (index 0)
+
+        // Protect the sheet so that only locked cells (header row) are protected
+        sheet.protectSheet("");  // Protect the sheet without a password
+
+        // Create an unlocked style (all cells will be unlocked by default)
+        CellStyle unlockedStyle = sheet.getWorkbook().createCellStyle();
+        unlockedStyle.setLocked(false);
+
+        // Set the default column style for the rest of the sheet to be unlocked
+        for (int colIdx = 0; colIdx < headers.length; colIdx++) {
+            sheet.setDefaultColumnStyle(colIdx, unlockedStyle);
+        }
     }
 
 }
