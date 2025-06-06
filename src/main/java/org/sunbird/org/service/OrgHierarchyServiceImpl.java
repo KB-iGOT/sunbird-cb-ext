@@ -80,15 +80,6 @@ public class OrgHierarchyServiceImpl implements OrgHierarchyService {
             ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
             workbook.write(outputStream);
 
-
-// ✅ Add this for testing output to file
-            try (FileOutputStream fos = new FileOutputStream("test-org-upload-hidden.xlsx")) {
-                workbook.write(fos);
-                System.out.println("Saved Excel to test-org-upload.xlsx");
-            } catch (IOException ioException) {
-                ioException.printStackTrace();
-            }
-
             workbook.close();
 
             // Convert the output stream to a byte array and return as a downloadable file
