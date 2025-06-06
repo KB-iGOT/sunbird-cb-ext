@@ -183,7 +183,7 @@ public class OrgHierarchyServiceImpl implements OrgHierarchyService {
 
     private void setColumnWidths(Sheet sheet) {
         for (int i = 0; i < sheet.getRow(0).getPhysicalNumberOfCells(); i++) {
-            sheet.setColumnWidth(i, 8000);
+            sheet.setColumnWidth(i, serverProperties.getOrgHierarchyColumnWidth());
         }
     }
 

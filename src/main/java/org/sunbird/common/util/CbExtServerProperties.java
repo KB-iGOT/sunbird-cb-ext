@@ -1031,6 +1031,9 @@ public class CbExtServerProperties {
 	@Value("${org.search.url}")
 	public String orgSearchUrl;
 
+	@Value("${org.hierarchy.column.width}")
+	public int orgHierarchyColumnWidth;
+
 	public String getStateLearningInsightsRedisKeyMapping() {
 		return stateLearningInsightsRedisKeyMapping;
 	}
@@ -3537,5 +3540,9 @@ public class CbExtServerProperties {
 
 	public String getOrgSearchUrl() {
 		return orgSearchUrl;
+	}
+
+	public int getOrgHierarchyColumnWidth() {
+		return orgHierarchyColumnWidth;
 	}
 }
