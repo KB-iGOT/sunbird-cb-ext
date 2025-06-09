@@ -7,6 +7,8 @@ import org.springframework.web.bind.annotation.*;
 import org.sunbird.common.util.Constants;
 import org.sunbird.org.service.OrgHierarchyService;
 
+import java.io.IOException;
+
 @RestController
 @RequestMapping("/organisation")
 public class OrgHierarchyController {
@@ -20,6 +22,13 @@ public class OrgHierarchyController {
                                                             @PathVariable(Constants.FRAMEWORK_ID) String frameworkId) {
 
         return orgHierarchyService.bulkUploadOrganisationMapping(rootOrgId, userAuthToken, frameworkId);
+    }
+
+    @GetMapping("/v1/hierarchy/download/{frameworkId}")
+    public ResponseEntity<?> exportOrgHierarchyToExcel(@RequestHeader(Constants.X_AUTH_TOKEN) String userAuthToken,
+                                                            @PathVariable(Constants.FRAMEWORK_ID) String frameworkId) {
+
+        return orgHierarchyService.exportOrgHierarchyToExcel(userAuthToken, frameworkId);
     }
 
 

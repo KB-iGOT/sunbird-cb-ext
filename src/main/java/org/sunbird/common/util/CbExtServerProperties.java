@@ -1034,6 +1034,9 @@ public class CbExtServerProperties {
 	@Value("${org.hierarchy.column.width}")
 	public int orgHierarchyColumnWidth;
 
+	@Value("${validation.message.duplicate-levels}")
+	public String validationMessageDuplicateLevels;
+
 	public String getStateLearningInsightsRedisKeyMapping() {
 		return stateLearningInsightsRedisKeyMapping;
 	}
@@ -3544,5 +3547,9 @@ public class CbExtServerProperties {
 
 	public int getOrgHierarchyColumnWidth() {
 		return orgHierarchyColumnWidth;
+	}
+
+	public String getValidationMessageDuplicateLevels() {
+		return validationMessageDuplicateLevels;
 	}
 }
