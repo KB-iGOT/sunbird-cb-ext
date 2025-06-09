@@ -1,4 +1,4 @@
-FROM openjdk:8
+FROM openjdk:17-slim
 
 RUN apt-get update \
     && apt-get install -y \
@@ -15,6 +15,5 @@ RUN curl "https://github.com/wkhtmltopdf/packaging/releases/download/0.12.6-1/wk
 RUN dpkg -i wkhtmltopdf.deb
 
 COPY sb-cb-ext-0.0.1-SNAPSHOT.jar /opt/
-#HEALTHCHECK --interval=30s --timeout=30s CMD curl --fail http://localhost:7001/actuator/health || exit 1
-CMD ["/bin/bash", "-c", "java -XX:+PrintFlagsFinal $JAVA_OPTIONS -XX:+UnlockExperimentalVMOptions -XX:+UseCGroupMemoryLimitForHeap -jar /opt/sb-cb-ext-0.0.1-SNAPSHOT.jar"]
+CMD ["/bin/bash", "-c", "java -XX:+PrintFlagsFinal $JAVA_OPTIONS -XX:+UnlockExperimentalVMOptions -jar /opt/sb-cb-ext-0.0.1-SNAPSHOT.jar"]
 
