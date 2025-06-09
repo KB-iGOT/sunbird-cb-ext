@@ -24,9 +24,9 @@ public class OrgHierarchyController {
         return orgHierarchyService.bulkUploadOrganisationMapping(rootOrgId, userAuthToken, frameworkId);
     }
 
-    @GetMapping("/v1/hierarchy/download-xlsx/{frameworkId}")
+    @GetMapping("/v1/hierarchy/download/{frameworkId}")
     public ResponseEntity<?> exportOrgHierarchyToExcel(@RequestHeader(Constants.X_AUTH_TOKEN) String userAuthToken,
-                                                            @PathVariable(Constants.FRAMEWORK_ID) String frameworkId) throws IOException {
+                                                            @PathVariable(Constants.FRAMEWORK_ID) String frameworkId) {
 
         return orgHierarchyService.exportOrgHierarchyToExcel(userAuthToken, frameworkId);
     }

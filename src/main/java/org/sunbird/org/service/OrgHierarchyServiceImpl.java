@@ -115,7 +115,7 @@ public class OrgHierarchyServiceImpl implements OrgHierarchyService {
     }
 
     @Override
-    public ResponseEntity<ByteArrayResource> exportOrgHierarchyToExcel(String userAuthToken, String frameworkId) throws IOException {
+    public ResponseEntity<ByteArrayResource> exportOrgHierarchyToExcel(String userAuthToken, String frameworkId) {
         try {
             Workbook workbook = new XSSFWorkbook();
 
