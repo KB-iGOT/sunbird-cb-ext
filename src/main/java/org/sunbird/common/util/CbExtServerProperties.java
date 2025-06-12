@@ -1037,6 +1037,12 @@ public class CbExtServerProperties {
 	@Value("${validation.message.duplicate-levels}")
 	public String validationMessageDuplicateLevels;
 
+	@Value("${kafka.topics.org.hierarchy.bulk.upload.event}")
+	public String orgHierarchyBulkUploadTopic;
+
+	@Value("${org.hierarchy.bulk.upload.container.name}")
+	private String orgHierarchyBulkUploadContainerName;
+
 	public String getStateLearningInsightsRedisKeyMapping() {
 		return stateLearningInsightsRedisKeyMapping;
 	}
@@ -3551,5 +3557,13 @@ public class CbExtServerProperties {
 
 	public String getValidationMessageDuplicateLevels() {
 		return validationMessageDuplicateLevels;
+	}
+
+	public String getOrgHierarchyBulkUploadTopic() {
+		return orgHierarchyBulkUploadTopic;
+	}
+
+	public String getOrgHierarchyBulkUploadContainerName() {
+		return orgHierarchyBulkUploadContainerName;
 	}
 }

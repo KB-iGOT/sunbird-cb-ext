@@ -4,6 +4,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+import org.sunbird.common.model.SBApiResponse;
 import org.sunbird.common.util.Constants;
 import org.sunbird.org.service.OrgHierarchyService;
 
@@ -29,6 +31,16 @@ public class OrgHierarchyController {
                                                             @PathVariable(Constants.FRAMEWORK_ID) String frameworkId) {
 
         return orgHierarchyService.exportOrgHierarchyToExcel(userAuthToken, frameworkId);
+    }
+
+    @PostMapping("/v1/hierarchy/bulkUpload/{frameworkId}")
+    public ResponseEntity<?> bulkUploadCompetencyDesignationMapping(@RequestHeader(Constants.X_AUTH_USER_ORG_ID) String rootOrgId,
+                                                                    @RequestParam(value = "file", required = true) MultipartFile file,
+                                                                    @PathVariable(Constants.FRAMEWORK_ID) String frameworkId,
+                                                                    @RequestHeader(Constants.X_AUTH_TOKEN) String userAuthToken) {
+
+        SBApiResponse uploadResponse = orgHierarchyService.bulkUploadOrgHierarchyMapping(file, rootOrgId, userAuthToken, frameworkId);
+        return new ResponseEntity<>(uploadResponse, uploadResponse.getResponseCode());
     }
 
 
