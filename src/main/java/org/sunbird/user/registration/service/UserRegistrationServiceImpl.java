@@ -255,12 +255,12 @@ public class UserRegistrationServiceImpl implements UserRegistrationService {
 					}
 				}
 			} catch (Exception e) {
-				LOGGER.error(String.format("Exception in %s : %s", "generateOTP", e.getMessage()), e);
+				LOGGER.error("Exception in {} : {}", "generateOTP", e.getMessage(), e);
 				errMsg = "Failed to process message. Exception: " + e.getMessage();
 			}
 		}
 		if (StringUtils.isNotBlank(errMsg)) {
-			LOGGER.error("OTP generation request failed, error message : " + errMsg);
+            LOGGER.error("OTP generation request failed, error message : {}", errMsg);
 			response.setResponseCode(HttpStatus.BAD_REQUEST);
 			response.getParams().setErrmsg(errMsg);
 		}
