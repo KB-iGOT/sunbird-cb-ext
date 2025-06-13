@@ -434,8 +434,11 @@ public class CbPlanServiceImpl implements CbPlanService {
             if (isPrivate)
                 userId = authTokenOrUserId;
             else
-                userId = validateAuthTokenAndFetchUserId(authTokenOrUserId);
-            logger.info("UserId of the User : " + userId + "User org ID : " + userOrgId);
+                userId = accessTokenValidator.fetchUserIdFromAccessToken(authTokenOrUserId, response);
+            if (StringUtils.isBlank(userId)) {
+                return response;
+            }
+            logger.info("UserId of the User : " + userId + ", User org ID : " + userOrgId);
             List<String> fields = Arrays.asList(Constants.PROFILE_DETAILS, Constants.ROOT_ORG_ID);
             Map<String, Object> propertiesMap = new HashMap<>();
             propertiesMap.put(Constants.ID, userId);

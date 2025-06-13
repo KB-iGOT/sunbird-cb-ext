@@ -81,7 +81,7 @@ public interface CassandraOperation {
 			Map<String, Object> propertyMap, List<String> fields, String key);
 
 	public Map<String, Object> getRecordsByPropertiesWithPagination(String keyspaceName, String tableName,
-			Map<String, Object> propertyMap, List<String> fields, int limit, String updatedOn, String key);
+																	Map<String, Object> propertyMap, List<String> fields, int limit, String updatedOn, String key, boolean allowFiltering);
 
 	List<Map<String, Object>> searchByWhereClause(String keyspace, String tableName, List<String> fields, Date date);
 

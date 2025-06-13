@@ -312,6 +312,8 @@ public class RatingServiceImpl implements RatingService {
 
             if (lookupRequest.getRating() != null) {
                 request.put(Constants.RATING, lookupRequest.getRating());
+            }else {
+                request.put(Constants.RATING, Arrays.asList(1.0f, 2.0f, 3.0f, 4.0f, 5.0f));
             }
             if(lookupRequest.getUpdateOn() !=null){
                 uuid = lookupRequest.getUpdateOn();
@@ -321,7 +323,7 @@ public class RatingServiceImpl implements RatingService {
             }
 
             Map<String, Object> existingDataList = cassandraOperation.getRecordsByPropertiesWithPagination(Constants.KEYSPACE_SUNBIRD,
-                    Constants.TABLE_RATINGS_LOOKUP, request, null, lookupRequest.getLimit(), uuid, Constants.USER_ID);
+                    Constants.TABLE_RATINGS_LOOKUP, request, null, lookupRequest.getLimit(), uuid, Constants.USER_ID, false);
             List<LookupResponse> listOfLookupResponse = new ArrayList<>();
 
             if (!CollectionUtils.isEmpty(existingDataList)) {

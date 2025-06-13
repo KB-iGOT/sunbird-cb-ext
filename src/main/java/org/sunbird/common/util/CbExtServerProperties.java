@@ -1007,6 +1007,42 @@ public class CbExtServerProperties {
 	@Value("${maximum.allow.limit.bulk.designation.competency.upload}")
 	private int maximumRowAllowedForDesignationCompetencyUpload;
 
+	@Value("${bulk.upload.org.hierarchy.reference.workspace.name}")
+	private String bulkUploadOrgHierarchyReferenceWorkSpaceName;
+
+	@Value("${bulk.upload.org.hierarchy.master.data.name}")
+	private String bulkUploadOrgHierarchyMasterDesignationWorkSpaceName;
+
+	@Value("${org.hierarchy.headers.master.data}")
+	private String[] bulkUploadOrgHierarchyMasterDataHeaders;
+
+	@Value("${org.hierarchy.headers.references}")
+	private String[] bulkUploadOrgHierarchyReferencesHeaders;
+
+	@Value("${org.search.limit}")
+	public int orgSearchLimit;
+
+	@Value("${org.hierarchy.bulk.upload.file.name}")
+	public String orgHierarchyBulkUploadFileName;
+
+	@Value("${lms.service.host}")
+	public String learnerServiceHost;
+
+	@Value("${org.search.url}")
+	public String orgSearchUrl;
+
+	@Value("${org.hierarchy.column.width}")
+	public int orgHierarchyColumnWidth;
+
+	@Value("${validation.message.duplicate-levels}")
+	public String validationMessageDuplicateLevels;
+
+	@Value("${kafka.topics.org.hierarchy.bulk.upload.event}")
+	public String orgHierarchyBulkUploadTopic;
+
+	@Value("${org.hierarchy.bulk.upload.container.name}")
+	private String orgHierarchyBulkUploadContainerName;
+
 	public String getStateLearningInsightsRedisKeyMapping() {
 		return stateLearningInsightsRedisKeyMapping;
 	}
@@ -3481,5 +3517,53 @@ public class CbExtServerProperties {
 
 	public void setMaximumRowAllowedForDesignationCompetencyUpload(int maximumRowAllowedForDesignationCompetencyUpload) {
 		this.maximumRowAllowedForDesignationCompetencyUpload = maximumRowAllowedForDesignationCompetencyUpload;
+	}
+
+	public String getBulkUploadOrgHierarchyReferenceWorkSpaceName() {
+		return bulkUploadOrgHierarchyReferenceWorkSpaceName;
+	}
+
+	public String getBulkUploadOrgHierarchyMasterDesignationWorkSpaceName() {
+		return bulkUploadOrgHierarchyMasterDesignationWorkSpaceName;
+	}
+
+	public String[] getBulkUploadOrgHierarchyMasterDataHeaders() {
+		return bulkUploadOrgHierarchyMasterDataHeaders;
+	}
+
+	public String[] getBulkUploadOrgHierarchyReferencesHeaders() {
+		return bulkUploadOrgHierarchyReferencesHeaders;
+	}
+
+	public int getOrgSearchLimit() {
+		return orgSearchLimit;
+	}
+
+	public String getOrgHierarchyBulkUploadFileName() {
+		return orgHierarchyBulkUploadFileName;
+	}
+
+	public String getLearnerServiceHost() {
+		return learnerServiceHost;
+	}
+
+	public String getOrgSearchUrl() {
+		return orgSearchUrl;
+	}
+
+	public int getOrgHierarchyColumnWidth() {
+		return orgHierarchyColumnWidth;
+	}
+
+	public String getValidationMessageDuplicateLevels() {
+		return validationMessageDuplicateLevels;
+	}
+
+	public String getOrgHierarchyBulkUploadTopic() {
+		return orgHierarchyBulkUploadTopic;
+	}
+
+	public String getOrgHierarchyBulkUploadContainerName() {
+		return orgHierarchyBulkUploadContainerName;
 	}
 }

@@ -283,10 +283,10 @@ public class CohortsServiceImpl implements CohortsService {
 		HashMap<String, Object> req;
 		req = new HashMap<>();
 		HashMap<String, Object> enrollObj = new HashMap<>();
-		enrollObj.put("userId", userUUID);
-		enrollObj.put("courseId", contentId);
-		enrollObj.put("batchId", batchId);
-		req.put("request", enrollObj);
+		enrollObj.put(Constants.USER_ID_CONSTANT, userUUID);
+		enrollObj.put(Constants.COURSE_ID, contentId);
+		enrollObj.put(Constants.BATCH_ID, batchId);
+		req.put(Constants.REQUEST, enrollObj);
 		Map<String, Object> enrollMentResponse = outboundRequestHandlerService.fetchResultUsingPost(
 				cbExtServerProperties.getCourseServiceHost() + cbExtServerProperties.getUserCourseEnroll(), req,
 				headers);
@@ -479,6 +479,7 @@ public class CohortsServiceImpl implements CohortsService {
 			headers.put(Constants.AUTHORIZATION, cbExtServerProperties.getSbApiKey());
 			headers.put(Constants.X_AUTH_USER_ORG_ID, rootOrgId);
 			boolean isEnrolledWithBatch = false;
+			String errMsg = "";
 			SBApiResponse errResponse = isActiveEnrollmentExistsForUser(userUUID, contentId, batchDetail);
 			if (!ObjectUtils.isEmpty(errResponse)) {
 				return errResponse;
@@ -490,7 +491,14 @@ public class CohortsServiceImpl implements CohortsService {
 				isEnrolledWithBatch = true;
 			}
 			if (!isEnrolledWithBatch) {
-				ProjectUtil.updateErrorDetails(finalResponse, Constants.BATCH_AUTO_ENROLL_ERROR_MSG, HttpStatus.BAD_REQUEST);
+				Map<String, Object> errorParamsMap = (Map<String, Object>) enrollResponse.get(Constants.PARAMS);
+                if (!MapUtils.isEmpty(errorParamsMap)) {
+					errMsg = (String) errorParamsMap.get("errmsg");
+					if (StringUtils.isEmpty(errMsg)) {
+						errMsg = (String) errorParamsMap.get("errMsg");
+					}
+                }
+				ProjectUtil.updateErrorDetails(finalResponse, (!StringUtils.isEmpty(errMsg)) ? errMsg : Constants.BATCH_AUTO_ENROLL_ERROR_MSG, HttpStatus.BAD_REQUEST);
 			}
 		} catch (Exception e) {
 			logger.error("Failed to auto enrol user. Exception: ", e);

@@ -144,11 +144,11 @@ public class CassandraOperationImpl implements CassandraOperation {
 
 	@Override
 	public Map<String, Object> getRecordsByPropertiesWithPagination(String keyspaceName, String tableName,
-			Map<String, Object> propertyMap, List<String> fields, int limit, String updatedOn, String key) {
+																	Map<String, Object> propertyMap, List<String> fields, int limit, String updatedOn, String key, boolean allowFiltering) {
 		Select selectQuery = null;
 		Map<String, Object> response = new HashMap<>();
 		try {
-			selectQuery = processQuery(keyspaceName, tableName, propertyMap, fields);
+			selectQuery = processQuery(keyspaceName, tableName, propertyMap, fields, allowFiltering);
 			selectQuery.limit(limit);
 			if (!StringUtils.isEmpty(updatedOn)) {
 				selectQuery = selectQuery.whereColumn("updatedon").isLessThan(literal(UUID.fromString(updatedOn)));
@@ -164,7 +164,7 @@ public class CassandraOperationImpl implements CassandraOperation {
 	}
 
 	private Select processQuery(String keyspaceName, String tableName, Map<String, Object> propertyMap,
-			List<String> fields) {
+								List<String> fields, boolean allowFiltering) {
 		Select selectQuery = null;
 
 		if (CollectionUtils.isNotEmpty(fields)) {
@@ -576,6 +576,11 @@ public class CassandraOperationImpl implements CassandraOperation {
 
 		}
 		return count;
+	}
+
+	private Select processQuery(String keyspaceName, String tableName, Map<String, Object> propertyMap,
+								List<String> fields) {
+		return processQuery(keyspaceName, tableName, propertyMap, fields, true);
 	}
 }
 
