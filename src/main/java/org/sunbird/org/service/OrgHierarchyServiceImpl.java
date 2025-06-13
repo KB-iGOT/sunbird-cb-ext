@@ -1,25 +1,19 @@
 package org.sunbird.org.service;
 
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.collections4.MapUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.poi.ss.usermodel.*;
-import org.apache.poi.ss.util.CellRangeAddress;
-import org.apache.poi.ss.util.CellRangeAddressList;
-import org.apache.poi.ss.util.CellReference;
 import org.apache.poi.ss.util.WorkbookUtil;
-import org.apache.poi.xssf.usermodel.XSSFDataValidation;
-import org.apache.poi.xssf.usermodel.XSSFDataValidationHelper;
-import org.apache.poi.xssf.usermodel.XSSFSheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.ByteArrayResource;
+import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -35,15 +29,17 @@ import org.sunbird.core.producer.Producer;
 import org.sunbird.org.util.ExcelUtil;
 import org.sunbird.org.util.FrameworkUtil;
 import org.sunbird.storage.service.StorageServiceImpl;
+import org.sunbird.user.service.UserUtilityService;
 
 import java.io.ByteArrayOutputStream;
-import java.io.FileOutputStream;
+import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.sql.Timestamp;
 import java.text.MessageFormat;
 import java.util.*;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 
 @Service
 public class OrgHierarchyServiceImpl implements OrgHierarchyService {
@@ -79,6 +75,9 @@ public class OrgHierarchyServiceImpl implements OrgHierarchyService {
 
     @Autowired
     Producer kafkaProducer;
+
+    @Autowired
+    private UserUtilityService userUtilityService;
 
 
     @Override
@@ -242,4 +241,88 @@ public class OrgHierarchyServiceImpl implements OrgHierarchyService {
         response.getParams().setErrmsg(errMsg);
         response.setResponseCode(httpStatus);
     }
+    @Override
+    public ResponseEntity<Resource> downloadFile(String fileName, String rootOrgId, String userAuthToken) {
+        try {
+            String userId = accessTokenValidator.fetchUserIdFromAccessToken(userAuthToken);
+            if (StringUtils.isBlank(userId)) {
+                logger.error("Not able to get userId from authToken ");
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            }
+            if (!validateUserOrgId(rootOrgId, userId)) {
+                logger.error("User is not authorized to download the file for other org");
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            }
+            storageService.downloadFile(fileName, serverProperties.getOrgHierarchyBulkUploadContainerName());
+            Path tmpPath = Paths.get(Constants.LOCAL_BASE_PATH + fileName);
+            ByteArrayResource resource = new ByteArrayResource(Files.readAllBytes(tmpPath));
+            HttpHeaders headers = new HttpHeaders();
+            headers.add(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + fileName + "\"");
+            return ResponseEntity.ok()
+                    .headers(headers)
+                    .contentLength(tmpPath.toFile().length())
+                    .contentType(MediaType.parseMediaType(MediaType.MULTIPART_FORM_DATA_VALUE))
+                    .body(resource);
+        } catch (IOException e) {
+            logger.error("Failed to read the downloaded file: " + fileName + ", Exception: ", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        } finally {
+            try {
+                File file = new File(Constants.LOCAL_BASE_PATH + fileName);
+                if (file.exists()) {
+                    file.delete();
+                }
+            } catch (Exception e1) {
+            }
+        }
+    }
+
+    @Override
+    public SBApiResponse getBulkUploadDetailsForOrgHierarchyMapping(String orgId, String rootOrgId, String userAuthToken) {
+        SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.API_ORG_HIERARCHY_BULK_UPLOAD_STATUS);
+        try {
+            Map<String, Object> propertyMap = new HashMap<>();
+            if (StringUtils.isNotBlank(orgId)) {
+                propertyMap.put(Constants.ROOT_ORG_ID, orgId);
+            }
+            String userId = accessTokenValidator.fetchUserIdFromAccessToken(userAuthToken);
+            if (StringUtils.isBlank(userId)) {
+                response.getParams().setStatus(Constants.FAILED);
+                response.getParams().setErrmsg(Constants.USER_ID_DOESNT_EXIST);
+                response.setResponseCode(HttpStatus.BAD_REQUEST);
+                return response;
+            }
+            if (!validateUserOrgId(rootOrgId, userId)) {
+                logger.error("User is not authorized to get the fileInfo for other org: " + rootOrgId + ", request orgId " + orgId);
+                response.getParams().setStatus(Constants.FAILED);
+                response.getParams().setErrmsg("User is not authorized to get the fileInfo for other org");
+                response.setResponseCode(HttpStatus.UNAUTHORIZED);
+                return response;
+            }
+            List<Map<String, Object>> bulkUploadList = cassandraOperation.getRecordsByProperties(Constants.KEYSPACE_SUNBIRD,
+                    Constants.ORG_HIERARCHY_MAPPING_BULK_UPLOAD, propertyMap, serverProperties.getBulkUploadStatusFields());
+            response.getParams().setStatus(Constants.SUCCESSFUL);
+            response.setResponseCode(HttpStatus.OK);
+            response.getResult().put(Constants.CONTENT, bulkUploadList);
+            response.getResult().put(Constants.COUNT, bulkUploadList != null ? bulkUploadList.size() : 0);
+        } catch (Exception e) {
+            setErrorData(response,
+                    String.format("Failed to get user bulk upload request status. Error: ", e.getMessage()), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+        return response;
+    }
+
+    private boolean validateUserOrgId(String orgId, String userId) {
+        Map<String, Map<String, String>> userInfoMap = new HashMap<>();
+        userUtilityService.getUserDetailsFromDB(Arrays.asList(userId), Arrays.asList(Constants.USER_ID, Constants.ROOT_ORG_ID, Constants.CHANNEL), userInfoMap);
+        if (MapUtils.isNotEmpty(userInfoMap)) {
+            String rootOrgId = userInfoMap.get(userId).get(Constants.ROOT_ORG_ID);
+            String channel = userInfoMap.get(userId).get(Constants.CHANNEL);
+
+            // Adding the condition for spv and also for Mdo OrgId
+            return (StringUtils.equalsIgnoreCase(serverProperties.getSpvChannelName(), channel) || StringUtils.equalsIgnoreCase(orgId, rootOrgId));
+        }
+        return false;
+    }
+
 }

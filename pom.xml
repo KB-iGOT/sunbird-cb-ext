@@ -265,13 +265,6 @@
             <scope>provided</scope>
         </dependency>
 
-        <dependency>
-            <groupId>com.github.f4b6a3</groupId>
-            <artifactId>uuid-creator</artifactId>
-            <version>5.3.2</version>
-        </dependency>
-
-
     </dependencies>
 
     <build>

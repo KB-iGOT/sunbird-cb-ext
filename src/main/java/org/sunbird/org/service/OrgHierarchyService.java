@@ -14,4 +14,8 @@ public interface OrgHierarchyService {
     ResponseEntity<ByteArrayResource> exportOrgHierarchyToExcel(String userAuthToken, String frameworkId);
 
     SBApiResponse bulkUploadOrgHierarchyMapping(MultipartFile file, String rootOrgId, String userAuthToken, String frameworkId);
+
+    ResponseEntity<?> downloadFile(String fileName, String rootOrgId, String userAuthToken);
+
+    SBApiResponse getBulkUploadDetailsForOrgHierarchyMapping(String orgId, String rootOrgId, String userAuthToken);
 }

@@ -1,8 +1,10 @@
 package org.sunbird.org.consumer;
 
+import com.datastax.driver.core.utils.UUIDs;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.github.f4b6a3.uuid.UuidCreator;
+import org.apache.commons.collections4.CollectionUtils;
+import org.apache.commons.collections4.MapUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.poi.ss.usermodel.Cell;
@@ -166,8 +168,8 @@ public class OrgHierarchyBulkUploadConsumer {
         termReq.put(Constants.CATEGORY, category);
         termReq.put(Constants.NAME, extractName(name));
         Map<String, Object> additionalProperties = new HashMap<>();
-        additionalProperties.put("identifier", extractIdentifier(name));
-        additionalProperties.put("parentOrgName", parentOrgName);
+        additionalProperties.put(Constants.IDENTIFIER, extractIdentifier(name));
+        additionalProperties.put(Constants.PARENT_ORG_NAME, parentOrgName);
         termReq.put(Constants.ADDITIONAL_PROPERTIES, additionalProperties);
         requestBody.put(Constants.TERM, termReq);
         Map<String, Object> createReq = new HashMap<>();
@@ -285,14 +287,14 @@ public class OrgHierarchyBulkUploadConsumer {
                 }
                 logger.info("Processing level: " + levelName + " in category: " + category);
                 Map<String, Object> term = findTermInFramework(frameworkData, category, levelName);
-                if (term == null) {
+                if (MapUtils.isEmpty(term)) {
                     String parentOrgName = (i > 0) ? levels.get(i - 1) : null;
-                    String generateCode = UuidCreator.getTimeBased().toString();
+                    String generateCode = UUIDs.timeBased().toString();
                     Map<String, Object> createReq = buildCreateTermRequest(frameworkId, levelName, category, parentTermId, parentOrgName, generateCode);
                     Map<String, Object> createResp = createFrameworkTerm(frameworkId, createReq, category);
-                    if (createResp != null && createResp.containsKey("node_id")) {
+                    if (MapUtils.isNotEmpty(createResp) && createResp.containsKey(Constants.NODE_ID)) {
                         term = new HashMap<>();
-                        term.put(Constants.IDENTIFIER,((List<String>) createResp.get("node_id")).get(0));
+                        term.put(Constants.IDENTIFIER,((List<String>) createResp.get(Constants.NODE_ID)).get(0));
                         term.put(Constants.CODE, generateCode);
                         term.put(Constants.NAME, levelName);
                     } else {
@@ -330,7 +332,7 @@ public class OrgHierarchyBulkUploadConsumer {
 
                     Map<String, Object> updateReq = updateRequestObject(associations);
                     Map<String, Object> updateResp = updateFrameworkTerm(frameworkId, updateReq, categories.get(i - 1), parentCode);
-                    if (updateResp == null) {
+                    if (MapUtils.isEmpty(updateResp)) {
                         errors.add("Failed to associate " + levelName + " with parent");
                         break;
                     }
@@ -371,10 +373,10 @@ public class OrgHierarchyBulkUploadConsumer {
             }
         }
         Map<String, Object> categoryObj = frameworkData.stream()
-                .filter(n -> category.equalsIgnoreCase((String) n.get("name")))
+                .filter(n -> category.equalsIgnoreCase((String) n.get(Constants.NAME)))
                 .findFirst().orElse(null);
-        if (categoryObj != null) {
-            List<Map<String, Object>> terms = (List<Map<String, Object>>) categoryObj.get("terms");
+        if (MapUtils.isNotEmpty(categoryObj)) {
+            List<Map<String, Object>> terms = (List<Map<String, Object>>) categoryObj.get(Constants.TERMS);
             if (terms != null) {
                 String cleanName = extractName(name);
                 return terms.stream()
@@ -402,7 +404,7 @@ public class OrgHierarchyBulkUploadConsumer {
                 .append(category);
         Map<String, Object> termResponse = outboundRequestHandler.fetchResultUsingPatch(
                 strUrl.toString(), createReq, null);
-        if (termResponse != null
+        if (MapUtils.isNotEmpty(termResponse)
                 && Constants.OK.equalsIgnoreCase((String) termResponse.get(Constants.RESPONSE_CODE))) {
             logger.info("Updated framework Term successfully");
             return (Map<String, Object>) termResponse.get(Constants.RESULT);
@@ -419,7 +421,7 @@ public class OrgHierarchyBulkUploadConsumer {
                 .append(category);
         Map<String, Object> termResponse = outboundRequestHandler.fetchResultUsingPost(
                 strUrl.toString(), createReq, null);
-        if (termResponse != null
+        if (MapUtils.isNotEmpty(termResponse)
                 && Constants.OK.equalsIgnoreCase((String) termResponse.get(Constants.RESPONSE_CODE))) {
             logger.info("Created framework Term successfully");
             return (Map<String, Object>) termResponse.get(Constants.RESULT);
@@ -443,9 +445,9 @@ public class OrgHierarchyBulkUploadConsumer {
     private List<Map<String, Object>> populateDataFromFrameworkTerm(String frameworkName) throws Exception {
         String url = serverProperties.getKmBaseHost() + serverProperties.getKmFrameWorkPath() + "/" + frameworkName;
         Map<String, Object> response = (Map<String, Object>) outboundRequestHandler.fetchUsingGetWithHeaders(url.toString(), null);
-        if (response != null && Constants.OK.equalsIgnoreCase((String) response.get(Constants.RESPONSE_CODE))) {
+        if (MapUtils.isNotEmpty(response) && Constants.OK.equalsIgnoreCase((String) response.get(Constants.RESPONSE_CODE))) {
             Map<String, Object> result = (Map<String, Object>) response.get(Constants.RESULT);
-            if (result != null && result.containsKey(Constants.FRAMEWORK)) {
+            if (MapUtils.isNotEmpty(result) && result.containsKey(Constants.FRAMEWORK)) {
                 Map<String, Object> framework = (Map<String, Object>) result.get(Constants.FRAMEWORK);
                 if (framework.containsKey(Constants.CATEGORIES)) {
                     return (List<Map<String, Object>>) framework.get(Constants.CATEGORIES);
@@ -472,11 +474,11 @@ public class OrgHierarchyBulkUploadConsumer {
         StringBuilder strUrl = new StringBuilder(serverProperties.getKmBaseHost());
         strUrl.append(serverProperties.getKmFrameworkPublishPath() + "/" + frameworkId);
         Map<String, String> headers = new HashMap<>();
-        headers.put("Content-Type", "application/json");
-        headers.put("X-Channel-Id", channelId);
+        headers.put(Constants.CONTENT_TYPE, "application/json");
+        headers.put(Constants.X_CHANNEL_ID, channelId);
 
         Map<String, Object> response = outboundRequestHandler.fetchResultUsingPost(strUrl.toString(), new HashMap<>(), headers);
-        if (response != null && "OK".equalsIgnoreCase((String) response.get("responseCode"))) {
+        if (MapUtils.isNotEmpty(response) && "OK".equalsIgnoreCase((String) response.get("responseCode"))) {
             logger.info("Org hierarchy published successfully.");
             return true;
         } else {
@@ -498,14 +500,14 @@ public class OrgHierarchyBulkUploadConsumer {
 
     private Map<String, Object> findTermInFrameworkByIdentifier(List<Map<String, Object>> frameworkData, String category, String identifier) {
         Map<String, Object> categoryObj = frameworkData.stream()
-                .filter(n -> category.equalsIgnoreCase((String) n.get("name")))
+                .filter(n -> category.equalsIgnoreCase((String) n.get(Constants.NAME)))
                 .findFirst().orElse(null);
-        if (categoryObj != null) {
-            List<Map<String, Object>> terms = (List<Map<String, Object>>) categoryObj.get("terms");
-            if (terms != null) {
+        if (MapUtils.isNotEmpty(categoryObj)) {
+            List<Map<String, Object>> terms = (List<Map<String, Object>>) categoryObj.get(Constants.TERMS);
+            if (CollectionUtils.isNotEmpty(terms)) {
                 for (Map<String, Object> t : terms) {
                     Map<String, Object> additionalProps = (Map<String, Object>) t.get(Constants.ADDITIONAL_PROPERTIES);
-                    if (additionalProps != null && identifier.equals(additionalProps.get("identifier"))) {
+                    if (MapUtils.isNotEmpty(additionalProps) && identifier.equals(additionalProps.get(Constants.IDENTIFIER))) {
                         return t;
                     }
                 }

@@ -43,5 +43,22 @@ public class OrgHierarchyController {
         return new ResponseEntity<>(uploadResponse, uploadResponse.getResponseCode());
     }
 
+    @GetMapping("/v1/hierarchy/progress/details/bulkUpload/{orgId}")
+    public ResponseEntity<?> getBulkUploadDetails(@PathVariable(Constants.ORG_ID) String orgId,
+                                                  @RequestHeader(Constants.X_AUTH_USER_ORG_ID) String rootOrgId,
+                                                  @RequestHeader(Constants.X_AUTH_TOKEN) String userAuthToken) {
+
+        SBApiResponse response = orgHierarchyService.getBulkUploadDetailsForOrgHierarchyMapping(orgId, rootOrgId, userAuthToken);
+        return new ResponseEntity<>(response, response.getResponseCode());
+    }
+
+    @GetMapping("/v1/hierarchy/download/{fileName}")
+    public ResponseEntity<?> downloadFile(@PathVariable(Constants.FILE_NAME) String fileName,
+                                          @RequestHeader(Constants.X_AUTH_USER_ORG_ID) String rootOrgId,
+                                          @RequestHeader(Constants.X_AUTH_TOKEN) String userAuthToken) {
+
+        return orgHierarchyService.downloadFile(fileName, rootOrgId, userAuthToken);
+    }
+
 
 }
