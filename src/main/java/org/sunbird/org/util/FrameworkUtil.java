@@ -71,8 +71,8 @@ public class FrameworkUtil {
         }
     }
 
-    public void populateOrgDesignationMaster(Sheet sheet) throws Exception {
-        List<Map<String, Object>> orgList = getMasterData();
+    public void populateOrgDesignationMaster(Sheet sheet, String currentOrgId) throws Exception {
+        List<Map<String, Object>> orgList = getMasterData(currentOrgId);
         int rowIndex = 1;
 
         for (Map<String, Object> org : orgList) {
@@ -89,10 +89,10 @@ public class FrameworkUtil {
         }
     }
 
-    private List<Map<String, Object>> getMasterData() throws Exception, InterruptedException {
+    private List<Map<String, Object>> getMasterData(String orgId) throws Exception, InterruptedException {
         String masterDataOrg = redisCacheMgr.getCache(Constants.ORG_MASTER_DATA);
         if (StringUtils.isEmpty(masterDataOrg)) {
-            List<Map<String, Object>> orgMasterData = populateDataFromApi();
+            List<Map<String, Object>> orgMasterData = populateDataFromApi(orgId);
             redisCacheMgr.putCache(Constants.ORG_MASTER_DATA, orgMasterData, serverProperties.getRedisMasterDataReadTimeOut());
             return orgMasterData;
         } else {
@@ -101,13 +101,13 @@ public class FrameworkUtil {
         }
     }
 
-    private List<Map<String, Object>> populateDataFromApi() throws Exception {
+    private List<Map<String, Object>> populateDataFromApi(String orgId) throws Exception {
         Thread.sleep(500);
         Map<String, String> headers = new HashMap<>();
         headers.put(Constants.AUTHORIZATION, serverProperties.getSbApiKey());
         String url = serverProperties.getLearnerServiceHost() + serverProperties.getOrgSearchUrl();
         Map<String, Object> termFrameworkCompetencies = (Map<String, Object>) outboundRequestHandler.fetchResultUsingPost(
-                url, buildOrgSearchRequest(), headers);
+                url, buildOrgSearchRequest(orgId), headers);
         if (MapUtils.isNotEmpty(termFrameworkCompetencies)) {
             Map<String, Object> result = ((Map<String, Object>) termFrameworkCompetencies.get(Constants.RESULT));
             if (MapUtils.isNotEmpty(result)) {
@@ -120,11 +120,12 @@ public class FrameworkUtil {
         return null;
     }
 
-    private Map<String, Object> buildOrgSearchRequest() {
+    private Map<String, Object> buildOrgSearchRequest(String orgId) {
         Map<String, Object> request = new HashMap<>();
 
         Map<String, Object> filters = new HashMap<>();
         filters.put(Constants.STATUS, 1);
+        filters.put(Constants.MINISTRY_OR_STATE_ID, orgId);
 
         Map<String, String> sortBy = new HashMap<>();
         sortBy.put(Constants.ORG_NAME, Constants.ASC_ORDER);

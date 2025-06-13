@@ -1361,6 +1361,11 @@ public class Constants {
 	public static final String BASIC_PROFILE_KEY = "user:basicProfile:";
 	public static final String USERNAME_LOWERCASE = "username";
 	public static final String ORG_MASTER_DATA = "org_master_data";
+	public static final String ORG_HIERARCHY_MAPPING_BULK_UPLOAD = "org_hierarchy_mapping_bulk_upload";
+	public static final String MINISTRY_OR_STATE_ID = "ministryOrStateId";
+	public static final String PARENT_ORG_NAME = "parentOrgName";
+	public static final String NODE_ID = "node_id";
+	public static final String API_ORG_HIERARCHY_BULK_UPLOAD_STATUS = "api.org.hierarchy.bulk.upload.status";
 	private Constants() {
 		throw new IllegalStateException("Utility class");
 	}
