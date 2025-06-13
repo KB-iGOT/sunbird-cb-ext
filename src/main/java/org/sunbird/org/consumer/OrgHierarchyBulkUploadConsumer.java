@@ -1,6 +1,6 @@
 package org.sunbird.org.consumer;
 
-import com.datastax.driver.core.utils.UUIDs;
+import com.datastax.oss.driver.api.core.uuid.Uuids;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.collections4.CollectionUtils;
@@ -82,7 +82,7 @@ public class OrgHierarchyBulkUploadConsumer {
         long startTime = System.currentTimeMillis();
         try {
             HashMap<String, String> inputDataMap = objectMapper.readValue(value,
-                    new TypeReference<Object>() {
+                    new TypeReference<HashMap<String, String>>() {
                     });
             List<String> errList = validateReceivedKafkaMessage(inputDataMap);
             if (errList.isEmpty()) {
@@ -289,7 +289,7 @@ public class OrgHierarchyBulkUploadConsumer {
                 Map<String, Object> term = findTermInFramework(frameworkData, category, levelName);
                 if (MapUtils.isEmpty(term)) {
                     String parentOrgName = (i > 0) ? levels.get(i - 1) : null;
-                    String generateCode = UUIDs.timeBased().toString();
+                    String generateCode = Uuids.timeBased().toString();
                     Map<String, Object> createReq = buildCreateTermRequest(frameworkId, levelName, category, parentTermId, parentOrgName, generateCode);
                     Map<String, Object> createResp = createFrameworkTerm(frameworkId, createReq, category);
                     if (MapUtils.isNotEmpty(createResp) && createResp.containsKey(Constants.NODE_ID)) {
