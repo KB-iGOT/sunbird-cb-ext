@@ -342,6 +342,7 @@ public class OrgHierarchyBulkUploadConsumer {
                 parentCategory = category;
             }
         } catch (Exception e) {
+            logger.error("Error processing hierarchy row: " + e.getMessage(), e);
             errors.add("Exception: " + e.getMessage());
         }
 
@@ -366,7 +367,7 @@ public class OrgHierarchyBulkUploadConsumer {
     private Map<String, Object> findTermInFramework(List<Map<String, Object>> frameworkData, String category, String name) {
         String identifier = extractIdentifier(name);
         logger.info("Extracted identifier: " + identifier);
-        if (identifier != null) {
+        if (StringUtils.isNotBlank(identifier)) {
             Map<String, Object> termById = findTermInFrameworkByIdentifier(frameworkData, category, identifier);
             if (termById != null) {
                 return termById;
