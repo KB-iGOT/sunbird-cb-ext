@@ -52,7 +52,7 @@ public class OrgHierarchyController {
         return new ResponseEntity<>(response, response.getResponseCode());
     }
 
-    @GetMapping("/v1/hierarchy/download/{fileName}")
+    @GetMapping("/v1/hierarchy/download/file/{fileName}")
     public ResponseEntity<?> downloadFile(@PathVariable(Constants.FILE_NAME) String fileName,
                                           @RequestHeader(Constants.X_AUTH_USER_ORG_ID) String rootOrgId,
                                           @RequestHeader(Constants.X_AUTH_TOKEN) String userAuthToken) {
