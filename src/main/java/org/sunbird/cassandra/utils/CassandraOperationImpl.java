@@ -171,8 +171,7 @@ public class CassandraOperationImpl implements CassandraOperation {
 			selectQuery = QueryBuilder.selectFrom(keyspaceName, tableName)
 					.columns(fields.toArray(new String[0]));
 		} else {
-			selectQuery = QueryBuilder.selectFrom(keyspaceName, tableName)
-					.columns(fields.toArray(new String[0]));
+			selectQuery = QueryBuilder.selectFrom(keyspaceName, tableName).all();
 		}
 		if (MapUtils.isNotEmpty(propertyMap)) {
 			for (Entry<String, Object> entry : propertyMap.entrySet()) {
