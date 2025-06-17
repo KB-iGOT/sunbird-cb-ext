@@ -33,6 +33,7 @@ import java.io.IOException;
 import java.sql.Timestamp;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 
 @Component
 public class OrgHierarchyBulkUploadConsumer {
@@ -189,11 +190,23 @@ public class OrgHierarchyBulkUploadConsumer {
         return Constants.SUCCESSFUL_UPPERCASE;
     }
 
+    private static class TermPosition {
+        String category;
+        int levelIndex;
+        Map<String, Object> term;
+        TermPosition(String category, int levelIndex, Map<String, Object> term) {
+            this.category = category;
+            this.levelIndex = levelIndex;
+            this.term = term;
+        }
+    }
+
     private void processBulkHierarchyUpload(HashMap<String, String> inputDataMap) throws Exception {
         File file = new File(Constants.LOCAL_BASE_PATH + inputDataMap.get(Constants.FILE_NAME));
         FileInputStream fis = new FileInputStream(file);
         XSSFWorkbook wb = new XSSFWorkbook(fis);
         XSSFSheet sheet = wb.getSheetAt(0);
+        Map<String, Set<String>> parentToChildrenMap = new HashMap<>();
 
         int totalRecordsCount = 0;
         int noOfSuccessfulRecords = 0;
@@ -206,10 +219,8 @@ public class OrgHierarchyBulkUploadConsumer {
             headers.add(cell.getStringCellValue().trim());
         }
         int lastHeaderCellNum = headerRow.getLastCellNum();
-        Cell statusHeaderCell = headerRow.createCell(lastHeaderCellNum);
-        statusHeaderCell.setCellValue("Status");
-        Cell errorHeaderCell = headerRow.createCell(lastHeaderCellNum + 1);
-        errorHeaderCell.setCellValue("Error");
+        headerRow.createCell(lastHeaderCellNum).setCellValue("Status");
+        headerRow.createCell(lastHeaderCellNum + 1).setCellValue("Error");
 
         String frameworkId = inputDataMap.get(Constants.FRAMEWORK_ID);
         String orgId = inputDataMap.get(Constants.ROOT_ORG_ID);
@@ -218,8 +229,9 @@ public class OrgHierarchyBulkUploadConsumer {
         if (rowIterator.hasNext()) rowIterator.next();
 
         List<Map<String, Object>> frameworkData = getMasterCompetencyFrameworkData(frameworkId);
-
         int levelCount = 10;
+
+        Map<String, TermPosition> termPositionMap = new HashMap<>();
 
         while (rowIterator.hasNext()) {
             Row row = rowIterator.next();
@@ -237,7 +249,7 @@ public class OrgHierarchyBulkUploadConsumer {
 
             List<String> errors = new ArrayList<>();
             try {
-                processHierarchyRow(levels, categories, frameworkId, orgId, frameworkData, errors, row, wb, file, levelCount);
+                processHierarchyRow(levels, categories, frameworkId, frameworkData, errors, termPositionMap);
                 if (errors.isEmpty()) {
                     statusCell.setCellValue(Constants.SUCCESS_UPPERCASE);
                     errorCell.setCellValue("");
@@ -270,92 +282,118 @@ public class OrgHierarchyBulkUploadConsumer {
         fis.close();
     }
 
-    private void processHierarchyRow(List<String> levels, List<String> categories, String frameworkId, String orgId,
-                                     List<Map<String, Object>> frameworkData, List<String> errors, Row row, XSSFWorkbook wb, File file, int levelCount) throws Exception {
-        String parentTermId = null;
-        String parentCategory = null;
 
-        try {
-            List<Map<String, Object>> createdTerms = new ArrayList<>();
-            for (int i = 0; i < levels.size(); i++) {
-                String levelName = levels.get(i);
-                String category = categories.get(i);
+    private void processHierarchyRow(List<String> levels, List<String> categories, String frameworkId,
+                                     List<Map<String, Object>> frameworkData, List<String> errors,
+                                     Map<String, TermPosition> termPositionMap) throws Exception {
+        Map<String, Object> parentTerm = null;
+        for (int i = 0; i < levels.size(); i++) {
+            String levelName = levels.get(i);
+            String category = categories.get(i);
+            if (StringUtils.isBlank(levelName)) break;
 
-                if (StringUtils.isBlank(levelName)) {
-                    errors.add("Level L" + (i + 1) + " is blank");
-                    break;
+            String identifier = extractIdentifier(levelName);
+            String termKey = StringUtils.isNotBlank(identifier) ? identifier : levelName;
+
+            if (termPositionMap.containsKey(termKey)) {
+                TermPosition pos = termPositionMap.get(termKey);
+                if (!pos.category.equals(category) || pos.levelIndex != i) {
+                    errors.add("Term '" + levelName + "' appears in multiple levels/categories: " +
+                            pos.category + " (L" + (pos.levelIndex + 1) + ") and " + category + " (L" + (i + 1) + ")");
+                    return;
                 }
-                logger.info("Processing level: " + levelName + " in category: " + category);
-                Map<String, Object> term = findTermInFramework(frameworkData, category, levelName);
-                if (MapUtils.isEmpty(term)) {
-                    String parentOrgName = (i > 0) ? levels.get(i - 1) : null;
-                    String generateCode = UUIDs.timeBased().toString();
-                    Map<String, Object> createReq = buildCreateTermRequest(frameworkId, levelName, category, parentTermId, parentOrgName, generateCode);
-                    Map<String, Object> createResp = createFrameworkTerm(frameworkId, createReq, category);
-                    if (MapUtils.isNotEmpty(createResp) && createResp.containsKey(Constants.NODE_ID)) {
-                        term = new HashMap<>();
-                        term.put(Constants.IDENTIFIER,((List<String>) createResp.get(Constants.NODE_ID)).get(0));
-                        term.put(Constants.CODE, generateCode);
-                        term.put(Constants.NAME, levelName);
-                    } else {
-                        errors.add("Failed to create term for " + levelName);
+                parentTerm = pos.term;
+                continue;
+            }
+
+            Map<String, Object> currentTerm = findTermInFramework(frameworkData, category, levelName);
+            if (MapUtils.isEmpty(currentTerm)) {
+                String parentOrgName = (i > 0 && parentTerm != null) ? (String) parentTerm.get(Constants.NAME) : null;
+                String generateCode = UUIDs.timeBased().toString();
+                Map<String, Object> createReq = buildCreateTermRequest(frameworkId, levelName, category,
+                        i > 0 ? levels.get(i-1) : null, parentOrgName, generateCode);
+                Map<String, Object> createResp = createFrameworkTerm(frameworkId, createReq, category);
+                if (MapUtils.isNotEmpty(createResp) && createResp.containsKey(Constants.NODE_ID)) {
+                    currentTerm = new HashMap<>();
+                    currentTerm.put(Constants.IDENTIFIER, ((List<String>) createResp.get(Constants.NODE_ID)).get(0));
+                    currentTerm.put(Constants.CODE, generateCode);
+                    currentTerm.put(Constants.NAME, extractName(levelName));
+                    Map<String, Object> additionalProps = new HashMap<>();
+                    additionalProps.put(Constants.IDENTIFIER, identifier);
+                    currentTerm.put(Constants.ADDITIONAL_PROPERTIES, additionalProps);
+                    updateFrameworkDataWithNewTerm(frameworkData, category, currentTerm);
+                } else {
+                    errors.add("Failed to create term for " + levelName);
+                    return;
+                }
+            }
+            termPositionMap.put(termKey, new TermPosition(category, i, currentTerm));
+
+            // Update parent-child associations
+            if (i > 0 && parentTerm != null) {
+                String parentCode = (String) parentTerm.get(Constants.CODE);
+                String parentCategory = categories.get(i-1);
+                Map<String, Object> parentTermInFramework = findTermInFramework(frameworkData, parentCategory, (String) parentTerm.get(Constants.NAME));
+                List<Map<String, Object>> associations = parentTermInFramework != null &&
+                        parentTermInFramework.get(Constants.ASSOCIATIONS) != null
+                        ? new ArrayList<>((List<Map<String, Object>>) parentTermInFramework.get(Constants.ASSOCIATIONS))
+                        : new ArrayList<>();
+                boolean exists = false;
+                for (Map<String, Object> assoc : associations) {
+                    if (currentTerm.get(Constants.IDENTIFIER).equals(assoc.get(Constants.IDENTIFIER))) {
+                        exists = true;
                         break;
                     }
-                } else {
-                    logger.info("Term already exists for category: " + category + ", levelName: " + levelName);
                 }
-
-                createdTerms.add(term);
-
-                if (i > 0) {
-                    Map<String, Object> parentTerm = createdTerms.get(i - 1);
-                    String parentCode = (String) parentTerm.get(Constants.CODE);
-
-                    Map<String, Object> parentTermInFramework = findTermInFramework(frameworkData, categories.get(i - 1), (String) parentTerm.get(Constants.NAME));
-                    List<Map<String, Object>> associations = parentTermInFramework != null && parentTermInFramework.get(Constants.ASSOCIATIONS) != null
-                            ? new ArrayList<>((List<Map<String, Object>>) parentTermInFramework.get(Constants.ASSOCIATIONS))
-                            : new ArrayList<>();
-
+                if (!exists) {
                     Map<String, Object> assoc = new HashMap<>();
-                    assoc.put(Constants.IDENTIFIER, term.get(Constants.IDENTIFIER));
+                    assoc.put(Constants.IDENTIFIER, currentTerm.get(Constants.IDENTIFIER));
+                    associations.add(assoc);
+                    Map<String, Object> updateReq = updateRequestObject(associations);
+                    Map<String, Object> updateResp = updateFrameworkTerm(frameworkId, updateReq, parentCategory, parentCode);
+                    if (MapUtils.isEmpty(updateResp)) {
+                        errors.add("Failed to associate " + levelName + " with parent " + parentTerm.get(Constants.NAME));
+                        return;
+                    }
+                    updateAssociationsInFrameworkData(frameworkData, parentCategory, parentCode, associations);
+                }
+            }
+            parentTerm = currentTerm;
+        }
+    }
 
-                    boolean exists = false;
-                    for (Map<String, Object> a : associations) {
-                        if (term.get(Constants.IDENTIFIER).equals(a.get(Constants.IDENTIFIER))) {
-                            exists = true;
-                            break;
+    private void updateFrameworkDataWithNewTerm(List<Map<String, Object>> frameworkData, String category, Map<String, Object> newTerm) {
+        for (Map<String, Object> categoryObj : frameworkData) {
+            if (category.equalsIgnoreCase((String) categoryObj.get(Constants.NAME))) {
+                List<Map<String, Object>> terms = (List<Map<String, Object>>) categoryObj.get(Constants.TERMS);
+                if (terms == null) {
+                    terms = new ArrayList<>();
+                    categoryObj.put(Constants.TERMS, terms);
+                }
+                terms.add(newTerm);
+                break;
+            }
+        }
+    }
+
+    private void updateAssociationsInFrameworkData(List<Map<String, Object>> frameworkData, String category, String parentCode, List<Map<String, Object>> associations) {
+        for (Map<String, Object> categoryObj : frameworkData) {
+            logger.info("Updating associations for category: " + category);
+            logger.info("Parent code: " + parentCode);
+            logger.info("Associations: " + associations);
+            if (category.equalsIgnoreCase((String) categoryObj.get(Constants.NAME))) {
+                List<Map<String, Object>> terms = (List<Map<String, Object>>) categoryObj.get(Constants.TERMS);
+                if (terms != null) {
+                    for (Map<String, Object> term : terms) {
+                        if (parentCode.equals(term.get(Constants.CODE))) {
+                            logger.info("Found term with code: " + parentCode);
+                            term.put(Constants.ASSOCIATIONS, associations);
+                            return;
                         }
                     }
-                    if (!exists) {
-                        associations.add(assoc);
-                    }
-
-                    Map<String, Object> updateReq = updateRequestObject(associations);
-                    Map<String, Object> updateResp = updateFrameworkTerm(frameworkId, updateReq, categories.get(i - 1), parentCode);
-                    if (MapUtils.isEmpty(updateResp)) {
-                        errors.add("Failed to associate " + levelName + " with parent");
-                        break;
-                    }
                 }
-
-                parentTermId = (String) term.get(Constants.NAME);
-                parentCategory = category;
             }
-        } catch (Exception e) {
-            logger.error("Error processing hierarchy row: " + e.getMessage(), e);
-            errors.add("Exception: " + e.getMessage());
         }
-
-        Cell statusCell = row.getCell(levelCount, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK);
-        Cell errorCell = row.getCell(levelCount + 1, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK);
-        if (errors.isEmpty()) {
-            statusCell.setCellValue(Constants.SUCCESS_UPPERCASE);
-            errorCell.setCellValue("");
-        } else {
-            statusCell.setCellValue(Constants.FAILED_UPPERCASE);
-            errorCell.setCellValue(String.join(", ", errors));
-        }
-        saveWorkbook(wb, file);
     }
 
     private void saveWorkbook(XSSFWorkbook wb, File file) throws IOException {
@@ -370,21 +408,27 @@ public class OrgHierarchyBulkUploadConsumer {
         if (StringUtils.isNotBlank(identifier)) {
             Map<String, Object> termById = findTermInFrameworkByIdentifier(frameworkData, category, identifier);
             if (termById != null) {
+                logger.info("Found term by identifier: " + identifier);
                 return termById;
             }
         }
+
         Map<String, Object> categoryObj = frameworkData.stream()
                 .filter(n -> category.equalsIgnoreCase((String) n.get(Constants.NAME)))
                 .findFirst().orElse(null);
         if (MapUtils.isNotEmpty(categoryObj)) {
             List<Map<String, Object>> terms = (List<Map<String, Object>>) categoryObj.get(Constants.TERMS);
-            if (terms != null) {
-                String cleanName = extractName(name);
-                return terms.stream()
-                        .filter(t -> cleanName.equalsIgnoreCase((String) t.get(Constants.NAME)))
-                        .findFirst().orElse(null);
+            if (CollectionUtils.isNotEmpty(terms)) {
+                for (Map<String, Object> t : terms) {
+                    String termName = (String) t.get(Constants.NAME);
+                    if (extractName(name).equalsIgnoreCase(termName)) {
+                        logger.info("Found term by name: " + termName);
+                        return t;
+                    }
+                }
             }
         }
+        logger.info("Term not found in framework data for category: " + category + ", name: " + name);
         return null;
     }
 
@@ -403,6 +447,8 @@ public class OrgHierarchyBulkUploadConsumer {
         strUrl.append(serverProperties.getKmFrameworkTermUpdatePath() + "/" + code).append("?framework=")
                 .append(frameworkId).append("&category=")
                 .append(category);
+        logger.info("Updating framework Term with URL: " + strUrl.toString());
+        logger.info("Request body for updating framework Term: " + objectMapper.writeValueAsString(createReq));
         Map<String, Object> termResponse = outboundRequestHandler.fetchResultUsingPatch(
                 strUrl.toString(), createReq, null);
         if (MapUtils.isNotEmpty(termResponse)
@@ -433,14 +479,8 @@ public class OrgHierarchyBulkUploadConsumer {
     }
 
     private List<Map<String, Object>> getMasterCompetencyFrameworkData(String frameworkId) throws Exception {
-        String masterDataTerms = redisCacheMgr.getCache(Constants.ORG_MASTER_DATA + "_" + frameworkId);
-        if (StringUtils.isEmpty(masterDataTerms)) {
             List<Map<String, Object>> masterData = populateDataFromFrameworkTerm(frameworkId);
-            redisCacheMgr.putCache(Constants.ORG_MASTER_DATA + "_" + frameworkId, masterData, serverProperties.getRedisMasterDataReadTimeOut());
             return masterData;
-        } else {
-            return objectMapper.readValue(masterDataTerms, new TypeReference<List<Map<String, Object>>>() {});
-        }
     }
 
     private List<Map<String, Object>> populateDataFromFrameworkTerm(String frameworkName) throws Exception {
@@ -503,11 +543,14 @@ public class OrgHierarchyBulkUploadConsumer {
         Map<String, Object> categoryObj = frameworkData.stream()
                 .filter(n -> category.equalsIgnoreCase((String) n.get(Constants.NAME)))
                 .findFirst().orElse(null);
+        logger.info("Searching for identifier: " + identifier + " in category: " + category);
         if (MapUtils.isNotEmpty(categoryObj)) {
             List<Map<String, Object>> terms = (List<Map<String, Object>>) categoryObj.get(Constants.TERMS);
+            logger.info("Found " + (terms != null ? terms.size() : 0) + " terms in category: " + category);
             if (CollectionUtils.isNotEmpty(terms)) {
                 for (Map<String, Object> t : terms) {
                     Map<String, Object> additionalProps = (Map<String, Object>) t.get(Constants.ADDITIONAL_PROPERTIES);
+                    logger.info("Checking term: " + t.get(Constants.NAME) + " with identifier: " + (additionalProps != null ? additionalProps.get(Constants.IDENTIFIER) : "null"));
                     if (MapUtils.isNotEmpty(additionalProps) && identifier.equals(additionalProps.get(Constants.IDENTIFIER))) {
                         return t;
                     }
