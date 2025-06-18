@@ -1,22 +1,19 @@
 package org.sunbird.cache;
 
-import java.util.*;
-import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
-
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.autoconfigure.data.redis.RedisProperties;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
 import org.sunbird.common.util.CbExtServerProperties;
 import org.sunbird.common.util.Constants;
 import org.sunbird.core.logger.CbExtLogger;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-
-
 import javax.annotation.PostConstruct;
+import java.util.*;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 @Component
 public class RedisCacheMgr {
@@ -25,6 +22,10 @@ public class RedisCacheMgr {
 
     @Autowired
     private RedisTemplate<String, String> redisTemplate;
+
+    @Autowired
+    @Qualifier(Constants.REDIS_DATA_TEMPLATE)
+    private RedisTemplate<String, String> redisDataTemplate;
 
     @Autowired
     CbExtServerProperties cbExtServerProperties;
@@ -161,7 +162,7 @@ public class RedisCacheMgr {
 
     public List<String> hget(String key, int index, String... fields) {
         try {
-            return redisTemplate.opsForHash().multiGet(key, Arrays.asList(fields))
+            return redisDataTemplate.opsForHash().multiGet(key, Arrays.asList(fields))
                     .stream()
                     .map(Object::toString)
                     .collect(Collectors.toList());
@@ -182,7 +183,7 @@ public class RedisCacheMgr {
 
     public String getCacheFromDataRedish(String key, Integer index) {
         try {
-            return redisTemplate.opsForValue().get(key);
+            return redisDataTemplate.opsForValue().get(key);
         } catch (Exception e) {
             logger.error(e);
             return null;
@@ -191,7 +192,7 @@ public class RedisCacheMgr {
 
     public String getHashedCacheFromDataRedis(String key, Integer index, String field) {
         try{
-            Object value = redisTemplate.opsForHash().get(key, field);
+            Object value = redisDataTemplate.opsForHash().get(key, field);
             return value != null ? value.toString() : null;
         } catch (Exception e) {
             logger.error(e);
