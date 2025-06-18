@@ -161,7 +161,8 @@ public class OrgHierarchyBulkUploadConsumer {
             String category,
             String parentTermId,
             String parentOrgName,
-            String generateCode
+            String generateCode,
+            String createdBy
     ) {
         Map<String, Object> requestBody = new HashMap<>();
         Map<String, Object> termReq = new HashMap<>();
@@ -169,8 +170,9 @@ public class OrgHierarchyBulkUploadConsumer {
         termReq.put(Constants.CATEGORY, category);
         termReq.put(Constants.NAME, extractName(name));
         Map<String, Object> additionalProperties = new HashMap<>();
-        additionalProperties.put(Constants.IDENTIFIER, extractIdentifier(name));
+        additionalProperties.put(Constants.ORG_ID, extractIdentifier(name));
         additionalProperties.put(Constants.PARENT_ORG_NAME, parentOrgName);
+        additionalProperties.put(Constants.CREATED_BY, createdBy);
         termReq.put(Constants.ADDITIONAL_PROPERTIES, additionalProperties);
         requestBody.put(Constants.TERM, termReq);
         Map<String, Object> createReq = new HashMap<>();
@@ -182,7 +184,7 @@ public class OrgHierarchyBulkUploadConsumer {
         FileOutputStream fileOut = new FileOutputStream(file);
         wb.write(fileOut);
         fileOut.close();
-        SBApiResponse uploadResponse = storageService.uploadFile(file, serverProperties.getCompetencyDesignationBulkUploadContainerName(), serverProperties.getCloudContainerName());
+        SBApiResponse uploadResponse = storageService.uploadFile(file, serverProperties.getOrgHierarchyBulkUploadContainerName(), serverProperties.getCloudContainerName());
         if (!HttpStatus.OK.equals(uploadResponse.getResponseCode())) {
             logger.info(String.format("Failed to upload file. Error: %s", uploadResponse.getParams().getErrmsg()));
             return Constants.FAILED_UPPERCASE;
@@ -224,6 +226,7 @@ public class OrgHierarchyBulkUploadConsumer {
 
         String frameworkId = inputDataMap.get(Constants.FRAMEWORK_ID);
         String orgId = inputDataMap.get(Constants.ROOT_ORG_ID);
+        String createdBy = inputDataMap.get(Constants.CREATED_BY);
 
         Iterator<Row> rowIterator = sheet.iterator();
         if (rowIterator.hasNext()) rowIterator.next();
@@ -249,7 +252,7 @@ public class OrgHierarchyBulkUploadConsumer {
 
             List<String> errors = new ArrayList<>();
             try {
-                processHierarchyRow(levels, categories, frameworkId, frameworkData, errors, termPositionMap);
+                processHierarchyRow(levels, categories, frameworkId, frameworkData, errors, termPositionMap, createdBy);
                 if (errors.isEmpty()) {
                     statusCell.setCellValue(Constants.SUCCESS_UPPERCASE);
                     errorCell.setCellValue("");
@@ -285,7 +288,7 @@ public class OrgHierarchyBulkUploadConsumer {
 
     private void processHierarchyRow(List<String> levels, List<String> categories, String frameworkId,
                                      List<Map<String, Object>> frameworkData, List<String> errors,
-                                     Map<String, TermPosition> termPositionMap) throws Exception {
+                                     Map<String, TermPosition> termPositionMap, String createdBy) throws Exception {
         Map<String, Object> parentTerm = null;
         for (int i = 0; i < levels.size(); i++) {
             String levelName = levels.get(i);
@@ -311,7 +314,7 @@ public class OrgHierarchyBulkUploadConsumer {
                 String parentOrgName = (i > 0 && parentTerm != null) ? (String) parentTerm.get(Constants.NAME) : null;
                 String generateCode = UUIDs.timeBased().toString();
                 Map<String, Object> createReq = buildCreateTermRequest(frameworkId, levelName, category,
-                        i > 0 ? levels.get(i-1) : null, parentOrgName, generateCode);
+                        i > 0 ? levels.get(i-1) : null, parentOrgName, generateCode, createdBy);
                 Map<String, Object> createResp = createFrameworkTerm(frameworkId, createReq, category);
                 if (MapUtils.isNotEmpty(createResp) && createResp.containsKey(Constants.NODE_ID)) {
                     currentTerm = new HashMap<>();
