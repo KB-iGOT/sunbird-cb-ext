@@ -193,7 +193,7 @@ public class CbExtServerProperties {
 	private String redisHostName;
 
 	@Value("${redis.port}")
-	private String redisPort;
+	private int redisPort;
 
 	@Value("${cb-plan.update.publish.authorized.roles}")
 	private String cbPlanUpdatePublishAuthorizedRoles;
@@ -1448,11 +1448,11 @@ public class CbExtServerProperties {
 		this.courseBatchCreateEndpoint = courseBatchCreateEndpoint;
 	}
 
-	public String getRedisPort() {
+	public int getRedisPort() {
 		return redisPort;
 	}
 
-	public void setRedisPort(String redisPort) {
+	public void setRedisPort(int redisPort) {
 		this.redisPort = redisPort;
 	}
 

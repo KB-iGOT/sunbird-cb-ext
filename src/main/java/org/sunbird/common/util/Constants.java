@@ -1366,6 +1366,9 @@ public class Constants {
 	public static final String PARENT_ORG_NAME = "parentOrgName";
 	public static final String NODE_ID = "node_id";
 	public static final String API_ORG_HIERARCHY_BULK_UPLOAD_STATUS = "api.org.hierarchy.bulk.upload.status";
+	public static final String REDIS_CONNECTION_FACTORY = "redisConnectionFactory";
+	public static final String REDIS_DATA_CONNECTION_FACTORY = "redisDataConnectionFactory";
+	public static final String REDIS_DATA_TEMPLATE = "redisDataTemplate";
 	private Constants() {
 		throw new IllegalStateException("Utility class");
 	}

@@ -2,6 +2,7 @@ package org.sunbird.core.config;
 
 import org.apache.commons.pool2.impl.GenericObjectPoolConfig;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.context.annotation.Bean;
@@ -14,6 +15,7 @@ import org.springframework.data.redis.connection.lettuce.LettucePoolingClientCon
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
 import org.sunbird.common.util.CbExtServerProperties;
+import org.sunbird.common.util.Constants;
 
 import java.time.Duration;
 
@@ -28,16 +30,53 @@ public class RedisConfig {
 	@Value("${redis.timeout}")
 	private long redisTimeout;
 
+	// Default Redis connection (for caching)
+	@Bean(name = Constants.REDIS_CONNECTION_FACTORY)
 	public RedisConnectionFactory redisConnectionFactory() {
-		RedisStandaloneConfiguration configuration = new RedisStandaloneConfiguration();
-		configuration.setHostName(cbProperties.getRedisDataHostName());
-		configuration.setPort(cbProperties.getRedisDataPort());
-		configuration.setDatabase(0);
+		RedisStandaloneConfiguration config = new RedisStandaloneConfiguration();
+		config.setHostName(cbProperties.getRedisHostName());
+		config.setPort(cbProperties.getRedisPort());
+		config.setDatabase(0);
 		LettuceClientConfiguration clientConfig = LettucePoolingClientConfiguration.builder()
 				.commandTimeout(Duration.ofMillis(redisTimeout))
 				.poolConfig(buildPoolConfig())
 				.build();
-		return new LettuceConnectionFactory(configuration, clientConfig);
+		return new LettuceConnectionFactory(config, clientConfig);
+	}
+
+	// Redis connection for data
+	@Bean(name = Constants.REDIS_DATA_CONNECTION_FACTORY)
+	public RedisConnectionFactory redisDataConnectionFactory() {
+		RedisStandaloneConfiguration config = new RedisStandaloneConfiguration();
+		config.setHostName(cbProperties.getRedisDataHostName());
+		config.setPort(cbProperties.getRedisDataPort());
+		config.setDatabase(0);
+		LettuceClientConfiguration clientConfig = LettucePoolingClientConfiguration.builder()
+				.commandTimeout(Duration.ofMillis(redisTimeout))
+				.poolConfig(buildPoolConfig())
+				.build();
+		return new LettuceConnectionFactory(config, clientConfig);
+	}
+
+	@Bean
+	public RedisTemplate<String, String> redisTemplate(
+			@Qualifier(Constants.REDIS_CONNECTION_FACTORY) RedisConnectionFactory redisConnectionFactory) {
+		RedisTemplate<String, String> template = new RedisTemplate<>();
+		template.setConnectionFactory(redisConnectionFactory);
+		template.setKeySerializer(new StringRedisSerializer());
+		template.setValueSerializer(new StringRedisSerializer());
+		return template;
+	}
+
+	// RedisTemplate for data Redis
+	@Bean(name = Constants.REDIS_DATA_TEMPLATE)
+	public RedisTemplate<String, String> redisDataTemplate(
+			@Qualifier(Constants.REDIS_DATA_CONNECTION_FACTORY) RedisConnectionFactory redisDataConnectionFactory) {
+		RedisTemplate<String, String> template = new RedisTemplate<>();
+		template.setConnectionFactory(redisDataConnectionFactory);
+		template.setKeySerializer(new StringRedisSerializer());
+		template.setValueSerializer(new StringRedisSerializer());
+		return template;
 	}
 
 	private GenericObjectPoolConfig<?> buildPoolConfig() {
@@ -48,17 +87,4 @@ public class RedisConfig {
 		poolConfig.setMaxWait(Duration.ofMillis(5000));
 		return poolConfig;
 	}
-
-	@Bean
-	public RedisTemplate<String, String> redisTemplate(RedisConnectionFactory redisConnectionFactory) {
-		RedisTemplate<String, String> redisTemplate = new RedisTemplate<>();
-		redisTemplate.setConnectionFactory(redisConnectionFactory);
-		redisTemplate.setKeySerializer(new StringRedisSerializer());
-		redisTemplate.setValueSerializer(new StringRedisSerializer());
-		redisTemplate.setHashKeySerializer(new StringRedisSerializer());
-		redisTemplate.setHashValueSerializer(new StringRedisSerializer());
-		return redisTemplate;
-	}
-
-
 }
