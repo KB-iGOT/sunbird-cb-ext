@@ -2,6 +2,7 @@ package org.sunbird.org.util;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.collections4.MapUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.poi.ss.usermodel.Row;
@@ -74,30 +75,37 @@ public class FrameworkUtil {
     public void populateOrgDesignationMaster(Sheet sheet, String currentOrgId) throws Exception {
         List<Map<String, Object>> orgList = getMasterData(currentOrgId);
         int rowIndex = 1;
+        if (CollectionUtils.isNotEmpty(orgList)) {
+            for (Map<String, Object> org : orgList) {
+                Row row = sheet.createRow(rowIndex++);
 
-        for (Map<String, Object> org : orgList) {
+                String orgId = org.get("id") != null ? org.get("id").toString() : "";
+                String orgName = org.get("orgName") != null ? org.get("orgName").toString() : "";
+
+                row.createCell(0).setCellValue(orgId);
+
+                row.createCell(1).setCellValue(orgName);
+
+                row.createCell(2).setCellValue(orgName + " (" + orgId + ")");
+            }
+        } else {
             Row row = sheet.createRow(rowIndex++);
-
-            String orgId = org.get("id") != null ? org.get("id").toString() : "";
-            String orgName = org.get("orgName") != null ? org.get("orgName").toString() : "";
-
-            row.createCell(0).setCellValue(orgId);
-
-            row.createCell(1).setCellValue(orgName);
-
-            row.createCell(2).setCellValue(orgName + " (" + orgId + ")");
+            row.createCell(0).setCellValue("No data found for the given organisation ID: " + currentOrgId);
         }
     }
 
     private List<Map<String, Object>> getMasterData(String orgId) throws Exception, InterruptedException {
         String masterDataOrg = redisCacheMgr.getCache(Constants.ORG_MASTER_DATA);
-        if (StringUtils.isEmpty(masterDataOrg)) {
+        if (StringUtils.isEmpty(masterDataOrg) || masterDataOrg.equals("[]") || masterDataOrg.equals("{}") || masterDataOrg.equalsIgnoreCase("null")) {
             List<Map<String, Object>> orgMasterData = populateDataFromApi(orgId);
-            redisCacheMgr.putCache(Constants.ORG_MASTER_DATA, orgMasterData, serverProperties.getRedisMasterDataReadTimeOut());
-            return orgMasterData;
+            if (orgMasterData != null) {
+                redisCacheMgr.putCache(Constants.ORG_MASTER_DATA, orgMasterData, serverProperties.getRedisMasterDataReadTimeOut());
+                return orgMasterData;
+            } else {
+                return Collections.emptyList();
+            }
         } else {
-            return objectMapper.readValue(masterDataOrg, new TypeReference<List<Map<String, Object>>>() {
-            });
+            return objectMapper.readValue(masterDataOrg, new com.fasterxml.jackson.core.type.TypeReference<List<Map<String, Object>>>() {});
         }
     }
 
