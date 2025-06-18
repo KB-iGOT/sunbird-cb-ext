@@ -95,17 +95,18 @@ public class FrameworkUtil {
     }
 
     private List<Map<String, Object>> getMasterData(String orgId) throws Exception, InterruptedException {
-        String masterDataOrg = redisCacheMgr.getCache(Constants.ORG_MASTER_DATA+"_"+orgId);
+        String masterDataOrg = redisCacheMgr.getCache(Constants.ORG_MASTER_DATA + "_" + orgId);
         if (StringUtils.isEmpty(masterDataOrg) || masterDataOrg.equals("[]") || masterDataOrg.equals("{}") || masterDataOrg.equalsIgnoreCase("null")) {
             List<Map<String, Object>> orgMasterData = populateDataFromApi(orgId);
             if (orgMasterData != null) {
-                redisCacheMgr.putCache(Constants.ORG_MASTER_DATA+"_"+orgId, orgMasterData, serverProperties.getRedisMasterDataReadTimeOut());
+                redisCacheMgr.putCache(Constants.ORG_MASTER_DATA + "_" + orgId, orgMasterData, serverProperties.getRedisMasterDataReadTimeOut());
                 return orgMasterData;
             } else {
                 return Collections.emptyList();
             }
         } else {
-            return objectMapper.readValue(masterDataOrg, new com.fasterxml.jackson.core.type.TypeReference<List<Map<String, Object>>>() {});
+            return objectMapper.readValue(masterDataOrg, new TypeReference<List<Map<String, Object>>>() {
+            });
         }
     }
 
