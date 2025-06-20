@@ -226,7 +226,8 @@ public class OrgHierarchyBulkUploadConsumer {
         headerRow.createCell(lastHeaderCellNum).setCellValue("Status");
         headerRow.createCell(lastHeaderCellNum + 1).setCellValue("Error");
 
-        String orgId = inputDataMap.get(Constants.ROOT_ORG_ID);
+        String currentFramework = inputDataMap.get(Constants.FRAMEWORK_ID);
+        String orgId = currentFramework.split("_")[0];
 
         String frameworkId = processFrameworkCreate(serverProperties.getOrgHierarchyMasterFramework(), orgId);
         logger.info("Framework created with ID: " + frameworkId);
