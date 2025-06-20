@@ -253,4 +253,11 @@ public class ProjectUtil {
 		}
 		return true;
 	}
+
+	public static Map<String, String> getDefaultHeadrs(String userAuthToken) {
+		Map<String, String> headers = new HashMap<String, String>();
+		headers.put(Constants.CONTENT_TYPE, Constants.APPLICATION_JSON);
+		headers.put(Constants.X_AUTH_TOKEN, userAuthToken);
+		return headers;
+	}
 }

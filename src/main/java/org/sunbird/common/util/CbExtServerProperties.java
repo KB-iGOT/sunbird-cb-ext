@@ -1043,6 +1043,15 @@ public class CbExtServerProperties {
 	@Value("${org.hierarchy.bulk.upload.container.name}")
 	private String orgHierarchyBulkUploadContainerName;
 
+	@Value("${knowledge.mv.service}")
+	private String knowledgeMS;
+
+	@Value("${framework.copy}")
+	private String frameworkCopy;
+
+	@Value("${org.hierarchy.master.framework}")
+	private String orgHierarchyMasterFramework;
+
 	public String getStateLearningInsightsRedisKeyMapping() {
 		return stateLearningInsightsRedisKeyMapping;
 	}
@@ -3565,5 +3574,17 @@ public class CbExtServerProperties {
 
 	public String getOrgHierarchyBulkUploadContainerName() {
 		return orgHierarchyBulkUploadContainerName;
+	}
+
+	public String getKnowledgeMS() {
+		return knowledgeMS;
+	}
+
+	public String getFrameworkCopy() {
+		return frameworkCopy;
+	}
+
+	public String getOrgHierarchyMasterFramework() {
+		return orgHierarchyMasterFramework;
 	}
 }

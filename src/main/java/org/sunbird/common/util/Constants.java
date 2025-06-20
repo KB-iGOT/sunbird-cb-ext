@@ -1366,6 +1366,11 @@ public class Constants {
 	public static final String PARENT_ORG_NAME = "parentOrgName";
 	public static final String NODE_ID = "node_id";
 	public static final String API_ORG_HIERARCHY_BULK_UPLOAD_STATUS = "api.org.hierarchy.bulk.upload.status";
+	public static final String OWNER = "owner";
+	public static final String ORGANISATION_ID = "organisationId";
+	public static final String ORG_HIERARCHY_FRAMEWORK_ID_KEY = "orgHierarchyFrameworkId";
+	public static final String ORG_HIERARCHY_FRAMEWORK_STATUS_KEY = "orgHierarchyFrameworkStatus";
+	public static final String COMPLETED = "Completed";
 	private Constants() {
 		throw new IllegalStateException("Utility class");
 	}
