@@ -1058,6 +1058,9 @@ public class CbExtServerProperties {
 	@Value("${framework.retire.endpoint.url}")
 	private String frameworkRetireEndpointUrl;
 
+	@Value("${org.hierarchy.level.count}")
+	private int orgHierarchyLevelCount;
+
 	public String getStateLearningInsightsRedisKeyMapping() {
 		return stateLearningInsightsRedisKeyMapping;
 	}
@@ -3600,5 +3603,9 @@ public class CbExtServerProperties {
 
 	public String getFrameworkRetireEndpointUrl() {
 		return frameworkRetireEndpointUrl;
+	}
+
+	public int getOrgHierarchyLevelCount() {
+		return orgHierarchyLevelCount;
 	}
 }
