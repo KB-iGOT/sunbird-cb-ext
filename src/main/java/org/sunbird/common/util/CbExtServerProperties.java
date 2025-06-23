@@ -1052,6 +1052,12 @@ public class CbExtServerProperties {
 	@Value("${org.hierarchy.master.framework}")
 	private String orgHierarchyMasterFramework;
 
+	@Value("${learning.service.base.url}")
+	private String learningServiceVMBaseUrl;
+
+	@Value("${framework.retire.endpoint.url}")
+	private String frameworkRetireEndpointUrl;
+
 	public String getStateLearningInsightsRedisKeyMapping() {
 		return stateLearningInsightsRedisKeyMapping;
 	}
@@ -3586,5 +3592,13 @@ public class CbExtServerProperties {
 
 	public String getOrgHierarchyMasterFramework() {
 		return orgHierarchyMasterFramework;
+	}
+
+	public String getLearningServiceVMBaseUrl() {
+		return learningServiceVMBaseUrl;
+	}
+
+	public String getFrameworkRetireEndpointUrl() {
+		return frameworkRetireEndpointUrl;
 	}
 }

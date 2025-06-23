@@ -299,4 +299,50 @@ public class OutboundRequestHandlerServiceImpl {
 		}
 		return response;
 	}
+
+	/**
+	 * @param uri
+	 * @param request
+	 * @return
+	 */
+	public Map<String, Object> fetchResultUsingDelete(String uri, Object request, Map<String, String> headersValues) {
+		Map<String, Object> response = null;
+		try {
+			HttpHeaders headers = new HttpHeaders();
+			if (!CollectionUtils.isEmpty(headersValues)) {
+				headersValues.forEach(headers::set);
+			}
+			headers.setContentType(MediaType.APPLICATION_JSON);
+			HttpEntity<Object> entity = new HttpEntity<>(request, headers);
+
+			if (log.isDebugEnabled()) {
+				logDetails(uri, request);
+			}
+
+			ResponseEntity<Map> responseEntity = restTemplate.exchange(uri, HttpMethod.DELETE, entity, Map.class);
+			response = responseEntity.getBody();
+
+			if (log.isDebugEnabled()) {
+				logDetails(uri, response);
+			}
+
+		} catch (HttpClientErrorException e) {
+			try {
+				response = new ObjectMapper().readValue(
+						e.getResponseBodyAsString(),
+						new TypeReference<HashMap<String, Object>>() {}
+				);
+			} catch (Exception e1) {
+			}
+			log.error("Error received: " + e.getResponseBodyAsString(), e);
+		} catch (Exception e) {
+			log.error("Exception occurred during DELETE call", e);
+		}
+
+		if (response == null) {
+			return MapUtils.EMPTY_MAP;
+		}
+		return response;
+	}
+
 }
