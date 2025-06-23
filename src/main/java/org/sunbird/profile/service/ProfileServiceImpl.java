@@ -41,6 +41,7 @@ import org.springframework.web.multipart.MultipartFile;
 import org.sunbird.bpreports.postgres.entity.WfStatusEntity;
 import org.sunbird.bpreports.postgres.repository.WfStatusEntityRepository;
 import org.sunbird.cache.DataCacheMgr;
+import org.sunbird.cache.RedisCacheMgr;
 import org.sunbird.cassandra.utils.CassandraOperation;
 import org.sunbird.common.model.SBApiResponse;
 import org.sunbird.common.model.SunbirdApiRespParam;
@@ -125,6 +126,9 @@ public class ProfileServiceImpl implements ProfileService {
 
   @Autowired
   WfStatusEntityRepository wfStatusEntityRepository;
+
+  @Autowired
+  RedisCacheMgr redisCacheMgr;
 
 	private Logger log = LoggerFactory.getLogger(getClass().getName());
 
@@ -238,6 +242,14 @@ public class ProfileServiceImpl implements ProfileService {
 				updateResponse = outboundRequestHandlerService.fetchResultUsingPatch(
 						serverConfig.getSbUrl() + serverConfig.getLmsUserUpdatePath(), updateRequest, headerValues);
 				if (Constants.OK.equalsIgnoreCase((String) updateResponse.get(Constants.RESPONSE_CODE))) {
+					Map<String, Object> cacheData = new HashMap<>();
+					cacheData.put(Constants.ROOT_ORG_ID, responseMap.getOrDefault(Constants.ROOT_ORG_ID, ""));
+					cacheData.put(Constants.FIRSTNAME, responseMap.getOrDefault(Constants.FIRSTNAME, ""));
+					cacheData.put(Constants.ID, responseMap.getOrDefault(Constants.ID, ""));
+					cacheData.put(Constants.PROFILE_DETAILS, existingProfileDetails);
+					cacheData.put(Constants.CHANNEL, responseMap.getOrDefault(Constants.CHANNEL, ""));
+					cacheData.put(Constants.USERNAME_LOWERCASE, responseMap.getOrDefault(Constants.USER_NAME,""));
+					redisCacheMgr.putInBasicProfileCache(userId, cacheData);
 					response.setResponseCode(HttpStatus.OK);
 					response.getResult().put(Constants.RESPONSE, Constants.SUCCESS);
 					response.getParams().setStatus(Constants.SUCCESS);
@@ -2189,6 +2201,17 @@ public class ProfileServiceImpl implements ProfileService {
 				Map<String, Object> updateResponse = outboundRequestHandlerService.fetchResultUsingPatch(updatedUrl, updateRequest, headerValue);
 
 				if (Constants.OK.equalsIgnoreCase((String) updateResponse.get(Constants.RESPONSE_CODE))) {
+					String cacheKey = Constants.USER + ":basicProfile:" + userId;
+					if (redisCacheMgr.deleteKeyByNameV2(cacheKey)) {
+						Map<String, Object> cacheData = new HashMap<>();
+						cacheData.put(Constants.ROOT_ORG_ID, responseMap.getOrDefault(Constants.ROOT_ORG_ID, ""));
+						cacheData.put(Constants.FIRSTNAME, responseMap.getOrDefault(Constants.FIRSTNAME, ""));
+						cacheData.put(Constants.ID, responseMap.getOrDefault(Constants.ID, ""));
+						cacheData.put(Constants.PROFILE_DETAILS, existingProfileDetails);
+						cacheData.put(Constants.CHANNEL, responseMap.getOrDefault(Constants.CHANNEL, ""));
+						cacheData.put(Constants.USERNAME_LOWERCASE, responseMap.getOrDefault(Constants.USER_NAME, ""));
+						redisCacheMgr.putInBasicProfileCache(userId, cacheData);
+					}
 					response.setResponseCode(HttpStatus.OK);
 					response.getResult().put(Constants.RESPONSE, Constants.SUCCESS);
 					response.getParams().setStatus(Constants.SUCCESS);

@@ -257,4 +257,25 @@ public class RedisCacheMgr {
             return null;
         }
     }
+
+    public void putInBasicProfileCache(String key, Object object) {
+        try (Jedis jedis = jedisPool.getResource()) {
+            String data = objectMapper.writeValueAsString(object);
+            jedis.set(Constants.BASIC_PROFILE_KEY + key, data);
+            logger.debug("Cache_key_value " + Constants.BASIC_PROFILE_KEY + key + " is saved in redis");
+        } catch (Exception e) {
+            logger.error(e);
+        }
+    }
+
+    public boolean deleteKeyByNameV2(String key) {
+        try (Jedis jedis = jedisPool.getResource()) {
+            jedis.del(key);
+            logger.debug("Cache_key_value " + key + " is deleted from redis");
+            return true;
+        } catch (Exception e) {
+            logger.error(e);
+            return false;
+        }
+    }
 }
