@@ -228,6 +228,7 @@ public class OrgHierarchyBulkUploadConsumer {
 
         String currentFramework = inputDataMap.get(Constants.FRAMEWORK_ID);
         String orgId = currentFramework.split("_")[0];
+        retireFramework(currentFramework, inputDataMap.get(Constants.CREATED_BY), orgId);
 
         String frameworkId = processFrameworkCreate(serverProperties.getOrgHierarchyMasterFramework(), orgId);
         logger.info("Framework created with ID: " + frameworkId);
@@ -649,5 +650,48 @@ public class OrgHierarchyBulkUploadConsumer {
         outerMap.put(Constants.REQUEST, requestMap);
         return outerMap;
     }
+
+    /**
+     * Retires a framework using its ID by invoking the appropriate DELETE endpoint.
+     *
+     * @param frameworkId The full framework ID (e.g., "01359693287062732810_org_hierarchy")
+     * @param userId      The ID of the user invoking the operation
+     * @param channelId   The channel ID associated with the framework
+     */
+    private void retireFramework(String frameworkId, String userId, String channelId) {
+        String uri = serverProperties.getLearningServiceVMBaseUrl()
+                + serverProperties.getFrameworkRetireEndpointUrl()
+                + "/" + frameworkId;
+
+        Map<String, String> headers = new HashMap<>();
+        headers.put("user-id", userId);
+        headers.put(Constants.X_CHANNEL_ID, channelId);
+
+        try {
+            Object rawResponse = outboundRequestHandler.fetchResultUsingDelete(uri, null, headers);
+
+            if (rawResponse instanceof Map) {
+                Map<String, Object> response = (Map<String, Object>) rawResponse;
+                if (Constants.OK.equals(response.get(Constants.RESPONSE_CODE))) {
+                    Map<String, Object> result = (Map<String, Object>) response.get(Constants.RESULT);
+                    if (result != null) {
+                        String nodeId = (String) result.get(Constants.NODE_ID);
+                        String versionKey = (String) result.get(Constants.VERSION_KEY);
+                        logger.info("Framework retired successfully. Node ID: {}, Version Key: {}", nodeId, versionKey);
+                    } else {
+                        logger.warn("Framework retired but result object is null. Framework ID: {}", frameworkId);
+                    }
+                } else {
+                    logger.warn("Retire framework call failed. Response: {}", response);
+                }
+            } else {
+                logger.error("Unexpected response type while retiring framework: {}", rawResponse);
+            }
+        } catch (Exception e) {
+            logger.error("Error occurred while retiring framework with ID: {}", frameworkId, e);
+        }
+    }
+
+
 
 }
