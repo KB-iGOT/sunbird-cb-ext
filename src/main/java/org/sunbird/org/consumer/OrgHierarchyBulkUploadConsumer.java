@@ -228,24 +228,6 @@ public class OrgHierarchyBulkUploadConsumer {
 
         String currentFramework = inputDataMap.get(Constants.FRAMEWORK_ID);
         String orgId = currentFramework.split("_")[0];
-        retireFramework(currentFramework, inputDataMap.get(Constants.CREATED_BY), orgId);
-
-        String frameworkId = processFrameworkCreate(serverProperties.getOrgHierarchyMasterFramework(), orgId);
-        logger.info("Framework created with ID: " + frameworkId);
-        if (StringUtils.isBlank(frameworkId)) {
-            logger.error("Failed to create or retrieve framework ID for org hierarchy bulk upload.");
-            return;
-        }
-        String orgUpdateUrl = serverProperties.getSbUrl() + serverProperties.getUpdateOrgPath();
-        Map<String, Object> orgResponse = outboundRequestHandler.fetchResultUsingPatch(orgUpdateUrl,createOrgHierarchyRequestMap(orgId, Constants.ORG_HIERARCHY_FRAMEWORK_ID_KEY, Constants.ORG_HIERARCHY_FRAMEWORK_STATUS_KEY, frameworkId, Constants.COMPLETED), ProjectUtil.getDefaultHeadrs(inputDataMap.get(Constants.X_AUTH_TOKEN)));
-        if (org.apache.commons.collections.MapUtils.isNotEmpty(orgResponse) && Constants.OK.equalsIgnoreCase(
-                (String) orgResponse.get(Constants.RESPONSE_CODE))) {
-            Map<String, Object> result = (Map<String, Object>) orgResponse.get(
-                    Constants.RESULT);
-            String orgResult = (String) result.getOrDefault(Constants.RESPONSE, "");
-            logger.info("Organization updated successfully. orgId: {}, result: {}", orgId, orgResult);
-        }
-        String createdBy = inputDataMap.get(Constants.CREATED_BY);
 
         Iterator<Row> rowIterator = sheet.iterator();
         if (rowIterator.hasNext()) rowIterator.next();
@@ -260,13 +242,37 @@ public class OrgHierarchyBulkUploadConsumer {
             Row errorRow = sheet.createRow(1);
             errorRow.createCell(lastHeaderCell).setCellValue(Constants.FAILED_UPPERCASE);
             errorRow.createCell(lastHeaderCell + 1).setCellValue("File is empty");
+            uploadTheUpdatedFile(file, wb);
             wb.close();
             fis.close();
             return;
         }
 
+        retireFramework(currentFramework, inputDataMap.get(Constants.CREATED_BY), orgId);
+
+        String frameworkId = processFrameworkCreate(serverProperties.getOrgHierarchyMasterFramework(), orgId);
+        logger.info("Framework created with ID: " + frameworkId);
+        if (StringUtils.isBlank(frameworkId)) {
+            logger.error("Failed to create or retrieve framework ID for org hierarchy bulk upload.");
+            return;
+        }
+        boolean newFrameworkPublishSuccess = publishFramework(frameworkId, inputDataMap.get(Constants.X_AUTH_TOKEN), orgId, wb, file, 10);
+        String newFrameworkstatus = newFrameworkPublishSuccess ? Constants.SUCCESSFUL_UPPERCASE : Constants.FAILED_UPPERCASE;
+        logger.info("Framework published with status: " + newFrameworkstatus);
+
+        String orgUpdateUrl = serverProperties.getSbUrl() + serverProperties.getUpdateOrgPath();
+        Map<String, Object> orgResponse = outboundRequestHandler.fetchResultUsingPatch(orgUpdateUrl,createOrgHierarchyRequestMap(orgId, Constants.ORG_HIERARCHY_FRAMEWORK_ID_KEY, Constants.ORG_HIERARCHY_FRAMEWORK_STATUS_KEY, frameworkId, Constants.COMPLETED), ProjectUtil.getDefaultHeadrs(inputDataMap.get(Constants.X_AUTH_TOKEN)));
+        if (MapUtils.isNotEmpty(orgResponse) && Constants.OK.equalsIgnoreCase(
+                (String) orgResponse.get(Constants.RESPONSE_CODE))) {
+            Map<String, Object> result = (Map<String, Object>) orgResponse.get(
+                    Constants.RESULT);
+            String orgResult = (result != null) ? (String) result.getOrDefault(Constants.RESPONSE, "") : "";
+            logger.info("Organization updated successfully. orgId: {}, result: {}", orgId, orgResult);
+        }
+        String createdBy = inputDataMap.get(Constants.CREATED_BY);
+
         List<Map<String, Object>> frameworkData = getMasterCompetencyFrameworkData(frameworkId);
-        int levelCount = 10;
+        int levelCount = serverProperties.getOrgHierarchyLevelCount();
 
         Map<String, TermPosition> termPositionMap = new HashMap<>();
 
