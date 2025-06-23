@@ -262,17 +262,17 @@ public class OrgHierarchyBulkUploadConsumer {
 
         String orgUpdateUrl = serverProperties.getSbUrl() + serverProperties.getUpdateOrgPath();
         Map<String, Object> orgResponse = outboundRequestHandler.fetchResultUsingPatch(orgUpdateUrl,createOrgHierarchyRequestMap(orgId, Constants.ORG_HIERARCHY_FRAMEWORK_ID_KEY, Constants.ORG_HIERARCHY_FRAMEWORK_STATUS_KEY, frameworkId, Constants.COMPLETED), ProjectUtil.getDefaultHeadrs(inputDataMap.get(Constants.X_AUTH_TOKEN)));
-        if (org.apache.commons.collections.MapUtils.isNotEmpty(orgResponse) && Constants.OK.equalsIgnoreCase(
+        if (MapUtils.isNotEmpty(orgResponse) && Constants.OK.equalsIgnoreCase(
                 (String) orgResponse.get(Constants.RESPONSE_CODE))) {
             Map<String, Object> result = (Map<String, Object>) orgResponse.get(
                     Constants.RESULT);
-            String orgResult = (String) result.getOrDefault(Constants.RESPONSE, "");
+            String orgResult = (result != null) ? (String) result.getOrDefault(Constants.RESPONSE, "") : "";
             logger.info("Organization updated successfully. orgId: {}, result: {}", orgId, orgResult);
         }
         String createdBy = inputDataMap.get(Constants.CREATED_BY);
 
         List<Map<String, Object>> frameworkData = getMasterCompetencyFrameworkData(frameworkId);
-        int levelCount = 10;
+        int levelCount = serverProperties.getOrgHierarchyLevelCount();
 
         Map<String, TermPosition> termPositionMap = new HashMap<>();
 
