@@ -255,7 +255,7 @@ public class UserRegistrationServiceImpl implements UserRegistrationService {
 					}
 				}
 			} catch (Exception e) {
-				LOGGER.error(String.format("Exception in %s : %s", "generateOTP", e.getMessage()), e);
+				LOGGER.error("Exception in {} : {}", "generateOTP", e.getMessage(), e);
 				errMsg = "Failed to process message. Exception: " + e.getMessage();
 			}
 		}
