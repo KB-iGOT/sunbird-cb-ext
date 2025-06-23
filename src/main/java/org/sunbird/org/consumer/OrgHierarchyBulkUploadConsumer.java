@@ -250,6 +250,21 @@ public class OrgHierarchyBulkUploadConsumer {
         Iterator<Row> rowIterator = sheet.iterator();
         if (rowIterator.hasNext()) rowIterator.next();
 
+        if (!rowIterator.hasNext()) {
+            logger.error("No data rows found in the uploaded file.");
+            updateOrgHierarchyMappingBulkUploadStatus(
+                    orgId, inputDataMap.get(Constants.IDENTIFIER), Constants.FAILED_UPPERCASE,
+                    0, 0, 0
+            );
+            int lastHeaderCell = headerRow.getLastCellNum();
+            Row errorRow = sheet.createRow(1);
+            errorRow.createCell(lastHeaderCell).setCellValue(Constants.FAILED_UPPERCASE);
+            errorRow.createCell(lastHeaderCell + 1).setCellValue("File is empty");
+            wb.close();
+            fis.close();
+            return;
+        }
+
         List<Map<String, Object>> frameworkData = getMasterCompetencyFrameworkData(frameworkId);
         int levelCount = 10;
 
