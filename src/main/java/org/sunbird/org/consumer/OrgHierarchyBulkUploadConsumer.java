@@ -24,6 +24,7 @@ import org.sunbird.common.model.SBApiResponse;
 import org.sunbird.common.service.OutboundRequestHandlerServiceImpl;
 import org.sunbird.common.util.CbExtServerProperties;
 import org.sunbird.common.util.Constants;
+import org.sunbird.common.util.ProjectUtil;
 import org.sunbird.storage.service.StorageService;
 
 import java.io.File;
@@ -31,6 +32,7 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.sql.Timestamp;
+import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
@@ -224,8 +226,25 @@ public class OrgHierarchyBulkUploadConsumer {
         headerRow.createCell(lastHeaderCellNum).setCellValue("Status");
         headerRow.createCell(lastHeaderCellNum + 1).setCellValue("Error");
 
-        String frameworkId = inputDataMap.get(Constants.FRAMEWORK_ID);
-        String orgId = inputDataMap.get(Constants.ROOT_ORG_ID);
+        String currentFramework = inputDataMap.get(Constants.FRAMEWORK_ID);
+        String orgId = currentFramework.split("_")[0];
+        retireFramework(currentFramework, inputDataMap.get(Constants.CREATED_BY), orgId);
+
+        String frameworkId = processFrameworkCreate(serverProperties.getOrgHierarchyMasterFramework(), orgId);
+        logger.info("Framework created with ID: " + frameworkId);
+        if (StringUtils.isBlank(frameworkId)) {
+            logger.error("Failed to create or retrieve framework ID for org hierarchy bulk upload.");
+            return;
+        }
+        String orgUpdateUrl = serverProperties.getSbUrl() + serverProperties.getUpdateOrgPath();
+        Map<String, Object> orgResponse = outboundRequestHandler.fetchResultUsingPatch(orgUpdateUrl,createOrgHierarchyRequestMap(orgId, Constants.ORG_HIERARCHY_FRAMEWORK_ID_KEY, Constants.ORG_HIERARCHY_FRAMEWORK_STATUS_KEY, frameworkId, Constants.COMPLETED), ProjectUtil.getDefaultHeadrs(inputDataMap.get(Constants.X_AUTH_TOKEN)));
+        if (org.apache.commons.collections.MapUtils.isNotEmpty(orgResponse) && Constants.OK.equalsIgnoreCase(
+                (String) orgResponse.get(Constants.RESPONSE_CODE))) {
+            Map<String, Object> result = (Map<String, Object>) orgResponse.get(
+                    Constants.RESULT);
+            String orgResult = (String) result.getOrDefault(Constants.RESPONSE, "");
+            logger.info("Organization updated successfully. orgId: {}, result: {}", orgId, orgResult);
+        }
         String createdBy = inputDataMap.get(Constants.CREATED_BY);
 
         Iterator<Row> rowIterator = sheet.iterator();
@@ -562,5 +581,117 @@ public class OrgHierarchyBulkUploadConsumer {
         }
         return null;
     }
+
+    public String processFrameworkCreate(String masterFramework, String orgId) {
+        String fwName = "";
+        try {
+            logger.info("processFrameworkCreate started");
+            Map<String, Object> createReq = createFrameworkRequest(orgId, masterFramework);
+            Map<String, Object> request = new HashMap<>();
+            request.put(Constants.REQUEST, createReq);
+            Map<String, String> headers = new HashMap<>();
+            headers.put(Constants.X_CHANNEL_ID, orgId);
+            StringBuilder strUrl = new StringBuilder(serverProperties.getKnowledgeMS());
+            strUrl.append(serverProperties.getFrameworkCopy()).append("/");
+            strUrl.append(masterFramework);
+            logger.info("Printing URL for copy: {}", strUrl);
+            logger.info("Printing request: {}", request);
+            Map<String, Object> frameworkResponse = (Map<String, Object>) outboundRequestHandler.fetchResultUsingPost(
+                    strUrl.toString(),
+                    request, headers);
+            if (org.apache.commons.collections.MapUtils.isNotEmpty(frameworkResponse) && Constants.OK.equalsIgnoreCase(
+                    (String) frameworkResponse.get(Constants.RESPONSE_CODE))) {
+                Map<String, Object> result = (Map<String, Object>) frameworkResponse.get(
+                        Constants.RESULT);
+                fwName = (String) result.getOrDefault(Constants.NODE_ID, "");
+                logger.info("copy framework node id: {}", fwName);
+            } else {
+                logger.error("Failed to copy the framework: {}",
+                        frameworkResponse.get(Constants.RESPONSE_CODE));
+            }
+
+        } catch (Exception e) {
+            logger.error("Unexpected error occurred in processFrameworkCreate", e);
+        }
+        return fwName;
+    }
+
+    public static Map<String, Object> createFrameworkRequest(String channelId, String masterFramework) {
+        Map<String, Object> framework = createFramework(channelId, masterFramework);
+        Map<String, Object> request = new HashMap<>();
+        request.put("framework", framework);
+        return request;
+    }
+
+    private static Map<String, Object> createFramework(String channelId, String masterFramework) {
+        Map<String, Object> framework = new HashMap<>();
+        long time = Instant.now().toEpochMilli();
+
+        StringBuffer name = new StringBuffer();
+        name.append(channelId)
+                .append("_")
+                .append(masterFramework)
+                .append("_")
+                .append(time);
+        framework.put(Constants.NAME, name);
+        framework.put(Constants.DESCRIPTION, "Framework for Channel " + channelId + ". This framework is a customized copy derived from the Master Framework");
+        framework.put(Constants.CODE, name);
+        framework.put(Constants.OWNER, channelId);
+        return framework;
+    }
+
+    public static Map<String, Object> createOrgHierarchyRequestMap(String organisationId, String frameworkIdKey, String frameworkStatusKey, String frameworkId, String frameworkStatus) {
+        Map<String, Object> requestMap = new HashMap<>();
+        requestMap.put(Constants.ORGANISATION_ID, organisationId);
+        requestMap.put(frameworkIdKey, frameworkId);
+        requestMap.put(frameworkStatusKey, frameworkStatus);
+
+        Map<String, Object> outerMap = new HashMap<>();
+        outerMap.put(Constants.REQUEST, requestMap);
+        return outerMap;
+    }
+
+    /**
+     * Retires a framework using its ID by invoking the appropriate DELETE endpoint.
+     *
+     * @param frameworkId The full framework ID (e.g., "01359693287062732810_org_hierarchy")
+     * @param userId      The ID of the user invoking the operation
+     * @param channelId   The channel ID associated with the framework
+     */
+    private void retireFramework(String frameworkId, String userId, String channelId) {
+        String uri = serverProperties.getLearningServiceVMBaseUrl()
+                + serverProperties.getFrameworkRetireEndpointUrl()
+                + "/" + frameworkId;
+
+        Map<String, String> headers = new HashMap<>();
+        headers.put("user-id", userId);
+        headers.put(Constants.X_CHANNEL_ID, channelId);
+
+        try {
+            Object rawResponse = outboundRequestHandler.fetchResultUsingDelete(uri, null, headers);
+
+            if (rawResponse instanceof Map) {
+                Map<String, Object> response = (Map<String, Object>) rawResponse;
+                if (Constants.OK.equals(response.get(Constants.RESPONSE_CODE))) {
+                    Map<String, Object> result = (Map<String, Object>) response.get(Constants.RESULT);
+                    if (result != null) {
+                        String nodeId = (String) result.get(Constants.NODE_ID);
+                        String versionKey = (String) result.get(Constants.VERSION_KEY);
+                        logger.info("Framework retired successfully. Node ID: {}, Version Key: {}", nodeId, versionKey);
+                    } else {
+                        logger.warn("Framework retired but result object is null. Framework ID: {}", frameworkId);
+                    }
+                } else {
+                    logger.warn("Retire framework call failed. Response: {}", response);
+                }
+            } else {
+                logger.error("Unexpected response type while retiring framework: {}", rawResponse);
+            }
+        } catch (Exception e) {
+            logger.error("Error occurred while retiring framework with ID: {}", frameworkId, e);
+        }
+    }
+
+
 
 }

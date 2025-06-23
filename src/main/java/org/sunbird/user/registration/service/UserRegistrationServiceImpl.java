@@ -260,7 +260,7 @@ public class UserRegistrationServiceImpl implements UserRegistrationService {
 			}
 		}
 		if (StringUtils.isNotBlank(errMsg)) {
-			LOGGER.error("OTP generation request failed, error message : " + errMsg);
+            LOGGER.error("OTP generation request failed, error message : {}", errMsg);
 			response.setResponseCode(HttpStatus.BAD_REQUEST);
 			response.getParams().setErrmsg(errMsg);
 		}
