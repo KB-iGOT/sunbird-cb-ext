@@ -1061,6 +1061,12 @@ public class CbExtServerProperties {
 	@Value("${org.hierarchy.level.count}")
 	private int orgHierarchyLevelCount;
 
+	@Value("${org.hierarchy.bulk.upload.max.retries}")
+	private int maxRetries;
+
+	@Value("${org.hierarchy.bulk.upload.retry.delay.ms}")
+	private int delayMs;
+
 	public String getStateLearningInsightsRedisKeyMapping() {
 		return stateLearningInsightsRedisKeyMapping;
 	}
@@ -3607,5 +3613,13 @@ public class CbExtServerProperties {
 
 	public int getOrgHierarchyLevelCount() {
 		return orgHierarchyLevelCount;
+	}
+
+	public int getMaxRetries() {
+		return maxRetries;
+	}
+
+	public int getDelayMs() {
+		return delayMs;
 	}
 }
