@@ -280,6 +280,16 @@ public class OrgHierarchyBulkUploadConsumer {
 
         while (rowIterator.hasNext()) {
             Row row = rowIterator.next();
+            boolean isEmpty = true;
+            for (int i = 0; i < levelCount; i++) {
+                Cell cell = row.getCell(i, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK);
+                if (cell.getCellType() == CellType.STRING && !cell.getStringCellValue().trim().isEmpty()) {
+                    isEmpty = false;
+                    break;
+                }
+            }
+            if (isEmpty) continue;
+
             List<String> levels = new ArrayList<>();
             List<String> categories = new ArrayList<>();
             for (int i = 0; i < levelCount; i++) {
