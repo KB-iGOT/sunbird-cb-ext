@@ -324,8 +324,12 @@ public class OrgHierarchyBulkUploadConsumer {
         }
 
         boolean publishSuccess = publishFramework(frameworkId, inputDataMap.get(Constants.X_AUTH_TOKEN), orgId, wb, file, levelCount);
-        String status = publishSuccess ? Constants.SUCCESSFUL_UPPERCASE : Constants.FAILED_UPPERCASE;
-
+        String status;
+        if (!publishSuccess || failedRecordsCount > 0) {
+            status = Constants.FAILED_UPPERCASE;
+        } else {
+            status = Constants.SUCCESSFUL_UPPERCASE;
+        }
         updateOrgHierarchyMappingBulkUploadStatus(
                 orgId, inputDataMap.get(Constants.IDENTIFIER), status,
                 totalNumberOfRecordInSheet, noOfSuccessfulRecords, failedRecordsCount
