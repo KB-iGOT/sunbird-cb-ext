@@ -270,8 +270,10 @@ public class OrgHierarchyBulkUploadConsumer {
             logger.info("Organization updated successfully. orgId: {}, result: {}", orgId, orgResult);
         }
         String createdBy = inputDataMap.get(Constants.CREATED_BY);
-
         List<Map<String, Object>> frameworkData = getMasterCompetencyFrameworkData(frameworkId);
+        if (CollectionUtils.isEmpty(frameworkData)) {
+            logger.error("Framework data not found for ID: " + frameworkId);
+        }
         int levelCount = serverProperties.getOrgHierarchyLevelCount();
 
         Map<String, TermPosition> termPositionMap = new HashMap<>();
@@ -291,11 +293,11 @@ public class OrgHierarchyBulkUploadConsumer {
             Cell errorCell = row.getCell(levelCount + 1, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK);
 
             List<String> errors = new ArrayList<>();
+            Map<String, String> childToParentMap = new HashMap<>();
             try {
-                processHierarchyRow(levels, categories, frameworkId, frameworkData, errors, termPositionMap, createdBy);
+                processHierarchyRow(levels, categories, frameworkId, frameworkData, errors, termPositionMap, createdBy, childToParentMap);
                 if (errors.isEmpty()) {
                     statusCell.setCellValue(Constants.SUCCESS_UPPERCASE);
-                    errorCell.setCellValue("");
                     noOfSuccessfulRecords++;
                 } else {
                     statusCell.setCellValue(Constants.FAILED_UPPERCASE);
@@ -311,7 +313,7 @@ public class OrgHierarchyBulkUploadConsumer {
             totalNumberOfRecordInSheet++;
         }
 
-        boolean publishSuccess = publishFramework(frameworkId, inputDataMap.get(Constants.X_AUTH_TOKEN), inputDataMap.get(Constants.ROOT_ORG_ID), wb, file, levelCount);
+        boolean publishSuccess = publishFramework(frameworkId, inputDataMap.get(Constants.X_AUTH_TOKEN), orgId, wb, file, levelCount);
         String status = publishSuccess ? Constants.SUCCESSFUL_UPPERCASE : Constants.FAILED_UPPERCASE;
 
         updateOrgHierarchyMappingBulkUploadStatus(
@@ -328,15 +330,58 @@ public class OrgHierarchyBulkUploadConsumer {
 
     private void processHierarchyRow(List<String> levels, List<String> categories, String frameworkId,
                                      List<Map<String, Object>> frameworkData, List<String> errors,
-                                     Map<String, TermPosition> termPositionMap, String createdBy) throws Exception {
+                                     Map<String, TermPosition> termPositionMap, String createdBy, Map<String, String> childToParentMap) throws Exception {
         Map<String, Object> parentTerm = null;
+        boolean foundEmpty = false;
         for (int i = 0; i < levels.size(); i++) {
             String levelName = levels.get(i);
             String category = categories.get(i);
+
+            if (i == 0 && StringUtils.isBlank(levelName)) {
+                errors.add("Top-level organization (L1) is empty");
+                return;
+            }
+
+            if (i > 0 && StringUtils.isNotBlank(levelName) && StringUtils.isBlank(levels.get(i - 1))) {
+                errors.add("Parent organization is empty for '" + levelName + "' at level " + (i + 1));
+                return;
+            }
+
+            if (StringUtils.isBlank(levelName)) {
+                foundEmpty = true;
+            } else if (foundEmpty) {
+                errors.add("Missing intermediate level before '" + levelName + "' at level " + (i + 1));
+                return;
+            }
+
             if (StringUtils.isBlank(levelName)) break;
 
             String identifier = extractIdentifier(levelName);
             String termKey = StringUtils.isNotBlank(identifier) ? identifier : levelName;
+
+            // Multiple Parents Check.
+            if (i > 0 && StringUtils.isNotBlank(levelName) && StringUtils.isNotBlank(levels.get(i - 1))) {
+                String parentKey = extractIdentifier(levels.get(i - 1));
+                parentKey = StringUtils.isNotBlank(parentKey) ? parentKey : levels.get(i - 1);
+                String existingParent = childToParentMap.get(termKey);
+                if (existingParent != null && !existingParent.equals(parentKey)) {
+                    errors.add("Term '" + levelName + "' has multiple parents: '" + existingParent + "' and '" + parentKey + "'");
+                    return;
+                }
+                childToParentMap.put(termKey, parentKey);
+
+                // Circular Reference Detection
+                String ancestor = parentKey;
+                Set<String> visited = new HashSet<>();
+                while (ancestor != null) {
+                    if (ancestor.equals(termKey)) {
+                        errors.add("Circular reference detected for term '" + levelName + "'");
+                        return;
+                    }
+                    if (!visited.add(ancestor)) break;
+                    ancestor = childToParentMap.get(ancestor);
+                }
+            }
 
             if (termPositionMap.containsKey(termKey)) {
                 TermPosition pos = termPositionMap.get(termKey);
@@ -527,18 +572,24 @@ public class OrgHierarchyBulkUploadConsumer {
     }
 
     private List<Map<String, Object>> populateDataFromFrameworkTerm(String frameworkName) throws Exception {
-        String url = serverProperties.getKmBaseHost() + serverProperties.getKmFrameWorkPath() + "/" + frameworkName;
-        Map<String, Object> response = (Map<String, Object>) outboundRequestHandler.fetchUsingGetWithHeaders(url.toString(), null);
-        if (MapUtils.isNotEmpty(response) && Constants.OK.equalsIgnoreCase((String) response.get(Constants.RESPONSE_CODE))) {
-            Map<String, Object> result = (Map<String, Object>) response.get(Constants.RESULT);
-            if (MapUtils.isNotEmpty(result) && result.containsKey(Constants.FRAMEWORK)) {
-                Map<String, Object> framework = (Map<String, Object>) result.get(Constants.FRAMEWORK);
-                if (framework.containsKey(Constants.CATEGORIES)) {
-                    return (List<Map<String, Object>>) framework.get(Constants.CATEGORIES);
+        int maxRetries = 10;
+        int delayMs = 5000; // 5 seconds
+        for (int attempt = 1; attempt <= maxRetries; attempt++) {
+            String url = serverProperties.getKmBaseHost() + serverProperties.getKmFrameWorkPath() + "/" + frameworkName;
+            Map<String, Object> response = (Map<String, Object>) outboundRequestHandler.fetchUsingGetWithHeaders(url, null);
+            if (MapUtils.isNotEmpty(response) && Constants.OK.equalsIgnoreCase((String) response.get(Constants.RESPONSE_CODE))) {
+                Map<String, Object> result = (Map<String, Object>) response.get(Constants.RESULT);
+                if (MapUtils.isNotEmpty(result) && result.containsKey(Constants.FRAMEWORK)) {
+                    Map<String, Object> framework = (Map<String, Object>) result.get(Constants.FRAMEWORK);
+                    if (framework.containsKey(Constants.CATEGORIES)) {
+                        return (List<Map<String, Object>>) framework.get(Constants.CATEGORIES);
+                    }
                 }
             }
+            logger.warn("Attempt {}: Framework data not available for '{}', retrying in {} ms...", attempt, frameworkName, delayMs);
+            Thread.sleep(delayMs);
         }
-        logger.error("Failed to fetch framework data for: " + frameworkName);
+        logger.error("Failed to fetch framework data for: {} after {} attempts", frameworkName, maxRetries);
         return Collections.emptyList();
     }
 
