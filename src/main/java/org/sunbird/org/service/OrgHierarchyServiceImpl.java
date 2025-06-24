@@ -243,6 +243,7 @@ public class OrgHierarchyServiceImpl implements OrgHierarchyService {
         response.getParams().setErrmsg(errMsg);
         response.setResponseCode(httpStatus);
     }
+
     @Override
     public ResponseEntity<Resource> downloadFile(String fileName, String rootOrgId, String userAuthToken) {
         try {
