@@ -572,8 +572,8 @@ public class OrgHierarchyBulkUploadConsumer {
     }
 
     private List<Map<String, Object>> populateDataFromFrameworkTerm(String frameworkName) throws Exception {
-        int maxRetries = 10;
-        int delayMs = 5000; // 5 seconds
+        int maxRetries = serverProperties.getMaxRetries();
+        int delayMs = serverProperties.getDelayMs();
         for (int attempt = 1; attempt <= maxRetries; attempt++) {
             String url = serverProperties.getKmBaseHost() + serverProperties.getKmFrameWorkPath() + "/" + frameworkName;
             Map<String, Object> response = (Map<String, Object>) outboundRequestHandler.fetchUsingGetWithHeaders(url, null);
