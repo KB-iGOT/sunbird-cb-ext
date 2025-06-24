@@ -26,6 +26,7 @@ import org.sunbird.common.util.CbExtServerProperties;
 import org.sunbird.common.util.Constants;
 import org.sunbird.common.util.ProjectUtil;
 import org.sunbird.core.producer.Producer;
+import org.sunbird.org.consumer.OrgHierarchyBulkUploadConsumer;
 import org.sunbird.org.util.ExcelUtil;
 import org.sunbird.org.util.FrameworkUtil;
 import org.sunbird.storage.service.StorageServiceImpl;
@@ -207,7 +208,8 @@ public class OrgHierarchyServiceImpl implements OrgHierarchyService {
             }
 
             Map<String, Object> uploadedFile = new HashMap<>();
-            uploadedFile.put(Constants.ROOT_ORG_ID, rootOrgId);
+            String orgId = frameworkId.split("_")[0];
+            uploadedFile.put(Constants.ROOT_ORG_ID, orgId);
             uploadedFile.put(Constants.IDENTIFIER, UUID.randomUUID().toString());
             uploadedFile.put(Constants.FILE_NAME, uploadResponse.getResult().get(Constants.NAME));
             uploadedFile.put(Constants.FILE_PATH, uploadResponse.getResult().get(Constants.URL));
