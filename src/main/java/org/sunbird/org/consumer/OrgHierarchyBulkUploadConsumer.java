@@ -333,16 +333,16 @@ public class OrgHierarchyBulkUploadConsumer {
             }
 
             List<Map<String, Object>> masterData = frameworkUtil.getMasterData(frameworkId.split("_")[0]);
-            boolean found = false;
+            boolean isOrgPresent = false;
             for (Map<String, Object> org : masterData) {
-                String orgId = org.get("id") != null ? org.get("id").toString() : "";
-                String orgName = org.get("orgName") != null ? org.get("orgName").toString() : "";
+                String orgId = org.get(Constants.ID) != null ? org.get(Constants.ID).toString() : "";
+                String orgName = org.get(Constants.ORG_NAME) != null ? org.get(Constants.ORG_NAME).toString() : "";
                 if (orgId.equalsIgnoreCase(identifier) || orgName.equalsIgnoreCase(extractName(levelName))) {
-                    found = true;
+                    isOrgPresent = true;
                     break;
                 }
             }
-            if (!found) {
+            if (!isOrgPresent) {
                 errors.add("Org '" + extractName(levelName) + "' (ID: " + identifier + ") does not exist in the master data. Please verify the organization name and ID.");
                 return;
             }
