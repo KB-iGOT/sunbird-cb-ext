@@ -39,6 +39,7 @@ import org.sunbird.user.registration.model.UserRegistration;
 import org.sunbird.user.util.TelemetryUtils;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.sunbird.user.util.notificationUtill.NotificationTriggerService;
 
 /**
  * @author akhilesh.kumar05
@@ -76,6 +77,9 @@ public class UserUtilityServiceImpl implements UserUtilityService {
 
 	@Autowired
 	AccessTokenValidator accessTokenValidator;
+
+	@Autowired
+	NotificationTriggerService notificationTriggerService;
 
 	private Logger logger = LoggerFactory.getLogger(UserUtilityServiceImpl.class);
 
@@ -843,8 +847,10 @@ public class UserUtilityServiceImpl implements UserUtilityService {
 			Map<String, Object> requestData = (Map<String, Object>) request.get(Constants.REQUEST);
 			List<Map<String, Object>> recipientsList = (List<Map<String, Object>>) requestData.get(Constants.RECIPIENTS);
 			List<String> emailList = new ArrayList<>();
+			List<String> userIds = new ArrayList<>();
 			for (Map<String, Object> map : recipientsList) {
 				emailList.add((String) map.get(Constants.EMAIL));
+				userIds.add((String) map.get(Constants.USER_ID));
 			}
 			Map<String, Object> requestObject = new HashMap<>();
 			Map<String, Object> req = new HashMap<>();
@@ -891,6 +897,13 @@ public class UserUtilityServiceImpl implements UserUtilityService {
 				mailNotificationDetails.put(Constants.USER, name);
 				mailNotificationDetails.put(Constants.PRIMARY_CATEGORY, requestData.get(Constants.PRIMARY_CATEGORY));
 				sendNotificationToRecipients(mailNotificationDetails);
+			}
+			if (!userIds.isEmpty()) {
+				String courseName = requestData.get(Constants.COURSE_NAME).toString();
+				Map<String, Object> data = new HashMap<>();
+				data.put("id", requestData.get(Constants.COURSE_ID));
+				notificationTriggerService.triggerNotification(Constants.CONTENT_SHARE, Constants.ALERT,
+						userIds, name, courseName, data);
 			}
 		} catch (Exception e) {
 			String errMsg = "Error while performing operation." + e.getMessage();

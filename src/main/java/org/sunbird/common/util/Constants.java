@@ -1371,6 +1371,12 @@ public class Constants {
 	public static final String ORG_HIERARCHY_FRAMEWORK_ID_KEY = "orgHierarchyFrameworkId";
 	public static final String ORG_HIERARCHY_FRAMEWORK_STATUS_KEY = "orgHierarchyFrameworkStatus";
 	public static final String COMPLETED = "Completed";
+	public static final String SUB_CATEGORY = "subCategory";
+	public static final String SUB_TYPE = "subType";
+	public static final String USER_IDS = "userIds";
+	public static final String PLACE_HOLDERS ="placeholders";
+	public static final String ALERT = "ALERT";
+	public static final String CONTENT_SHARE = "CONTENT_SHARE";
 	private Constants() {
 		throw new IllegalStateException("Utility class");
 	}
