@@ -25,6 +25,7 @@ import org.sunbird.common.service.OutboundRequestHandlerServiceImpl;
 import org.sunbird.common.util.CbExtServerProperties;
 import org.sunbird.common.util.Constants;
 import org.sunbird.common.util.ProjectUtil;
+import org.sunbird.org.util.FrameworkUtil;
 import org.sunbird.storage.service.StorageService;
 
 import java.io.File;
@@ -57,6 +58,9 @@ public class OrgHierarchyBulkUploadConsumer {
 
     @Autowired
     RedisCacheMgr redisCacheMgr;
+
+    @Autowired
+    FrameworkUtil frameworkUtil;
 
     private final Logger logger = LoggerFactory.getLogger(OrgHierarchyBulkUploadConsumer.class);
 
@@ -408,6 +412,20 @@ public class OrgHierarchyBulkUploadConsumer {
                 continue;
             }
 
+            List<Map<String, Object>> masterData = frameworkUtil.getMasterData(frameworkId.split("_")[0]);
+            boolean isOrgPresent = false;
+            for (Map<String, Object> org : masterData) {
+                String orgId = org.get(Constants.ID) != null ? org.get(Constants.ID).toString() : "";
+                String orgName = org.get(Constants.ORG_NAME) != null ? org.get(Constants.ORG_NAME).toString() : "";
+                if (orgId.equalsIgnoreCase(identifier) || orgName.equalsIgnoreCase(extractName(levelName))) {
+                    isOrgPresent = true;
+                    break;
+                }
+            }
+            if (!isOrgPresent) {
+                errors.add("Org '" + extractName(levelName) + "' (ID: " + identifier + ") does not exist in the master data. Please verify the organization name and ID.");
+                return;
+            }
             Map<String, Object> currentTerm = findTermInFramework(frameworkData, category, levelName);
             if (MapUtils.isEmpty(currentTerm)) {
                 String parentOrgName = (i > 0 && parentTerm != null) ? (String) parentTerm.get(Constants.NAME) : null;
