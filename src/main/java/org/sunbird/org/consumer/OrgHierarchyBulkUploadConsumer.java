@@ -281,6 +281,7 @@ public class OrgHierarchyBulkUploadConsumer {
         int levelCount = serverProperties.getOrgHierarchyLevelCount();
 
         Map<String, TermPosition> termPositionMap = new HashMap<>();
+        Map<String, String> childToParentMap = new HashMap<>();
 
         while (rowIterator.hasNext()) {
             Row row = rowIterator.next();
@@ -307,7 +308,7 @@ public class OrgHierarchyBulkUploadConsumer {
             Cell errorCell = row.getCell(levelCount + 1, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK);
 
             List<String> errors = new ArrayList<>();
-            Map<String, String> childToParentMap = new HashMap<>();
+
             try {
                 processHierarchyRow(levels, categories, frameworkId, frameworkData, errors, termPositionMap, createdBy, childToParentMap);
                 if (errors.isEmpty()) {
