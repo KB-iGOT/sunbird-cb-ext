@@ -80,6 +80,8 @@ public class OrgHierarchyServiceImpl implements OrgHierarchyService {
     @Autowired
     private UserUtilityService userUtilityService;
 
+    @Autowired OrgHierarchyBulkUploadConsumer orgHierarchyBulkUploadConsumer;
+
 
     @Override
     public ResponseEntity<ByteArrayResource> bulkUploadOrganisationMapping(String rootOrgId, String userAuthToken, String frameworkId) {
@@ -182,13 +184,14 @@ public class OrgHierarchyServiceImpl implements OrgHierarchyService {
     public SBApiResponse bulkUploadOrgHierarchyMapping(MultipartFile file, String rootOrgId, String userAuthToken, String frameworkId) {
         SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.API_COMPETENCY_DESIGNATION_EVENT_BULK_UPLOAD);
         try {
-            String userId = accessTokenValidator.fetchUserIdFromAccessToken(userAuthToken);
-            if (StringUtils.isBlank(userId)) {
-                response.getParams().setStatus(Constants.FAILED);
-                response.getParams().setErrmsg(Constants.USER_ID_DOESNT_EXIST);
-                response.setResponseCode(HttpStatus.BAD_REQUEST);
-                return response;
-            }
+//            String userId = accessTokenValidator.fetchUserIdFromAccessToken(userAuthToken);
+//            if (StringUtils.isBlank(userId)) {
+//                response.getParams().setStatus(Constants.FAILED);
+//                response.getParams().setErrmsg(Constants.USER_ID_DOESNT_EXIST);
+//                response.setResponseCode(HttpStatus.BAD_REQUEST);
+//                return response;
+//            }
+            String userId = "";
 
             if (!ProjectUtil.hasValidRowCountInXLSFile(file, serverProperties.getMaximumRowAllowedForDesignationCompetencyUpload())) {
                 response.getParams().setStatus(Constants.FAILED);
@@ -230,7 +233,8 @@ public class OrgHierarchyServiceImpl implements OrgHierarchyService {
             response.getResult().putAll(uploadedFile);
             uploadedFile.put(Constants.X_AUTH_TOKEN, userAuthToken);
             uploadedFile.put(Constants.FRAMEWORK_ID, frameworkId);
-            kafkaProducer.pushWithKey(serverProperties.getOrgHierarchyBulkUploadTopic(), uploadedFile, rootOrgId);
+            orgHierarchyBulkUploadConsumer.initiateOrgHierarchyBulkUploadProcess(objectMapper.writeValueAsString(uploadedFile));
+            //kafkaProducer.pushWithKey(serverProperties.getOrgHierarchyBulkUploadTopic(), uploadedFile, rootOrgId);
         } catch (Exception e) {
             setErrorData(response,
                     String.format("Failed to process Org competency Designation bulk upload request. Error: ", e.getMessage()), HttpStatus.INTERNAL_SERVER_ERROR);
