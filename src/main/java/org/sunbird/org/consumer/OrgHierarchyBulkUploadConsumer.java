@@ -635,7 +635,7 @@ public class OrgHierarchyBulkUploadConsumer {
         return idx > 0 ? cellValue.substring(0, idx).trim() : cellValue.trim();
     }
 
-    private boolean publishFramework(String frameworkId,String channelId, XSSFWorkbook wb, int levelCount) {
+    private boolean publishFramework(String frameworkId, String channelId, XSSFWorkbook wb, int levelCount) {
         StringBuilder strUrl = new StringBuilder(serverProperties.getKmBaseHost());
         strUrl.append(serverProperties.getKmFrameworkPublishPath() + "/" + frameworkId);
         Map<String, String> headers = new HashMap<>();
