@@ -17,7 +17,7 @@ import org.springframework.transaction.PlatformTransactionManager;
 
 @Configuration
 @EnableJpaRepositories(
-        basePackages = "org.sunbird.org.repository",
+        basePackages = {"org.sunbird.org.repository", "org.sunbird.insights.repository","org.sunbird.walloffame.repository"}, // Packages for the sunbird DB repositories
         entityManagerFactoryRef = "sunbirdEntityManagerFactory",
         transactionManagerRef = "sunbirdTransactionManager"
 )
@@ -31,13 +31,13 @@ public class PostgresDataSourceConfig {
 
     // Define the EntityManagerFactory for the Wingspan database
     @Primary
-    @Bean(name = "sunbirdEntityManagerFactory")
+    @Bean(name = {"sunbirdEntityManagerFactory", "entityManagerFactory"})
     public LocalContainerEntityManagerFactoryBean sunbirdEntityManagerFactory(
             EntityManagerFactoryBuilder builder,
             @Qualifier("sunbirdDataSource") DataSource dataSource) {
         return builder
                 .dataSource(dataSource)
-                .packages("org.sunbird.org")
+                .packages("org.sunbird.org", "org.sunbird.insights","org.sunbird.walloffame")
                 .persistenceUnit("sunbird")
                 .build();
     }
@@ -49,4 +49,12 @@ public class PostgresDataSourceConfig {
             @Qualifier("sunbirdEntityManagerFactory") EntityManagerFactory sunbirdEntityManagerFactory) {
         return new JpaTransactionManager(sunbirdEntityManagerFactory);
     }
+
+    @Primary
+    @Bean(name = "transactionManager")
+    public PlatformTransactionManager transactionManager(
+            @Qualifier("sunbirdEntityManagerFactory") EntityManagerFactory entityManagerFactory) {
+        return new JpaTransactionManager(entityManagerFactory);
+    }
+
 }
