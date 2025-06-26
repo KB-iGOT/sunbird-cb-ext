@@ -25,6 +25,7 @@ import org.sunbird.common.service.OutboundRequestHandlerServiceImpl;
 import org.sunbird.common.util.CbExtServerProperties;
 import org.sunbird.common.util.Constants;
 import org.sunbird.common.util.ProjectUtil;
+import org.sunbird.org.util.FrameworkUtil;
 import org.sunbird.storage.service.StorageService;
 
 import java.io.File;
@@ -57,6 +58,9 @@ public class OrgHierarchyBulkUploadConsumer {
 
     @Autowired
     RedisCacheMgr redisCacheMgr;
+
+    @Autowired
+    FrameworkUtil frameworkUtil;
 
     private final Logger logger = LoggerFactory.getLogger(OrgHierarchyBulkUploadConsumer.class);
 
@@ -158,7 +162,6 @@ public class OrgHierarchyBulkUploadConsumer {
     }
 
     private Map<String, Object> buildCreateTermRequest(
-            String frameworkId,
             String name,
             String category,
             String parentTermId,
@@ -248,27 +251,15 @@ public class OrgHierarchyBulkUploadConsumer {
             return;
         }
 
-        retireFramework(currentFramework, inputDataMap.get(Constants.CREATED_BY), orgId);
-
         String frameworkId = processFrameworkCreate(serverProperties.getOrgHierarchyMasterFramework(), orgId);
         logger.info("Framework created with ID: " + frameworkId);
         if (StringUtils.isBlank(frameworkId)) {
             logger.error("Failed to create or retrieve framework ID for org hierarchy bulk upload.");
             return;
         }
-        boolean newFrameworkPublishSuccess = publishFramework(frameworkId, inputDataMap.get(Constants.X_AUTH_TOKEN), orgId, wb, file, 10);
+        boolean newFrameworkPublishSuccess = publishFramework(frameworkId, orgId, wb, 10);
         String newFrameworkstatus = newFrameworkPublishSuccess ? Constants.SUCCESSFUL_UPPERCASE : Constants.FAILED_UPPERCASE;
         logger.info("Framework published with status: " + newFrameworkstatus);
-
-        String orgUpdateUrl = serverProperties.getSbUrl() + serverProperties.getUpdateOrgPath();
-        Map<String, Object> orgResponse = outboundRequestHandler.fetchResultUsingPatch(orgUpdateUrl,createOrgHierarchyRequestMap(orgId, Constants.ORG_HIERARCHY_FRAMEWORK_ID_KEY, Constants.ORG_HIERARCHY_FRAMEWORK_STATUS_KEY, frameworkId, Constants.COMPLETED), ProjectUtil.getDefaultHeadrs(inputDataMap.get(Constants.X_AUTH_TOKEN)));
-        if (MapUtils.isNotEmpty(orgResponse) && Constants.OK.equalsIgnoreCase(
-                (String) orgResponse.get(Constants.RESPONSE_CODE))) {
-            Map<String, Object> result = (Map<String, Object>) orgResponse.get(
-                    Constants.RESULT);
-            String orgResult = (result != null) ? (String) result.getOrDefault(Constants.RESPONSE, "") : "";
-            logger.info("Organization updated successfully. orgId: {}, result: {}", orgId, orgResult);
-        }
         String createdBy = inputDataMap.get(Constants.CREATED_BY);
         List<Map<String, Object>> frameworkData = getMasterCompetencyFrameworkData(frameworkId);
         if (CollectionUtils.isEmpty(frameworkData)) {
@@ -277,7 +268,7 @@ public class OrgHierarchyBulkUploadConsumer {
         int levelCount = serverProperties.getOrgHierarchyLevelCount();
 
         Map<String, TermPosition> termPositionMap = new HashMap<>();
-
+        Map<String, String> childToParentMap = new HashMap<>();
         while (rowIterator.hasNext()) {
             Row row = rowIterator.next();
             boolean isEmpty = true;
@@ -303,7 +294,6 @@ public class OrgHierarchyBulkUploadConsumer {
             Cell errorCell = row.getCell(levelCount + 1, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK);
 
             List<String> errors = new ArrayList<>();
-            Map<String, String> childToParentMap = new HashMap<>();
             try {
                 processHierarchyRow(levels, categories, frameworkId, frameworkData, errors, termPositionMap, createdBy, childToParentMap);
                 if (errors.isEmpty()) {
@@ -323,7 +313,7 @@ public class OrgHierarchyBulkUploadConsumer {
             totalNumberOfRecordInSheet++;
         }
 
-        boolean publishSuccess = publishFramework(frameworkId, inputDataMap.get(Constants.X_AUTH_TOKEN), orgId, wb, file, levelCount);
+        boolean publishSuccess = publishFramework(frameworkId, orgId, wb, levelCount);
         String status;
         if (!publishSuccess || failedRecordsCount > 0) {
             status = Constants.FAILED_UPPERCASE;
@@ -336,6 +326,24 @@ public class OrgHierarchyBulkUploadConsumer {
         );
 
         uploadTheUpdatedFile(file, wb);
+
+        if (noOfSuccessfulRecords > 0) {
+            logger.info("Successfully processed {} records in the hierarchy upload", noOfSuccessfulRecords);
+            logger.info("Retiring framework: " + currentFramework);
+            retireFramework(currentFramework, inputDataMap.get(Constants.CREATED_BY), orgId);
+            String orgUpdateUrl = serverProperties.getSbUrl() + serverProperties.getUpdateOrgPath();
+            Map<String, Object> orgResponse = outboundRequestHandler.fetchResultUsingPatch(orgUpdateUrl, createOrgHierarchyRequestMap(orgId, Constants.ORG_HIERARCHY_FRAMEWORK_ID_KEY, Constants.ORG_HIERARCHY_FRAMEWORK_STATUS_KEY, frameworkId, Constants.COMPLETED), ProjectUtil.getDefaultHeadrs(inputDataMap.get(Constants.X_AUTH_TOKEN)));
+            if (MapUtils.isNotEmpty(orgResponse) && Constants.OK.equalsIgnoreCase(
+                    (String) orgResponse.get(Constants.RESPONSE_CODE))) {
+                Map<String, Object> result = (Map<String, Object>) orgResponse.get(
+                        Constants.RESULT);
+                String orgResult = (result != null) ? (String) result.getOrDefault(Constants.RESPONSE, "") : "";
+                logger.info("Organization updated successfully. orgId: {}, result: {}", orgId, orgResult);
+            }
+        } else {
+            logger.info("No successful records processed in the hierarchy upload. Retiring framework: " + currentFramework);
+            retireFramework(frameworkId, inputDataMap.get(Constants.CREATED_BY), orgId);
+        }
 
         wb.close();
         fis.close();
@@ -408,11 +416,25 @@ public class OrgHierarchyBulkUploadConsumer {
                 continue;
             }
 
+            List<Map<String, Object>> masterData = frameworkUtil.getMasterData(frameworkId.split("_")[0]);
+            boolean isOrgPresent = false;
+            for (Map<String, Object> org : masterData) {
+                String orgId = org.get(Constants.ID) != null ? org.get(Constants.ID).toString() : "";
+                String orgName = org.get(Constants.ORG_NAME) != null ? org.get(Constants.ORG_NAME).toString() : "";
+                if (orgId.equalsIgnoreCase(identifier) || orgName.equalsIgnoreCase(extractName(levelName))) {
+                    isOrgPresent = true;
+                    break;
+                }
+            }
+            if (!isOrgPresent) {
+                errors.add("Org '" + extractName(levelName) + "' (ID: " + identifier + ") does not exist in the master data. Please verify the organization name and ID.");
+                return;
+            }
             Map<String, Object> currentTerm = findTermInFramework(frameworkData, category, levelName);
             if (MapUtils.isEmpty(currentTerm)) {
                 String parentOrgName = (i > 0 && parentTerm != null) ? (String) parentTerm.get(Constants.NAME) : null;
                 String generateCode = UUIDs.timeBased().toString();
-                Map<String, Object> createReq = buildCreateTermRequest(frameworkId, levelName, category,
+                Map<String, Object> createReq = buildCreateTermRequest(levelName, category,
                         i > 0 ? levels.get(i-1) : null, parentOrgName, generateCode, createdBy);
                 Map<String, Object> createResp = createFrameworkTerm(frameworkId, createReq, category);
                 if (MapUtils.isNotEmpty(createResp) && createResp.containsKey(Constants.NODE_ID)) {
@@ -496,12 +518,6 @@ public class OrgHierarchyBulkUploadConsumer {
                 }
             }
         }
-    }
-
-    private void saveWorkbook(XSSFWorkbook wb, File file) throws IOException {
-        FileOutputStream fileOut = new FileOutputStream(file);
-        wb.write(fileOut);
-        fileOut.close();
     }
 
     private Map<String, Object> findTermInFramework(List<Map<String, Object>> frameworkData, String category, String name) {
@@ -619,7 +635,7 @@ public class OrgHierarchyBulkUploadConsumer {
         return idx > 0 ? cellValue.substring(0, idx).trim() : cellValue.trim();
     }
 
-    private boolean publishFramework(String frameworkId, String authToken, String channelId, XSSFWorkbook wb, File file, int levelCount) {
+    private boolean publishFramework(String frameworkId, String channelId, XSSFWorkbook wb, int levelCount) {
         StringBuilder strUrl = new StringBuilder(serverProperties.getKmBaseHost());
         strUrl.append(serverProperties.getKmFrameworkPublishPath() + "/" + frameworkId);
         Map<String, String> headers = new HashMap<>();

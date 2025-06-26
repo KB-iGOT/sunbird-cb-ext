@@ -94,7 +94,7 @@ public class FrameworkUtil {
         }
     }
 
-    private List<Map<String, Object>> getMasterData(String orgId) throws Exception, InterruptedException {
+    public List<Map<String, Object>> getMasterData(String orgId) throws Exception, InterruptedException {
         String masterDataOrg = redisCacheMgr.getCache(Constants.ORG_MASTER_DATA + "_" + orgId);
         if (StringUtils.isEmpty(masterDataOrg) || masterDataOrg.equals("[]") || masterDataOrg.equals("{}") || masterDataOrg.equalsIgnoreCase("null")) {
             List<Map<String, Object>> orgMasterData = populateDataFromApi(orgId);
