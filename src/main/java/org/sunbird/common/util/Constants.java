@@ -1371,6 +1371,14 @@ public class Constants {
 	public static final String ORG_HIERARCHY_FRAMEWORK_ID_KEY = "orgHierarchyFrameworkId";
 	public static final String ORG_HIERARCHY_FRAMEWORK_STATUS_KEY = "orgHierarchyFrameworkStatus";
 	public static final String COMPLETED = "Completed";
+	public static final String PROFILE_IMAGE = "profile_image";
+	public static final String TOTAL_POINTS = "total_points";
+	public static final String ROW_NUM = "row_num";
+	public static final String TOTAL_LEARNING_HOURS = "total_learning_hours";
+	public static final String TOTAL_USERS= "totalUsers";
+	public static final String LAST_CREDIT_DATE= "lastCreditDate";
+	public static final String PREVIOUS_RANK= "previousRank";
+
 	private Constants() {
 		throw new IllegalStateException("Utility class");
 	}
