@@ -50,7 +50,6 @@ public class PostgresDataSourceConfig {
         return new JpaTransactionManager(sunbirdEntityManagerFactory);
     }
 
-    @Primary
     @Bean(name = "transactionManager")
     public PlatformTransactionManager transactionManager(
             @Qualifier("sunbirdEntityManagerFactory") EntityManagerFactory entityManagerFactory) {
