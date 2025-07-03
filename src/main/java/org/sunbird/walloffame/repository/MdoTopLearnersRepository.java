@@ -5,6 +5,6 @@ import org.sunbird.walloffame.entity.MdoTopLearnersEntity;
 
 import java.util.List;
 
-public interface MdoTopLearnersRepository extends JpaRepository<MdoTopLearnersEntity, String> {
+public interface MdoTopLearnersRepository extends JpaRepository<MdoTopLearnersEntity, MdoTopLearnersEntity.MdoTopLearnersKey> {
     List<MdoTopLearnersEntity> findByOrgIdAndRowNumIn(String orgId, List<Integer> rowNum);
 }
