@@ -253,7 +253,8 @@ public class WallOfFameServiceImpl implements WallOfFameService {
         String orgId = (String) requestData.get(Constants.MDOID);
         List<String> sizeList = properties.getStateMdoLeaderBoardSizeList();
         try {
-            List<SlwMdoLeaderBoardEntity> leaderboardList = slwMdoLeaderBoardRepository.findBySizeInAndParentId(orgId, sizeList);
+
+            List<SlwMdoLeaderBoardEntity> leaderboardList = slwMdoLeaderBoardRepository.findByParentIdAndSizeIn(orgId, sizeList );
             if (CollectionUtils.isEmpty(leaderboardList)) {
                 response.getParams().setErrmsg(Constants.NO_DATA_FOUND);
             } else {
