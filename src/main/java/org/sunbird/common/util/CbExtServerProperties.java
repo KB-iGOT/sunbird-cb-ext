@@ -1067,6 +1067,9 @@ public class CbExtServerProperties {
 	@Value("${org.hierarchy.bulk.upload.retry.delay.ms}")
 	private int delayMs;
 
+	@Value("${designation.search.result.size}")
+	private int searchDesignationResultSize;
+
 	public String getStateLearningInsightsRedisKeyMapping() {
 		return stateLearningInsightsRedisKeyMapping;
 	}
@@ -3621,5 +3624,13 @@ public class CbExtServerProperties {
 
 	public int getDelayMs() {
 		return delayMs;
+	}
+
+	public int getSearchDesignationResultSize() {
+		return searchDesignationResultSize;
+	}
+
+	public void setSearchDesignationResultSize(int searchDesignationResultSize) {
+		this.searchDesignationResultSize = searchDesignationResultSize;
 	}
 }
