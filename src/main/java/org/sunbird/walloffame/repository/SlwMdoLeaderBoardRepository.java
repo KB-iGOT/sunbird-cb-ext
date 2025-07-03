@@ -7,5 +7,5 @@ import org.sunbird.walloffame.entity.SlwMdoLeaderBoardEntity;
 import java.util.List;
 @Repository
 public interface SlwMdoLeaderBoardRepository extends JpaRepository<SlwMdoLeaderBoardEntity, SlwMdoLeaderBoardEntity.SlwMdoLeaderBoardKey> {
-    List<SlwMdoLeaderBoardEntity> findBySizeInAndParentId(String parentId, List<String> size);
+    List<SlwMdoLeaderBoardEntity> findByParentIdAndSizeIn(String parentId, List<String> size);
 }
