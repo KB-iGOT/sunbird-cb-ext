@@ -291,6 +291,7 @@ public class OrgDesignationMappingServiceImpl implements OrgDesignationMappingSe
 
                 return allRecords;
             } else {
+                logger.info("Getting the value from redis");
                 return objectMapper.readValue(masterData, new TypeReference<List<Map<String, Object>>>() {});
             }
         } catch (IOException e) {
