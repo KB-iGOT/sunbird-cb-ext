@@ -366,7 +366,6 @@ public class WallOfFameServiceImpl implements WallOfFameService {
         map.put(Constants.ROW_NUM, entity.getRowNum());
         map.put(Constants.DESIGNATION, entity.getDesignation());
         map.put(Constants.USER_FULL_NAME, entity.getFullname());
-        map.put(Constants.LAST_CREDIT_DATE, entity.getLastCreditDate());
         map.put(Constants.MONTH, entity.getMonth());
         map.put(Constants.ORG_NAME, entity.getOrgName());
         map.put(Constants.PREVIOUS_RANK, entity.getPreviousRank());
