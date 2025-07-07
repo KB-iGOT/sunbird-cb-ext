@@ -159,6 +159,7 @@ public class WallOfFameServiceImpl implements WallOfFameService {
                 response.getParams().setErrmsg(Constants.NO_DATA_FOUND);
                 response.getParams().setStatus(Constants.SUCCESS);
                 response.setResponseCode(HttpStatus.OK);
+                response.put(Constants.RESULT, Collections.emptyList());
                 return response;
             }
             List<Map<String, Object>> result = learnersList.stream()
@@ -169,6 +170,7 @@ public class WallOfFameServiceImpl implements WallOfFameService {
             return response;
 
         } catch (Exception e) {
+            logger.error("Error while fetching top 10 learners: {}", e.getMessage(), e);
             setInternalServerErrorResponse(response);
         }
         return response;

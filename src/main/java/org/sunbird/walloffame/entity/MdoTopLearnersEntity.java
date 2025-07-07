@@ -5,6 +5,7 @@ import org.sunbird.common.util.Constants;
 
 import javax.persistence.*;
 import java.io.Serializable;
+import java.sql.Timestamp;
 
 @Entity
 @Table(name = Constants.TABLE_TOP_10_LEARNER)
@@ -52,6 +53,15 @@ public class MdoTopLearnersEntity {
 
     @Column(name = "year")
     private String year;
+
+    @Column(name = "last_credit_date")
+    private Timestamp lastCreditDate;
+
+    @Column(name = "created_at", updatable = false)
+    private Timestamp createdAt;
+
+    @Column(name = "updated_at")
+    private Timestamp updatedAt;
 
     @Data
     @NoArgsConstructor
