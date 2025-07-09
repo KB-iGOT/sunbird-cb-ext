@@ -1,13 +1,9 @@
 package org.sunbird.insights.entity;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.vladmihalcea.hibernate.type.json.JsonBinaryType;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import org.hibernate.annotations.Type;
-import org.hibernate.annotations.TypeDef;
 import org.sunbird.common.util.Constants;
 
 import javax.persistence.Column;
@@ -21,7 +17,6 @@ import javax.persistence.Table;
 @Setter
 @AllArgsConstructor
 @NoArgsConstructor
-@TypeDef(name = "jsonb", typeClass = JsonBinaryType.class)
 public class LearnerStatsEntity {
     @Id
     @Column(name = "userid")
@@ -39,19 +34,16 @@ public class LearnerStatsEntity {
     @Column(name = "total_claps")
     private Integer totalClaps;
 
-    @Type(type = "jsonb")
-    @Column(name = "w1", columnDefinition = "jsonb")
-    private JsonNode w1;
+    @Column(name = "w1")
+    private String w1;
 
-    @Type(type = "jsonb")
-    @Column(name = "w2", columnDefinition = "jsonb")
-    private JsonNode w2;
+    @Column(name = "w2")
+    private String w2;
 
-    @Type(type = "jsonb")
-    @Column(name = "w3", columnDefinition = "jsonb")
-    private JsonNode w3;
+    @Column(name = "w3")
+    private String w3;
 
-    @Type(type = "jsonb")
-    @Column(name = "w4", columnDefinition = "jsonb")
-    private JsonNode w4;
+    @Column(name = "w4")
+    private String w4;
+
 }
