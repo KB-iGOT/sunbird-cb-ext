@@ -902,7 +902,7 @@ public class UserUtilityServiceImpl implements UserUtilityService {
 				String courseName = requestData.get(Constants.COURSE_NAME).toString();
 				Map<String, Object> data = new HashMap<>();
 				data.put("id", requestData.get(Constants.COURSE_ID));
-				notificationTriggerService.triggerNotification(Constants.CONTENT_SHARE, Constants.ALERT,
+				notificationTriggerService.triggerNotification(Constants.CONTENT_SHARE, Constants.ENGAGEMENT,
 						userIds, name, courseName, data);
 			}
 		} catch (Exception e) {
