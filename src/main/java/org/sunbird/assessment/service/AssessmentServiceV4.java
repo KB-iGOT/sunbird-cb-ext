@@ -7,7 +7,7 @@ import org.sunbird.common.model.SBApiResponse;
 public interface AssessmentServiceV4 {
     public SBApiResponse submitAssessment(Map<String, Object> data, String userAuthToken);
 
-	public SBApiResponse readAssessment(String assessmentIdentifier, String token,boolean editMode, String parentContextId);
+	public SBApiResponse readAssessment(String assessmentIdentifier, String token,boolean editMode, String parentContextId, boolean isContentAdmin);
 
 	public SBApiResponse readQuestionList(Map<String, Object> requestBody, String authUserToken,boolean editMode);
 

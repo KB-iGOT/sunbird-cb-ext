@@ -17,6 +17,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.collections.MapUtils;
@@ -115,7 +116,7 @@ public class AssessmentServiceV4Impl implements AssessmentServiceV4 {
     }
 
     @Override
-    public SBApiResponse readAssessment(String assessmentIdentifier, String token,boolean editMode, String parentContextId) {
+    public SBApiResponse readAssessment(String assessmentIdentifier, String token,boolean editMode, String parentContextId, boolean isContentAdmin) {
         logger.info("AssessmentServiceV4Impl::readAssessment... Started");
         SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.API_READ_ASSESSMENT);
         String errMsg = "";
@@ -145,7 +146,7 @@ public class AssessmentServiceV4Impl implements AssessmentServiceV4 {
 
             if (Constants.PRACTICE_QUESTION_SET
                     .equalsIgnoreCase((String) assessmentAllDetail.get(Constants.PRIMARY_CATEGORY))||editMode) {
-                response.getResult().put(Constants.QUESTION_SET, readAssessmentLevelData(assessmentAllDetail));
+                response.getResult().put(Constants.QUESTION_SET, readAssessmentLevelData(assessmentAllDetail, isContentAdmin));
                 return response;
             }
 
@@ -165,7 +166,7 @@ public class AssessmentServiceV4Impl implements AssessmentServiceV4 {
                     int expectedDuration = (Integer) assessmentAllDetail.get(Constants.EXPECTED_DURATION);
                     Timestamp assessmentEndTime = calculateAssessmentSubmitTime(expectedDuration,
                             assessmentStartTime, 0);
-                    Map<String, Object> assessmentData = readAssessmentLevelData(assessmentAllDetail);
+                    Map<String, Object> assessmentData = readAssessmentLevelData(assessmentAllDetail, isContentAdmin);
                     assessmentData.put(Constants.START_TIME, assessmentStartTime.getTime());
                     assessmentData.put(Constants.END_TIME, assessmentEndTime.getTime());
                     response.getResult().put(Constants.QUESTION_SET, assessmentData);
@@ -204,7 +205,7 @@ public class AssessmentServiceV4Impl implements AssessmentServiceV4 {
                     if (StringUtils.isNotBlank(errMsg)) {
                         return response;
                     }
-                    Map<String, Object> assessmentData = readAssessmentLevelData(assessmentAllDetail);
+                    Map<String, Object> assessmentData = readAssessmentLevelData(assessmentAllDetail, isContentAdmin);
                     int expectedDuration = (Integer) assessmentAllDetail.get(Constants.EXPECTED_DURATION);
                     assessmentStartTime = new Timestamp(new java.util.Date().getTime());
                     Timestamp assessmentEndTime = calculateAssessmentSubmitTime(expectedDuration,
@@ -599,7 +600,7 @@ public class AssessmentServiceV4Impl implements AssessmentServiceV4 {
         return new Timestamp(cal.getTime().getTime());
     }
 
-    private Map<String, Object> readAssessmentLevelData(Map<String, Object> assessmentAllDetail) {
+    private Map<String, Object> readAssessmentLevelData(Map<String, Object> assessmentAllDetail, boolean isContentAdmin) {
         List<String> assessmentParams = serverProperties.getAssessmentLevelParams();
         Map<String, Object> assessmentFilteredDetail = new HashMap<>();
         for (String assessmentParam : assessmentParams) {
@@ -607,12 +608,12 @@ public class AssessmentServiceV4Impl implements AssessmentServiceV4 {
                 assessmentFilteredDetail.put(assessmentParam, assessmentAllDetail.get(assessmentParam));
             }
         }
-        readSectionLevelParams(assessmentAllDetail, assessmentFilteredDetail);
+        readSectionLevelParams(assessmentAllDetail, assessmentFilteredDetail, isContentAdmin);
         return assessmentFilteredDetail;
     }
 
     private void readSectionLevelParams(Map<String, Object> assessmentAllDetail,
-            Map<String, Object> assessmentFilteredDetail) {
+            Map<String, Object> assessmentFilteredDetail, boolean isContentAdmin) {
         List<Map<String, Object>> sectionResponse = new ArrayList<>();
         List<String> sectionIdList = new ArrayList<>();
         List<String> sectionParams = serverProperties.getAssessmentSectionParams();
@@ -629,9 +630,13 @@ public class AssessmentServiceV4Impl implements AssessmentServiceV4 {
             // Shuffle the list of questions
             Collections.shuffle(questions);
             int maxQuestions = (int) section.getOrDefault(Constants.MAX_QUESTIONS, questions.size());
-            List<String> childNodeList = questions.stream()
+
+            Stream<Map<String, Object>> questionStream = questions.stream();
+            if (!isContentAdmin) {
+                questionStream = questionStream.limit(maxQuestions);
+            }
+            List<String> childNodeList = questionStream
                     .map(question -> (String) question.get(Constants.IDENTIFIER))
-                    .limit(maxQuestions)
                     .collect(Collectors.toList());
             Collections.shuffle(childNodeList);
             newSection.put(Constants.CHILD_NODES, childNodeList);
