@@ -1375,7 +1375,7 @@ public class Constants {
 	public static final String SUB_TYPE = "subType";
 	public static final String USER_IDS = "userIds";
 	public static final String PLACE_HOLDERS ="placeholders";
-	public static final String ALERT = "ALERT";
+	public static final String ENGAGEMENT = "ENGAGEMENT";
 	public static final String CONTENT_SHARE = "CONTENT_SHARE";
 	private Constants() {
 		throw new IllegalStateException("Utility class");
