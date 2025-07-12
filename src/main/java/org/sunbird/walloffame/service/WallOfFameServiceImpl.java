@@ -325,11 +325,11 @@ public class WallOfFameServiceImpl implements WallOfFameService {
             map.put(Constants.ORG_ID, learner.getOrgId());
             map.put(Constants.ROW_NUM, learner.getRowNum());
             map.put(Constants.USER_ID, learner.getUserId());
-            map.put(Constants.USER_FULL_NAME, learner.getFullName());
+            map.put(Constants.SLW_USER_FULL_NAME, learner.getFullName());
             map.put(Constants.DESIGNATION, learner.getDesignation());
             map.put(Constants.PROFILE_IMAGE, learner.getProfileImage());
             map.put(Constants.TOTAL_POINTS, learner.getTotalPoints());
-            map.put(Constants.ORG_NAME,learner.getOrgName());
+            map.put(Constants.SLW_ORG_NAME,learner.getOrgName());
             map.put(Constants.TOTAL_LEARNING_HOURS, learner.getTotalLearningHours());
             result.add(map);
         }
