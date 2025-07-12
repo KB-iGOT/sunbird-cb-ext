@@ -3,8 +3,8 @@ package org.sunbird.org.service;
 import com.datastax.driver.core.utils.UUIDs;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.dataformat.xml.XmlMapper;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.collections4.MapUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -219,45 +219,85 @@ public class OrgDesignationMappingServiceImpl implements OrgDesignationMappingSe
 
     private List<Map<String, Object>> populateMasterDesignation() {
         try {
-            XmlMapper xmlMapper = new XmlMapper();
-            xmlMapper.disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
+            ObjectMapper objectMapper = new ObjectMapper();
+            objectMapper.disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
+
             String masterData = redisCache.getCache(Constants.DESIGNATION_MASTER_DATA);
             if (StringUtils.isEmpty(masterData)) {
-                Map<String, Object> searchRequest = new HashMap<>();
-
-                searchRequest.put(Constants.PAGE_NUMBER, 0);
-                searchRequest.put(Constants.PAGE_SIZE, 10000);
-                searchRequest.put(Constants.REQUEST_FIELDS, new ArrayList<>());
-
-                Map<String, Object> filterCriteriaMap = new HashMap<>();
-                filterCriteriaMap.put(Constants.STATUS, "Active");
-
-                searchRequest.put(Constants.FILTER_CRITERIA_MAP, filterCriteriaMap);
+                List<Map<String, Object>> allRecords = new ArrayList<>();
+                int page = 0;
+                int pageSize = serverProperties.getSearchDesignationResultSize();
+                int totalCount = Integer.MAX_VALUE;
 
                 String url = serverProperties.getCbPoresServiceHost() + serverProperties.getCbPoresMasterDesignationEndpoint();
-                String masterDesignationString = (String) outboundRequestHandler.fetchResultUsingPostAsString(
-                        url, searchRequest);
-                CustomResponseDTO responseDTO = xmlMapper.readValue(masterDesignationString, CustomResponseDTO.class);
-                List<Data> dataList = null;
-                if (responseDTO != null && responseDTO.getResult() != null) {
-                    NestedResult nestedResult = responseDTO.getResult().getResult();
-                    if (nestedResult != null) {
-                        dataList = nestedResult.getData();
-                        String jsonString = objectMapper.writeValueAsString(dataList);
-                        List<Map<String, Object>> masterDataNode = objectMapper.readValue(jsonString, new TypeReference<List<Map<String, Object>>>() {
-                        });
-                        redisCache.putCache(Constants.DESIGNATION_MASTER_DATA, masterDataNode, serverProperties.getRedisMasterDataReadTimeOut());
-                        return masterDataNode;
+
+                while (page * pageSize < totalCount) {
+                    Map<String, Object> searchRequest = new HashMap<>();
+                    searchRequest.put(Constants.PAGE_NUMBER, page);
+                    searchRequest.put(Constants.PAGE_SIZE, pageSize);
+                    searchRequest.put(Constants.REQUEST_FIELDS, new ArrayList<>());
+
+                    Map<String, Object> filterCriteria = new HashMap<>();
+                    filterCriteria.put(Constants.STATUS, "Active");
+                    searchRequest.put(Constants.FILTER_CRITERIA_MAP, filterCriteria);
+
+                    String jsonResponse = (String) outboundRequestHandler.fetchResultUsingPostAsString(url, searchRequest);
+
+                    if (StringUtils.isBlank(jsonResponse)) {
+                        logger.warn("Empty response received from master designation endpoint.");
+                        break;
                     }
+
+                    JsonNode rootNode = objectMapper.readTree(jsonResponse);
+                    if (!rootNode.has(Constants.RESULT)) {
+                        logger.warn("Missing 'result' in JSON response.");
+                        break;
+                    }
+
+                    JsonNode nestedResult = rootNode.path(Constants.RESULT).path(Constants.RESULT);
+                    if (nestedResult.isMissingNode() || nestedResult.isNull()) {
+                        logger.warn("Missing or null 'result.result' node.");
+                        break;
+                    }
+
+                    JsonNode totalCountNode = nestedResult.path(Constants.TOTAL_COUNT);
+                    if (totalCountNode.isInt()) {
+                        totalCount = totalCountNode.asInt();
+                    } else {
+                        logger.warn("Missing or invalid 'totalCount'; defaulting to one-page processing.");
+                        totalCount = pageSize;
+                    }
+
+                    JsonNode dataArrayNode = nestedResult.path(Constants.DATA);
+                    if (!dataArrayNode.isArray() || dataArrayNode.size() == 0) {
+                        logger.info("No more records found in data array at page {}", page);
+                        break;
+                    }
+
+                    for (JsonNode item : dataArrayNode) {
+                        Map<String, Object> record = objectMapper.convertValue(item, new TypeReference<Map<String, Object>>() {});
+                        allRecords.add(record);
+                    }
+                    if (dataArrayNode.size() < pageSize) {
+                        break;
+                    }
+                    logger.info("The page size for the pores search request: " + page);
+                    page++;
                 }
+
+                if (CollectionUtils.isNotEmpty(allRecords)) {
+                    redisCache.putCache(Constants.DESIGNATION_MASTER_DATA, allRecords, serverProperties.getRedisMasterDataReadTimeOut());
+                }
+
+                return allRecords;
             } else {
-                return objectMapper.readValue(masterData, new TypeReference<List<Map<String, Object>>>() {
-                });
+                logger.info("Getting the value from redis");
+                return objectMapper.readValue(masterData, new TypeReference<List<Map<String, Object>>>() {});
             }
         } catch (IOException e) {
-            logger.error("Error while converting the response ", e);
+            logger.error("Error while processing master designation data", e);
         }
-        return null;
+        return Collections.emptyList();
     }
 
     private static void createHeaderRow(Sheet sheet, String[] headers) {
