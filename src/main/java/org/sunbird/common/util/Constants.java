@@ -459,7 +459,7 @@ public class Constants {
 	public static final String EMAIL_TEMPLATE_TYPE = "emailTemplateType";
 	public static final String MODE = "mode";
 	public static final String ORG_NAME = "orgName";
-	public static final String SLW_ORG_NAME = "orgname";
+	public static final String SLW_ORG_NAME = "org_name";
 	public static final String RECIPIENT_EMAILS = "recipientEmails";
 	public static final String SET_PASSWORD_LINK = "setPasswordLink";
 	public static final String WELCOME_MESSAGE = "welcomeMessage";
