@@ -714,34 +714,13 @@ public class UserRegistrationServiceImpl implements UserRegistrationService {
 		return null;  // Return null if no match found
 	}
 
-	private boolean isApprovedDomains(String emailDomain, String domainType) {
-		try {
-			domainType = domainType.toLowerCase();
-			if (redisCacheMgr.keyExists(emailDomain)) {
-				return !redisCacheMgr.valueExists(domainType, emailDomain);
-			} else {
-				Set<String> emailDomainSet = new HashSet<>();
-				Map<String, Object> propertiesMap = new HashMap<>();
-				propertiesMap.put(Constants.CONTEXT_TYPE, domainType);
-				List<Map<String, Object>> fieldValueList = cassandraOperation.getRecordsByProperties(
-						Constants.KEYSPACE_SUNBIRD, Constants.TABLE_MASTER_DATA, propertiesMap,
-						Collections.singletonList(Constants.CONTEXT_NAME));
-				if (!CollectionUtils.isEmpty(fieldValueList)) {
-					String columnName = fieldValueList.get(0).get("contextname") != null ? "contextname"
-							: "contextName";
-					for (Map<String, Object> domainMap : fieldValueList) {
-						emailDomainSet.add(((String) domainMap.get(columnName)).toLowerCase());
-					}
-				}
-				redisCacheMgr.putCacheAsStringArray(domainType, emailDomainSet.toArray(new String[0]),
-						serverProperties.getRedisMasterDataReadTimeOut());
-				return !emailDomainSet.contains(emailDomain);
-			}
-		} catch (Exception e) {
-			LOGGER.error("Error while reading the value from redis and cassandra from the masterValue for key : "
-					+ domainType + " value: " + emailDomain, e);
-		}
-		return false;
+	private Boolean isApprovedDomains(String emailDomain, String domainType) {
+		Map<String, Object> propertyMap = new HashMap<>();
+		propertyMap.put(Constants.CONTEXT_TYPE, domainType);
+		propertyMap.put(Constants.CONTEXT_NAME, emailDomain);
+		List<Map<String, Object>> listOfDomains = cassandraOperation.getRecordsByPropertiesWithoutFiltering(
+				Constants.KEYSPACE_SUNBIRD, Constants.TABLE_MASTER_DATA, propertyMap, Arrays.asList(Constants.CONTEXT_TYPE, Constants.CONTEXT_NAME));
+		return CollectionUtils.isNotEmpty(listOfDomains);
 	}
 
 }
