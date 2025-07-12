@@ -154,7 +154,7 @@ public class CohortsServiceImpl implements CohortsService {
 		return Collections.emptyList();
 	}
 
-	@Override
+/*	@Override
 	public SBApiResponse autoEnrollmentInCourse(String authUserToken, String rootOrgId, String rootOrg, String contentId, String userUUID)
 			throws Exception {
 		SBApiResponse finalResponse = ProjectUtil.createDefaultResponse(Constants.API_USER_ENROLMENT);
@@ -234,9 +234,9 @@ public class CohortsServiceImpl implements CohortsService {
 			finalResponse.getParams().setErrmsg(e.getMessage());
 		}
 		return finalResponse;
-	}
+	}*/
 
-	private SBApiResponse createBatchAndEnroll(String contentId, String userUUID, Map<String, String> headers) {
+	/*private SBApiResponse createBatchAndEnroll(String contentId, String userUUID, Map<String, String> headers) {
 		HashMap<String, Object> batchObj = new HashMap<>();
 		HashMap<String, Object> req = new HashMap<>();
 		SBApiResponse response = new SBApiResponse();
@@ -274,7 +274,7 @@ public class CohortsServiceImpl implements CohortsService {
 			response.setResponseCode(HttpStatus.INTERNAL_SERVER_ERROR);
 		}
 		return response;
-	}
+	}*/
 
 	private SBApiResponse constructAutoEnrollResponse(SunbirdApiBatchResp selectedBatch) {
 		SBApiResponse response = new SBApiResponse();
@@ -288,13 +288,16 @@ public class CohortsServiceImpl implements CohortsService {
 		return response;
 	}
 
-	private Map<String, Object> enrollInCourse(String contentId, String userUUID, Map<String, String> headers, String batchId) {
+	private Map<String, Object> enrollInCourse(String contentId, String userUUID, Map<String, String> headers, String batchId, String language) {
 		HashMap<String, Object> req;
 		req = new HashMap<>();
 		HashMap<String, Object> enrollObj = new HashMap<>();
 		enrollObj.put(Constants.USER_ID_CONSTANT, userUUID);
 		enrollObj.put(Constants.COURSE_ID, contentId);
 		enrollObj.put(Constants.BATCH_ID, batchId);
+		if (language != null && !language.trim().isEmpty()) {
+			enrollObj.put(Constants.LANGUAGE, language.toLowerCase());
+		}
 		req.put(Constants.REQUEST, enrollObj);
 		Map<String, Object> enrollMentResponse = outboundRequestHandlerService.fetchResultUsingPost(
 				cbExtServerProperties.getCourseServiceHost() + cbExtServerProperties.getUserCourseEnroll(), req,
@@ -433,7 +436,7 @@ public class CohortsServiceImpl implements CohortsService {
 	}
 
 	@Override
-	public SBApiResponse autoEnrollmentInCourseV2(String authUserToken, String rootOrgId, String rootOrg, String contentId, String userUUID) throws Exception {
+	public SBApiResponse autoEnrollmentInCourseV2(String authUserToken, String rootOrgId, String rootOrg, String contentId, String userUUID, String language) throws Exception {
 		SBApiResponse finalResponse = ProjectUtil.createDefaultResponse(Constants.API_USER_ENROLMENT);
 		try {
 			Map<String, Object> contentResponse = contentService.readContent(contentId);
@@ -494,7 +497,7 @@ public class CohortsServiceImpl implements CohortsService {
 				return errResponse;
 			}
 			//Enroll for the 1st batch for the course, Standalone Assessment
-			Map<String, Object> enrollResponse = enrollInCourse(contentId, userUUID, headers, batchDetail.getBatchId());
+			Map<String, Object> enrollResponse = enrollInCourse(contentId, userUUID, headers, batchDetail.getBatchId(), language);
 			if (!ObjectUtils.isEmpty(enrollResponse) && Constants.OK.equals(enrollResponse.get(Constants.RESPONSE_CODE))) {
 				finalResponse = constructAutoEnrollResponse(batchDetail);
 				isEnrolledWithBatch = true;
@@ -535,7 +538,7 @@ public class CohortsServiceImpl implements CohortsService {
 		propertyMap.put(Constants.COURSE_ID, courseId);
 		propertyMap.put(Constants.USER_ID, userId);
 		List<Map<String, Object>> activeEnrollmentsForUser = cassandraOperation.getRecordsByPropertiesWithoutFiltering(Constants.KEYSPACE_SUNBIRD_COURSES,
-				Constants.TABLE_USER_ENROLMENT, propertyMap, Arrays.asList(Constants.USER_ID, Constants.COURSE_ID, Constants.BATCH_ID, Constants.ACTIVE));
+				Constants.TABLE_USER_ENROLMENT_V2, propertyMap, Arrays.asList(Constants.USER_ID, Constants.COURSE_ID, Constants.BATCH_ID, Constants.ACTIVE));
 		if (CollectionUtils.isEmpty(activeEnrollmentsForUser)) {
 			return null;
 		} else {
