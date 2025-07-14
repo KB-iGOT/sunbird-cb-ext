@@ -1387,6 +1387,8 @@ public class Constants {
 	public static final String LAST_CREDIT_DATE= "lastCreditDate";
 	public static final String PREVIOUS_RANK= "previousRank";
 
+	public static final String LANGUAGE = "language";
+	public static final String TABLE_USER_ENROLMENT_V2 = "user_enrolments_v2";
 	private Constants() {
 		throw new IllegalStateException("Utility class");
 	}
