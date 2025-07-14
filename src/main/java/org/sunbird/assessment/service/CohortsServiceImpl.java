@@ -173,9 +173,7 @@ public class CohortsServiceImpl implements CohortsService {
 		enrollObj.put(Constants.USER_ID_CONSTANT, userUUID);
 		enrollObj.put(Constants.COURSE_ID, contentId);
 		enrollObj.put(Constants.BATCH_ID, batchId);
-		if (org.apache.commons.lang3.StringUtils.isNotBlank(language)) {
-			enrollObj.put(Constants.LANGUAGE, language.toLowerCase());
-		}
+		enrollObj.put(Constants.LANGUAGE, language);
 		req.put(Constants.REQUEST, enrollObj);
 		Map<String, Object> enrollMentResponse = outboundRequestHandlerService.fetchResultUsingPost(
 				cbExtServerProperties.getCourseServiceHost() + cbExtServerProperties.getUserCourseEnroll(), req,
