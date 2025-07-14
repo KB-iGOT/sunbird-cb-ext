@@ -14,10 +14,13 @@ import org.sunbird.common.util.AccessTokenValidator;
 import org.sunbird.common.util.CbExtServerProperties;
 import org.sunbird.common.util.Constants;
 import org.sunbird.common.util.ProjectUtil;
+import org.sunbird.walloffame.entity.*;
+import org.sunbird.walloffame.repository.*;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * @author mahesh.vakkund
@@ -33,6 +36,15 @@ public class WallOfFameServiceImpl implements WallOfFameService {
 
     @Autowired
     CbExtServerProperties properties;
+
+    @Autowired
+    private UserLeaderboardRepository leaderboardRepository;
+
+    @Autowired
+    private SlwMdoTopLearnerRepository slwMdoTopLearnerRepository;
+
+    @Autowired
+    private SlwMdoLeaderBoardRepository slwMdoLeaderBoardRepository;
 
     @Override
     public Map<String, Object> fetchWallOfFameData() {
@@ -148,6 +160,7 @@ public class WallOfFameServiceImpl implements WallOfFameService {
             return response;
 
         } catch (Exception e) {
+            logger.error("Error while fetching top 10 learners: {}", e.getMessage(), e);
             setInternalServerErrorResponse(response);
         }
         return response;
@@ -161,11 +174,27 @@ public class WallOfFameServiceImpl implements WallOfFameService {
             setBadRequestResponse(response, Constants.USER_ID_DOESNT_EXIST);
             return response;
         }
-        Map<String, Object> propertyMap = new HashMap<>();
-        propertyMap.put(Constants.USER_ID_LOWER,userId);
         try {
-            List<Map<String, Object>> userLeaderBoard = cassandraOperation.getRecordsByPropertiesWithoutFiltering(
-                    Constants.KEYSPACE_SUNBIRD, Constants.NLW_USER_LEADERBOARD, propertyMap, null);
+            Optional<UserLeaderboardEntity> entityOpt = leaderboardRepository.findById(userId);
+            List<Map<String, Object>> userLeaderBoard = new ArrayList<>();
+
+            if (entityOpt.isPresent()) {
+                UserLeaderboardEntity entity = entityOpt.get();
+                Map<String, Object> row = new HashMap<>();
+                row.put(Constants.USER_ID, entity.getUserId());
+                row.put(Constants.ROW_NUM, entity.getRowNum());
+                row.put(Constants.COUNT, entity.getCount());
+                row.put(Constants.DESIGNATION, entity.getDesignation());
+                row.put(Constants.USER_FULL_NAME, entity.getFullName());
+                row.put(Constants.LAST_CREDIT_DATE, entity.getLastCreditDate());
+                row.put(Constants.ORG_ID, entity.getOrgId());
+                row.put(Constants.PROFILE_IMAGE, entity.getProfileImage());
+                row.put(Constants.RANK, entity.getRank());
+                row.put(Constants.TOTAL_LEARNING_HOURS, entity.getTotalLearningHours());
+                row.put(Constants.TOTAL_POINTS, entity.getTotalPoints());
+
+                userLeaderBoard.add(row); // mimic Cassandra list of maps
+            }
             if (CollectionUtils.isEmpty(userLeaderBoard)) {
                 response.getParams().setErrmsg(Constants.NO_DATA_FOUND_FOR_THE_USER);
                 response.getParams().setStatus(Constants.SUCCESS);
@@ -215,15 +244,24 @@ public class WallOfFameServiceImpl implements WallOfFameService {
         SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.API_WALL_OF_FAME_STATE_MDO_LEADERBOARD);
         Map<String, Object> requestData = (Map<String, Object>) request.get(Constants.REQUEST);
         String orgId = (String) requestData.get(Constants.MDOID);
-        Map<String, Object> propertyMap = new HashMap<>();
-        propertyMap.put(Constants.SIZE, properties.getStateMdoLeaderBoardSizeList());
-        propertyMap.put(Constants.PARENT_ID,orgId);
+        List<String> sizeList = properties.getStateMdoLeaderBoardSizeList();
         try {
-            List<Map<String, Object>> mdoLeaderBoard = cassandraOperation.getRecordsByPropertiesWithoutFiltering(
-                    Constants.KEYSPACE_SUNBIRD, Constants.SLW_MDO_LEADERBOARD, propertyMap, null);
-            if (CollectionUtils.isEmpty(mdoLeaderBoard)) {
+
+            List<SlwMdoLeaderBoardEntity> leaderboardList = slwMdoLeaderBoardRepository.findByParentIdAndSizeIn(orgId, sizeList );
+            if (CollectionUtils.isEmpty(leaderboardList)) {
                 response.getParams().setErrmsg(Constants.NO_DATA_FOUND);
             } else {
+                List<Map<String, Object>> mdoLeaderBoard = leaderboardList.stream().map(record -> {
+                    Map<String, Object> map = new HashMap<>();
+                    map.put(Constants.PARENT_ID, record.getParentId());
+                    map.put(Constants.SIZE, record.getSize());
+                    map.put(Constants.ROW_NUM, record.getRowNum());
+                    map.put(Constants.ORG_ID, record.getOrgId());
+                    map.put(Constants.ORG_NAME, record.getOrgName());
+                    map.put(Constants.TOTAL_USERS, record.getTotalUsers());
+                    map.put(Constants.TOTAL_LEARNING_HOURS, record.getTotalLearningHours());
+                    return map;
+                }).collect(Collectors.toList());
                 response.put(Constants.MDO_LEADERBOARD, mdoLeaderBoard);
             }
         } catch (Exception e) {
@@ -247,17 +285,12 @@ public class WallOfFameServiceImpl implements WallOfFameService {
                 setBadRequestResponse(response, Constants.USER_ID_DOESNT_EXIST);
                 return response;
             }
-            Map<String, Object> propMap = new HashMap<>();
             List<Integer> ranksFilter = Arrays.asList(1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
-            propMap.put(Constants.DB_COLUMN_ROW_NUM, ranksFilter);
-            propMap.put(Constants.ORGID, stateOrgId);
-
-            List<Map<String, Object>> result = cassandraOperation.getRecordsByPropertiesWithoutFiltering(
-                    Constants.SUNBIRD_KEY_SPACE_NAME,
-                    Constants.TABLE_STATE_TOP_10_LEARNER,
-                    propMap,
-                    null
-            );
+            List<SlwMdoTopLearnerEntity> learners = slwMdoTopLearnerRepository.findByOrgIdAndRowNumIn(stateOrgId, ranksFilter);
+            if (CollectionUtils.isEmpty(learners)) {
+                response.getParams().setErrmsg(Constants.NO_DATA_FOUND);
+            }
+            List<Map<String, Object>> result = convertToResponseMap(learners);
             response.put(Constants.RESULT, result);
             return response;
 
@@ -283,4 +316,25 @@ public class WallOfFameServiceImpl implements WallOfFameService {
     private String validateAuthTokenAndFetchUserId(String authUserToken) {
         return accessTokenValidator.fetchUserIdFromAccessToken(authUserToken);
     }
+
+    private List<Map<String, Object>> convertToResponseMap(List<SlwMdoTopLearnerEntity> learners) {
+        List<Map<String, Object>> result = new ArrayList<>();
+
+        for (SlwMdoTopLearnerEntity learner : learners) {
+            Map<String, Object> map = new HashMap<>();
+            map.put(Constants.ORG_ID, learner.getOrgId());
+            map.put(Constants.ROW_NUM, learner.getRowNum());
+            map.put(Constants.USER_ID, learner.getUserId());
+            map.put(Constants.SLW_USER_FULL_NAME, learner.getFullName());
+            map.put(Constants.DESIGNATION, learner.getDesignation());
+            map.put(Constants.PROFILE_IMAGE, learner.getProfileImage());
+            map.put(Constants.TOTAL_POINTS, learner.getTotalPoints());
+            map.put(Constants.SLW_ORG_NAME,learner.getOrgName());
+            map.put(Constants.TOTAL_LEARNING_HOURS, learner.getTotalLearningHours());
+            result.add(map);
+        }
+
+        return result;
+    }
+
 }
