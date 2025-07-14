@@ -326,6 +326,10 @@ public class CohortsServiceImpl implements CohortsService {
 				return finalResponse;
 			}
 			List<Map<String, Object>> batches = (List<Map<String, Object>>) contentResponse.get(Constants.BATCHES);
+			if (CollectionUtils.isEmpty(batches)) {
+				ProjectUtil.updateErrorDetails(finalResponse, Constants.BATCH_NOT_AVAILABLE_ERROR_MSG, HttpStatus.BAD_REQUEST);
+				return finalResponse;
+			}
 			List<SunbirdApiBatchResp> batchDetails = new ArrayList<>();
 			ObjectMapper mapper = new ObjectMapper();
 			batchDetails.addAll(batches.stream().filter(batch -> (Integer) batch.get(Constants.STATUS) != 2).map(batchMap -> {
