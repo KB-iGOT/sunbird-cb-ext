@@ -447,7 +447,6 @@ public class Constants {
 	public static final String USER_NAME = "userName";
 	public static final String USER_FULL_NAME = "fullName";
 	public static final String SLW_USER_FULL_NAME = "fullname";
-	
 	public static final String MANDATORY_FIELDS_EXISTS = "mandatoryFieldsExists";
 	public static final String KEY = "key";
 	public static final String TYPE = "type";
