@@ -191,7 +191,7 @@ public class OutboundRequestHandlerServiceImpl {
 						.append(System.lineSeparator());
 				str.append("URI: ").append(uri).append(System.lineSeparator());
 				str.append("Request: ").append(mapper.writeValueAsString(request)).append(System.lineSeparator());
-				log.debug(str.toString());
+				log.info(str.toString());
 
 			response = restTemplate.postForObject(uri, entity, Map.class);
 			    str = new StringBuilder("Response: ");
