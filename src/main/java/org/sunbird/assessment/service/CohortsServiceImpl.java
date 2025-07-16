@@ -178,7 +178,6 @@ public class CohortsServiceImpl implements CohortsService {
 		Map<String, Object> enrollMentResponse = outboundRequestHandlerService.fetchResultUsingPost(
 				cbExtServerProperties.getCourseServiceHost() + cbExtServerProperties.getUserCourseEnroll(), req,
 				headers);
-		logger.info("Response received from enroll POST" + enrollMentResponse);
 		return enrollMentResponse;
 	}
 

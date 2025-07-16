@@ -195,11 +195,9 @@ public class OutboundRequestHandlerServiceImpl {
 				log.debug(str.toString());
 			}
 			response = restTemplate.postForObject(uri, entity, Map.class);
-			if (log.isDebugEnabled()) {
 				StringBuilder str = new StringBuilder("Response: ");
 				str.append(mapper.writeValueAsString(response)).append(System.lineSeparator());
-				log.debug(str.toString());
-			}
+				log.info(str.toString());
 		} catch (HttpStatusCodeException hce) {
 			try {
 				response = (new ObjectMapper()).readValue(hce.getResponseBodyAsString(),
