@@ -195,6 +195,7 @@ public class OutboundRequestHandlerServiceImpl {
 				log.debug(str.toString());
 			}
 			response = restTemplate.postForObject(uri, entity, Map.class);
+			log.info("Response received from POST: " + response);
 			if (log.isDebugEnabled()) {
 				StringBuilder str = new StringBuilder("Response: ");
 				str.append(mapper.writeValueAsString(response)).append(System.lineSeparator());

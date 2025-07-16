@@ -377,6 +377,7 @@ public class CohortsServiceImpl implements CohortsService {
 				return errResponse;
 			}
 			//Enroll for the 1st batch for the course, Standalone Assessment
+			logger.info("Enrolling user with contentId: " + contentId + ", language: " + language);
 			Map<String, Object> enrollResponse = enrollInCourse(contentId, userUUID, headers, batchDetail.getBatchId(), language);
 			if (!ObjectUtils.isEmpty(enrollResponse) && Constants.OK.equals(enrollResponse.get(Constants.RESPONSE_CODE))) {
 				finalResponse = constructAutoEnrollResponse(batchDetail);
