@@ -6,6 +6,7 @@ import java.sql.Timestamp;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.Map.Entry;
+import java.util.stream.Collectors;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import org.apache.commons.collections.MapUtils;
@@ -898,13 +899,27 @@ public class UserUtilityServiceImpl implements UserUtilityService {
 				mailNotificationDetails.put(Constants.PRIMARY_CATEGORY, requestData.get(Constants.PRIMARY_CATEGORY));
 				sendNotificationToRecipients(mailNotificationDetails);
 			}
-			if (!userIds.isEmpty()) {
-				String courseName = requestData.get(Constants.COURSE_NAME).toString();
-				Map<String, Object> data = new HashMap<>();
-				data.put("id", requestData.get(Constants.COURSE_ID));
-				notificationTriggerService.triggerNotification(Constants.CONTENT_SHARE, Constants.ENGAGEMENT,
-						userIds, name, courseName, data);
+			if (!CollectionUtils.isEmpty(userIds)) {
+				List<String> safeUserIds = userIds.stream()
+						.filter(Objects::nonNull)
+						.filter(id -> !id.equals(userId))
+						.collect(Collectors.toList());
+
+				if (!CollectionUtils.isEmpty(safeUserIds)) {
+					String courseName = requestData.get(Constants.COURSE_NAME).toString();
+					Map<String, Object> data = new HashMap<>();
+					Object courseId = requestData.get(Constants.COURSE_ID);
+					if (!ObjectUtils.isEmpty(courseId)) {
+						data.put("id", courseId);
+					}
+					notificationTriggerService.triggerNotification(Constants.CONTENT_SHARE, Constants.ENGAGEMENT,
+							safeUserIds, name, courseName, data);
+				} else {
+					logger.warn("Filtered userIds list is empty after removing nulls. Skipping notification trigger.");
+				}
 			}
+
+
 		} catch (Exception e) {
 			String errMsg = "Error while performing operation." + e.getMessage();
 			logger.error(errMsg, e);
