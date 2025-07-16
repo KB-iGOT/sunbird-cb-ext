@@ -899,16 +899,16 @@ public class UserUtilityServiceImpl implements UserUtilityService {
 				mailNotificationDetails.put(Constants.PRIMARY_CATEGORY, requestData.get(Constants.PRIMARY_CATEGORY));
 				sendNotificationToRecipients(mailNotificationDetails);
 			}
-			if (!userIds.isEmpty()) {
+			if (!CollectionUtils.isEmpty(userIds)) {
 				List<String> safeUserIds = userIds.stream()
 						.filter(Objects::nonNull)
 						.collect(Collectors.toList());
 
-				if (!safeUserIds.isEmpty()) {
+				if (!CollectionUtils.isEmpty(safeUserIds)) {
 					String courseName = requestData.get(Constants.COURSE_NAME).toString();
 					Map<String, Object> data = new HashMap<>();
 					Object courseId = requestData.get(Constants.COURSE_ID);
-					if (courseId != null) {
+					if (!ObjectUtils.isEmpty(courseId)) {
 						data.put("id", courseId);
 					}
 					notificationTriggerService.triggerNotification(Constants.CONTENT_SHARE, Constants.ENGAGEMENT,
