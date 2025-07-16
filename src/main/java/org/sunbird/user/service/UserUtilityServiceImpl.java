@@ -902,6 +902,7 @@ public class UserUtilityServiceImpl implements UserUtilityService {
 			if (!CollectionUtils.isEmpty(userIds)) {
 				List<String> safeUserIds = userIds.stream()
 						.filter(Objects::nonNull)
+						.filter(id -> !id.equals(userId))
 						.collect(Collectors.toList());
 
 				if (!CollectionUtils.isEmpty(safeUserIds)) {
