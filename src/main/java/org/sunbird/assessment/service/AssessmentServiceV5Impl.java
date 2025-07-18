@@ -961,7 +961,7 @@ public class AssessmentServiceV5Impl implements AssessmentServiceV5 {
      * @throws IOException if there is an error processing the question section schema.
      */
     private Map<String, Object> getParamDetailsForQTypes(Map<String, Object> hierarchySection,Map<String, Object> assessmentHierarchy,String hierarchySectionId) throws IOException {
-        logger.info("Starting getParamDetailsForQTypes with assessmentHierarchy: {}", assessmentHierarchy);
+        logger.debug("Starting getParamDetailsForQTypes with assessmentHierarchy: {}", assessmentHierarchy);
         Map<String, Object> questionSetDetailsMap = new HashMap<>();
         String assessmentType = (String) assessmentHierarchy.get(Constants.ASSESSMENT_TYPE);
         questionSetDetailsMap.put(Constants.ASSESSMENT_TYPE, assessmentType);
@@ -973,7 +973,7 @@ public class AssessmentServiceV5Impl implements AssessmentServiceV5 {
             questionSetDetailsMap.put(Constants.NEGATIVE_MARKING_PERCENTAGE, assessmentHierarchy.get(Constants.NEGATIVE_MARKING_PERCENTAGE));
             questionSetDetailsMap.put("hierarchySectionId",hierarchySectionId);
         }
-        logger.info("Completed getParamDetailsForQTypes with result: {}", questionSetDetailsMap);
+        logger.debug("Completed getParamDetailsForQTypes with result: {}", questionSetDetailsMap);
         return questionSetDetailsMap;
     }
 

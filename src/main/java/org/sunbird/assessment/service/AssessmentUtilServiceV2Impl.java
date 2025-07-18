@@ -672,9 +672,9 @@ public class AssessmentUtilServiceV2Impl implements AssessmentUtilServiceV2 {
 	 * @return the updated section marks.
 	 */
 	private Double handleCorrectAnswer(Double sectionMarks, Map<String, Object> questionSetSectionScheme, Map<String, Object> proficiencyMap) {
-		logger.info("Handling correct answer scenario...");
+		logger.debug("Handling correct answer scenario...");
 		sectionMarks = sectionMarks + (Integer) questionSetSectionScheme.get((String) proficiencyMap.get(Constants.QUESTION_LEVEL));
-		logger.info("Correct answer scenario handled successfully.");
+		logger.debug("Correct answer scenario handled successfully.");
 		return sectionMarks;
 	}
 

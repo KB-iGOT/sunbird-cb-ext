@@ -5,6 +5,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.collections4.MapUtils;
 import org.apache.commons.lang.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -18,7 +20,6 @@ import org.sunbird.common.util.AccessTokenValidator;
 import org.sunbird.common.util.CbExtServerProperties;
 import org.sunbird.common.util.Constants;
 import org.sunbird.common.util.ProjectUtil;
-import org.sunbird.core.logger.CbExtLogger;
 import org.sunbird.searchby.model.CompetencyInfo;
 import org.sunbird.searchby.model.FracCommonInfo;
 import org.sunbird.searchby.model.ProviderInfo;
@@ -30,7 +31,7 @@ import java.util.*;
 @SuppressWarnings("unchecked")
 public class SearchByService {
 
-	private CbExtLogger logger = new CbExtLogger(getClass().getName());
+	private final Logger logger = LoggerFactory.getLogger(SearchByService.class);
 
 	@Autowired
 	CbExtServerProperties cbExtServerProperties;
@@ -46,6 +47,10 @@ public class SearchByService {
 
 	@Autowired
 	AccessTokenValidator accessTokenValidator;
+
+	private static final String FACET_ERROR = "Failed to get facets value from Composite Search API.";
+	private static final String COMPETENCY_ERROR = "Failed to get competency info from FRAC API.";
+	private static final String POSITION_ERROR = "Failed to get position info from FRAC API.";
 
 	public Collection<CompetencyInfo> getCompetencyDetails(String authUserToken) throws Exception {
 		String strCompetencyMap = redisCacheMgr.getCache(Constants.COMPETENCY_CACHE_NAME);
@@ -96,7 +101,7 @@ public class SearchByService {
 					positionMap = updateDesignationDetails(userToken);
 					response.setResponseData(positionMap.get(Constants.POSITIONS_CACHE_NAME));
 				} catch (Exception e) {
-					logger.error(e);
+					logger.error("Exception while listing positions: ", e);
 					response.getStatusInfo().setStatusCode(HttpStatus.INTERNAL_SERVER_ERROR.value());
 					response.getStatusInfo().setErrorMessage(e.getMessage());
 				}
@@ -155,8 +160,8 @@ public class SearchByService {
 				}
 			}
 		} else {
-			Exception err = new Exception("Failed to get facets value from Composite Search API.");
-			logger.error(err);
+			Exception err = new Exception(FACET_ERROR);
+			logger.error(FACET_ERROR, err);
 			try {
 				logger.info("Received Response: " + (new ObjectMapper()).writeValueAsString(compositeSearchResult));
 			} catch (Exception e) {
@@ -231,8 +236,8 @@ public class SearchByService {
 
 			}
 		} else {
-			Exception err = new Exception("Failed to get competency info from FRAC API.");
-			logger.error(err);
+			Exception err = new Exception(COMPETENCY_ERROR);
+			logger.error(COMPETENCY_ERROR, err);
 			try {
 				logger.info("Received Response: " + (new ObjectMapper()).writeValueAsString(fracSearchRes));
 			} catch (Exception e) {
@@ -289,8 +294,8 @@ public class SearchByService {
 				}
 			}
 		} else {
-			Exception err = new Exception("Failed to get facets value from Composite Search API.");
-			logger.error(err);
+			Exception err = new Exception(FACET_ERROR);
+			logger.error(FACET_ERROR, err);
 			try {
 				logger.info("Received Response: " + (new ObjectMapper()).writeValueAsString(compositeSearchResult));
 			} catch (Exception e) {
@@ -329,8 +334,8 @@ public class SearchByService {
 				}
 			}
 		} else {
-			Exception err = new Exception("Failed to get competency info from FRAC API.");
-			logger.error(err);
+			Exception err = new Exception(COMPETENCY_ERROR);
+			logger.error(COMPETENCY_ERROR, err);
 			try {
 				logger.info("Received Response: " + (new ObjectMapper()).writeValueAsString(orgSearchRes));
 			} catch (Exception e) {
@@ -379,8 +384,8 @@ public class SearchByService {
 				}
 			}
 		} else {
-			Exception err = new Exception("Failed to get position info from FRAC API.");
-			logger.error(err);
+			Exception err = new Exception(POSITION_ERROR);
+			logger.error(POSITION_ERROR, err);
 			try {
 				logger.info("Received Response: " + (new ObjectMapper()).writeValueAsString(fracSearchRes));
 			} catch (Exception e) {
@@ -484,9 +489,9 @@ public class SearchByService {
 			Map<String, Object> compositeSearchResult = (Map<String, Object>) compositeSearchRes.get(Constants.RESULT);
 			List<Map<String, Object>> facetsList = (List<Map<String, Object>>) compositeSearchResult.get(Constants.FACETS);
 
-			logger.info("facetsList :: "+facetsList);
+			logger.debug("facetsList :: {} ", facetsList);
 			String url = cbExtServerProperties.getKmBaseHost() + cbExtServerProperties.getFrameworkReadEndpoint() + cbExtServerProperties.getKcmFrameworkName();
-			logger.info("framework url:: "+url);
+			logger.debug("framework url:: {} ", url);
 
 			Map<String, Object> fracSearchRes = (Map<String, Object>) outboundRequestHandlerService.fetchResult(url);
 

@@ -1119,14 +1119,14 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
      * @return a map containing the parameter details for the question types.
      */
     private Map<String, Object> getParamDetailsForQTypes(Map<String, Object> hierarchySection, Map<String, Object> assessmentHierarchy) {
-        logger.info("Starting getParamDetailsForQTypes with assessmentHierarchy: {}", assessmentHierarchy);
+        logger.debug("Starting getParamDetailsForQTypes with assessmentHierarchy: {}", assessmentHierarchy);
         Map<String, Object> questionSetDetailsMap = new HashMap<>();
         String assessmentType = (String) assessmentHierarchy.get(Constants.ASSESSMENT_TYPE);
         questionSetDetailsMap.put(Constants.ASSESSMENT_TYPE, assessmentType);
         questionSetDetailsMap.put(Constants.MINIMUM_PASS_PERCENTAGE, hierarchySection.get(Constants.MINIMUM_PASS_PERCENTAGE));
         questionSetDetailsMap.put(Constants.SECTION_WEIGHTAGE, Double.parseDouble(hierarchySection.get(Constants.SECTION_WEIGHTAGE).toString()));
         questionSetDetailsMap.put(Constants.TOTAL_MARKS, hierarchySection.get(Constants.TOTAL_MARKS));
-        logger.info("Completed getParamDetailsForQTypes with result: {}", questionSetDetailsMap);
+        logger.debug("Completed getParamDetailsForQTypes with result: {}", questionSetDetailsMap);
         return questionSetDetailsMap;
     }
 
