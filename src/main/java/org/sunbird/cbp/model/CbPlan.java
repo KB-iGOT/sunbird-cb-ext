@@ -45,7 +45,6 @@ public class CbPlan {
 
     private String comment;
 
-    @JsonProperty("isapar")
     private Boolean isApar = false;
 
     public UUID getId() {
