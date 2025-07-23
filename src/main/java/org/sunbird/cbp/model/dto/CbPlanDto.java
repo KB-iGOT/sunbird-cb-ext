@@ -1,7 +1,6 @@
 package org.sunbird.cbp.model.dto;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import org.apache.logging.log4j.core.config.plugins.validation.constraints.Required;
 
 import javax.validation.constraints.NotBlank;

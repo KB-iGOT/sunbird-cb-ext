@@ -1,7 +1,5 @@
 package org.sunbird.cbp.model;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
-
 import java.util.Date;
 import java.util.List;
 import java.util.UUID;
