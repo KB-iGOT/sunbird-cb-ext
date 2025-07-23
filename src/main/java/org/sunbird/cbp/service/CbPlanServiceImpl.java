@@ -941,18 +941,20 @@ public class CbPlanServiceImpl implements CbPlanService {
                 // enrich course information
                 List<String> contentIdList = (List<String>) cbPlan.get(Constants.CB_CONTENT_LIST);
                 List<Map<String, Object>> courseMapList = new ArrayList<Map<String, Object>>();
-                for (String contentId : contentIdList) {
-                    if (!courseInfoMap.containsKey(contentId)) {
-                        Map<String, Object> courseInfo = contentService.readContentFromCache(contentId,
-                                Collections.emptyList());
-                        if (MapUtils.isNotEmpty(courseInfo)) {
-                            if (Constants.LIVE.equalsIgnoreCase((String) courseInfo.get(Constants.STATUS))) {
-                                courseInfoMap.put(contentId, courseInfo);
+                if (CollectionUtils.isNotEmpty(contentIdList)) {
+                    for (String contentId : contentIdList) {
+                        if (!courseInfoMap.containsKey(contentId)) {
+                            Map<String, Object> courseInfo = contentService.readContentFromCache(contentId,
+                                    Collections.emptyList());
+                            if (MapUtils.isNotEmpty(courseInfo)) {
+                                if (Constants.LIVE.equalsIgnoreCase((String) courseInfo.get(Constants.STATUS))) {
+                                    courseInfoMap.put(contentId, courseInfo);
+                                }
                             }
                         }
-                    }
-                    if (courseInfoMap.containsKey(contentId)) {
-                        courseMapList.add(courseInfoMap.get(contentId));
+                        if (courseInfoMap.containsKey(contentId)) {
+                            courseMapList.add(courseInfoMap.get(contentId));
+                        }
                     }
                 }
                 cbPlan.put(Constants.CB_CONTENT_LIST, courseMapList);
