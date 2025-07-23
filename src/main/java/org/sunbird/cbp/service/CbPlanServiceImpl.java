@@ -628,7 +628,7 @@ public class CbPlanServiceImpl implements CbPlanService {
             assignmentType = cbPlanDto.getAssignmentType();
             enrichData.put(Constants.END_DATE, cbPlanDto.getEndDate());
             enrichData.put(Constants.CB_ASSIGNMENT_TYPE_INFO, cbPlanDto.getAssignmentTypeInfo());
-            enrichData.put(Constants.IS_APAR, cbPlanDto.getApar());
+            enrichData.put(Constants.IS_APAR, cbPlanDto.getApar() != null ? cbPlanDto.getApar() : false);
         }
         Map<String, Map<String, String>> userInfoMap = new HashMap<>();
         enrichData.put(Constants.ID, cbPlan.get(Constants.ID));
@@ -732,7 +732,7 @@ public class CbPlanServiceImpl implements CbPlanService {
         cbPlan.put(Constants.CB_CONTENT_LIST, planDto.getContentList());
         cbPlan.put(Constants.END_DATE, planDto.getEndDate());
         cbPlan.put(Constants.STATUS, Constants.LIVE);
-        cbPlan.put(Constants.IS_APAR_KEY, planDto.getApar());
+        cbPlan.put(Constants.IS_APAR_KEY, planDto.getApar() != null ? planDto.getApar() : false);
     }
 
     private boolean updateCbPlanLookupInfo(CbPlan planDto, String orgId, UUID cbPlanId) {
@@ -930,7 +930,7 @@ public class CbPlanServiceImpl implements CbPlanService {
                     cbPlan.put(Constants.END_DATE, draftDto.getEndDate());
                     cbPlan.put(Constants.CB_ASSIGNMENT_TYPE_INFO, draftDto.getAssignmentTypeInfo());
                     cbPlan.put(Constants.CB_CONTENT_LIST, draftDto.getContentList());
-                    cbPlan.put(Constants.IS_APAR, draftDto.getApar());
+                    cbPlan.put(Constants.IS_APAR, draftDto.getApar() != null ? draftDto.getApar() : false);
                     cbPlan.remove(Constants.DRAFT_DATA);
                 }
 

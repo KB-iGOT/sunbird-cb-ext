@@ -45,7 +45,7 @@ public class CbPlan {
 
     private String comment;
 
-    private Boolean isApar = false;
+    private Boolean isApar;
 
     public UUID getId() {
         return id;
