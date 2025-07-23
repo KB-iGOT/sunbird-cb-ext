@@ -1,10 +1,12 @@
 package org.sunbird.cbp.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+
 import java.util.Date;
 import java.util.List;
 import java.util.UUID;
 
-
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class CbPlan {
     private UUID id;
 
@@ -181,11 +183,11 @@ public class CbPlan {
         this.publishedAt = publishedAt;
     }
 
-    public Boolean getApar() {
+    public Boolean getIsApar() {
         return isApar;
     }
 
-    public void setApar(Boolean apar) {
-        isApar = apar;
+    public void setIsApar(Boolean isApar) {
+        this.isApar = isApar;
     }
 }
