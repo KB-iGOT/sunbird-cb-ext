@@ -1388,6 +1388,8 @@ public class Constants {
 
 	public static final String LANGUAGE = "language";
 	public static final String TABLE_USER_ENROLMENT_V2 = "user_enrolments_v2";
+	public static final String IS_APAR ="isApar";
+	public static final String IS_APAR_KEY ="isapar";
 	private Constants() {
 		throw new IllegalStateException("Utility class");
 	}

@@ -37,6 +37,8 @@ public class CbPlanDto {
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd")
     private Date endDate;
 
+    private Boolean isApar ;
+
     public String getId() {
         return id;
     }
@@ -91,5 +93,13 @@ public class CbPlanDto {
 
     public void setEndDate(Date endDate) {
         this.endDate = endDate;
+    }
+
+    public Boolean getApar() {
+        return isApar;
+    }
+
+    public void setApar(Boolean apar) {
+        isApar = apar;
     }
 }
