@@ -96,6 +96,7 @@ public class CbPlanServiceImpl implements CbPlanService {
             try {
                 requestMap.put(Constants.DRAFT_DATA, mapper.writeValueAsString(cbPlanDto));
                 requestMap.put(Constants.STATUS, Constants.DRAFT);
+                requestMap.put(Constants.IS_APAR, cbPlanDto.getIsApar() != null ? cbPlanDto.getIsApar() : false);
                 SBApiResponse resp = cassandraOperation.insertRecord(Constants.KEYSPACE_SUNBIRD, Constants.TABLE_CB_PLAN, requestMap);
                 if (Constants.SUCCESS.equals(resp.get(Constants.RESPONSE))) {
                     response.getResult().put(Constants.STATUS, Constants.CREATED);
@@ -599,6 +600,7 @@ public class CbPlanServiceImpl implements CbPlanService {
             enrichData.put(Constants.CB_CONTENT_TYPE, cbPlan.get(Constants.CB_CONTENT_TYPE));
             contentTypeInfo = (List<String>) cbPlan.get(Constants.CB_CONTENT_LIST);
             enrichData.put(Constants.END_DATE, cbPlan.get(Constants.END_DATE));
+            enrichData.put(Constants.IS_APAR, cbPlan.getOrDefault(Constants.IS_APAR, false));
             if (!Constants.CB_CUSTOM_TYPE.equalsIgnoreCase(assignmentType)) {
                 enrichData.put(Constants.CB_ASSIGNMENT_TYPE_INFO, cbPlan.get(Constants.CB_ASSIGNMENT_TYPE_INFO));
             }
@@ -626,6 +628,7 @@ public class CbPlanServiceImpl implements CbPlanService {
             assignmentType = cbPlanDto.getAssignmentType();
             enrichData.put(Constants.END_DATE, cbPlanDto.getEndDate());
             enrichData.put(Constants.CB_ASSIGNMENT_TYPE_INFO, cbPlanDto.getAssignmentTypeInfo());
+            enrichData.put(Constants.IS_APAR, cbPlanDto.getIsApar() != null ? cbPlanDto.getIsApar() : false);
         }
         Map<String, Map<String, String>> userInfoMap = new HashMap<>();
         enrichData.put(Constants.ID, cbPlan.get(Constants.ID));
@@ -729,6 +732,7 @@ public class CbPlanServiceImpl implements CbPlanService {
         cbPlan.put(Constants.CB_CONTENT_LIST, planDto.getContentList());
         cbPlan.put(Constants.END_DATE, planDto.getEndDate());
         cbPlan.put(Constants.STATUS, Constants.LIVE);
+        cbPlan.put(Constants.IS_APAR_KEY, planDto.getIsApar() != null ? planDto.getIsApar() : false);
     }
 
     private boolean updateCbPlanLookupInfo(CbPlan planDto, String orgId, UUID cbPlanId) {
@@ -768,6 +772,7 @@ public class CbPlanServiceImpl implements CbPlanService {
             lookupInfo.put(Constants.CB_CONTENT_LIST, planDto.getContentList());
             lookupInfo.put(Constants.END_DATE, planDto.getEndDate());
             lookupInfo.put(Constants.CB_IS_ACTIVE, true);
+            lookupInfo.put(Constants.IS_APAR, planDto.getIsApar() != null ? planDto.getIsApar() : false);
             SBApiResponse resp = cassandraOperation.insertRecord(Constants.KEYSPACE_SUNBIRD,
                     Constants.TABLE_CB_PLAN_LOOKUP, lookupInfo);
             if (!resp.get(Constants.RESPONSE).equals(Constants.SUCCESS)) {
@@ -790,6 +795,7 @@ public class CbPlanServiceImpl implements CbPlanService {
                 lookupInfoUpdated.put(Constants.CB_IS_ACTIVE, false);
             }
             lookupInfoUpdated.put(Constants.END_DATE, planDto.getEndDate());
+            lookupInfoUpdated.put(Constants.IS_APAR, planDto.getIsApar() != null ? planDto.getIsApar() : false);
             Map<String, Object> resp = cassandraOperation.updateRecord(Constants.KEYSPACE_SUNBIRD,
                     Constants.TABLE_CB_PLAN_LOOKUP, lookupInfoUpdated, compositeKey);
             if (resp.get(Constants.RESPONSE).equals(Constants.SUCCESS)) {
@@ -815,6 +821,10 @@ public class CbPlanServiceImpl implements CbPlanService {
                     updatedCbPlan.getOrDefault(Constants.CB_CONTENT_LIST, cbPlan.get(Constants.CB_CONTENT_LIST)));
             draftInfo.put(Constants.END_DATE,
                     updatedCbPlan.getOrDefault(Constants.END_DATE, cbPlan.get(Constants.END_DATE)));
+
+            draftInfo.put(Constants.IS_APAR,
+                    updatedCbPlan.getOrDefault(Constants.IS_APAR,
+                            cbPlan.getOrDefault(Constants.IS_APAR, false)));
         } else {
             CbPlanDto cbPlanDto = mapper.readValue((String) cbPlan.get(Constants.DRAFT_DATA), CbPlanDto.class);
             draftInfo.put(Constants.NAME, updatedCbPlan.getOrDefault(Constants.NAME, cbPlanDto.getName()));
@@ -827,6 +837,10 @@ public class CbPlanServiceImpl implements CbPlanService {
             draftInfo.put(Constants.CB_CONTENT_LIST,
                     updatedCbPlan.getOrDefault(Constants.CB_CONTENT_LIST, cbPlanDto.getContentList()));
             draftInfo.put(Constants.END_DATE, updatedCbPlan.getOrDefault(Constants.END_DATE, cbPlanDto.getEndDate()));
+
+            draftInfo.put(Constants.IS_APAR,
+                    updatedCbPlan.getOrDefault(Constants.IS_APAR,
+                            cbPlan.getOrDefault(Constants.IS_APAR, false)));
         }
         return mapper.writeValueAsString(draftInfo);
     }
@@ -881,7 +895,7 @@ public class CbPlanServiceImpl implements CbPlanService {
             List<String> fields = Arrays.asList(Constants.ORG_ID, Constants.ID, Constants.NAME,
                     Constants.CB_CONTENT_TYPE, Constants.CB_CONTENT_LIST, Constants.CB_ASSIGNMENT_TYPE,
                     Constants.CB_ASSIGNMENT_TYPE_INFO, Constants.END_DATE, Constants.STATUS, Constants.CREATED_BY,
-                    Constants.CREATED_AT, Constants.DRAFT_DATA, Constants.UPDATED_AT, Constants.CB_PUBLISHED_AT);
+                    Constants.CREATED_AT, Constants.DRAFT_DATA, Constants.UPDATED_AT, Constants.CB_PUBLISHED_AT, Constants.IS_APAR);
 
             List<Map<String, Object>> cbPlanList = cassandraOperation.getRecordsByPropertiesWithoutFiltering(
                     Constants.KEYSPACE_SUNBIRD, Constants.TABLE_CB_PLAN, cbPlanPrimaryKey, fields);
@@ -916,6 +930,7 @@ public class CbPlanServiceImpl implements CbPlanService {
                     cbPlan.put(Constants.END_DATE, draftDto.getEndDate());
                     cbPlan.put(Constants.CB_ASSIGNMENT_TYPE_INFO, draftDto.getAssignmentTypeInfo());
                     cbPlan.put(Constants.CB_CONTENT_LIST, draftDto.getContentList());
+                    cbPlan.put(Constants.IS_APAR, draftDto.getIsApar() != null ? draftDto.getIsApar() : false);
                     cbPlan.remove(Constants.DRAFT_DATA);
                 }
 
@@ -1101,6 +1116,7 @@ public class CbPlanServiceImpl implements CbPlanService {
 
                 Map<String, Object> lookupInfoUpdated = new HashMap<>();
                 lookupInfoUpdated.put(Constants.END_DATE, planDto.getEndDate());
+                lookupInfoUpdated.put(Constants.IS_APAR, planDto.getIsApar() != null ? planDto.getIsApar() : false);
                 Map<String, Object> resp = cassandraOperation.updateRecord(Constants.KEYSPACE_SUNBIRD,
                         Constants.TABLE_CB_PLAN_LOOKUP, lookupInfoUpdated, compositeKey);
                 if (resp.get(Constants.RESPONSE).equals(Constants.SUCCESS)) {
