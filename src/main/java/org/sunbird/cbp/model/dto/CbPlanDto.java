@@ -1,6 +1,7 @@
 package org.sunbird.cbp.model.dto;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import org.apache.logging.log4j.core.config.plugins.validation.constraints.Required;
 
 import javax.validation.constraints.NotBlank;
@@ -8,6 +9,7 @@ import javax.validation.constraints.NotNull;
 import java.util.Date;
 import java.util.List;
 
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class CbPlanDto {
 
     private String id;
@@ -95,11 +97,11 @@ public class CbPlanDto {
         this.endDate = endDate;
     }
 
-    public Boolean getApar() {
+    public Boolean getIsApar() {
         return isApar;
     }
 
-    public void setApar(Boolean apar) {
-        isApar = apar;
+    public void setIsApar(Boolean isApar) {
+        this.isApar = isApar;
     }
 }
