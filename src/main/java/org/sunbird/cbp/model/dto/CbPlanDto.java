@@ -104,5 +104,4 @@ public class CbPlanDto {
     public void setIsApar(Boolean isApar) {
         this.isApar = isApar;
     }
-
 }

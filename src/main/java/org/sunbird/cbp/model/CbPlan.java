@@ -190,4 +190,8 @@ public class CbPlan {
     public void setIsApar(Boolean isApar) {
         this.isApar = isApar;
     }
+
+    public void setApar(Boolean apar) {
+        isApar = apar;
+    }
 }
