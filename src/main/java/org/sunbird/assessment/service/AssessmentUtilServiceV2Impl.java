@@ -8,7 +8,7 @@ import org.apache.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.sunbird.cache.RedisCacheMgr;
 import org.apache.commons.collections.MapUtils;
-import org.codehaus.plexus.util.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -1163,9 +1163,9 @@ public class AssessmentUtilServiceV2Impl implements AssessmentUtilServiceV2 {
 	public String readAssessmentRecord(String assessmentIdentifier, List<String> fields) {
 		Map<String, String> headers = new HashMap<>();
 		try {
-			String fieldsStr = org.apache.commons.lang3.StringUtils.join(fields, ",");
+			String fieldsStr = StringUtils.join(fields, ",");
 			StringBuilder sbUrl = new StringBuilder(serverProperties.getContentHost());
-			sbUrl.append(serverProperties.getCourseReadPath())
+			sbUrl.append(serverProperties.getContentReadEndPoint())
 					.append(assessmentIdentifier)
 					.append("?fields=").append(fieldsStr);
 
