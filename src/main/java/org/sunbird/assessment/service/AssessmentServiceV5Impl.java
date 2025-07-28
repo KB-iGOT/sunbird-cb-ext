@@ -342,6 +342,24 @@ public class AssessmentServiceV5Impl implements AssessmentServiceV5 {
                 updateErrorDetails(outgoingResponse, errMsg, HttpStatus.BAD_REQUEST);
                 return outgoingResponse;
             }
+
+            String assessmentLanguageReq = (String) submitRequest.get(Constants.LANGUAGE);
+            if (StringUtils.isBlank(assessmentLanguageReq)) {
+                assessmentLanguageReq = assessUtilServ.readAssessmentRecord(assessmentIdFromRequest, Arrays.asList(Constants.LANGUAGE));
+                if (StringUtils.isNotBlank(assessmentLanguageReq)) {
+                    submitRequest.put(Constants.LANGUAGE, assessmentLanguageReq);
+                }
+            } else {
+                String assessmentLanguage = assessUtilServ.readAssessmentRecord(assessmentIdFromRequest, Arrays.asList(Constants.LANGUAGE));
+                if (assessmentLanguageReq.equalsIgnoreCase(assessmentLanguage)) {
+                    submitRequest.put(Constants.LANGUAGE, assessmentLanguageReq.toLowerCase());
+                } else {
+                    errMsg = String.format("Assessment language mismatch. Expected: %s, Provided: %s", assessmentLanguage, assessmentLanguageReq);
+                    updateErrorDetails(outgoingResponse, errMsg, HttpStatus.BAD_REQUEST);
+                    return outgoingResponse;
+                }
+            }
+
             int maxAssessmentRetakeAttempts = (Integer) assessmentHierarchy.get(Constants.MAX_ASSESSMENT_RETAKE_ATTEMPTS);
             int retakeAttemptsConsumed = calculateAssessmentRetakeCount(userId, assessmentIdFromRequest);
             String assessmentPrimaryCategory = (String) assessmentHierarchy.get(Constants.PRIMARY_CATEGORY);
@@ -1317,6 +1335,24 @@ public class AssessmentServiceV5Impl implements AssessmentServiceV5 {
                 updateErrorDetails(outgoingResponse, errMsg, HttpStatus.BAD_REQUEST);
                 return outgoingResponse;
             }
+
+            String assessmentLanguageReq = (String) submitRequest.get(Constants.LANGUAGE);
+            if (StringUtils.isBlank(assessmentLanguageReq)) {
+                assessmentLanguageReq = assessUtilServ.readAssessmentRecord(assessmentIdFromRequest, Arrays.asList(Constants.LANGUAGE));
+                if (StringUtils.isNotBlank(assessmentLanguageReq)) {
+                    submitRequest.put(Constants.LANGUAGE, assessmentLanguageReq);
+                }
+            } else {
+                String assessmentLanguage = assessUtilServ.readAssessmentRecord(assessmentIdFromRequest, Arrays.asList(Constants.LANGUAGE));
+                if (assessmentLanguageReq.equalsIgnoreCase(assessmentLanguage)) {
+                    submitRequest.put(Constants.LANGUAGE, assessmentLanguageReq.toLowerCase());
+                } else {
+                    errMsg = String.format("Assessment language mismatch. Expected: %s, Provided: %s", assessmentLanguage, assessmentLanguageReq);
+                    updateErrorDetails(outgoingResponse, errMsg, HttpStatus.BAD_REQUEST);
+                    return outgoingResponse;
+                }
+            }
+
             int maxAssessmentRetakeAttempts = (Integer) assessmentHierarchy.get(Constants.MAX_ASSESSMENT_RETAKE_ATTEMPTS);
             int retakeAttemptsConsumed = calculateAssessmentRetakeCount(userId, assessmentIdFromRequest);
             String assessmentPrimaryCategory = (String) assessmentHierarchy.get(Constants.PRIMARY_CATEGORY);
