@@ -89,7 +89,7 @@ public class AssessmentServiceV5Impl implements AssessmentServiceV5 {
                 return response;
             }
             Object contextCategory = assessmentAllDetail.get(Constants.CONTEXT_CATEGORY_TAG);
-            if (contextCategory != null && Constants.PRE_ENROLLED_ASSESSMENT_KEY.equals(contextCategory.toString())) {
+            if (contextCategory != null && serverProperties.getPreEnrollmentAssessmentKey().equals(contextCategory.toString())) {
                 retakeAttemptsAllowed = 1;
                 retakeAttemptsConsumed = 0;
             } else {
@@ -366,7 +366,7 @@ public class AssessmentServiceV5Impl implements AssessmentServiceV5 {
             Object contextCategory = assessmentHierarchy.get(Constants.CONTEXT_CATEGORY_TAG);
             int maxAssessmentRetakeAttempts;
             int retakeAttemptsConsumed;
-            if (contextCategory != null && Constants.PRE_ENROLLED_ASSESSMENT_KEY.equals(contextCategory.toString())) {
+            if (contextCategory != null && serverProperties.getPreEnrollmentAssessmentKey().equals(contextCategory.toString())) {
                 maxAssessmentRetakeAttempts = 1;
                 retakeAttemptsConsumed = 0;
             } else {
@@ -1367,7 +1367,7 @@ public class AssessmentServiceV5Impl implements AssessmentServiceV5 {
             Object contextCategory = assessmentHierarchy.get(Constants.CONTEXT_CATEGORY_TAG);
             int maxAssessmentRetakeAttempts;
             int retakeAttemptsConsumed;
-            if (contextCategory != null && Constants.PRE_ENROLLED_ASSESSMENT_KEY.equals(contextCategory.toString())) {
+            if (contextCategory != null && serverProperties.getPreEnrollmentAssessmentKey().equals(contextCategory.toString())) {
                 maxAssessmentRetakeAttempts = 1;
                 retakeAttemptsConsumed = 0;
             } else {

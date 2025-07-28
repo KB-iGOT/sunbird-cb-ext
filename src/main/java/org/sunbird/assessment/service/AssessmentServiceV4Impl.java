@@ -84,7 +84,7 @@ public class AssessmentServiceV4Impl implements AssessmentServiceV4 {
                 return response;
             }
             Object contextCategory = assessmentAllDetail.get(Constants.CONTEXT_CATEGORY_TAG);
-            if (contextCategory != null && Constants.PRE_ENROLLED_ASSESSMENT_KEY.equals(contextCategory.toString())) {
+            if (contextCategory != null && serverProperties.getPreEnrollmentAssessmentKey().equals(contextCategory.toString())) {
                 retakeAttemptsAllowed = 1;
                 retakeAttemptsConsumed = 0;
             } else {

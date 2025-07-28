@@ -715,7 +715,7 @@ public class AssessmentServiceV2Impl implements AssessmentServiceV2 {
                 List<Map<String, Object>> existingDataList = assessmentRepository.fetchUserAssessmentDataFromDB(userId, assessmentIdentifier);
                 Map<String, Object> assessmentAllDetail = new HashMap<>();
                 errMsg = fetchReadHierarchyDetails(assessmentAllDetail, token, assessmentIdentifier);
-                if (Constants.PRE_ENROLLED_ASSESSMENT_KEY.equals(assessmentAllDetail.get(Constants.CONTEXT_CATEGORY_TAG))) {
+                if (serverProperties.getPreEnrollmentAssessmentKey().equals(assessmentAllDetail.get(Constants.CONTEXT_CATEGORY_TAG))) {
                     retakeAttemptsAllowed = 1;
                     retakeAttemptsConsumed = 0;
                 } else {
