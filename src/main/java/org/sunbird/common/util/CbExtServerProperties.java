@@ -1070,6 +1070,9 @@ public class CbExtServerProperties {
 	@Value("${designation.search.result.size}")
 	private int searchDesignationResultSize;
 
+	@Value("${pre.enrollment.assessment.key}")
+	private String preEnrollmentAssessmentKey;
+
 	public String getStateLearningInsightsRedisKeyMapping() {
 		return stateLearningInsightsRedisKeyMapping;
 	}
@@ -3632,5 +3635,13 @@ public class CbExtServerProperties {
 
 	public void setSearchDesignationResultSize(int searchDesignationResultSize) {
 		this.searchDesignationResultSize = searchDesignationResultSize;
+	}
+
+	public String getPreEnrollmentAssessmentKey() {
+		return preEnrollmentAssessmentKey;
+	}
+
+	public void setPreEnrollmentAssessmentKey(String preEnrollmentAssessmentKey) {
+		this.preEnrollmentAssessmentKey = preEnrollmentAssessmentKey;
 	}
 }
