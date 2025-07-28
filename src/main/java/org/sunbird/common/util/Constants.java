@@ -599,7 +599,7 @@ public class Constants {
 	public static final String IS_CORRECT = "isCorrect";
 	public static final String OPTION_ID = "optionId";
 
-	public static final String TABLE_USER_ASSESSMENT_DATA = "user_assessment_data";
+	public static final String TABLE_USER_ASSESSMENT_DATA = "user_assessment_data_v2";
 	public static final String TABLE_MASTER_DATA = "master_data";
 
 	public static final String ACCESS_TOKEN_IS_EXPIRED = "Access token is expired";
