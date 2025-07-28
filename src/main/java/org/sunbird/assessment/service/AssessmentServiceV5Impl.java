@@ -345,8 +345,16 @@ public class AssessmentServiceV5Impl implements AssessmentServiceV5 {
                 updateErrorDetails(outgoingResponse, errMsg, HttpStatus.BAD_REQUEST);
                 return outgoingResponse;
             }
-            int maxAssessmentRetakeAttempts = (Integer) assessmentHierarchy.get(Constants.MAX_ASSESSMENT_RETAKE_ATTEMPTS);
-            int retakeAttemptsConsumed = calculateAssessmentRetakeCount(userId, assessmentIdFromRequest);
+            Object contextCategory = assessmentHierarchy.get(Constants.CONTEXT_CATEGORY_TAG);
+            int maxAssessmentRetakeAttempts;
+            int retakeAttemptsConsumed;
+            if (contextCategory != null && Constants.PRE_ENROLLED_ASSESSMENT_KEY.equals(contextCategory.toString())) {
+                maxAssessmentRetakeAttempts = 1;
+                retakeAttemptsConsumed = 0;
+            } else {
+                maxAssessmentRetakeAttempts = (Integer) assessmentHierarchy.get(Constants.MAX_ASSESSMENT_RETAKE_ATTEMPTS);
+                retakeAttemptsConsumed = calculateAssessmentRetakeCount(userId, assessmentIdFromRequest);
+            }
             String assessmentPrimaryCategory = (String) assessmentHierarchy.get(Constants.PRIMARY_CATEGORY);
             String assessmentType=((String) assessmentHierarchy.get(Constants.ASSESSMENT_TYPE)).toLowerCase();
             String scoreCutOffType ;
@@ -1320,8 +1328,16 @@ public class AssessmentServiceV5Impl implements AssessmentServiceV5 {
                 updateErrorDetails(outgoingResponse, errMsg, HttpStatus.BAD_REQUEST);
                 return outgoingResponse;
             }
-            int maxAssessmentRetakeAttempts = (Integer) assessmentHierarchy.get(Constants.MAX_ASSESSMENT_RETAKE_ATTEMPTS);
-            int retakeAttemptsConsumed = calculateAssessmentRetakeCount(userId, assessmentIdFromRequest);
+            Object contextCategory = assessmentHierarchy.get(Constants.CONTEXT_CATEGORY_TAG);
+            int maxAssessmentRetakeAttempts;
+            int retakeAttemptsConsumed;
+            if (contextCategory != null && Constants.PRE_ENROLLED_ASSESSMENT_KEY.equals(contextCategory.toString())) {
+                maxAssessmentRetakeAttempts = 1;
+                retakeAttemptsConsumed = 0;
+            } else {
+                maxAssessmentRetakeAttempts = (Integer) assessmentHierarchy.get(Constants.MAX_ASSESSMENT_RETAKE_ATTEMPTS);
+                retakeAttemptsConsumed = calculateAssessmentRetakeCount(userId, assessmentIdFromRequest);
+            }
             String assessmentPrimaryCategory = (String) assessmentHierarchy.get(Constants.PRIMARY_CATEGORY);
             String assessmentType=((String) assessmentHierarchy.get(Constants.ASSESSMENT_TYPE)).toLowerCase();
             String scoreCutOffType ;
