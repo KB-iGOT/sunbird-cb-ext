@@ -715,10 +715,15 @@ public class AssessmentServiceV2Impl implements AssessmentServiceV2 {
                 List<Map<String, Object>> existingDataList = assessmentRepository.fetchUserAssessmentDataFromDB(userId, assessmentIdentifier);
                 Map<String, Object> assessmentAllDetail = new HashMap<>();
                 errMsg = fetchReadHierarchyDetails(assessmentAllDetail, token, assessmentIdentifier);
-                if (assessmentAllDetail.get(Constants.MAX_ASSESSMENT_RETAKE_ATTEMPTS) != null) {
-                    retakeAttemptsAllowed = (int) assessmentAllDetail.get(Constants.MAX_ASSESSMENT_RETAKE_ATTEMPTS);
+                if (Constants.PRE_ENROLLED_ASSESSMENT_KEY.equals(assessmentAllDetail.get(Constants.CONTEXT_CATEGORY_TAG))) {
+                    retakeAttemptsAllowed = 1;
+                    retakeAttemptsConsumed = 0;
+                } else {
+                    if (assessmentAllDetail.get(Constants.MAX_ASSESSMENT_RETAKE_ATTEMPTS) != null) {
+                        retakeAttemptsAllowed = (int) assessmentAllDetail.get(Constants.MAX_ASSESSMENT_RETAKE_ATTEMPTS);
+                    }
+                    retakeAttemptsConsumed = calculateAssessmentRetakeCount(existingDataList);
                 }
-                retakeAttemptsConsumed = calculateAssessmentRetakeCount(existingDataList);
             } else {
                 errMsg = Constants.USER_ID_DOESNT_EXIST;
             }
