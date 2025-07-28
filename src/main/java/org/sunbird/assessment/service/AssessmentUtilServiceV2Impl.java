@@ -1166,6 +1166,7 @@ public class AssessmentUtilServiceV2Impl implements AssessmentUtilServiceV2 {
 			String fieldsStr = StringUtils.join(fields, ",");
 			StringBuilder sbUrl = new StringBuilder(serverProperties.getContentHost());
 			sbUrl.append(serverProperties.getContentReadEndPoint())
+					.append("/")
 					.append(assessmentIdentifier)
 					.append("?fields=").append(fieldsStr);
 
