@@ -57,4 +57,6 @@ public interface AssessmentUtilServiceV2 {
 	String validateContextLocking(Map<String, Object> assessmentAllDetail, String parentContextId,
 								  SBApiResponse response, String userId);
 
+	String readAssessmentRecord(String assessmentIdentifier,List<String> fields);
+
 }
