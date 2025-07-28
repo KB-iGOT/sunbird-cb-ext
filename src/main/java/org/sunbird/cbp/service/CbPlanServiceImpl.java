@@ -510,6 +510,10 @@ public class CbPlanServiceImpl implements CbPlanService {
                 cbPlanDetails.put(Constants.USER_TYPE, cbPlan.get(Constants.CB_ASSIGNMENT_TYPE));
                 cbPlanDetails.put(Constants.END_DATE, cbPlan.get(Constants.END_DATE));
                 List<String> courses = (List<String>) cbPlan.get(Constants.CB_CONTENT_LIST);
+                cbPlanDetails.put(Constants.IS_APAR,
+                        cbPlan.containsKey(Constants.IS_APAR) && cbPlan.get(Constants.IS_APAR) != null
+                                ? cbPlan.get(Constants.IS_APAR)
+                                : false);
                 // Required Fields to be added later if required
                 List<Map<String, Object>> courseList = new ArrayList<>();
                 for (String courseId : courses) {
