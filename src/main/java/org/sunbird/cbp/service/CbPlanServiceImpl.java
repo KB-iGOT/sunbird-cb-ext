@@ -281,19 +281,16 @@ public class CbPlanServiceImpl implements CbPlanService {
                         logger.error("Failed to parse the end date: " + e.getMessage(), e);
                     }
                     cbPlan.put(Constants.END_DATE, endDate);
-                    cbPlan.put(Constants.DRAFT_DATA, null);
                     if (cbPlanDtoMap.containsKey(Constants.IS_APAR)) {
                         Object isAparVal = cbPlanDtoMap.get(Constants.IS_APAR);
                         cbPlan.put(Constants.IS_APAR, isAparVal != null ? isAparVal : false);
-                    } else if (!publishCbPlan.containsKey(Constants.IS_APAR) || publishCbPlan.get(Constants.IS_APAR) == null) {
-                        cbPlan.put(Constants.IS_APAR, false);
-                    } else {
+                    } else if (publishCbPlan.containsKey(Constants.IS_APAR) && publishCbPlan.get(Constants.IS_APAR) != null) {
                         cbPlan.put(Constants.IS_APAR, publishCbPlan.get(Constants.IS_APAR));
+                    } else {
+                        cbPlan.put(Constants.IS_APAR, false);
                     }
-
                     cbPlan.put(Constants.DRAFT_DATA, null);
                 }
-
                 cbPlan.put(Constants.CB_PUBLISHED_BY, userId);
                 if (StringUtils.isNoneBlank(comment)) {
                     cbPlan.put(Constants.COMMENT, comment);
