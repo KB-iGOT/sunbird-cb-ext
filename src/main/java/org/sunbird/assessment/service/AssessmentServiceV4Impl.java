@@ -83,14 +83,18 @@ public class AssessmentServiceV4Impl implements AssessmentServiceV4 {
                         HttpStatus.INTERNAL_SERVER_ERROR);
                 return response;
             }
-            if (assessmentAllDetail.get(Constants.MAX_ASSESSMENT_RETAKE_ATTEMPTS) != null) {
-                retakeAttemptsAllowed = (int) assessmentAllDetail.get(Constants.MAX_ASSESSMENT_RETAKE_ATTEMPTS);
-            }
-            
-            if (serverProperties.isAssessmentRetakeCountVerificationEnabled()) {
-                retakeAttemptsConsumed = calculateAssessmentRetakeCount(userId, assessmentIdentifier);
-                // if(retakeAttemptsConsumed > 0)
-                    retakeAttemptsConsumed = retakeAttemptsConsumed-1;
+            Object contextCategory = assessmentAllDetail.get(Constants.CONTEXT_CATEGORY_TAG);
+            if (contextCategory != null && Constants.PRE_ENROLLED_ASSESSMENT_KEY.equals(contextCategory.toString())) {
+                retakeAttemptsAllowed = 1;
+                retakeAttemptsConsumed = 0;
+            } else {
+                if (assessmentAllDetail.get(Constants.MAX_ASSESSMENT_RETAKE_ATTEMPTS) != null) {
+                    retakeAttemptsAllowed = (int) assessmentAllDetail.get(Constants.MAX_ASSESSMENT_RETAKE_ATTEMPTS);
+                }
+                if (serverProperties.isAssessmentRetakeCountVerificationEnabled()) {
+                    retakeAttemptsConsumed = calculateAssessmentRetakeCount(userId, assessmentIdentifier);
+                    retakeAttemptsConsumed = retakeAttemptsConsumed - 1;
+                }
             }
         } catch (Exception e) {
             errMsg = String.format("Error while calculating retake assessment. Exception: %s", e.getMessage());

@@ -88,14 +88,17 @@ public class AssessmentServiceV5Impl implements AssessmentServiceV5 {
                         HttpStatus.INTERNAL_SERVER_ERROR);
                 return response;
             }
-            if (assessmentAllDetail.get(Constants.MAX_ASSESSMENT_RETAKE_ATTEMPTS) != null) {
-                retakeAttemptsAllowed = (int) assessmentAllDetail.get(Constants.MAX_ASSESSMENT_RETAKE_ATTEMPTS);
-            }
-            
-           // if (serverProperties.isAssessmentRetakeCountVerificationEnabled()) {
+            Object contextCategory = assessmentAllDetail.get(Constants.CONTEXT_CATEGORY_TAG);
+            if (contextCategory != null && Constants.PRE_ENROLLED_ASSESSMENT_KEY.equals(contextCategory.toString())) {
+                retakeAttemptsAllowed = 1;
+                retakeAttemptsConsumed = 0;
+            } else {
+                if (assessmentAllDetail.get(Constants.MAX_ASSESSMENT_RETAKE_ATTEMPTS) != null) {
+                    retakeAttemptsAllowed = (int) assessmentAllDetail.get(Constants.MAX_ASSESSMENT_RETAKE_ATTEMPTS);
+                }
                 retakeAttemptsConsumed = calculateAssessmentRetakeCount(userId, assessmentIdentifier);
-                retakeAttemptsConsumed=retakeAttemptsConsumed-1;
-            //}
+                retakeAttemptsConsumed = retakeAttemptsConsumed - 1;
+            }
         } catch (Exception e) {
             errMsg = String.format("Error while calculating retake assessment. Exception: %s", e.getMessage());
             logger.error(errMsg, e);
@@ -360,8 +363,16 @@ public class AssessmentServiceV5Impl implements AssessmentServiceV5 {
                 }
             }
 
-            int maxAssessmentRetakeAttempts = (Integer) assessmentHierarchy.get(Constants.MAX_ASSESSMENT_RETAKE_ATTEMPTS);
-            int retakeAttemptsConsumed = calculateAssessmentRetakeCount(userId, assessmentIdFromRequest);
+            Object contextCategory = assessmentHierarchy.get(Constants.CONTEXT_CATEGORY_TAG);
+            int maxAssessmentRetakeAttempts;
+            int retakeAttemptsConsumed;
+            if (contextCategory != null && Constants.PRE_ENROLLED_ASSESSMENT_KEY.equals(contextCategory.toString())) {
+                maxAssessmentRetakeAttempts = 1;
+                retakeAttemptsConsumed = 0;
+            } else {
+                maxAssessmentRetakeAttempts = (Integer) assessmentHierarchy.get(Constants.MAX_ASSESSMENT_RETAKE_ATTEMPTS);
+                retakeAttemptsConsumed = calculateAssessmentRetakeCount(userId, assessmentIdFromRequest);
+            }
             String assessmentPrimaryCategory = (String) assessmentHierarchy.get(Constants.PRIMARY_CATEGORY);
             String assessmentType=((String) assessmentHierarchy.get(Constants.ASSESSMENT_TYPE)).toLowerCase();
             String scoreCutOffType ;
@@ -1353,8 +1364,16 @@ public class AssessmentServiceV5Impl implements AssessmentServiceV5 {
                 }
             }
 
-            int maxAssessmentRetakeAttempts = (Integer) assessmentHierarchy.get(Constants.MAX_ASSESSMENT_RETAKE_ATTEMPTS);
-            int retakeAttemptsConsumed = calculateAssessmentRetakeCount(userId, assessmentIdFromRequest);
+            Object contextCategory = assessmentHierarchy.get(Constants.CONTEXT_CATEGORY_TAG);
+            int maxAssessmentRetakeAttempts;
+            int retakeAttemptsConsumed;
+            if (contextCategory != null && Constants.PRE_ENROLLED_ASSESSMENT_KEY.equals(contextCategory.toString())) {
+                maxAssessmentRetakeAttempts = 1;
+                retakeAttemptsConsumed = 0;
+            } else {
+                maxAssessmentRetakeAttempts = (Integer) assessmentHierarchy.get(Constants.MAX_ASSESSMENT_RETAKE_ATTEMPTS);
+                retakeAttemptsConsumed = calculateAssessmentRetakeCount(userId, assessmentIdFromRequest);
+            }
             String assessmentPrimaryCategory = (String) assessmentHierarchy.get(Constants.PRIMARY_CATEGORY);
             String assessmentType=((String) assessmentHierarchy.get(Constants.ASSESSMENT_TYPE)).toLowerCase();
             String scoreCutOffType ;
