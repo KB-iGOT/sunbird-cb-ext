@@ -349,11 +349,11 @@ public class AssessmentServiceV5Impl implements AssessmentServiceV5 {
                 if (StringUtils.isNotBlank(assessmentLanguageReq)) {
                     submitRequest.put(Constants.LANGUAGE, assessmentLanguageReq);
                 }
-            }else{
+            } else {
                 String assessmentLanguage = assessUtilServ.readAssessmentRecord(assessmentIdFromRequest, Arrays.asList(Constants.LANGUAGE));
-                if(assessmentLanguageReq.equalsIgnoreCase(assessmentLanguage)){
+                if (assessmentLanguageReq.equalsIgnoreCase(assessmentLanguage)) {
                     submitRequest.put(Constants.LANGUAGE, assessmentLanguageReq.toLowerCase());
-                }else{
+                } else {
                     errMsg = String.format("Assessment language mismatch. Expected: %s, Provided: %s", assessmentLanguage, assessmentLanguageReq);
                     updateErrorDetails(outgoingResponse, errMsg, HttpStatus.BAD_REQUEST);
                     return outgoingResponse;
@@ -1342,11 +1342,11 @@ public class AssessmentServiceV5Impl implements AssessmentServiceV5 {
                 if (StringUtils.isNotBlank(assessmentLanguageReq)) {
                     submitRequest.put(Constants.LANGUAGE, assessmentLanguageReq);
                 }
-            }else{
+            } else {
                 String assessmentLanguage = assessUtilServ.readAssessmentRecord(assessmentIdFromRequest, Arrays.asList(Constants.LANGUAGE));
-                if(assessmentLanguageReq.equalsIgnoreCase(assessmentLanguage)){
+                if (assessmentLanguageReq.equalsIgnoreCase(assessmentLanguage)) {
                     submitRequest.put(Constants.LANGUAGE, assessmentLanguageReq.toLowerCase());
-                }else{
+                } else {
                     errMsg = String.format("Assessment language mismatch. Expected: %s, Provided: %s", assessmentLanguage, assessmentLanguageReq);
                     updateErrorDetails(outgoingResponse, errMsg, HttpStatus.BAD_REQUEST);
                     return outgoingResponse;
