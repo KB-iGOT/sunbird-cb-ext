@@ -345,4 +345,45 @@ public class OutboundRequestHandlerServiceImpl {
 		return response;
 	}
 
+	public Map<String, Object> fetchResultUsingGet(String uri, Map<String, String> headersValues) {
+		ObjectMapper mapper = new ObjectMapper();
+		mapper.configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false);
+		Map<String, Object> response = null;
+		try {
+			HttpHeaders headers = new HttpHeaders();
+			if (!CollectionUtils.isEmpty(headersValues)) {
+				headersValues.forEach((k, v) -> headers.set(k, v));
+			}
+			headers.setContentType(MediaType.APPLICATION_JSON);
+			HttpEntity<Object> entity = new HttpEntity<>(headers);
+			if (log.isDebugEnabled()) {
+				StringBuilder str = new StringBuilder(this.getClass().getCanonicalName())
+						.append(Constants.FETCH_RESULT_CONSTANT).append(System.lineSeparator());
+				str.append(Constants.URI_CONSTANT).append(uri).append(System.lineSeparator());
+				log.debug(str.toString());
+			}
+			response = restTemplate.exchange(uri, HttpMethod.GET, entity, Map.class).getBody();
+			if (log.isDebugEnabled()) {
+				StringBuilder str = new StringBuilder("Response: ");
+				str.append(mapper.writeValueAsString(response)).append(System.lineSeparator());
+				log.debug(str.toString());
+			}
+		} catch (HttpClientErrorException hce) {
+			try {
+				response = (new ObjectMapper()).readValue(hce.getResponseBodyAsString(),
+						new TypeReference<HashMap<String, Object>>() {
+						});
+			} catch (Exception e1) {
+			}
+			log.error("Error received: " + hce.getResponseBodyAsString(), hce);
+		} catch(JsonProcessingException e) {
+			log.error(e);
+			try {
+				log.warn("Error Response: " + mapper.writeValueAsString(response));
+			} catch (Exception e1) {
+			}
+		}
+		return response;
+	}
+
 }
