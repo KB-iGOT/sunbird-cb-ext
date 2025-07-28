@@ -201,6 +201,17 @@ public class CbExtServerProperties {
 	@Value("${kafka.topic.cbplan.content.request}")
 	private String cbplanContentRequestKafkaTopic;
 
+	@Value("${course.read.path}")
+	private String courseReadPath;
+
+	public String getCourseReadPath() {
+		return courseReadPath;
+	}
+
+	public void setCourseReadPath(String courseReadPath) {
+		this.courseReadPath = courseReadPath;
+	}
+
 	public String getRedisDataHostName() {
 		return redisDataHostName;
 	}

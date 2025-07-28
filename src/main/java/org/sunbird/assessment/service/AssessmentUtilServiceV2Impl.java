@@ -4,6 +4,7 @@ import java.util.*;
 import java.io.IOException;
 import java.util.stream.Collectors;
 
+import org.apache.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.sunbird.cache.RedisCacheMgr;
 import org.apache.commons.collections.MapUtils;
@@ -24,6 +25,8 @@ import org.sunbird.common.util.Constants;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.sunbird.common.util.ProjectUtil;
+
+import javax.ws.rs.core.MediaType;
 
 @Service
 public class AssessmentUtilServiceV2Impl implements AssessmentUtilServiceV2 {
@@ -1154,5 +1157,40 @@ public class AssessmentUtilServiceV2Impl implements AssessmentUtilServiceV2 {
 			}
 		}
 		return true;
+	}
+
+	@Override
+	public String readAssessmentRecord(String assessmentIdentifier, List<String> fields) {
+		Map<String, String> headers = new HashMap<>();
+		try {
+			String fieldsStr = org.apache.commons.lang3.StringUtils.join(fields, ",");
+			StringBuilder sbUrl = new StringBuilder(serverProperties.getContentHost());
+			sbUrl.append(serverProperties.getCourseReadPath())
+					.append(assessmentIdentifier)
+					.append("?fields=").append(fieldsStr);
+
+			headers.put(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON);
+
+			Map<String, Object> response = outboundRequestHandlerService.fetchResultUsingGet(sbUrl.toString(), headers);
+			if (org.apache.commons.collections4.MapUtils.isNotEmpty(response)) {
+				response = (Map<String, Object>) response.get(Constants.RESULT);
+				if (org.apache.commons.collections4.MapUtils.isNotEmpty(response)) {
+					Object content = response.get(Constants.CONTENT);
+					if (content instanceof Map) {
+						Object languageObj = ((Map<?, ?>) content).get(Constants.LANGUAGE);
+						if (languageObj instanceof List && !((List<?>) languageObj).isEmpty()) {
+							return ((List<?>) languageObj).get(0).toString(); // ✅ Return the first language directly
+						}
+					}
+				} else {
+					logger.error("AssessmentUtilServiceV2Impl:readAssessmentLanguage No data found in RESULT");
+				}
+			} else {
+				logger.error("AssessmentUtilServiceV2Impl:readAssessmentLanguage No data found in response");
+			}
+		} catch (Exception e) {
+			logger.error("Error during assessment read for {}: {}", assessmentIdentifier, e.getMessage(), e);
+		}
+		return "";
 	}
 }
