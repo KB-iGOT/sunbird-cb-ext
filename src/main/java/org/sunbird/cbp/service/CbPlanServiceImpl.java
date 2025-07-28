@@ -1,16 +1,9 @@
 package org.sunbird.cbp.service;
 
-import java.io.IOException;
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
-import java.util.*;
-import java.util.stream.Collectors;
-
-import javax.validation.ConstraintViolation;
-import javax.validation.Validation;
-import javax.validation.Validator;
-import javax.validation.ValidatorFactory;
-
+import com.datastax.driver.core.utils.UUIDs;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.collections.MapUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -33,10 +26,15 @@ import org.sunbird.common.util.ProjectUtil;
 import org.sunbird.core.producer.Producer;
 import org.sunbird.user.service.UserUtilityService;
 
-import com.datastax.driver.core.utils.UUIDs;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import javax.validation.ConstraintViolation;
+import javax.validation.Validation;
+import javax.validation.Validator;
+import javax.validation.ValidatorFactory;
+import java.io.IOException;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 public class CbPlanServiceImpl implements CbPlanService {
@@ -86,6 +84,10 @@ public class CbPlanServiceImpl implements CbPlanService {
             UUID cbPlanId = UUIDs.timeBased();
             requestMap.put(Constants.ID, cbPlanId);
             CbPlanDto cbPlanDto = mapper.convertValue(request.getRequest(), CbPlanDto.class);
+            if (cbPlanDto.getIsApar() == null) {
+                cbPlanDto.setIsApar(false);
+            }
+            requestMap.put(Constants.IS_APAR, cbPlanDto.getIsApar() != null ? cbPlanDto.getIsApar() : false);
             List<String> validations = validateCbPlanRequest(cbPlanDto);
             if (CollectionUtils.isNotEmpty(validations)) {
                 response.getParams().setStatus(Constants.FAILED);
@@ -96,7 +98,6 @@ public class CbPlanServiceImpl implements CbPlanService {
             try {
                 requestMap.put(Constants.DRAFT_DATA, mapper.writeValueAsString(cbPlanDto));
                 requestMap.put(Constants.STATUS, Constants.DRAFT);
-                requestMap.put(Constants.IS_APAR, cbPlanDto.getIsApar() != null ? cbPlanDto.getIsApar() : false);
                 SBApiResponse resp = cassandraOperation.insertRecord(Constants.KEYSPACE_SUNBIRD, Constants.TABLE_CB_PLAN, requestMap);
                 if (Constants.SUCCESS.equals(resp.get(Constants.RESPONSE))) {
                     response.getResult().put(Constants.STATUS, Constants.CREATED);
@@ -173,6 +174,12 @@ public class CbPlanServiceImpl implements CbPlanService {
                     updatedCbPlanData.put(Constants.DRAFT_DATA, draftInfo);
                     updatedCbPlanData.put(Constants.UPDATED_BY, userId);
                     updatedCbPlanData.put(Constants.UPDATED_AT, new Date());
+                    if (updatedCbPlan.containsKey(Constants.IS_APAR)) {
+                        Object isAparVal = updatedCbPlan.get(Constants.IS_APAR);
+                        if (isAparVal != null) {
+                            updatedCbPlanData.put(Constants.IS_APAR, isAparVal);
+                        }
+                    }
 
                     Map<String, Object> resp = cassandraOperation.updateRecord(Constants.KEYSPACE_SUNBIRD,
                             Constants.TABLE_CB_PLAN, updatedCbPlanData, cbPlanInfo);
@@ -274,9 +281,16 @@ public class CbPlanServiceImpl implements CbPlanService {
                         logger.error("Failed to parse the end date: " + e.getMessage(), e);
                     }
                     cbPlan.put(Constants.END_DATE, endDate);
+                    if (cbPlanDtoMap.containsKey(Constants.IS_APAR)) {
+                        Object isAparVal = cbPlanDtoMap.get(Constants.IS_APAR);
+                        cbPlan.put(Constants.IS_APAR, isAparVal != null ? isAparVal : false);
+                    } else if (publishCbPlan.containsKey(Constants.IS_APAR) && publishCbPlan.get(Constants.IS_APAR) != null) {
+                        cbPlan.put(Constants.IS_APAR, publishCbPlan.get(Constants.IS_APAR));
+                    } else {
+                        cbPlan.put(Constants.IS_APAR, false);
+                    }
                     cbPlan.put(Constants.DRAFT_DATA, null);
                 }
-
                 cbPlan.put(Constants.CB_PUBLISHED_BY, userId);
                 if (StringUtils.isNoneBlank(comment)) {
                     cbPlan.put(Constants.COMMENT, comment);
@@ -930,8 +944,11 @@ public class CbPlanServiceImpl implements CbPlanService {
                     cbPlan.put(Constants.END_DATE, draftDto.getEndDate());
                     cbPlan.put(Constants.CB_ASSIGNMENT_TYPE_INFO, draftDto.getAssignmentTypeInfo());
                     cbPlan.put(Constants.CB_CONTENT_LIST, draftDto.getContentList());
-                    cbPlan.put(Constants.IS_APAR, draftDto.getIsApar() != null ? draftDto.getIsApar() : false);
                     cbPlan.remove(Constants.DRAFT_DATA);
+                }
+
+                if (!cbPlan.containsKey(Constants.IS_APAR) || cbPlan.get(Constants.IS_APAR) == null) {
+                    cbPlan.put(Constants.IS_APAR, false);
                 }
 
                 // these values could be null if plan is draft. set to empty string if so;
