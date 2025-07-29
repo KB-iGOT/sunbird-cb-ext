@@ -750,7 +750,7 @@ public class CbPlanServiceImpl implements CbPlanService {
         cbPlan.put(Constants.CB_CONTENT_LIST, planDto.getContentList());
         cbPlan.put(Constants.END_DATE, planDto.getEndDate());
         cbPlan.put(Constants.STATUS, Constants.LIVE);
-        cbPlan.put(Constants.IS_APAR_KEY, planDto.getIsApar() != null ? planDto.getIsApar() : false);
+        cbPlan.put(Constants.IS_APAR, planDto.getIsApar() != null ? planDto.getIsApar() : false);
     }
 
     private boolean updateCbPlanLookupInfo(CbPlan planDto, String orgId, UUID cbPlanId) {
