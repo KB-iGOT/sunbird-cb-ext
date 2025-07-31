@@ -1197,37 +1197,20 @@ public class AssessmentUtilServiceV2Impl implements AssessmentUtilServiceV2 {
 
 	@Override
 	public String readContentRecord(String courseId, List<String> fields) {
-		Map<String, String> headers = new HashMap<>();
 		try {
-			String fieldsStr = StringUtils.join(fields, ",");
-			StringBuilder sbUrl = new StringBuilder(serverProperties.getContentHost());
-			sbUrl.append(serverProperties.getContentReadEndPoint())
-					.append("/")
-					.append(courseId)
-					.append("?fields=").append(fieldsStr);
-
-			headers.put(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON);
-
-			Map<String, Object> response = outboundRequestHandlerService.fetchResultUsingGet(sbUrl.toString(), headers);
+			Map<String, Object> response = contentService.readContentFromCache(courseId, fields);
 			if (MapUtils.isNotEmpty(response)) {
-				response = (Map<String, Object>) response.get(Constants.RESULT);
-				if (MapUtils.isNotEmpty(response)) {
-					Object content = response.get(Constants.CONTENT);
-					if (content instanceof Map) {
-						Object languageMapObj = ((Map<?, ?>) content).get(Constants.LANGUAGE_MAP_V1);
-
+						Object languageMapObj = response.get(Constants.LANGUAGE_MAP_V1);
 						if (languageMapObj instanceof Map) {
 							Map<?, ?> languageMap = (Map<?, ?>) languageMapObj;
 							for (Object value : languageMap.values()) {
 								if (value instanceof Map) {
 									Map<?, ?> langDetails = (Map<?, ?>) value;
-									Object isBaseLang = langDetails.get("isBaseLanguage");
+									Object isBaseLang = langDetails.get("isBaseLang");
 									if (Boolean.TRUE.equals(isBaseLang)) {
 										return String.valueOf(langDetails.get("id"));
 									}
 								}
-							}
-						}
 						return courseId;
 					}
 				} else {
