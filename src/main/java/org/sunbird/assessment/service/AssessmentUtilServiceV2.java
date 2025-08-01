@@ -59,4 +59,5 @@ public interface AssessmentUtilServiceV2 {
 
 	String readAssessmentRecord(String assessmentIdentifier,List<String> fields);
 
+	String readContentRecord(String courseId, List<String> fields);
 }

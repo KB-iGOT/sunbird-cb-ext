@@ -1194,4 +1194,32 @@ public class AssessmentUtilServiceV2Impl implements AssessmentUtilServiceV2 {
 		}
 		return "";
 	}
+
+	@Override
+	public String readContentRecord(String courseId, List<String> fields) {
+		try {
+			Map<String, Object> response = contentService.readContentFromCache(courseId, fields);
+			if (MapUtils.isNotEmpty(response)) {
+				Object languageMapObj = response.get(Constants.LANGUAGE_MAP_V1);
+				if (languageMapObj instanceof Map) {
+					Map<?, ?> languageMap = (Map<?, ?>) languageMapObj;
+					for (Object value : languageMap.values()) {
+						if (value instanceof Map) {
+							Map<?, ?> langDetails = (Map<?, ?>) value;
+							Object isBaseLang = langDetails.get("isBaseLang");
+							if (Boolean.TRUE.equals(isBaseLang)) {
+								return String.valueOf(langDetails.get("id"));
+							}
+						}
+						return courseId;
+					}
+				} else {
+					logger.error("AssessmentUtilServiceV2Impl:readAssessmentLanguage No data found in RESULT");
+				}
+			}
+		} catch (Exception e) {
+			logger.error("Error during assessment read for {}: {}", courseId, e.getMessage(), e);
+		}
+		return courseId;
+	}
 }

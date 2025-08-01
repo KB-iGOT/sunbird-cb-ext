@@ -354,6 +354,8 @@ public class AssessmentServiceV4Impl implements AssessmentServiceV4 {
                 }
             }
 
+            submitRequest.put(Constants.COURSE_ID, assessUtilServ.readContentRecord(submitRequest.get(Constants.COURSE_ID).toString(), Arrays.asList(Constants.LANGUAGE_MAP_V1)));
+
             String assessmentPrimaryCategory = (String) assessmentHierarchy.get(Constants.PRIMARY_CATEGORY);
             Map<String,Object> courseCategoryMap=contentService.readContent((String) submitRequest.get(Constants.COURSE_ID));
             String courseCategory = "";
