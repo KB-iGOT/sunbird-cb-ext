@@ -691,4 +691,13 @@ public class UserRegistrationServiceImpl implements UserRegistrationService {
 		return null;  // Return null if no match found
 	}
 
+	private Boolean isApprovedDomains(String emailDomain, String domainType) {
+		Map<String, Object> propertyMap = new HashMap<>();
+		propertyMap.put(Constants.CONTEXT_TYPE, domainType);
+		propertyMap.put(Constants.CONTEXT_NAME, emailDomain);
+		List<Map<String, Object>> listOfDomains = cassandraOperation.getRecordsByPropertiesWithoutFiltering(
+				Constants.KEYSPACE_SUNBIRD, Constants.TABLE_MASTER_DATA, propertyMap, Arrays.asList(Constants.CONTEXT_TYPE, Constants.CONTEXT_NAME));
+		return CollectionUtils.isNotEmpty(listOfDomains);
+	}
+
 }
