@@ -6,6 +6,7 @@ import java.sql.Timestamp;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.Map.Entry;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -1174,5 +1175,37 @@ public class UserUtilityServiceImpl implements UserUtilityService {
 		}
 		printMethodExecutionResult("Custom Register User", userRegistration.toMininumString(), retValue);
 		return retValue;
+	}
+
+	public String emailValidation(String email, boolean isDomainValidation) {
+		StringBuilder str = new StringBuilder();
+		String emailRegex = "^[a-zA-Z0-9_+&*-]+(?:\\." + "[a-zA-Z0-9_+&*-]+)*@" + "(?:[a-zA-Z0-9-]+\\.)+[a-z"
+				+ "A-Z]{2,7}$";
+		Pattern pat = Pattern.compile(emailRegex);
+		if (pat.matcher(email).matches()) {
+			if (!isDomainValidation) {
+				logger.info("Ignoring email domain validation for email: " + email);
+				return str.toString();
+			}
+			logger.info("Validating email domain request with email: " + email);
+			String emailDomain = email.split("@")[1];
+			boolean retValue = isApprovedDomains(emailDomain, Constants.USER_REGISTRATION_DOMAIN)
+					|| isApprovedDomains(emailDomain, Constants.USER_REGISTRATION_PRE_APPROVED_DOMAIN);
+			if (!retValue) {
+				str.append("Email domain of this email address is not approved. Please use Request for help.");
+			}
+		} else {
+			str.append("Invalid Email ID");
+		}
+		return str.toString();
+	}
+
+	public boolean isApprovedDomains(String emailDomain, String domainType) {
+		Map<String, Object> propertyMap = new HashMap<>();
+		propertyMap.put(Constants.CONTEXT_TYPE, domainType);
+		propertyMap.put(Constants.CONTEXT_NAME, emailDomain);
+		List<Map<String, Object>> listOfDomains = cassandraOperation.getRecordsByPropertiesWithoutFiltering(
+				Constants.KEYSPACE_SUNBIRD, Constants.TABLE_MASTER_DATA, propertyMap, Arrays.asList(Constants.CONTEXT_TYPE, Constants.CONTEXT_NAME));
+		return org.apache.commons.collections.CollectionUtils.isNotEmpty(listOfDomains);
 	}
 }

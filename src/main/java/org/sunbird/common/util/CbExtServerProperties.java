@@ -1070,6 +1070,9 @@ public class CbExtServerProperties {
 	@Value("${designation.search.result.size}")
 	private int searchDesignationResultSize;
 
+	@Value("${user.firstname.max.length}")
+	private int userFirstNameMaxLength;
+
 	public String getStateLearningInsightsRedisKeyMapping() {
 		return stateLearningInsightsRedisKeyMapping;
 	}
@@ -3632,5 +3635,13 @@ public class CbExtServerProperties {
 
 	public void setSearchDesignationResultSize(int searchDesignationResultSize) {
 		this.searchDesignationResultSize = searchDesignationResultSize;
+	}
+
+	public int getUserFirstNameMaxLength() {
+		return userFirstNameMaxLength;
+	}
+
+	public void setUserFirstNameMaxLength(int userFirstNameMaxLength) {
+		this.userFirstNameMaxLength = userFirstNameMaxLength;
 	}
 }
