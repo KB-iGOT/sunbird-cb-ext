@@ -2584,13 +2584,11 @@ public class ProfileServiceImpl implements ProfileService {
 
 		// Validate email
 		String email = (String) details.get(Constants.PRIMARY_EMAIL);
-		if (email != null) {
-			if (StringUtils.isBlank(email))
-				throw new IllegalArgumentException("Missing primary email.");
-			String emailError = userUtilityService.emailValidation(email, true);
-			if (StringUtils.isNotBlank(emailError))
-				throw new IllegalArgumentException(emailError);
-		}
+		if (StringUtils.isBlank(email.trim()))
+			throw new IllegalArgumentException("Missing primary email.");
+		String emailError = userUtilityService.emailValidation(email, true);
+		if (StringUtils.isNotBlank(emailError))
+			throw new IllegalArgumentException(emailError);
 	}
 
 }
