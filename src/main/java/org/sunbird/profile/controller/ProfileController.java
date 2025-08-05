@@ -183,4 +183,12 @@ public class ProfileController {
 		SBApiResponse response = profileService.profileMDOAdminUpdate(request, null, authToken, rootOrgId);
 		return new ResponseEntity<>(response, response.getResponseCode());
 	}
+
+	@PatchMapping("/user/private/support/update")
+	public ResponseEntity<?> userPrivateUpdateSupport(
+			@RequestHeader(value = Constants.AUTH_TOKEN) String authToken,
+			@RequestBody Map<String, Object> request) throws Exception {
+		SBApiResponse response = profileService.userProfileUpdateSupport(request, authToken);
+		return new ResponseEntity<>(response, response.getResponseCode());
+	}
 }
