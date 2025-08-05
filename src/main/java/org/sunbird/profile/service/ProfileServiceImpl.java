@@ -2013,14 +2013,29 @@ public class ProfileServiceImpl implements ProfileService {
 			}
 			String userId = (String) requestData.get(Constants.USER_ID);
 			Map<String, Object> profileDetailsMap = (Map<String, Object>) requestData.get(Constants.PROFILE_DETAILS);
-			Map<String, Object> responseMap = userUtilityService.getUsersReadData(userId, StringUtils.EMPTY, StringUtils.EMPTY);
+			List<String> allowedAdminUpdateFields = adminApprovalFields();
+			Map<String, Object> adminUpdateMap = new HashMap<>();
+			for (String key : profileDetailsMap.keySet()) {
+				if (allowedAdminUpdateFields.contains(key)) {
+					adminUpdateMap.put(key, profileDetailsMap.get(key));
+				}
+			}
+			Map<String, String> headerValues = new HashMap<>();
+			headerValues.put(Constants.AUTH_TOKEN, authToken);
+			headerValues.put(Constants.CONTENT_TYPE, Constants.APPLICATION_JSON);
+
+			Map<String, Object> responseMap = userUtilityService.getUsersReadData(userId, StringUtils.EMPTY,
+					StringUtils.EMPTY);
 			Map<String, Object> existingProfileDetails = (Map<String, Object>) responseMap.get(Constants.PROFILE_DETAILS);
 			String updatedProfileStatus = null;
 			String updatedGroupVal = null;
 			String updatedDesignationVal = null;
 
-			if (MapUtils.isNotEmpty(profileDetailsMap)) {
-                List<String> listOfChangedDetails = new ArrayList<>(profileDetailsMap.keySet());
+			if (!profileDetailsMap.isEmpty()) {
+				List<String> listOfChangedDetails = new ArrayList<>();
+				for (String keys : profileDetailsMap.keySet()) {
+					listOfChangedDetails.add(keys);
+				}
 				boolean isGroupOrDesignationUpdated = false;
 				for (String changedObj : listOfChangedDetails) {
 					if (profileDetailsMap.get(changedObj) instanceof String) {
