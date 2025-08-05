@@ -551,7 +551,15 @@ public class CbPlanServiceImpl implements CbPlanService {
                         courseList.add(contentDetails);
                     }
                 }
-                cbPlanDetails.put(Constants.CB_CONTENT_LIST, courseList);
+                boolean containsLanguageMap = courseList.stream().anyMatch(course ->
+                        course.get(Constants.LANGUAGE_MAP_V1) instanceof Map &&
+                                !((Map<?, ?>) course.get(Constants.LANGUAGE_MAP_V1)).isEmpty()
+                );
+                if (containsLanguageMap) {
+                    cbPlanDetails.put(Constants.CB_CONTENT_LIST, removeDuplicateCourses(courseList));
+                } else {
+                    cbPlanDetails.put(Constants.CB_CONTENT_LIST, courseList);
+                }
                 resultMap.add(cbPlanDetails);
             }
             logger.info("Number of CB Plan Available for the user is " + resultMap.size());
@@ -1150,4 +1158,34 @@ public class CbPlanServiceImpl implements CbPlanService {
         }
         return isUpdatedLookup;
     }
+
+    public List<Map<String, Object>> removeDuplicateCourses(List<Map<String, Object>> courseList) {
+        Set<String> seenIdentifiers = new HashSet<>();
+        List<Map<String, Object>> finalList = new ArrayList<>();
+        for (Map<String, Object> course : courseList) {
+            String identifier = (String) course.get(Constants.IDENTIFIER);
+            if (seenIdentifiers.contains(identifier)) {
+                continue;
+            }
+            Map<String, Object> languageMap = new HashMap<>();
+            Object langObj = course.get(Constants.LANGUAGE_MAP_V1);
+            if (langObj instanceof Map<?, ?>) {
+                languageMap = (Map<String, Object>) langObj;
+            }
+            Set<String> languageIdentifiers = new HashSet<>();
+            for (Object value : languageMap.values()) {
+                if (value instanceof Map<?, ?>) {
+                    Map<String, Object> langDetails = (Map<String, Object>) value;
+                    String langId = (String) langDetails.get(Constants.ID);
+                    if (langId != null) {
+                        languageIdentifiers.add(langId);
+                    }
+                }
+            }
+            finalList.add(course);
+            seenIdentifiers.addAll(languageIdentifiers);
+        }
+        return finalList;
+    }
+
 }
