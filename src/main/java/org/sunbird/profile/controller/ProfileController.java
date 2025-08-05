@@ -141,7 +141,7 @@ public class ProfileController {
 			@RequestHeader(value = Constants.AUTH_TOKEN, required = false) String authToken,
 			@RequestHeader(value = Constants.X_AUTH_USER_ORG_ID, required = false) String rootOrgId,
 			@RequestBody Map<String, Object> request) throws Exception {
-		SBApiResponse response = profileService.profileMDOAdminUpdate(request, userToken, authToken, rootOrgId);
+		SBApiResponse response = profileService.profileMDOAdminUpdate(request, userToken, authToken, rootOrgId, false);
 		return new ResponseEntity<>(response, response.getResponseCode());
 	}
 
@@ -180,7 +180,7 @@ public class ProfileController {
 			@RequestHeader(value = Constants.AUTH_TOKEN, required = false) String authToken,
 			@RequestHeader(value = Constants.X_AUTH_USER_ORG_ID, required = false) String rootOrgId,
 			@RequestBody Map<String, Object> request) throws Exception {
-		SBApiResponse response = profileService.profileMDOAdminUpdate(request, null, authToken, rootOrgId);
+		SBApiResponse response = profileService.profileMDOAdminUpdate(request, null, authToken, rootOrgId, false);
 		return new ResponseEntity<>(response, response.getResponseCode());
 	}
 
@@ -188,7 +188,7 @@ public class ProfileController {
 	public ResponseEntity<?> userPrivateUpdateSupport(
 			@RequestHeader(value = Constants.AUTH_TOKEN) String authToken,
 			@RequestBody Map<String, Object> request) throws Exception {
-		SBApiResponse response = profileService.userProfileUpdateSupport(request, authToken);
+		SBApiResponse response = profileService.profileMDOAdminUpdate(request, null, authToken, null, true);
 		return new ResponseEntity<>(response, response.getResponseCode());
 	}
 }
