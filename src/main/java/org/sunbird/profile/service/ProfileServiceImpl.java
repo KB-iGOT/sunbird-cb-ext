@@ -2207,9 +2207,10 @@ public class ProfileServiceImpl implements ProfileService {
 				headerValue.put(Constants.AUTH_TOKEN, authToken);
 				headerValue.put(Constants.CONTENT_TYPE, Constants.APPLICATION_JSON);
 				String updatedUrl = serverConfig.getSbUrl() + serverConfig.getLmsUserUpdatePrivatePath();
-                requestData.put(Constants.PROFILE_DETAILS, existingProfileDetails);
+				Map<String, Object> updateRequestValue = requestData;
+				updateRequestValue.put(Constants.PROFILE_DETAILS, existingProfileDetails);
 				Map<String, Object> updateRequest = new HashMap<>();
-				updateRequest.put(Constants.REQUEST, requestData);
+				updateRequest.put(Constants.REQUEST, updateRequestValue);
 				Map<String, Object> updateResponse = outboundRequestHandlerService.fetchResultUsingPatch(updatedUrl, updateRequest, headerValue);
 
 				if (Constants.OK.equalsIgnoreCase((String) updateResponse.get(Constants.RESPONSE_CODE))) {
