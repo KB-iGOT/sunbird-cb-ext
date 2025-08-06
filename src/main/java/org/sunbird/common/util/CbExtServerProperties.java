@@ -1067,6 +1067,9 @@ public class CbExtServerProperties {
 	@Value("${org.hierarchy.bulk.upload.retry.delay.ms}")
 	private int delayMs;
 
+	@Value("${user.firstname.max.length}")
+	private int userFirstNameMaxLength;
+
 	public String getStateLearningInsightsRedisKeyMapping() {
 		return stateLearningInsightsRedisKeyMapping;
 	}
@@ -3621,5 +3624,13 @@ public class CbExtServerProperties {
 
 	public int getDelayMs() {
 		return delayMs;
+	}
+
+	public int getUserFirstNameMaxLength() {
+		return userFirstNameMaxLength;
+	}
+
+	public void setUserFirstNameMaxLength(int userFirstNameMaxLength) {
+		this.userFirstNameMaxLength = userFirstNameMaxLength;
 	}
 }

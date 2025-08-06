@@ -401,7 +401,7 @@ public class UserRegistrationServiceImpl implements UserRegistrationService {
 		}
 		// email Validation
 		if (StringUtils.isNotBlank(userRegInfo.getEmail())) {
-			String validateErr = emailValidation(userRegInfo.getEmail(), StringUtils.isBlank(userRegInfo.getRegistrationLink()));
+			String validateErr = userUtilityService.emailValidation(userRegInfo.getEmail(), StringUtils.isBlank(userRegInfo.getRegistrationLink()));
 			if (StringUtils.isNotBlank(validateErr)){
 				str.setLength(0);
 				str.append(validateErr);
@@ -506,34 +506,11 @@ public class UserRegistrationServiceImpl implements UserRegistrationService {
 	 * @return Boolean
 	 */
 	public String emailValidation(String email) {
-		return emailValidation(email, true);
-	}
-
-	private String emailValidation(String email, boolean isSelfRegister) {
-		StringBuffer str = new StringBuffer();
-		String emailRegex = "^[a-zA-Z0-9_+&*-]+(?:\\." + "[a-zA-Z0-9_+&*-]+)*@" + "(?:[a-zA-Z0-9-]+\\.)+[a-z"
-				+ "A-Z]{2,7}$";
-		Pattern pat = Pattern.compile(emailRegex);
-		if (pat.matcher(email).matches()) {
-			if (!isSelfRegister) {
-				LOGGER.info("Ignoring email domain validation for custom self registration request with email: " + email);
-				return str.toString();
-			}
-			LOGGER.info("Validating email domain for self registration request with email: " + email);
-			String emailDomain = email.split("@")[1];
-			Boolean retValue = isApprovedDomains(emailDomain, Constants.USER_REGISTRATION_DOMAIN)
-					|| isApprovedDomains(emailDomain, Constants.USER_REGISTRATION_PRE_APPROVED_DOMAIN);
-			if (!retValue) {
-				str.append("Email domain of this email address is not approved. Please use Request for help.");
-			}
-		} else {
-			str.append("Invalid Email id");
-		}
-		return str.toString();
+		return userUtilityService.emailValidation(email, true);
 	}
 
 	private Boolean isPreApprovedDomain(String email) {
-		return isApprovedDomains(email.split("@")[1], Constants.USER_REGISTRATION_PRE_APPROVED_DOMAIN);
+		return userUtilityService.isApprovedDomains(email.split("@")[1], Constants.USER_REGISTRATION_PRE_APPROVED_DOMAIN);
 	}
 
 	private UserRegistration getUserRegistrationForRegCode(String registrationCode) {
@@ -713,14 +690,4 @@ public class UserRegistrationServiceImpl implements UserRegistrationService {
 		}
 		return null;  // Return null if no match found
 	}
-
-	private Boolean isApprovedDomains(String emailDomain, String domainType) {
-		Map<String, Object> propertyMap = new HashMap<>();
-		propertyMap.put(Constants.CONTEXT_TYPE, domainType);
-		propertyMap.put(Constants.CONTEXT_NAME, emailDomain);
-		List<Map<String, Object>> listOfDomains = cassandraOperation.getRecordsByPropertiesWithoutFiltering(
-				Constants.KEYSPACE_SUNBIRD, Constants.TABLE_MASTER_DATA, propertyMap, Arrays.asList(Constants.CONTEXT_TYPE, Constants.CONTEXT_NAME));
-		return CollectionUtils.isNotEmpty(listOfDomains);
-	}
-
 }

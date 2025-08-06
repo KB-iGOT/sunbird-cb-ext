@@ -68,6 +68,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.Map.Entry;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import io.jsonwebtoken.*;
 
@@ -2001,7 +2002,7 @@ public class ProfileServiceImpl implements ProfileService {
 	}
 
 	@Override
-	public SBApiResponse profileMDOAdminUpdate(Map<String, Object> request, String userToken, String authToken, String rootOrgId) throws Exception {
+	public SBApiResponse profileMDOAdminUpdate(Map<String, Object> request, String userToken, String authToken, String rootOrgId, boolean additionalValidation) throws Exception {
 		SBApiResponse response = new SBApiResponse(Constants.API_PROFILE_UPDATE);
 		try {
 			Map<String, Object> requestData = (Map<String, Object>) request.get(Constants.REQUEST);
@@ -2113,6 +2114,18 @@ public class ProfileServiceImpl implements ProfileService {
 
 					// Additional Condition for updating personal Details directly to user object
 					if (Constants.PERSONAL_DETAILS.equalsIgnoreCase(changedObj)) {
+						if (additionalValidation) {
+							try {
+								log.info("Validating personal details for changed object.");
+								validatePersonalDetails(profileDetailsMap.get(changedObj));
+							} catch (IllegalArgumentException e) {
+								log.error("Personal details validation failed: {}", e.getMessage());
+								response.setResponseCode(HttpStatus.BAD_REQUEST);
+								response.getParams().setStatus(Constants.FAILED);
+								response.getParams().setErrmsg(e.getMessage());
+								return response;
+							}
+						}
 						getModifiedPersonalDetails(profileDetailsMap.get(changedObj), requestData);
 					}
 				}
@@ -2566,9 +2579,35 @@ public class ProfileServiceImpl implements ProfileService {
 		}
 	}
 
+	private void validatePersonalDetails(Object personalDetailsObj) {
+		if (!(personalDetailsObj instanceof Map)) return;
+
+		Map<String, Object> details = (Map<String, Object>) personalDetailsObj;
+
+		// Validate first name
+		String firstname = (String) details.getOrDefault(Constants.FIRSTNAME, details.get(Constants.FIRST_NAME_LOWER_CASE));
+		if (firstname != null) {
+			if (StringUtils.isBlank(firstname)) {
+				throw new IllegalArgumentException("Firstname is empty.");
+			}
+			if (firstname.length() > serverProperties.getUserFirstNameMaxLength()) {
+				throw new IllegalArgumentException("Firstname length exceeds allowed limit: " + serverProperties.getUserFirstNameMaxLength());
+			}
+			if (!firstname.matches("^[a-zA-Z]+([\\s'-][a-zA-Z]+)*$")) {
+				throw new IllegalArgumentException("First name must contain only letters, spaces, hyphens or apostrophes.");
+			}
+		}
+
+		// Validate email
+		String email = (String) details.get(Constants.PRIMARY_EMAIL);
+		if (StringUtils.isBlank(email.trim()))
+			throw new IllegalArgumentException("Missing primary email.");
+		String emailError = userUtilityService.emailValidation(email, true);
+		if (StringUtils.isNotBlank(emailError))
+			throw new IllegalArgumentException(emailError);
+	}
+
 }
-
-
 
 
 
