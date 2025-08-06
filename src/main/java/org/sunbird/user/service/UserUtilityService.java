@@ -61,4 +61,8 @@ public interface UserUtilityService {
 	boolean selfRegisterUser(UserRegistration userRegistration);
 
 	boolean customRegisterUser(UserRegistration userRegistration);
+
+	String emailValidation(String email, boolean isDomainValidation);
+
+	boolean isApprovedDomains(String emailDomain, String domainType);
 }

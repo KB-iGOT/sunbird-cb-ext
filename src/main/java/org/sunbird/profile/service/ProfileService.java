@@ -39,7 +39,7 @@ public interface ProfileService {
 
 	SBApiResponse getGroupList();
 
-	SBApiResponse profileMDOAdminUpdate(Map<String, Object> request, String XAuthToken, String AuthToken, String rootOrgId) throws Exception;
+	SBApiResponse profileMDOAdminUpdate(Map<String, Object> request, String XAuthToken, String AuthToken, String rootOrgId, boolean additionalValidation) throws Exception;
 
 	SBApiResponse profileExternalSystemUpdate(Map<String, Object> request, String authToken);
 
