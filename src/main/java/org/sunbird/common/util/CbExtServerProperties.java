@@ -1073,6 +1073,9 @@ public class CbExtServerProperties {
 	@Value("${pre.enrollment.assessment.key}")
 	private String preEnrollmentAssessmentKey;
 
+	@Value("${user.firstname.max.length}")
+	private int userFirstNameMaxLength;
+
 	public String getStateLearningInsightsRedisKeyMapping() {
 		return stateLearningInsightsRedisKeyMapping;
 	}
@@ -3643,5 +3646,13 @@ public class CbExtServerProperties {
 
 	public void setPreEnrollmentAssessmentKey(String preEnrollmentAssessmentKey) {
 		this.preEnrollmentAssessmentKey = preEnrollmentAssessmentKey;
+	}
+
+	public int getUserFirstNameMaxLength() {
+		return userFirstNameMaxLength;
+	}
+
+	public void setUserFirstNameMaxLength(int userFirstNameMaxLength) {
+		this.userFirstNameMaxLength = userFirstNameMaxLength;
 	}
 }
