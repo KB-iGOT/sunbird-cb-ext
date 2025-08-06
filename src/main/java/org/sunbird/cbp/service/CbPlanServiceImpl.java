@@ -711,6 +711,7 @@ public class CbPlanServiceImpl implements CbPlanService {
                     enrichContentMap.put(Constants.POSTER_IMAGE, contentResponse.get(Constants.POSTER_IMAGE));
                     enrichContentMap.put(Constants.ORGANISATION, contentResponse.get(Constants.ORGANISATION));
                     enrichContentMap.put(Constants.CREATOR_LOGO, contentResponse.get(Constants.CREATOR_LOGO));
+                    enrichContentMap.put(Constants.LANGUAGE_MAP_V1, contentResponse.get(Constants.LANGUAGE_MAP_V1));
                     enrichContentInfoMap.add(enrichContentMap);
                 }
             }
@@ -1149,4 +1150,5 @@ public class CbPlanServiceImpl implements CbPlanService {
         }
         return isUpdatedLookup;
     }
+
 }

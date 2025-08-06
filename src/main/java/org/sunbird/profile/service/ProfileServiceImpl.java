@@ -193,6 +193,8 @@ public class ProfileServiceImpl implements ProfileService {
 						existingProfileDetails.put(changedObj, profileDetailsMap.get(changedObj));
 					} else if (profileDetailsMap.get(changedObj) instanceof String) {
 						existingProfileDetails.put(changedObj, profileDetailsMap.get(changedObj));
+					} else if (profileDetailsMap.get(changedObj) instanceof Integer) {
+						existingProfileDetails.put(changedObj, profileDetailsMap.get(changedObj));
 					} else {
 						if (existingProfileDetails.containsKey(changedObj)) {
 							Map<String, Object> existingProfileChild = (Map<String, Object>) existingProfileDetails
