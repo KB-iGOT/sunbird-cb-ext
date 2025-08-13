@@ -1377,6 +1377,7 @@ public class Constants {
 	public static final String PLACE_HOLDERS ="placeholders";
 	public static final String ENGAGEMENT = "ENGAGEMENT";
 	public static final String CONTENT_SHARE = "CONTENT_SHARE";
+	public static final String IS_APAR ="isApar";
 	private Constants() {
 		throw new IllegalStateException("Utility class");
 	}
