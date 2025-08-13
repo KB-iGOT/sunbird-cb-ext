@@ -43,6 +43,8 @@ public class CbPlan {
 
     private String comment;
 
+    private Boolean isApar;
+
     public UUID getId() {
         return id;
     }
@@ -178,4 +180,13 @@ public class CbPlan {
     public void setPublishedAt(Date publishedAt) {
         this.publishedAt = publishedAt;
     }
+
+    public Boolean getIsApar() {
+        return isApar;
+    }
+
+    public void setIsApar(Boolean apar) {
+        isApar = apar;
+    }
+
 }
