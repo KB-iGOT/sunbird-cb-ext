@@ -548,7 +548,7 @@ public class CbPlanServiceImpl implements CbPlanService {
                             logger.error("Failed to read course details for Id: " + courseId);
                         }
                     } else {
-                        continue;
+                        contentDetails = (Map<String, Object>) courseDetailsMap.get(courseId);
                     }
                     if (MapUtils.isNotEmpty(contentDetails)) {
                         courseList.add(contentDetails);
