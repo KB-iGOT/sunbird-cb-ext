@@ -1281,46 +1281,39 @@ public class CbPlanServiceImpl implements CbPlanService {
                         // Skip duplicates from non-APAR plans
                         continue;
                     }
-    
-                    if (isApar) {
-                        // Enrich content for APAR plans
-                        Map<String, Object> contentDetails = courseDetailsCache.get(courseId);
-                        if (contentDetails == null) {
-                            contentDetails = contentService.readContentFromCache(courseId, null);
-                            if (MapUtils.isNotEmpty(contentDetails)) {
-                                // _rc visibility filter (unchanged logic)
-                                if (courseId != null && courseId.contains("_rc")) {
-                                    if (Constants.VERIFIED.equalsIgnoreCase(profileStatus)) {
-                                        Map<String, Object> secureSettings = (Map<String, Object>) contentDetails.get(Constants.SECURE_SETTINGS);
-                                        if (MapUtils.isNotEmpty(secureSettings)) {
-                                            List<String> secureOrganisationList = (List<String>) secureSettings.get(Constants.ORGANISATION);
-                                            if (CollectionUtils.isNotEmpty(secureOrganisationList) && secureOrganisationList.contains(userOrgId)) {
-                                                courseDetailsCache.put(courseId, contentDetails);
-                                            }
+                    
+                    // Enrich content for APAR plans
+                    Map<String, Object> contentDetails = courseDetailsCache.get(courseId);
+                    if (contentDetails == null) {
+                        contentDetails = contentService.readContentFromCache(courseId, null);
+                        if (MapUtils.isNotEmpty(contentDetails)) {
+                            // _rc visibility filter (unchanged logic)
+                            if (courseId != null && courseId.contains("_rc")) {
+                                if (Constants.VERIFIED.equalsIgnoreCase(profileStatus)) {
+                                    Map<String, Object> secureSettings = (Map<String, Object>) contentDetails.get(Constants.SECURE_SETTINGS);
+                                    if (MapUtils.isNotEmpty(secureSettings)) {
+                                        List<String> secureOrganisationList = (List<String>) secureSettings.get(Constants.ORGANISATION);
+                                        if (CollectionUtils.isNotEmpty(secureOrganisationList) && secureOrganisationList.contains(userOrgId)) {
+                                            courseDetailsCache.put(courseId, contentDetails);
                                         }
                                     }
-                                    // If not visible after secure check, drop it
-                                    if (!courseDetailsCache.containsKey(courseId)) {
-                                        contentDetails = null;
-                                    }
-                                } else {
-                                    courseDetailsCache.put(courseId, contentDetails);
+                                }
+                                // If not visible after secure check, drop it
+                                if (!courseDetailsCache.containsKey(courseId)) {
+                                    contentDetails = null;
                                 }
                             } else {
-                                logger.error("Failed to read course details for Id: {}", courseId);
-                                contentDetails = null;
+                                courseDetailsCache.put(courseId, contentDetails);
                             }
+                        } else {
+                            logger.error("Failed to read course details for Id: {}", courseId);
+                            contentDetails = null;
                         }
-    
-                        if (MapUtils.isNotEmpty(contentDetails)) {
-                            courseList.add(contentDetails);
-                        }
-                    } else {
-                        // Non-APAR: do NOT enrich. Return minimal object { identifier: "<id>" }
-                        Map<String, Object> minimal = new HashMap<String, Object>();
-                        minimal.put(Constants.IDENTIFIER, courseId);
-                        courseList.add(minimal);
                     }
+
+                    if (MapUtils.isNotEmpty(contentDetails)) {
+                        courseList.add(contentDetails);
+                    }                    
                 }
     
                 cbPlanDetails.put(Constants.CB_CONTENT_LIST, courseList);
