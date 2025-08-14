@@ -1,9 +1,16 @@
 package org.sunbird.cbp.service;
 
-import com.datastax.driver.core.utils.UUIDs;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import java.io.IOException;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.*;
+import java.util.stream.Collectors;
+
+import javax.validation.ConstraintViolation;
+import javax.validation.Validation;
+import javax.validation.Validator;
+import javax.validation.ValidatorFactory;
+
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.collections.MapUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -26,15 +33,10 @@ import org.sunbird.common.util.ProjectUtil;
 import org.sunbird.core.producer.Producer;
 import org.sunbird.user.service.UserUtilityService;
 
-import javax.validation.ConstraintViolation;
-import javax.validation.Validation;
-import javax.validation.Validator;
-import javax.validation.ValidatorFactory;
-import java.io.IOException;
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
-import java.util.*;
-import java.util.stream.Collectors;
+import com.datastax.driver.core.utils.UUIDs;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 @Service
 public class CbPlanServiceImpl implements CbPlanService {
@@ -291,6 +293,7 @@ public class CbPlanServiceImpl implements CbPlanService {
                     }
                     cbPlan.put(Constants.DRAFT_DATA, null);
                 }
+
                 cbPlan.put(Constants.CB_PUBLISHED_BY, userId);
                 if (StringUtils.isNoneBlank(comment)) {
                     cbPlan.put(Constants.COMMENT, comment);
@@ -443,8 +446,7 @@ public class CbPlanServiceImpl implements CbPlanService {
         return getCBPlanListForUser(userOrgId, authUserToken, false);
     }
 
-    @Override
-    public SBApiResponse getCBPlanListForUser(String userOrgId, String authTokenOrUserId, boolean isPrivate) {
+    public SBApiResponse getCBPlanListForUser_old(String userOrgId, String authTokenOrUserId, boolean isPrivate) {
         SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.CBP_PLAN_USER_LIST_API);
         try {
             String userId = "";
@@ -545,7 +547,7 @@ public class CbPlanServiceImpl implements CbPlanService {
                             logger.error("Failed to read course details for Id: " + courseId);
                         }
                     } else {
-                        continue;
+                        contentDetails = (Map<String, Object>) courseDetailsMap.get(courseId);
                     }
                     if (MapUtils.isNotEmpty(contentDetails)) {
                         courseList.add(contentDetails);
@@ -711,7 +713,6 @@ public class CbPlanServiceImpl implements CbPlanService {
                     enrichContentMap.put(Constants.POSTER_IMAGE, contentResponse.get(Constants.POSTER_IMAGE));
                     enrichContentMap.put(Constants.ORGANISATION, contentResponse.get(Constants.ORGANISATION));
                     enrichContentMap.put(Constants.CREATOR_LOGO, contentResponse.get(Constants.CREATOR_LOGO));
-                    enrichContentMap.put(Constants.LANGUAGE_MAP_V1, contentResponse.get(Constants.LANGUAGE_MAP_V1));
                     enrichContentInfoMap.add(enrichContentMap);
                 }
             }
@@ -840,7 +841,6 @@ public class CbPlanServiceImpl implements CbPlanService {
                     updatedCbPlan.getOrDefault(Constants.CB_CONTENT_LIST, cbPlan.get(Constants.CB_CONTENT_LIST)));
             draftInfo.put(Constants.END_DATE,
                     updatedCbPlan.getOrDefault(Constants.END_DATE, cbPlan.get(Constants.END_DATE)));
-
             draftInfo.put(Constants.IS_APAR,
                     updatedCbPlan.getOrDefault(Constants.IS_APAR,
                             cbPlan.getOrDefault(Constants.IS_APAR, false)));
@@ -856,7 +856,6 @@ public class CbPlanServiceImpl implements CbPlanService {
             draftInfo.put(Constants.CB_CONTENT_LIST,
                     updatedCbPlan.getOrDefault(Constants.CB_CONTENT_LIST, cbPlanDto.getContentList()));
             draftInfo.put(Constants.END_DATE, updatedCbPlan.getOrDefault(Constants.END_DATE, cbPlanDto.getEndDate()));
-
             draftInfo.put(Constants.IS_APAR,
                     updatedCbPlan.getOrDefault(Constants.IS_APAR,
                             cbPlan.getOrDefault(Constants.IS_APAR, false)));
@@ -1149,6 +1148,189 @@ public class CbPlanServiceImpl implements CbPlanService {
             }
         }
         return isUpdatedLookup;
+    }
+
+    public SBApiResponse getCBPlanListForUser(String userOrgId, String authTokenOrUserId, boolean isPrivate) {
+        SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.CBP_PLAN_USER_LIST_API);
+        try {
+            final String userId = isPrivate ? authTokenOrUserId
+                    : accessTokenValidator.fetchUserIdFromAccessToken(authTokenOrUserId, response);
+            if (StringUtils.isBlank(userId)) {
+                return response;
+            }
+            logger.info("UserId of the User : {}, User org ID : {}", userId, userOrgId);
+
+            // ---- fetch user (unchanged logic, Java 8 compatible) ----
+            List<String> fields = Arrays.asList(Constants.PROFILE_DETAILS, Constants.ROOT_ORG_ID);
+            Map<String, Object> propertiesMap = new HashMap<String, Object>();
+            propertiesMap.put(Constants.ID, userId);
+            List<Map<String, Object>> userDetailsResult = cassandraOperation.getRecordsByPropertiesWithoutFiltering(
+                    Constants.SUNBIRD_KEY_SPACE_NAME, Constants.USER, propertiesMap, fields);
+            if (CollectionUtils.isEmpty(userDetailsResult)) {
+                response.getParams().setStatus(Constants.FAILED);
+                response.getParams().setErrmsg("User Does not Exist");
+                response.setResponseCode(HttpStatus.INTERNAL_SERVER_ERROR);
+                return response;
+            }
+
+            Map<String, Object> userDetails = userDetailsResult.get(0);
+            String profileDetails = (String) userDetails.get(Constants.PROFILE_DETAILS_KEY);
+
+            String userDesignation = "";
+            Map<String, Object> profileDetailsMap = null;
+            List<Map<String, Object>> professionalDetails = null;
+            String profileStatus = "";
+
+            if (StringUtils.isNotEmpty(profileDetails)) {
+                profileDetailsMap = mapper.readValue(profileDetails, new TypeReference<HashMap<String, Object>>() {});
+            }
+            if (MapUtils.isNotEmpty(profileDetailsMap)) {
+                professionalDetails = (List<Map<String, Object>>) profileDetailsMap.get(Constants.PROFESSIONAL_DETAILS);
+                profileStatus = (String) profileDetailsMap.get(Constants.PROFILE_STATUS);
+            }
+            if (CollectionUtils.isNotEmpty(professionalDetails)) {
+                userDesignation = (String) professionalDetails.get(0).get(Constants.DESIGNATION);
+            }
+
+            // ---- CB plan lookup (unchanged idea) ----
+            List<String> assignmentTypeInfoKeyQueryList = new ArrayList<String>(Arrays.asList(userId, Constants.ALL_USER));
+            if (StringUtils.isNotEmpty(userDesignation)) {
+                logger.info("User Designation : {}", userDesignation);
+                assignmentTypeInfoKeyQueryList.add(userDesignation);
+            }
+            propertiesMap.clear();
+            propertiesMap.put(Constants.ORG_ID, userOrgId);
+            propertiesMap.put(Constants.CB_ASSIGNMENT_TYPE_INFO_KEY, assignmentTypeInfoKeyQueryList);
+
+            List<Map<String, Object>> cbplanResult = cassandraOperation.getRecordsByPropertiesWithoutFiltering(
+                    Constants.SUNBIRD_KEY_SPACE_NAME, Constants.TABLE_CB_PLAN_LOOKUP, propertiesMap, new ArrayList<String>());
+
+            if (CollectionUtils.isEmpty(cbplanResult)) {
+                response.getParams().setStatus(Constants.SUCCESSFUL);
+                response.getParams().setErrmsg("CB Plan does not exist for the user");
+                response.setResponseCode(HttpStatus.OK);
+                return response;
+            }
+
+            // Keep only active
+            List<Map<String, Object>> activePlans = new ArrayList<Map<String, Object>>();
+            for (Map<String, Object> m : cbplanResult) {
+                if (Boolean.TRUE.equals(m.get(Constants.CB_IS_ACTIVE))) {
+                    activePlans.add(m);
+                }
+            }
+
+            // Sort by endDate desc with Java-8-safe null handling
+            final Comparator<Date> endDateComparator = new Comparator<Date>() {
+                @Override
+                public int compare(Date a, Date b) {
+                    if (a == b) return 0;
+                    if (a == null) return 1;   // nulls last
+                    if (b == null) return -1;
+                    return a.compareTo(b);
+                }
+            };
+            Collections.sort(activePlans, new Comparator<Map<String, Object>>() {
+                @Override
+                public int compare(Map<String, Object> a, Map<String, Object> b) {
+                    Date da = (Date) a.get(Constants.END_DATE);
+                    Date db = (Date) b.get(Constants.END_DATE);
+                    // reversed (desc)
+                    return -endDateComparator.compare(da, db);
+                }
+            });
+
+            // ===== Build a set of all content IDs that appear in ANY APAR plan =====
+            final LinkedHashSet<String> aparContentIds = new LinkedHashSet<String>();
+            for (Map<String, Object> plan : activePlans) {
+                boolean isAparPlan = Boolean.TRUE.equals(plan.get(Constants.IS_APAR));
+                if (isAparPlan) {
+                    List<String> ids = (List<String>) plan.get(Constants.CB_CONTENT_LIST);
+                    if (ids != null) {
+                        for (String id : ids) {
+                            if (id != null) {
+                                aparContentIds.add(id);
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Cache for enriched content (ID -> content map)
+            Map<String, Map<String, Object>> courseDetailsCache = new HashMap<String, Map<String, Object>>();
+
+            List<Map<String, Object>> resultMap = new ArrayList<Map<String, Object>>();
+
+            for (Map<String, Object> cbPlan : activePlans) {
+                Map<String, Object> cbPlanDetails = new HashMap<String, Object>();
+                cbPlanDetails.put(Constants.ID, cbPlan.get(Constants.CB_PLAN_ID_KEY));
+                cbPlanDetails.put(Constants.USER_TYPE, cbPlan.get(Constants.CB_ASSIGNMENT_TYPE));
+                cbPlanDetails.put(Constants.END_DATE, cbPlan.get(Constants.END_DATE));
+
+                boolean isApar = Boolean.TRUE.equals(cbPlan.get(Constants.IS_APAR));
+                cbPlanDetails.put(Constants.IS_APAR, Boolean.valueOf(isApar));
+
+                List<String> courses = (List<String>) cbPlan.get(Constants.CB_CONTENT_LIST);
+                if (courses == null) courses = Collections.<String>emptyList();
+
+                // APAR -> enrich; NON-APAR -> only identifiers, and skip any IDs present in any APAR plan
+                List<Object> courseList = new ArrayList<Object>();
+
+                for (String courseId : courses) {
+                    if (!isApar && aparContentIds.contains(courseId)) {
+                        // Skip duplicates from non-APAR plans
+                        continue;
+                    }
+
+                    // Enrich content for APAR plans
+                    Map<String, Object> contentDetails = courseDetailsCache.get(courseId);
+                    if (contentDetails == null) {
+                        contentDetails = contentService.readContentFromCache(courseId, null);
+                        if (MapUtils.isNotEmpty(contentDetails)) {
+                            // _rc visibility filter (unchanged logic)
+                            if (courseId != null && courseId.contains("_rc")) {
+                                if (Constants.VERIFIED.equalsIgnoreCase(profileStatus)) {
+                                    Map<String, Object> secureSettings = (Map<String, Object>) contentDetails.get(Constants.SECURE_SETTINGS);
+                                    if (MapUtils.isNotEmpty(secureSettings)) {
+                                        List<String> secureOrganisationList = (List<String>) secureSettings.get(Constants.ORGANISATION);
+                                        if (CollectionUtils.isNotEmpty(secureOrganisationList) && secureOrganisationList.contains(userOrgId)) {
+                                            courseDetailsCache.put(courseId, contentDetails);
+                                        }
+                                    }
+                                }
+                                // If not visible after secure check, drop it
+                                if (!courseDetailsCache.containsKey(courseId)) {
+                                    contentDetails = null;
+                                }
+                            } else {
+                                courseDetailsCache.put(courseId, contentDetails);
+                            }
+                        } else {
+                            logger.error("Failed to read course details for Id: {}", courseId);
+                            contentDetails = null;
+                        }
+                    }
+
+                    if (MapUtils.isNotEmpty(contentDetails)) {
+                        courseList.add(contentDetails);
+                    }
+                }
+
+                cbPlanDetails.put(Constants.CB_CONTENT_LIST, courseList);
+                resultMap.add(cbPlanDetails);
+            }
+
+            logger.info("Number of CB Plan Available for the user is {}", Integer.valueOf(resultMap.size()));
+            response.getResult().put(Constants.COUNT, Integer.valueOf(resultMap.size()));
+            response.getResult().put(Constants.CONTENT, resultMap);
+
+        } catch (Exception e) {
+            logger.error("Failed to lookup for user cb plan details. Exception: {}", e.getMessage(), e);
+            response.getParams().setStatus(Constants.FAILED);
+            response.getParams().setErrmsg(e.getMessage());
+            response.setResponseCode(HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+        return response;
     }
 
 }
