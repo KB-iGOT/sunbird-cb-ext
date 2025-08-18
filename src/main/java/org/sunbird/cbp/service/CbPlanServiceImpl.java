@@ -158,13 +158,13 @@ public class CbPlanServiceImpl implements CbPlanService {
                         // check when the cbPlan is published, need to check only few field need to be
                         // modified.
                         List<String> allowedFieldForUpdate = Arrays.asList(Constants.NAME,
-                                Constants.CB_ASSIGNMENT_TYPE_INFO, Constants.END_DATE, Constants.ID);
+                                Constants.CB_ASSIGNMENT_TYPE_INFO, Constants.END_DATE, Constants.ID, Constants.IS_APAR);
                         long keyNotAllowedCount = updatedCbPlan.keySet().stream()
                                 .filter(key -> !allowedFieldForUpdate.contains(key)).count();
                         if (keyNotAllowedCount > 0) {
                             response.getParams().setStatus(Constants.FAILED);
                             response.getParams().setErrmsg("Allowed Field for update cbPlan are: " + Constants.NAME
-                                    + ", " + Constants.CB_ASSIGNMENT_TYPE_INFO + ", " + Constants.END_DATE);
+                                    + ", " + Constants.CB_ASSIGNMENT_TYPE_INFO + ", " + Constants.END_DATE + ", " + Constants.IS_APAR);
                             response.setResponseCode(HttpStatus.BAD_REQUEST);
                             return response;
                         }
@@ -172,16 +172,16 @@ public class CbPlanServiceImpl implements CbPlanService {
                         draftInfo = updateDraftInfo(updatedCbPlan, cbPlanMapInfo.get(0));
                     }
                     Map<String, Object> updatedCbPlanData = new HashMap<>();
-                    draftInfo = mapper.writeValueAsString(updatedCbPlan);
-                    updatedCbPlanData.put(Constants.DRAFT_DATA, draftInfo);
-                    updatedCbPlanData.put(Constants.UPDATED_BY, userId);
-                    updatedCbPlanData.put(Constants.UPDATED_AT, new Date());
                     if (updatedCbPlan.containsKey(Constants.IS_APAR)) {
                         Object isAparVal = updatedCbPlan.get(Constants.IS_APAR);
                         if (isAparVal != null) {
                             updatedCbPlanData.put(Constants.IS_APAR, isAparVal);
                         }
                     }
+                    draftInfo = mapper.writeValueAsString(updatedCbPlan);
+                    updatedCbPlanData.put(Constants.DRAFT_DATA, draftInfo);
+                    updatedCbPlanData.put(Constants.UPDATED_BY, userId);
+                    updatedCbPlanData.put(Constants.UPDATED_AT, new Date());
 
                     Map<String, Object> resp = cassandraOperation.updateRecord(Constants.KEYSPACE_SUNBIRD,
                             Constants.TABLE_CB_PLAN, updatedCbPlanData, cbPlanInfo);
