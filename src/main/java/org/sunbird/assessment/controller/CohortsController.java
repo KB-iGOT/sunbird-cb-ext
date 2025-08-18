@@ -81,7 +81,7 @@ public class CohortsController {
 																@PathVariable("courseId") String contentId,
 																@RequestHeader("rootOrg") String rootOrg,
 																@PathVariable("userUUID") String userUUID,
-																@RequestHeader(name = Constants.LANGUAGE,required = false) String language) throws Exception {
+																@RequestParam(name = Constants.LANGUAGE,required = false) String language) throws Exception {
 		if (authUserToken.contains(" ")) {
 			authUserToken = authUserToken.split(" ")[1];
 		}
@@ -150,7 +150,7 @@ public class CohortsController {
 															@RequestHeader("courseId") String contentId,
 															@RequestHeader("rootOrg") String rootOrg,
 															@RequestHeader("userUUID") String userUUID,
-															@RequestHeader(name = Constants.LANGUAGE,required = false) String language)throws Exception {
+															@RequestParam(name = Constants.LANGUAGE,required = false) String language)throws Exception {
 
 		SBApiResponse response = cohortsServ.autoEnrollmentInCourseV2(authUserToken, rootOrgId, rootOrg, contentId, userUUID, language);
 		return new ResponseEntity<>(response, response.getResponseCode());
