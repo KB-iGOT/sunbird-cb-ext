@@ -109,7 +109,7 @@ public class InsightsServiceImpl implements InsightsService {
                 }
             }
 
-            Object w2 = stats.getW1();
+            Object w2 = stats.getW2();
             if (w2 instanceof String) {
                 try {
                     w2 = mapper.readTree((String) w2);
@@ -118,7 +118,7 @@ public class InsightsServiceImpl implements InsightsService {
                 }
             }
 
-            Object w3 = stats.getW1();
+            Object w3 = stats.getW3();
             if (w3 instanceof String) {
                 try {
                     w3 = mapper.readTree((String) w3);
@@ -127,7 +127,7 @@ public class InsightsServiceImpl implements InsightsService {
                 }
             }
 
-            Object w4 = stats.getW1();
+            Object w4 = stats.getW4();
             if (w4 instanceof String) {
                 try {
                     w4 = mapper.readTree((String) w4);
