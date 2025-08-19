@@ -246,7 +246,7 @@ public class MandatoryContentServiceImpl implements MandatoryContentService {
 			propertyMap.put(Constants.USER_ID, enrollmentIdList);
 			propertyMap.put(Constants.COURSE_ID, request.get(Constants.COURSE_ID));
 			userEnrolmentList.addAll(cassandraOperation.getRecordsByPropertiesWithoutFiltering(Constants.KEYSPACE_SUNBIRD_COURSES,
-					Constants.TABLE_USER_ENROLMENT, propertyMap,
+					Constants.TABLE_USER_ENROLMENT_V2, propertyMap,
 					Arrays.asList(Constants.USER_ID_CONSTANT, Constants.COURSE_ID,
 							Constants.BATCH_ID, Constants.COMPLETION_PERCENTAGE, Constants.PROGRESS,
 							Constants.STATUS, Constants.ISSUED_CERTIFICATES), cbExtServerProperties.getBatchEnrolmentReturnSize()));
