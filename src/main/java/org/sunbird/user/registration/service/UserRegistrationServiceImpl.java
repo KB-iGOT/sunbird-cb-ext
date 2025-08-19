@@ -690,4 +690,5 @@ public class UserRegistrationServiceImpl implements UserRegistrationService {
 		}
 		return null;  // Return null if no match found
 	}
+
 }
