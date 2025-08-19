@@ -16,6 +16,8 @@ import org.sunbird.cache.RedisCacheMgr;
 import org.sunbird.cassandra.utils.CassandraOperation;
 import org.sunbird.common.model.SBApiResponse;
 import org.sunbird.common.util.*;
+import org.sunbird.insights.entity.LearnerStatsEntity;
+import org.sunbird.insights.repository.LearnerStatsRepository;
 import org.sunbird.user.service.UserUtilityService;
 
 import java.math.BigDecimal;
@@ -47,6 +49,9 @@ public class InsightsServiceImpl implements InsightsService {
 
     @Autowired
     AccessTokenValidator accessTokenValidator;
+
+    @Autowired
+    LearnerStatsRepository learnerStatsRepository;
 
     ObjectMapper mapper = new ObjectMapper();
 
@@ -88,27 +93,23 @@ public class InsightsServiceImpl implements InsightsService {
         return  keys;
     }
     private Map<String, Object> populateIfClapsExist(String userId) {
-        Map<String, Object> userRequest = new HashMap<>();
-        userRequest.put(LEARNER_STATUS_USER_ID, userId);
-        List<String> fields = new ArrayList<>();
-        fields.add(LEARNER_STATUS_USER_ID);
-        fields.add(TOTAL_CLAPS);
-        fields.add(W1);
-        fields.add(W2);
-        fields.add(W3);
-        fields.add(W4);
-        List<Map<String, Object>>  result=  cassandraOperation.getRecordsByProperties(KEYSPACE_SUNBIRD,
-                LEARNER_STATS, userRequest, fields);
-        LocalDate[]  dates = populateDate();
-        if (result ==null || result.size() < 1) {
-            result = new ArrayList<>();
-            HashMap m = new HashMap();
-            result.add(m);
+        Optional<LearnerStatsEntity> optionalStats = learnerStatsRepository.findById(userId);
+        Map<String, Object> response = new HashMap<>();
+        if (optionalStats.isPresent()) {
+            LearnerStatsEntity stats = optionalStats.get();
+            response.put(USER_ID, stats.getUserId());
+            response.put(Constants.TOTAL_CLAPS, stats.getTotalClaps());
+            response.put(W1, stats.getW1());
+            response.put(W2, stats.getW2());
+            response.put(W3, stats.getW3());
+            response.put(W4, stats.getW4());
         }
+        LocalDate[]  dates = populateDate();
 
-            result.get(0).put("startDate", dates[0]);
-            result.get(0).put("endDate", dates[1]);
-            return result.get(0);
+
+            response.put(Constants.START_DATE, dates[0]);
+            response.put(Constants.END_DATE, dates[1]);
+            return response;
 
 
     }
@@ -350,11 +351,7 @@ public class InsightsServiceImpl implements InsightsService {
                 String insightLabel = entry.getKey();
                 String redisKey = entry.getValue();
                 String redisData;
-                if (Constants.EVENTS_PUBLISHED.equalsIgnoreCase(insightLabel)) {
-                    redisData = redisCacheMgr.getCacheFromDataRedish(redisKey, serverProperties.getRedisInsightIndex());
-                } else {
-                    redisData = redisCacheMgr.getHashedCacheFromDataRedis(redisKey, serverProperties.getRedisInsightIndex(), orgId);
-                }
+                redisData = redisCacheMgr.getHashedCacheFromDataRedis(redisKey, serverProperties.getRedisInsightIndex(), orgId);
                 Map<String, Object> insightData = new HashMap<>();
                 String iconUrl = fieldIcons.get(insightLabel);
                 insightData.put(ICON, iconUrl);

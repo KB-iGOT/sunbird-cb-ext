@@ -446,7 +446,7 @@ public class Constants {
 	public static final String EMAIL_VERIFIED = "emailVerified";
 	public static final String USER_NAME = "userName";
 	public static final String USER_FULL_NAME = "fullName";
-
+	public static final String SLW_USER_FULL_NAME = "fullname";
 	public static final String MANDATORY_FIELDS_EXISTS = "mandatoryFieldsExists";
 	public static final String KEY = "key";
 	public static final String TYPE = "type";
@@ -458,6 +458,7 @@ public class Constants {
 	public static final String EMAIL_TEMPLATE_TYPE = "emailTemplateType";
 	public static final String MODE = "mode";
 	public static final String ORG_NAME = "orgName";
+	public static final String SLW_ORG_NAME = "org_name";
 	public static final String RECIPIENT_EMAILS = "recipientEmails";
 	public static final String SET_PASSWORD_LINK = "setPasswordLink";
 	public static final String WELCOME_MESSAGE = "welcomeMessage";
@@ -1378,6 +1379,14 @@ public class Constants {
 	public static final String ENGAGEMENT = "ENGAGEMENT";
 	public static final String CONTENT_SHARE = "CONTENT_SHARE";
 	public static final String IS_APAR ="isApar";
+	public static final String PROFILE_IMAGE = "profile_image";
+	public static final String TOTAL_POINTS = "total_points";
+	public static final String ROW_NUM = "row_num";
+	public static final String TOTAL_LEARNING_HOURS = "total_learning_hours";
+	public static final String TOTAL_USERS= "totalUsers";
+	public static final String LAST_CREDIT_DATE= "lastCreditDate";
+	public static final String PREVIOUS_RANK= "previousRank";
+
 	private Constants() {
 		throw new IllegalStateException("Utility class");
 	}
