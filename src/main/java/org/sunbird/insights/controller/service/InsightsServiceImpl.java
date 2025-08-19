@@ -99,10 +99,47 @@ public class InsightsServiceImpl implements InsightsService {
             LearnerStatsEntity stats = optionalStats.get();
             response.put(USER_ID, stats.getUserId());
             response.put(Constants.TOTAL_CLAPS, stats.getTotalClaps());
-            response.put(W1, stats.getW1());
-            response.put(W2, stats.getW2());
-            response.put(W3, stats.getW3());
-            response.put(W4, stats.getW4());
+            // check if type of stats.getW1() is string. If yes, convert it to Json
+            Object w1 = stats.getW1();
+            if (w1 instanceof String) {
+                try {
+                    w1 = mapper.readTree((String) w1);
+                } catch (Exception e) {
+                    log.error("Failed to parse W1 as JSON", e);
+                }
+            }
+
+            Object w2 = stats.getW2();
+            if (w2 instanceof String) {
+                try {
+                    w2 = mapper.readTree((String) w2);
+                } catch (Exception e) {
+                    log.error("Failed to parse W1 as JSON", e);
+                }
+            }
+
+            Object w3 = stats.getW3();
+            if (w3 instanceof String) {
+                try {
+                    w3 = mapper.readTree((String) w3);
+                } catch (Exception e) {
+                    log.error("Failed to parse W3 as JSON", e);
+                }
+            }
+
+            Object w4 = stats.getW4();
+            if (w4 instanceof String) {
+                try {
+                    w4 = mapper.readTree((String) w4);
+                } catch (Exception e) {
+                    log.error("Failed to parse W4 as JSON", e);
+                }
+            }
+
+            response.put(W1, w1);
+            response.put(W2, w2);
+            response.put(W3, w3);
+            response.put(W4, w4);
         }
         LocalDate[]  dates = populateDate();
 
