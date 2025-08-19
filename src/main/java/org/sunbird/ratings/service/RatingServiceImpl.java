@@ -312,7 +312,7 @@ public class RatingServiceImpl implements RatingService {
                             }
                         }
                     }
-                    if ((int) userEnrolments.get(Constants.STATUS) == 0 || currentLanguageCompletionPercentage < 50) {
+                    if ((int) userEnrolments.get(Constants.STATUS) == 0 || currentLanguageCompletionPercentage < serverConfig.getMinimumRatingContentConsumptionPercentage()) {
                         logger.info("Not eligible for update the rating for the multilingual courseId: " + requestRating.getActivityId() +
                                 " : baseCourseId :: " + baseCourseId + " ::userId:: " + requestRating.getUserId());
                         ProjectUtil.updateErrorDetails(response, String.format("Not eligible for update the rating for this course ", requestRating.getActivityId()), HttpStatus.BAD_REQUEST);

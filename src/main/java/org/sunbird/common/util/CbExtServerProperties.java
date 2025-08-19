@@ -1079,6 +1079,9 @@ public class CbExtServerProperties {
 	@Value("${multilingual.allowed.course.category}")
 	private String multilingualAllowedCourseCategory;
 
+	@Value("${minimum.rating.content.consumption.percentage}")
+	private int minimumRatingContentConsumptionPercentage;
+
 	public String getStateLearningInsightsRedisKeyMapping() {
 		return stateLearningInsightsRedisKeyMapping;
 	}
@@ -3665,5 +3668,13 @@ public class CbExtServerProperties {
 
 	public void setMultilingualAllowedCourseCategory(String multilingualAllowedCourseCategory) {
 		this.multilingualAllowedCourseCategory = multilingualAllowedCourseCategory;
+	}
+
+	public int getMinimumRatingContentConsumptionPercentage() {
+		return minimumRatingContentConsumptionPercentage;
+	}
+
+	public void setMinimumRatingContentConsumptionPercentage(int minimumRatingContentConsumptionPercentage) {
+		this.minimumRatingContentConsumptionPercentage = minimumRatingContentConsumptionPercentage;
 	}
 }
