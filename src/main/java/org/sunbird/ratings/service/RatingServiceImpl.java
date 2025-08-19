@@ -242,7 +242,7 @@ public class RatingServiceImpl implements RatingService {
                 return response;
             }
             boolean isMultiLingual = serverConfig.getMultilingualAllowedCourseCategory().contains((String) contentResponse.get(Constants.COURSE_CATEGORY));
-            logger.info("is course multilingual : " + isMultiLingual);
+            logger.info("is course multilingual : " + isMultiLingual + " for coursecategory: " + contentResponse.get(Constants.COURSE_CATEGORY));
 
             String baseCourseId = "";
             String language = "";

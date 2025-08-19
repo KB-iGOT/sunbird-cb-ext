@@ -1076,7 +1076,7 @@ public class CbExtServerProperties {
 	@Value("${user.firstname.max.length}")
 	private int userFirstNameMaxLength;
 
-	@Value("${multilingual.allowed.course.category")
+	@Value("${multilingual.allowed.course.category}")
 	private String multilingualAllowedCourseCategory;
 
 	public String getStateLearningInsightsRedisKeyMapping() {
