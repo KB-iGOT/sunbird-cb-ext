@@ -290,6 +290,13 @@ public class RatingServiceImpl implements RatingService {
                     Map<String, Object> langContentStatus = (Map<String, Object>) userEnrolments.get(Constants.LANG_CONTENT_STATUS);
                     if (MapUtils.isEmpty(langContentStatus)) {
                         langContentStatus = (Map<String, Object>) userEnrolments.get(Constants.CONTENT_STATUS);
+                    } else {
+                        if (StringUtils.isBlank(language)) {
+                            List<String> baseLanguage = (List<String>) contentResponse.get(Constants.LANGUAGE);
+                            if (!CollectionUtils.isEmpty(baseLanguage)) {
+                                langContentStatus = (Map<String, Object>) langContentStatus.get(baseLanguage.get(0));
+                            }
+                        }
                     }
                     if (MapUtils.isNotEmpty(langContentStatus)) {
                         Map<String, Object> currentLanguageContentStatus;
