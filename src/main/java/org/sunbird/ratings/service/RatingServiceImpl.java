@@ -278,7 +278,7 @@ public class RatingServiceImpl implements RatingService {
                 List<Map<String, Object>> enrolments = cassandraOperation.getRecordsByPropertiesWithoutFiltering(
                         Constants.KEYSPACE_SUNBIRD_COURSES, Constants.TABLE_USER_ENROLMENT_V2, propertyMap,
                         Arrays.asList(Constants.USER_ID_CONSTANT, Constants.COURSE_ID, Constants.STATUS, Constants.COMPLETION_PERCENTAGE,
-                                Constants.ISSUED_USER_CERTIFICATE, Constants.LANG_CONTENT_STATUS, Constants.RECENT_LANGUAGE, Constants.CONTENT_STATUS));
+                                Constants.ISSUED_CERTIFICATES, Constants.LANG_CONTENT_STATUS_KEY, Constants.RECENT_LANGUAGE_KEY, Constants.CONTENT_STATUS));
                 if (CollectionUtils.isEmpty(enrolments)) {
                     logger.info("Issue while fetching the enrolment Record for the multilingual courseId: " + requestRating.getActivityId() +
                             " : baseCourseId :: " + baseCourseId + " ::userId:: " + requestRating.getUserId());
