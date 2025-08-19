@@ -236,8 +236,95 @@ public class RatingServiceImpl implements RatingService {
             request.put(Constants.ACTIVITY_ID, requestRating.getActivityId());
             request.put(Constants.ACTIVITY_TYPE, requestRating.getActivityType());
             request.put(Constants.RATINGS_USER_ID, requestRating.getUserId());
+            Map<String, Object> contentResponse = contentService.readContentFromCache(requestRating.getActivityId(), null);
+            if (ObjectUtils.isEmpty(contentResponse)) {
+                ProjectUtil.updateErrorDetails(response, String.format(Constants.CONTENT_NOT_AVAILABLE, requestRating.getActivityId()), HttpStatus.BAD_REQUEST);
+                return response;
+            }
+            boolean isMultiLingual = serverConfig.getMultilingualAllowedCourseCategory().contains((String) contentResponse.get(Constants.COURSE_CATEGORY));
+            logger.info("is course multilingual : " + isMultiLingual);
 
+            String baseCourseId = "";
+            String language = "";
+            if (isMultiLingual) {
+                Object languageMapObj = contentResponse.get(Constants.LANGUAGE_MAP_V1);
+                if (languageMapObj instanceof Map) {
+                    Map<?, ?> languageMap = (Map<?, ?>) languageMapObj;
 
+                    for (Map.Entry<?, ?> entry : languageMap.entrySet()) {
+                        Object key = entry.getKey();
+                        Object value = entry.getValue();
+                        if (value instanceof Map) {
+                            Map<?, ?> langDetails = (Map<?, ?>) value;
+                            Object isBaseLang = langDetails.get("isBaseLang");
+                            String courseId = String.valueOf(langDetails.get("id"));
+                            if (courseId.equalsIgnoreCase(requestRating.getActivityId())) {
+                                language = (String) key;
+                            }
+                            if (Boolean.TRUE.equals(isBaseLang)) {
+                                baseCourseId = courseId;
+                            }
+                        }
+                    }
+                }
+            } else {
+                baseCourseId = requestRating.getActivityId();
+            }
+
+            if (StringUtils.isNotBlank(baseCourseId)) {
+                Map<String, Object> propertyMap = new HashMap<>();
+                propertyMap.put(Constants.USER_ID_CONSTANT, requestRating.getUserId());
+                propertyMap.put(Constants.COURSE_ID, baseCourseId);
+                List<Map<String, Object>> enrolments = cassandraOperation.getRecordsByPropertiesWithoutFiltering(
+                        Constants.KEYSPACE_SUNBIRD_COURSES, Constants.TABLE_USER_ENROLMENT_V2, propertyMap,
+                        Arrays.asList(Constants.USER_ID_CONSTANT, Constants.COURSE_ID, Constants.STATUS, Constants.COMPLETION_PERCENTAGE,
+                                Constants.ISSUED_USER_CERTIFICATE, Constants.LANG_CONTENT_STATUS, Constants.RECENT_LANGUAGE, Constants.CONTENT_STATUS));
+                if (CollectionUtils.isEmpty(enrolments)) {
+                    logger.info("Issue while fetching the enrolment Record for the multilingual courseId: " + requestRating.getActivityId() +
+                            " : baseCourseId :: " + baseCourseId + " ::userId:: " + requestRating.getUserId());
+                    ProjectUtil.updateErrorDetails(response, String.format("Issue while fetching the user enrolment", requestRating.getActivityId()), HttpStatus.BAD_REQUEST);
+                    return response;
+                } else {
+                    Map<String, Object> userEnrolments = enrolments.get(0);
+                    int currentLanguageCompletionPercentage = 0;
+                    Map<String, Object> langContentStatus = new HashMap<>();
+                    if (isMultiLingual) {
+                        langContentStatus = (Map<String, Object>) userEnrolments.get(Constants.LANG_CONTENT_STATUS);
+                    } else {
+                        langContentStatus = (Map<String, Object>) userEnrolments.get(Constants.CONTENT_STATUS);
+
+                    }
+                    if (MapUtils.isNotEmpty(langContentStatus)) {
+                        Map<String, Object> currentLanguageContentStatus = new HashMap<>();
+                        if (isMultiLingual) {
+                            currentLanguageContentStatus = (Map<String, Object>) langContentStatus.get(language);
+                        } else {
+                            currentLanguageContentStatus = langContentStatus;
+                        }
+                        if (MapUtils.isNotEmpty(currentLanguageContentStatus)) {
+                            Map<String, Object> filtered = currentLanguageContentStatus.entrySet()
+                                    .stream()
+                                    .filter(e -> e.getValue() != null && e.getValue().equals(2))
+                                    .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+                            if (MapUtils.isNotEmpty(filtered)) {
+                                currentLanguageCompletionPercentage = (filtered.size() * 100) / ((int) contentResponse.get(Constants.LEAF_NODES_COUNT));
+                                logger.info("The current Language Completion Percentage for courseId:" + requestRating.getActivityId() + " is : " + currentLanguageCompletionPercentage);
+                            }
+                        }
+                    }
+                    if ((int) userEnrolments.get(Constants.STATUS) == 0 || currentLanguageCompletionPercentage < 50) {
+                        logger.info("Not eligible for update the rating for the multilingual courseId: " + requestRating.getActivityId() +
+                                " : baseCourseId :: " + baseCourseId + " ::userId:: " + requestRating.getUserId());
+                        ProjectUtil.updateErrorDetails(response, String.format("Not eligible for update the rating for this course ", requestRating.getActivityId()), HttpStatus.BAD_REQUEST);
+                        return response;
+                    }
+                }
+            } else {
+                logger.info("Issue while getting the data for courseId: " + requestRating.getActivityId() +
+                        " : baseCourseId :: " + baseCourseId + " ::userId:: " + requestRating.getUserId());
+                ProjectUtil.updateErrorDetails(response, String.format("Issue while getting the data for courseId: ", requestRating.getActivityId()), HttpStatus.BAD_REQUEST);
+                return response;
+            }
             List<Map<String, Object>> existingDataList = cassandraOperation.getRecordsByPropertiesWithoutFiltering(
                     Constants.KEYSPACE_SUNBIRD,
                     Constants.TABLE_RATINGS, request, null);

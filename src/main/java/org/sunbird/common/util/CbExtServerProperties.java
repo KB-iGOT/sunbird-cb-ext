@@ -1076,6 +1076,9 @@ public class CbExtServerProperties {
 	@Value("${user.firstname.max.length}")
 	private int userFirstNameMaxLength;
 
+	@Value("${multilingual.allowed.course.category")
+	private String multilingualAllowedCourseCategory;
+
 	public String getStateLearningInsightsRedisKeyMapping() {
 		return stateLearningInsightsRedisKeyMapping;
 	}
@@ -3654,5 +3657,13 @@ public class CbExtServerProperties {
 
 	public void setUserFirstNameMaxLength(int userFirstNameMaxLength) {
 		this.userFirstNameMaxLength = userFirstNameMaxLength;
+	}
+
+	public List<String> getMultilingualAllowedCourseCategory() {
+		return Arrays.asList(multilingualAllowedCourseCategory.split(",", -1));
+	}
+
+	public void setMultilingualAllowedCourseCategory(String multilingualAllowedCourseCategory) {
+		this.multilingualAllowedCourseCategory = multilingualAllowedCourseCategory;
 	}
 }
