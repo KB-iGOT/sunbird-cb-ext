@@ -1129,7 +1129,10 @@ public class CbPlanServiceImpl implements CbPlanService {
         boolean isUpdatedLookup = true;
         for (Map<String, Object> cbLookupInfo : cbPlanMap) {
             Date endDate = (Date) cbLookupInfo.get(Constants.END_DATE);
-            if (!planDto.getEndDate().equals(endDate)) {
+            Boolean currentIsApar = (Boolean) cbLookupInfo.get(Constants.IS_APAR);
+            Boolean newIsApar = planDto.getIsApar() != null ? planDto.getIsApar() : false;
+
+            if (!planDto.getEndDate().equals(endDate) || currentIsApar == null || !newIsApar.equals(currentIsApar)) {
                 Map<String, Object> compositeKey = new HashMap<>();
                 compositeKey.put(Constants.ORG_ID, planDto.getOrgId());
                 compositeKey.put(Constants.CB_PLAN_ID, planDto.getId());
@@ -1137,7 +1140,7 @@ public class CbPlanServiceImpl implements CbPlanService {
 
                 Map<String, Object> lookupInfoUpdated = new HashMap<>();
                 lookupInfoUpdated.put(Constants.END_DATE, planDto.getEndDate());
-                lookupInfoUpdated.put(Constants.IS_APAR, planDto.getIsApar() != null ? planDto.getIsApar() : false);
+                lookupInfoUpdated.put(Constants.IS_APAR, newIsApar);
                 Map<String, Object> resp = cassandraOperation.updateRecord(Constants.KEYSPACE_SUNBIRD,
                         Constants.TABLE_CB_PLAN_LOOKUP, lookupInfoUpdated, compositeKey);
                 if (resp.get(Constants.RESPONSE).equals(Constants.SUCCESS)) {
