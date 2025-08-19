@@ -294,7 +294,7 @@ public class RatingServiceImpl implements RatingService {
                         if (StringUtils.isBlank(language)) {
                             List<String> baseLanguage = (List<String>) contentResponse.get(Constants.LANGUAGE);
                             if (!CollectionUtils.isEmpty(baseLanguage)) {
-                                langContentStatus = (Map<String, Object>) langContentStatus.get(baseLanguage.get(0));
+                                langContentStatus = (Map<String, Object>) langContentStatus.get(baseLanguage.get(0).toLowerCase());
                             }
                         }
                     }
