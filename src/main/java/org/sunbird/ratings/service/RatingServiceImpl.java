@@ -287,15 +287,12 @@ public class RatingServiceImpl implements RatingService {
                 } else {
                     Map<String, Object> userEnrolments = enrolments.get(0);
                     int currentLanguageCompletionPercentage = 0;
-                    Map<String, Object> langContentStatus = new HashMap<>();
-                    if (isMultiLingual) {
-                        langContentStatus = (Map<String, Object>) userEnrolments.get(Constants.LANG_CONTENT_STATUS);
-                    } else {
+                    Map<String, Object> langContentStatus = (Map<String, Object>) userEnrolments.get(Constants.LANG_CONTENT_STATUS);
+                    if (MapUtils.isEmpty(langContentStatus)) {
                         langContentStatus = (Map<String, Object>) userEnrolments.get(Constants.CONTENT_STATUS);
-
                     }
                     if (MapUtils.isNotEmpty(langContentStatus)) {
-                        Map<String, Object> currentLanguageContentStatus = new HashMap<>();
+                        Map<String, Object> currentLanguageContentStatus;
                         if (isMultiLingual) {
                             currentLanguageContentStatus = (Map<String, Object>) langContentStatus.get(language);
                         } else {
