@@ -1390,6 +1390,12 @@ public class Constants {
 	public static final String TABLE_USER_ENROLMENT_V2 = "user_enrolments_v2";
 	public static final String IS_APAR ="isApar";
 	public static final String LANGUAGE_MAP_V1 = "languageMapV1";
+	public static final String RECENT_LANGUAGE = "recentLanguage";
+	public static final String LANG_CONTENT_STATUS = "langContentStatus";
+	public static final String LANG_CONTENT_STATUS_KEY = "lang_contentstatus";
+	public static final String RECENT_LANGUAGE_KEY = "recent_language";
+	public static final String RATING_SUFFIX_KEY = "_RATING";
+
 	private Constants() {
 		throw new IllegalStateException("Utility class");
 	}

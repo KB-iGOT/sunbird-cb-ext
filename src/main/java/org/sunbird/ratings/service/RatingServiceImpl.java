@@ -82,7 +82,6 @@ public class RatingServiceImpl implements RatingService {
     public SBApiResponse getRatings(String activityId, String activityType, String userId) {
         SBApiResponse response = new SBApiResponse(Constants.API_RATINGS_READ);
         UUID timeBasedUuid;
-
         try {
             validationBody = new ValidationBody();
             validationBody.setActivityId(activityId);
@@ -90,6 +89,15 @@ public class RatingServiceImpl implements RatingService {
             validationBody.setUserId(userId);
             validateRatingsInfo(validationBody, "getRating");
 
+            String cacheKey = userId + "_" + activityId + Constants.RATING_SUFFIX_KEY;
+            String redisCache = redisCacheMgr.getCache(cacheKey);
+            if (StringUtils.isNotBlank(redisCache)) {
+                RatingModelInfo ratingModelInfo = mapper.readValue(redisCache, RatingModelInfo.class);
+                response.put(Constants.MESSAGE, Constants.SUCCESSFUL);
+                response.put(Constants.RESPONSE, ratingModelInfo);
+                response.setResponseCode(HttpStatus.OK);
+                return response;
+            }
 
             Map<String, Object> request = new HashMap<>();
             request.put(Constants.ACTIVITY_ID, activityId);
@@ -112,7 +120,6 @@ public class RatingServiceImpl implements RatingService {
                     Long CommentUpdatedTime = (commentupdatedOn.timestamp() - 0x01b21dd213814000L) / 10000L;
                     ratingModelInfo.setCommentUpdatedOn(new Timestamp(CommentUpdatedTime));
                 }
-
                 timeBasedUuid = (UUID) ratingData.get(Constants.UPDATED_ON);
                 Long updatedTime = (timeBasedUuid.timestamp() - 0x01b21dd213814000L) / 10000L;
                 ratingModelInfo.setUpdatedOn(new Timestamp(updatedTime));
@@ -121,6 +128,9 @@ public class RatingServiceImpl implements RatingService {
                 timeBasedUuid = (UUID) ratingData.get(Constants.CREATED_ON);
                 Long createdTime = (timeBasedUuid.timestamp() - 0x01b21dd213814000L) / 10000L;
                 ratingModelInfo.setCreatedOn(new Timestamp(createdTime));
+
+                redisCacheMgr.putCache(cacheKey, ratingModelInfo, serverConfig.getCacheRatingsTTL());
+
                 response.put(Constants.MESSAGE, Constants.SUCCESSFUL);
                 response.put(Constants.RESPONSE, ratingModelInfo);
                 response.setResponseCode(HttpStatus.OK);
@@ -223,6 +233,7 @@ public class RatingServiceImpl implements RatingService {
     @Override
     public SBApiResponse upsertRating(RequestRating requestRating) {
         UUID timeBasedUuid = UUIDs.timeBased();
+        Long eventTime = (timeBasedUuid.timestamp() - 0x01b21dd213814000L) / 10000L;
         SBApiResponse response = new SBApiResponse(Constants.API_RATINGS_UPDATE);
         RatingMessage ratingMessage;
 
@@ -236,11 +247,104 @@ public class RatingServiceImpl implements RatingService {
             request.put(Constants.ACTIVITY_ID, requestRating.getActivityId());
             request.put(Constants.ACTIVITY_TYPE, requestRating.getActivityType());
             request.put(Constants.RATINGS_USER_ID, requestRating.getUserId());
+            Map<String, Object> contentResponse = contentService.readContentFromCache(requestRating.getActivityId(), null);
+            if (ObjectUtils.isEmpty(contentResponse)) {
+                ProjectUtil.updateErrorDetails(response, String.format(Constants.CONTENT_NOT_AVAILABLE, requestRating.getActivityId()), HttpStatus.BAD_REQUEST);
+                return response;
+            }
+            boolean isMultiLingual = serverConfig.getMultilingualAllowedCourseCategory().contains((String) contentResponse.get(Constants.COURSE_CATEGORY));
+            logger.info("is course multilingual : " + isMultiLingual + " for coursecategory: " + contentResponse.get(Constants.COURSE_CATEGORY));
 
+            String baseCourseId = "";
+            String language = "";
+            if (isMultiLingual) {
+                Object languageMapObj = contentResponse.get(Constants.LANGUAGE_MAP_V1);
+                if (languageMapObj instanceof Map) {
+                    Map<?, ?> languageMap = (Map<?, ?>) languageMapObj;
 
+                    for (Map.Entry<?, ?> entry : languageMap.entrySet()) {
+                        Object key = entry.getKey();
+                        Object value = entry.getValue();
+                        if (value instanceof Map) {
+                            Map<?, ?> langDetails = (Map<?, ?>) value;
+                            Object isBaseLang = langDetails.get("isBaseLang");
+                            String courseId = String.valueOf(langDetails.get("id"));
+                            if (courseId.equalsIgnoreCase(requestRating.getActivityId())) {
+                                language = (String) key;
+                            }
+                            if (Boolean.TRUE.equals(isBaseLang)) {
+                                baseCourseId = courseId;
+                            }
+                        }
+                    }
+                }
+            } else {
+                baseCourseId = requestRating.getActivityId();
+            }
+
+            if (StringUtils.isNotBlank(baseCourseId)) {
+                Map<String, Object> propertyMap = new HashMap<>();
+                propertyMap.put(Constants.USER_ID_CONSTANT, requestRating.getUserId());
+                propertyMap.put(Constants.COURSE_ID, baseCourseId);
+                List<Map<String, Object>> enrolments = cassandraOperation.getRecordsByPropertiesWithoutFiltering(
+                        Constants.KEYSPACE_SUNBIRD_COURSES, Constants.TABLE_USER_ENROLMENT_V2, propertyMap,
+                        Arrays.asList(Constants.USER_ID_CONSTANT, Constants.COURSE_ID, Constants.STATUS, Constants.COMPLETION_PERCENTAGE,
+                                Constants.ISSUED_CERTIFICATES, Constants.LANG_CONTENT_STATUS_KEY, Constants.RECENT_LANGUAGE_KEY, Constants.CONTENT_STATUS));
+                if (CollectionUtils.isEmpty(enrolments)) {
+                    logger.info("Issue while fetching the enrolment Record for the multilingual courseId: " + requestRating.getActivityId() +
+                            " : baseCourseId :: " + baseCourseId + " ::userId:: " + requestRating.getUserId());
+                    ProjectUtil.updateErrorDetails(response, String.format("Issue while fetching the user enrolment", requestRating.getActivityId()), HttpStatus.BAD_REQUEST);
+                    return response;
+                } else {
+                    Map<String, Object> userEnrolments = enrolments.get(0);
+                    int currentLanguageCompletionPercentage = 0;
+                    Map<String, Object> langContentStatus = (Map<String, Object>) userEnrolments.get(Constants.LANG_CONTENT_STATUS);
+                    if (MapUtils.isEmpty(langContentStatus)) {
+                        langContentStatus = (Map<String, Object>) userEnrolments.get(Constants.CONTENT_STATUS);
+                    } else {
+                        if (StringUtils.isBlank(language)) {
+                            List<String> baseLanguage = (List<String>) contentResponse.get(Constants.LANGUAGE);
+                            if (!CollectionUtils.isEmpty(baseLanguage)) {
+                                langContentStatus = (Map<String, Object>) langContentStatus.get(baseLanguage.get(0).toLowerCase());
+                            }
+                        }
+                    }
+                    if (MapUtils.isNotEmpty(langContentStatus)) {
+                        Map<String, Object> currentLanguageContentStatus;
+                        if (isMultiLingual) {
+                            currentLanguageContentStatus = (Map<String, Object>) langContentStatus.get(language);
+                        } else {
+                            currentLanguageContentStatus = langContentStatus;
+                        }
+                        if (MapUtils.isNotEmpty(currentLanguageContentStatus)) {
+                            Map<String, Object> filtered = currentLanguageContentStatus.entrySet()
+                                    .stream()
+                                    .filter(e -> e.getValue() != null && e.getValue().equals(2))
+                                    .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+                            if (MapUtils.isNotEmpty(filtered)) {
+                                currentLanguageCompletionPercentage = (filtered.size() * 100) / ((int) contentResponse.get(Constants.LEAF_NODES_COUNT));
+                                logger.info("The current Language Completion Percentage for courseId:" + requestRating.getActivityId() + " is : " + currentLanguageCompletionPercentage);
+                            }
+                        }
+                    }
+                    if ((int) userEnrolments.get(Constants.STATUS) == 0 || currentLanguageCompletionPercentage < serverConfig.getMinimumRatingContentConsumptionPercentage()) {
+                        logger.info("Not eligible for update the rating for the multilingual courseId: " + requestRating.getActivityId() +
+                                " : baseCourseId :: " + baseCourseId + " ::userId:: " + requestRating.getUserId());
+                        ProjectUtil.updateErrorDetails(response, String.format("Not eligible for update the rating for this course ", requestRating.getActivityId()), HttpStatus.BAD_REQUEST);
+                        return response;
+                    }
+                }
+            } else {
+                logger.info("Issue while getting the data for courseId: " + requestRating.getActivityId() +
+                        " : baseCourseId :: " + baseCourseId + " ::userId:: " + requestRating.getUserId());
+                ProjectUtil.updateErrorDetails(response, String.format("Issue while getting the data for courseId: ", requestRating.getActivityId()), HttpStatus.BAD_REQUEST);
+                return response;
+            }
             List<Map<String, Object>> existingDataList = cassandraOperation.getRecordsByPropertiesWithoutFiltering(
                     Constants.KEYSPACE_SUNBIRD,
                     Constants.TABLE_RATINGS, request, null);
+
+            RatingModelInfo ratingModelInfo = new RatingModelInfo();
 
             if (!CollectionUtils.isEmpty(existingDataList)) {
 
@@ -259,8 +363,27 @@ public class RatingServiceImpl implements RatingService {
                     updateRequest.put(Constants.RECOMMENDED, requestRating.getRecommended());
                 }
                 Map<String, Object> prevInfo = existingDataList.get(0);
-                cassandraOperation.updateRecord(Constants.KEYSPACE_SUNBIRD, Constants.TABLE_RATINGS, updateRequest,
-                        request);
+                cassandraOperation.updateRecord(Constants.KEYSPACE_SUNBIRD, Constants.TABLE_RATINGS, updateRequest, request);
+
+                ratingModelInfo.setActivityId(requestRating.getActivityId());
+                ratingModelInfo.setActivityType(requestRating.getActivityType());
+                ratingModelInfo.setUserId(requestRating.getUserId());
+                ratingModelInfo.setRating(requestRating.getRating());
+                ratingModelInfo.setReview(requestRating.getReview());
+                ratingModelInfo.setComment(requestRating.getComment());
+                ratingModelInfo.setCommentBy(requestRating.getCommentBy());
+                ratingModelInfo.setRecommended(requestRating.getRecommended());
+                ratingModelInfo.setUpdatedOn(new Timestamp(eventTime));
+                if (requestRating.getComment() != null && requestRating.getCommentBy() != null) {
+                    ratingModelInfo.setCommentUpdatedOn(new Timestamp(eventTime));
+                }
+
+                UUID createdOnUuid = (UUID) prevInfo.get(Constants.CREATED_ON);
+                if (createdOnUuid != null) {
+                    Long createdTime = (createdOnUuid.timestamp() - 0x01b21dd213814000L) / 10000L;
+                    ratingModelInfo.setCreatedOn(new Timestamp(createdTime));
+                }
+
                 ratingMessage = new RatingMessage("ratingUpdate", requestRating.getActivityId(), requestRating.getActivityType(),
                         requestRating.getUserId(), String.valueOf((prevInfo.get(Constants.CREATED_ON))));
 
@@ -276,14 +399,30 @@ public class RatingServiceImpl implements RatingService {
                 request.put(Constants.RECOMMENDED,requestRating.getRecommended());
                 cassandraOperation.insertRecord(Constants.KEYSPACE_SUNBIRD, Constants.TABLE_RATINGS, request);
 
+                ratingModelInfo.setActivityId(requestRating.getActivityId());
+                ratingModelInfo.setActivityType(requestRating.getActivityType());
+                ratingModelInfo.setUserId(requestRating.getUserId());
+                ratingModelInfo.setRating(requestRating.getRating());
+                ratingModelInfo.setReview(requestRating.getReview());
+                ratingModelInfo.setComment(requestRating.getComment());
+                ratingModelInfo.setCommentBy(requestRating.getCommentBy());
+                ratingModelInfo.setRecommended(requestRating.getRecommended());
+                ratingModelInfo.setCreatedOn(new Timestamp(eventTime));
+                ratingModelInfo.setUpdatedOn(new Timestamp(eventTime));
+                if (requestRating.getComment() != null && requestRating.getCommentBy() != null) {
+                    ratingModelInfo.setCommentUpdatedOn(new Timestamp(eventTime));
+                }
+
                 ratingMessage = new RatingMessage("ratingAdd", requestRating.getActivityId(), requestRating.getActivityType(),
                         requestRating.getUserId(), String.valueOf(timeBasedUuid));
 
                 ratingMessage.setUpdatedValues(processEventMessage(String.valueOf(request.get(Constants.CREATED_ON)),
                         requestRating.getRating(), requestRating.getReview()));
                 response.put(Constants.DATA, request);
-
             }
+
+            redisCacheMgr.putCache(requestRating.getUserId() + "_" + requestRating.getActivityId() + Constants.RATING_SUFFIX_KEY, ratingModelInfo, serverConfig.getCacheRatingsTTL());
+
             response.setResponseCode(HttpStatus.OK);
             response.getParams().setStatus(Constants.SUCCESSFUL);
             if(requestRating.getComment()==null && requestRating.getCommentBy()==null) {

@@ -1076,6 +1076,15 @@ public class CbExtServerProperties {
 	@Value("${user.firstname.max.length}")
 	private int userFirstNameMaxLength;
 
+	@Value("${multilingual.allowed.course.category}")
+	private String multilingualAllowedCourseCategory;
+
+	@Value("${minimum.rating.content.consumption.percentage}")
+	private int minimumRatingContentConsumptionPercentage;
+
+	@Value("${cache.ratings.ttl}")
+	private int cacheRatingsTTL;
+
 	public String getStateLearningInsightsRedisKeyMapping() {
 		return stateLearningInsightsRedisKeyMapping;
 	}
@@ -3654,5 +3663,29 @@ public class CbExtServerProperties {
 
 	public void setUserFirstNameMaxLength(int userFirstNameMaxLength) {
 		this.userFirstNameMaxLength = userFirstNameMaxLength;
+	}
+
+	public List<String> getMultilingualAllowedCourseCategory() {
+		return Arrays.asList(multilingualAllowedCourseCategory.split(",", -1));
+	}
+
+	public void setMultilingualAllowedCourseCategory(String multilingualAllowedCourseCategory) {
+		this.multilingualAllowedCourseCategory = multilingualAllowedCourseCategory;
+	}
+
+	public int getMinimumRatingContentConsumptionPercentage() {
+		return minimumRatingContentConsumptionPercentage;
+	}
+
+	public void setMinimumRatingContentConsumptionPercentage(int minimumRatingContentConsumptionPercentage) {
+		this.minimumRatingContentConsumptionPercentage = minimumRatingContentConsumptionPercentage;
+	}
+
+	public int getCacheRatingsTTL() {
+		return cacheRatingsTTL;
+	}
+
+	public void setCacheRatingsTTL(int cacheRatingsTTL) {
+		this.cacheRatingsTTL = cacheRatingsTTL;
 	}
 }
