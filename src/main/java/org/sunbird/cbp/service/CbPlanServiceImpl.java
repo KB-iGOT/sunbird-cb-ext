@@ -168,6 +168,18 @@ public class CbPlanServiceImpl implements CbPlanService {
                             response.setResponseCode(HttpStatus.BAD_REQUEST);
                             return response;
                         }
+
+                        if (updatedCbPlan.containsKey(Constants.IS_APAR)) {
+                            Boolean currentIsApar = (Boolean) cbPlanInfoMap.get(Constants.IS_APAR);
+                            Boolean newIsApar = (Boolean) updatedCbPlan.get(Constants.IS_APAR);
+
+                            if (Boolean.TRUE.equals(currentIsApar) && Boolean.FALSE.equals(newIsApar)) {
+                                response.getParams().setStatus(Constants.FAILED);
+                                response.getParams().setErrmsg("Cannot update APAR to Non_APAR when cbPlan status is LIVE");
+                                response.setResponseCode(HttpStatus.BAD_REQUEST);
+                                return response;
+                            }
+                        }
                     } else {
                         draftInfo = updateDraftInfo(updatedCbPlan, cbPlanMapInfo.get(0));
                     }
