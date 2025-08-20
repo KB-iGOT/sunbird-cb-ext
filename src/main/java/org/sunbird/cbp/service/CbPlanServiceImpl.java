@@ -175,7 +175,7 @@ public class CbPlanServiceImpl implements CbPlanService {
 
                             if (Boolean.TRUE.equals(currentIsApar) && Boolean.FALSE.equals(newIsApar)) {
                                 response.getParams().setStatus(Constants.FAILED);
-                                response.getParams().setErrmsg("Cannot update APAR to Non_APAR when cbPlan status is LIVE");
+                                response.getParams().setErrmsg("Cannot remove APAR flag for Live training plan.");
                                 response.setResponseCode(HttpStatus.BAD_REQUEST);
                                 return response;
                             }
