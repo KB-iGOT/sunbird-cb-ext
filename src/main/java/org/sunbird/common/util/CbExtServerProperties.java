@@ -1082,6 +1082,9 @@ public class CbExtServerProperties {
 	@Value("${minimum.rating.content.consumption.percentage}")
 	private int minimumRatingContentConsumptionPercentage;
 
+	@Value("${cache.ratings.ttl}")
+	private int cacheRatingsTTL;
+
 	public String getStateLearningInsightsRedisKeyMapping() {
 		return stateLearningInsightsRedisKeyMapping;
 	}
@@ -3676,5 +3679,13 @@ public class CbExtServerProperties {
 
 	public void setMinimumRatingContentConsumptionPercentage(int minimumRatingContentConsumptionPercentage) {
 		this.minimumRatingContentConsumptionPercentage = minimumRatingContentConsumptionPercentage;
+	}
+
+	public int getCacheRatingsTTL() {
+		return cacheRatingsTTL;
+	}
+
+	public void setCacheRatingsTTL(int cacheRatingsTTL) {
+		this.cacheRatingsTTL = cacheRatingsTTL;
 	}
 }
