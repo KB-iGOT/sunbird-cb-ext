@@ -81,7 +81,7 @@ public class RatingServiceImpl implements RatingService {
     @Override
     public SBApiResponse getRatings(String activityId, String activityType, String userId) {
         SBApiResponse response = new SBApiResponse(Constants.API_RATINGS_READ);
-
+        UUID timeBasedUuid;
         try {
             validationBody = new ValidationBody();
             validationBody.setActivityId(activityId);
@@ -89,7 +89,7 @@ public class RatingServiceImpl implements RatingService {
             validationBody.setUserId(userId);
             validateRatingsInfo(validationBody, "getRating");
 
-            String cacheKey = userId + "_" + activityId + "_RATING";
+            String cacheKey = userId + "_" + activityId + Constants.RATING_SUFFIX_KEY;
             String redisCache = redisCacheMgr.getCache(cacheKey);
             if (StringUtils.isNotBlank(redisCache)) {
                 RatingModelInfo ratingModelInfo = mapper.readValue(redisCache, RatingModelInfo.class);
@@ -120,16 +120,16 @@ public class RatingServiceImpl implements RatingService {
                     Long CommentUpdatedTime = (commentupdatedOn.timestamp() - 0x01b21dd213814000L) / 10000L;
                     ratingModelInfo.setCommentUpdatedOn(new Timestamp(CommentUpdatedTime));
                 }
-                UUID updatedOn = (UUID) ratingData.get(Constants.UPDATED_ON);
-                Long updatedTime = (updatedOn.timestamp() - 0x01b21dd213814000L) / 10000L;
+                timeBasedUuid = (UUID) ratingData.get(Constants.UPDATED_ON);
+                Long updatedTime = (timeBasedUuid.timestamp() - 0x01b21dd213814000L) / 10000L;
                 ratingModelInfo.setUpdatedOn(new Timestamp(updatedTime));
                 ratingModelInfo.setActivityType((String) ratingData.get(Constants.ACTIVITY_TYPE));
                 ratingModelInfo.setUserId((String) ratingData.get(Constants.USER_ID));
-                UUID createdOn = (UUID) ratingData.get(Constants.CREATED_ON);
-                Long createdTime = (createdOn.timestamp() - 0x01b21dd213814000L) / 10000L;
+                timeBasedUuid = (UUID) ratingData.get(Constants.CREATED_ON);
+                Long createdTime = (timeBasedUuid.timestamp() - 0x01b21dd213814000L) / 10000L;
                 ratingModelInfo.setCreatedOn(new Timestamp(createdTime));
 
-                redisCacheMgr.putCache(cacheKey, ratingModelInfo);
+                redisCacheMgr.putCache(cacheKey, ratingModelInfo, serverConfig.getCacheRatingsTTL());
 
                 response.put(Constants.MESSAGE, Constants.SUCCESSFUL);
                 response.put(Constants.RESPONSE, ratingModelInfo);
@@ -421,7 +421,7 @@ public class RatingServiceImpl implements RatingService {
                 response.put(Constants.DATA, request);
             }
 
-            redisCacheMgr.putCache(requestRating.getUserId() + "_" + requestRating.getActivityId() + "_RATING", ratingModelInfo);
+            redisCacheMgr.putCache(requestRating.getUserId() + "_" + requestRating.getActivityId() + Constants.RATING_SUFFIX_KEY, ratingModelInfo, serverConfig.getCacheRatingsTTL());
 
             response.setResponseCode(HttpStatus.OK);
             response.getParams().setStatus(Constants.SUCCESSFUL);
