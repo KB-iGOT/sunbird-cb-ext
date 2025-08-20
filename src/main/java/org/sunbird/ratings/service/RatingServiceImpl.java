@@ -81,7 +81,6 @@ public class RatingServiceImpl implements RatingService {
     @Override
     public SBApiResponse getRatings(String activityId, String activityType, String userId) {
         SBApiResponse response = new SBApiResponse(Constants.API_RATINGS_READ);
-        UUID timeBasedUuid;
 
         try {
             validationBody = new ValidationBody();
@@ -90,6 +89,15 @@ public class RatingServiceImpl implements RatingService {
             validationBody.setUserId(userId);
             validateRatingsInfo(validationBody, "getRating");
 
+            String cacheKey = userId + "_" + activityId + "_RATING";
+            String redisCache = redisCacheMgr.getCache(cacheKey);
+            if (StringUtils.isNotBlank(redisCache)) {
+                RatingModelInfo ratingModelInfo = mapper.readValue(redisCache, RatingModelInfo.class);
+                response.put(Constants.MESSAGE, Constants.SUCCESSFUL);
+                response.put(Constants.RESPONSE, ratingModelInfo);
+                response.setResponseCode(HttpStatus.OK);
+                return response;
+            }
 
             Map<String, Object> request = new HashMap<>();
             request.put(Constants.ACTIVITY_ID, activityId);
@@ -112,15 +120,17 @@ public class RatingServiceImpl implements RatingService {
                     Long CommentUpdatedTime = (commentupdatedOn.timestamp() - 0x01b21dd213814000L) / 10000L;
                     ratingModelInfo.setCommentUpdatedOn(new Timestamp(CommentUpdatedTime));
                 }
-
-                timeBasedUuid = (UUID) ratingData.get(Constants.UPDATED_ON);
-                Long updatedTime = (timeBasedUuid.timestamp() - 0x01b21dd213814000L) / 10000L;
+                UUID updatedOn = (UUID) ratingData.get(Constants.UPDATED_ON);
+                Long updatedTime = (updatedOn.timestamp() - 0x01b21dd213814000L) / 10000L;
                 ratingModelInfo.setUpdatedOn(new Timestamp(updatedTime));
                 ratingModelInfo.setActivityType((String) ratingData.get(Constants.ACTIVITY_TYPE));
                 ratingModelInfo.setUserId((String) ratingData.get(Constants.USER_ID));
-                timeBasedUuid = (UUID) ratingData.get(Constants.CREATED_ON);
-                Long createdTime = (timeBasedUuid.timestamp() - 0x01b21dd213814000L) / 10000L;
+                UUID createdOn = (UUID) ratingData.get(Constants.CREATED_ON);
+                Long createdTime = (createdOn.timestamp() - 0x01b21dd213814000L) / 10000L;
                 ratingModelInfo.setCreatedOn(new Timestamp(createdTime));
+
+                redisCacheMgr.putCache(cacheKey, ratingModelInfo);
+
                 response.put(Constants.MESSAGE, Constants.SUCCESSFUL);
                 response.put(Constants.RESPONSE, ratingModelInfo);
                 response.setResponseCode(HttpStatus.OK);
@@ -223,6 +233,7 @@ public class RatingServiceImpl implements RatingService {
     @Override
     public SBApiResponse upsertRating(RequestRating requestRating) {
         UUID timeBasedUuid = UUIDs.timeBased();
+        Long eventTime = (timeBasedUuid.timestamp() - 0x01b21dd213814000L) / 10000L;
         SBApiResponse response = new SBApiResponse(Constants.API_RATINGS_UPDATE);
         RatingMessage ratingMessage;
 
@@ -333,6 +344,8 @@ public class RatingServiceImpl implements RatingService {
                     Constants.KEYSPACE_SUNBIRD,
                     Constants.TABLE_RATINGS, request, null);
 
+            RatingModelInfo ratingModelInfo = new RatingModelInfo();
+
             if (!CollectionUtils.isEmpty(existingDataList)) {
 
                 Map<String, Object> updateRequest = new HashMap<>();
@@ -350,8 +363,27 @@ public class RatingServiceImpl implements RatingService {
                     updateRequest.put(Constants.RECOMMENDED, requestRating.getRecommended());
                 }
                 Map<String, Object> prevInfo = existingDataList.get(0);
-                cassandraOperation.updateRecord(Constants.KEYSPACE_SUNBIRD, Constants.TABLE_RATINGS, updateRequest,
-                        request);
+                cassandraOperation.updateRecord(Constants.KEYSPACE_SUNBIRD, Constants.TABLE_RATINGS, updateRequest, request);
+
+                ratingModelInfo.setActivityId(requestRating.getActivityId());
+                ratingModelInfo.setActivityType(requestRating.getActivityType());
+                ratingModelInfo.setUserId(requestRating.getUserId());
+                ratingModelInfo.setRating(requestRating.getRating());
+                ratingModelInfo.setReview(requestRating.getReview());
+                ratingModelInfo.setComment(requestRating.getComment());
+                ratingModelInfo.setCommentBy(requestRating.getCommentBy());
+                ratingModelInfo.setRecommended(requestRating.getRecommended());
+                ratingModelInfo.setUpdatedOn(new Timestamp(eventTime));
+                if (requestRating.getComment() != null && requestRating.getCommentBy() != null) {
+                    ratingModelInfo.setCommentUpdatedOn(new Timestamp(eventTime));
+                }
+
+                UUID createdOnUuid = (UUID) prevInfo.get(Constants.CREATED_ON);
+                if (createdOnUuid != null) {
+                    Long createdTime = (createdOnUuid.timestamp() - 0x01b21dd213814000L) / 10000L;
+                    ratingModelInfo.setCreatedOn(new Timestamp(createdTime));
+                }
+
                 ratingMessage = new RatingMessage("ratingUpdate", requestRating.getActivityId(), requestRating.getActivityType(),
                         requestRating.getUserId(), String.valueOf((prevInfo.get(Constants.CREATED_ON))));
 
@@ -367,14 +399,30 @@ public class RatingServiceImpl implements RatingService {
                 request.put(Constants.RECOMMENDED,requestRating.getRecommended());
                 cassandraOperation.insertRecord(Constants.KEYSPACE_SUNBIRD, Constants.TABLE_RATINGS, request);
 
+                ratingModelInfo.setActivityId(requestRating.getActivityId());
+                ratingModelInfo.setActivityType(requestRating.getActivityType());
+                ratingModelInfo.setUserId(requestRating.getUserId());
+                ratingModelInfo.setRating(requestRating.getRating());
+                ratingModelInfo.setReview(requestRating.getReview());
+                ratingModelInfo.setComment(requestRating.getComment());
+                ratingModelInfo.setCommentBy(requestRating.getCommentBy());
+                ratingModelInfo.setRecommended(requestRating.getRecommended());
+                ratingModelInfo.setCreatedOn(new Timestamp(eventTime));
+                ratingModelInfo.setUpdatedOn(new Timestamp(eventTime));
+                if (requestRating.getComment() != null && requestRating.getCommentBy() != null) {
+                    ratingModelInfo.setCommentUpdatedOn(new Timestamp(eventTime));
+                }
+
                 ratingMessage = new RatingMessage("ratingAdd", requestRating.getActivityId(), requestRating.getActivityType(),
                         requestRating.getUserId(), String.valueOf(timeBasedUuid));
 
                 ratingMessage.setUpdatedValues(processEventMessage(String.valueOf(request.get(Constants.CREATED_ON)),
                         requestRating.getRating(), requestRating.getReview()));
                 response.put(Constants.DATA, request);
-
             }
+
+            redisCacheMgr.putCache(requestRating.getUserId() + "_" + requestRating.getActivityId() + "_RATING", ratingModelInfo);
+
             response.setResponseCode(HttpStatus.OK);
             response.getParams().setStatus(Constants.SUCCESSFUL);
             if(requestRating.getComment()==null && requestRating.getCommentBy()==null) {
