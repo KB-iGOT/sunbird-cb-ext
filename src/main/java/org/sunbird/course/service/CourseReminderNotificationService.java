@@ -47,7 +47,7 @@ public class CourseReminderNotificationService {
 			try {
 				Date date = new Date(new Date().getTime() - serverProperties.getIncompleteCoursesLastAccessTime());
 				List<Map<String, Object>> userCoursesList = cassandraOperation.searchByWhereClause(
-						Constants.SUNBIRD_COURSES_KEY_SPACE_NAME, Constants.USER_CONTENT_CONSUMPTION,
+						Constants.SUNBIRD_COURSES_KEY_SPACE_NAME, Constants.USER_CONTENT_CONSUMPTION_v2,
 						Constants.COURSE_REMINDER_EMAIL_FIELDS, date);
 				if (!CollectionUtils.isEmpty(userCoursesList)) {
 					fetchCourseIdsAndSetCourseNameAndThumbnail(userCoursesList);
