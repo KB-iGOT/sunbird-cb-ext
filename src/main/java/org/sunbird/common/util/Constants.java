@@ -1396,6 +1396,7 @@ public class Constants {
 	public static final String RECENT_LANGUAGE_KEY = "recent_language";
 	public static final String RATING_SUFFIX_KEY = "_RATING";
 
+    public static final String USER_CONTENT_CONSUMPTION_v2 = "user_content_consumption_v2";
 	private Constants() {
 		throw new IllegalStateException("Utility class");
 	}

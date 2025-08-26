@@ -179,7 +179,7 @@ public class ContentProgressServiceImpl implements ContentProgressService {
             propertyMap.put(Constants.CONTENT_ID_KEY, contentProgressInfo.getContentId());
         }
         return cassandraOperation.getRecordsByProperties(Constants.KEYSPACE_SUNBIRD_COURSES,
-                Constants.USER_CONTENT_CONSUMPTION, propertyMap, Arrays.asList(Constants.CONTENT_ID_KEY, Constants.USER_ID, Constants.STATUS));
+                Constants.USER_CONTENT_CONSUMPTION_v2, propertyMap, Arrays.asList(Constants.CONTENT_ID_KEY, Constants.USER_ID, Constants.STATUS));
 
     }
 
