@@ -621,10 +621,27 @@ public class RatingServiceImpl implements RatingService {
             activityId = (String) requestBody.get(Constants.ACTIVITY_ID);
             compositeKey.put(Constants.ACTIVITY_ID, activityId);
             compositeKey.put(Constants.ACTIVITY_TYPE, (String) requestBody.get(Constants.ACTIVITY_TYPE));
-            compositeKey.put(Constants.RATINGS_USER_ID, (List<String>) requestBody.get(Constants.USER_ID));
-            List<Map<String, Object>> existingDataList = cassandraOperation.getRecordsByPropertiesWithoutFiltering(
-                    Constants.KEYSPACE_SUNBIRD,
-                    Constants.TABLE_RATINGS, compositeKey, null);
+            List<String> userIds = (List<String>)requestBody.get(Constants.USER_ID);
+            List<Map<String, Object>> existingDataList = new ArrayList<>();
+            for (String userId: userIds) {
+                String cacheKey = userId + "_" + activityId + Constants.RATING_SUFFIX_KEY;
+                String redisCache = redisCacheMgr.getCache(cacheKey);
+                if (StringUtils.isNotBlank(redisCache)) {
+                    RatingModelInfo ratingModelInfo = mapper.readValue(redisCache, RatingModelInfo.class);
+                    Map<String, Object> ratingMap = mapper.convertValue(ratingModelInfo, new TypeReference<Map<String, Object>>() {});
+                    existingDataList.add(ratingMap);
+                } else {
+                    compositeKey.put(Constants.RATINGS_USER_ID, userId);
+                    List<Map<String, Object>> dataList = cassandraOperation.getRecordsByPropertiesWithoutFiltering(
+                            Constants.KEYSPACE_SUNBIRD,
+                            Constants.TABLE_RATINGS, compositeKey, null);
+                    if (!CollectionUtils.isEmpty(dataList)) {
+                        Map<String, Object> ratingData = dataList.get(0);
+                        existingDataList.add(ratingData);
+                        addRatingDataToRedis(ratingData, cacheKey);
+                    }
+                }
+            }
             if (!CollectionUtils.isEmpty(existingDataList)) {
                 response.put(Constants.COUNT, existingDataList.size());
                 response.put(Constants.CONTENT, existingDataList);
@@ -939,5 +956,31 @@ public class RatingServiceImpl implements RatingService {
             logger.error("Not able to read the profile Details for userId: " + userId, e);
         }
         return profileImageUrl;
+    }
+
+    private void addRatingDataToRedis(Map<String, Object> ratingData, String cacheKey) {
+        UUID timeBasedUuid;
+        RatingModelInfo ratingModelInfo = new RatingModelInfo();
+        ratingModelInfo.setActivityId((String) ratingData.get(Constants.ACTIVITY_ID));
+        ratingModelInfo.setReview((String) ratingData.get(Constants.REVIEW));
+        ratingModelInfo.setRating((Float) ratingData.get(Constants.RATING));
+        ratingModelInfo.setComment(ratingData.get(Constants.COMMENT)!=null ?(String) ratingData.get(Constants.COMMENT) : null);
+        ratingModelInfo.setCommentBy(ratingData.get(Constants.COMMENT_BY)!=null ?(String) ratingData.get(Constants.COMMENT_BY) : null);
+        ratingModelInfo.setRecommended(ratingData.get(Constants.RECOMMENDED)!=null ?(String)ratingData.get(Constants.RECOMMENDED): null);
+        if(ratingData.get(Constants.COMMENT_UPDATED_ON)!=null){
+            UUID commentupdatedOn = (UUID) ratingData.get(Constants.COMMENT_UPDATED_ON);
+            Long CommentUpdatedTime = (commentupdatedOn.timestamp() - 0x01b21dd213814000L) / 10000L;
+            ratingModelInfo.setCommentUpdatedOn(new Timestamp(CommentUpdatedTime));
+        }
+        timeBasedUuid = (UUID) ratingData.get(Constants.UPDATED_ON);
+        Long updatedTime = (timeBasedUuid.timestamp() - 0x01b21dd213814000L) / 10000L;
+        ratingModelInfo.setUpdatedOn(new Timestamp(updatedTime));
+        ratingModelInfo.setActivityType((String) ratingData.get(Constants.ACTIVITY_TYPE));
+        ratingModelInfo.setUserId((String) ratingData.get(Constants.USER_ID));
+        timeBasedUuid = (UUID) ratingData.get(Constants.CREATED_ON);
+        Long createdTime = (timeBasedUuid.timestamp() - 0x01b21dd213814000L) / 10000L;
+        ratingModelInfo.setCreatedOn(new Timestamp(createdTime));
+
+        redisCacheMgr.putCache(cacheKey, ratingModelInfo, serverConfig.getCacheRatingsTTL());
     }
 }
