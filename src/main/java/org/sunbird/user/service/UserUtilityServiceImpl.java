@@ -32,6 +32,7 @@ import org.springframework.util.ObjectUtils;
 import org.springframework.web.client.RestTemplate;
 import org.sunbird.cassandra.utils.CassandraOperation;
 import org.sunbird.common.model.*;
+import org.sunbird.common.service.ContentService;
 import org.sunbird.common.service.OutboundRequestHandlerServiceImpl;
 import org.sunbird.common.util.*;
 import org.sunbird.core.cipher.DecryptServiceImpl;
@@ -82,6 +83,9 @@ public class UserUtilityServiceImpl implements UserUtilityService {
 
 	@Autowired
 	NotificationTriggerService notificationTriggerService;
+
+    @Autowired
+    ContentService contentService;
 
 	private Logger logger = LoggerFactory.getLogger(UserUtilityServiceImpl.class);
 
@@ -886,6 +890,39 @@ public class UserUtilityServiceImpl implements UserUtilityService {
 			}else {
 				link.append(serverConfig.getCourseLinkUrl()).append(requestData.get(Constants.COURSE_ID)).append("/").append(Constants.OVERVIEW);
 			}
+
+            Map<String, Object> content = contentService.readContentFromCache((String) requestData.get(Constants.COURSE_ID), null);
+            if (MapUtils.isNotEmpty(content) && content.containsKey(Constants.LANGUAGE_MAP_V1)) {
+                Map<String, Object> languageMapV1 = (Map<String, Object>) content.get(Constants.LANGUAGE_MAP_V1);
+
+                if (MapUtils.isNotEmpty(languageMapV1) &&
+                        StringUtils.isNotEmpty((String) requestData.get(Constants.LANGUAGE))) {
+
+                    for (Map.Entry<String, Object> entry : languageMapV1.entrySet()) {
+                        String lang = entry.getKey();
+                        Map<String, Object> langData = (Map<String, Object>) entry.getValue();
+
+                        if (MapUtils.isNotEmpty(langData) && lang.equalsIgnoreCase((String) requestData.get(Constants.LANGUAGE))) {
+                            String mlId = (String) langData.get(Constants.ID);
+                            if (StringUtils.isNotEmpty(mlId)) {
+                                link = new StringBuilder();
+                                link.append(serverConfig.getCourseLinkUrl())
+                                        .append(requestData.get(Constants.COURSE_ID))
+                                        .append(Constants.OVERVIEW_PATH)
+                                        .append(Constants.QUE_MARK)
+                                        .append(Constants.LANGUAGE_PARAM).append(Constants.QUERY_PARAM_EQUAL)
+                                        .append(lang)
+                                        .append(Constants.QUERY_PARAM_DELIMITER)
+                                        .append(Constants.LANGUAGE_ID_PARAM).append(Constants.QUERY_PARAM_EQUAL)
+                                        .append(mlId);
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+
+            logger.info("Final course link: {}", link.toString());
 
 			if (!emailResponseList.isEmpty()) {
 				Map<String, Object> mailNotificationDetails = new HashMap<>();

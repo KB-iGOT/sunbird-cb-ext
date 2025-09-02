@@ -1397,6 +1397,11 @@ public class Constants {
 	public static final String RATING_SUFFIX_KEY = "_RATING";
 
     public static final String USER_CONTENT_CONSUMPTION_v2 = "user_content_consumption_v2";
+    public static final String OVERVIEW_PATH = "/overview";
+    public static final String LANGUAGE_PARAM = "ML";
+    public static final String LANGUAGE_ID_PARAM = "MLId";
+    public static final String QUERY_PARAM_DELIMITER = "&";
+    public static final String QUERY_PARAM_EQUAL = "=";
 	private Constants() {
 		throw new IllegalStateException("Utility class");
 	}
