@@ -891,7 +891,7 @@ public class UserUtilityServiceImpl implements UserUtilityService {
 				link.append(serverConfig.getCourseLinkUrl()).append(requestData.get(Constants.COURSE_ID)).append("/").append(Constants.OVERVIEW);
 			}
 
-            Map<String, Object> content = contentService.readContent((String) requestData.get(Constants.COURSE_ID));
+            Map<String, Object> content = contentService.readContentFromCache((String) requestData.get(Constants.COURSE_ID), null);
             if (MapUtils.isNotEmpty(content) && content.containsKey(Constants.LANGUAGE_MAP_V1)) {
                 Map<String, Object> languageMapV1 = (Map<String, Object>) content.get(Constants.LANGUAGE_MAP_V1);
 
@@ -908,9 +908,12 @@ public class UserUtilityServiceImpl implements UserUtilityService {
                                 link = new StringBuilder();
                                 link.append(serverConfig.getCourseLinkUrl())
                                         .append(requestData.get(Constants.COURSE_ID))
-                                        .append("/overview?ML=")
+                                        .append(Constants.OVERVIEW_PATH)
+                                        .append(Constants.QUE_MARK)
+                                        .append(Constants.LANGUAGE_PARAM).append(Constants.QUERY_PARAM_EQUAL)
                                         .append(lang)
-                                        .append("&MLId=")
+                                        .append(Constants.QUERY_PARAM_DELIMITER)
+                                        .append(Constants.LANGUAGE_ID_PARAM).append(Constants.QUERY_PARAM_EQUAL)
                                         .append(mlId);
                                 break;
                             }
