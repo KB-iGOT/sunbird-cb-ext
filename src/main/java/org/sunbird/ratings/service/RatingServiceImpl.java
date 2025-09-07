@@ -255,6 +255,9 @@ public class RatingServiceImpl implements RatingService {
             boolean isMultiLingual = serverConfig.getMultilingualAllowedCourseCategory().contains((String) contentResponse.get(Constants.COURSE_CATEGORY));
             logger.info("is course multilingual : " + isMultiLingual + " for coursecategory: " + contentResponse.get(Constants.COURSE_CATEGORY));
 
+            boolean allowedPrimaryCategoryForCheckLangContentStatus = serverConfig.getRatingAllowedLangContentStatusPrimaryCategory().contains((String) contentResponse.get(Constants.PRIMARY_CATEGORY));
+
+            logger.info("is allowed Primary Category to check lang Content status : " + allowedPrimaryCategoryForCheckLangContentStatus + " for coursecategory: " + contentResponse.get(Constants.PRIMARY_CATEGORY));
             String baseCourseId = "";
             String language = "";
             if (isMultiLingual) {
@@ -299,7 +302,7 @@ public class RatingServiceImpl implements RatingService {
                     Map<String, Object> userEnrolments = enrolments.get(0);
                     int currentLanguageCompletionPercentage = 0;
                     Map<String, Object> langContentStatus = (Map<String, Object>) userEnrolments.get(Constants.LANG_CONTENT_STATUS);
-                    if (MapUtils.isEmpty(langContentStatus)) {
+                    if (MapUtils.isEmpty(langContentStatus) || !allowedPrimaryCategoryForCheckLangContentStatus) {
                         langContentStatus = (Map<String, Object>) userEnrolments.get(Constants.CONTENT_STATUS);
                     } else {
                         if (StringUtils.isBlank(language)) {

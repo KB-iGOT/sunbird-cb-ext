@@ -1085,6 +1085,9 @@ public class CbExtServerProperties {
 	@Value("${cache.ratings.ttl}")
 	private int cacheRatingsTTL;
 
+	@Value("${rating.allowed.lang.content.status.primaryCategory}")
+	private String ratingAllowedLangContentStatusPrimaryCategory;
+
 	public String getStateLearningInsightsRedisKeyMapping() {
 		return stateLearningInsightsRedisKeyMapping;
 	}
@@ -3687,5 +3690,13 @@ public class CbExtServerProperties {
 
 	public void setCacheRatingsTTL(int cacheRatingsTTL) {
 		this.cacheRatingsTTL = cacheRatingsTTL;
+	}
+
+	public List<String> getRatingAllowedLangContentStatusPrimaryCategory() {
+		return Arrays.asList(ratingAllowedLangContentStatusPrimaryCategory.split(",", -1));
+	}
+
+	public void setRatingAllowedLangContentStatusPrimaryCategory(String ratingAllowedLangContentStatusPrimaryCategory) {
+		this.ratingAllowedLangContentStatusPrimaryCategory = ratingAllowedLangContentStatusPrimaryCategory;
 	}
 }
