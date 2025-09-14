@@ -256,9 +256,9 @@ public class WallOfFameServiceImpl implements WallOfFameService {
                     map.put(Constants.PARENT_ID, record.getParentId());
                     map.put(Constants.SIZE, record.getSize());
                     map.put(Constants.ROW_NUM, record.getRowNum());
-                    map.put(Constants.ORG_ID, record.getOrgId());
-                    map.put(Constants.ORG_NAME, record.getOrgName());
-                    map.put(Constants.TOTAL_USERS, record.getTotalUsers());
+                    map.put(Constants.MDO_LEADERBOARD_ORG_ID, record.getOrgId());
+                    map.put(Constants.MDO_LEADERBOARD_ORG_NAME, record.getOrgName());
+                    map.put(Constants.MDO_LEADERBOARD_TOTAL_USERS, record.getTotalUsers());
                     map.put(Constants.TOTAL_LEARNING_HOURS, record.getTotalLearningHours());
                     return map;
                 }).collect(Collectors.toList());
