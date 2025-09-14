@@ -1402,6 +1402,11 @@ public class Constants {
     public static final String LANGUAGE_ID_PARAM = "MLId";
     public static final String QUERY_PARAM_DELIMITER = "&";
     public static final String QUERY_PARAM_EQUAL = "=";
+
+    // MDO Leaderboard constants
+    public static final String MDO_LEADERBOARD_ORG_ID = "org_id";
+    public static final String MDO_LEADERBOARD_ORG_NAME = "org_name";
+    public static final String MDO_LEADERBOARD_TOTAL_USERS= "total_users";
 	private Constants() {
 		throw new IllegalStateException("Utility class");
 	}
