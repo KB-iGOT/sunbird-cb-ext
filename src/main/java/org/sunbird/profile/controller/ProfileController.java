@@ -191,4 +191,19 @@ public class ProfileController {
 		SBApiResponse response = profileService.profileMDOAdminUpdate(request, null, authToken, null, true);
 		return new ResponseEntity<>(response, response.getResponseCode());
 	}
+
+    @PostMapping("/user/v3/bulkupload")
+    public ResponseEntity<?> bulkUploadBySuperAdmin(@RequestParam(value = "file", required = true) MultipartFile multipartFile,
+                                          @RequestHeader(Constants.X_AUTH_USER_ORG_ID) String rootOrgId,
+                                          @RequestHeader(Constants.X_AUTH_USER_CHANNEL) String channel,
+                                          @RequestHeader(Constants.X_AUTH_USER_ID) String userId,
+                                          @RequestHeader(Constants.X_AUTH_TOKEN) String userAuthToken,
+                                          @RequestParam(Constants.ORG_ID) String childOrgId,
+                                          @RequestParam(Constants.CHANNEL) String childChannel          ) throws UnsupportedEncodingException {
+        log.info(String.format("bulkupload channel name:%s,OrgId:%s",
+                URLDecoder.decode(channel, "UTF-8"), rootOrgId));
+        SBApiResponse uploadResponse = profileService.bulkUploadBySuperAdmin(multipartFile, rootOrgId, URLDecoder.decode(channel, "UTF-8"), userId, userAuthToken, childOrgId, childChannel);
+        return new ResponseEntity<>(uploadResponse, uploadResponse.getResponseCode());
+    }
+
 }

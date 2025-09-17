@@ -1407,6 +1407,7 @@ public class Constants {
     public static final String MDO_LEADERBOARD_ORG_ID = "org_id";
     public static final String MDO_LEADERBOARD_ORG_NAME = "org_name";
     public static final String MDO_LEADERBOARD_TOTAL_USERS= "total_users";
+    public static final String ORG_TABLE = "organisation";
 	private Constants() {
 		throw new IllegalStateException("Utility class");
 	}

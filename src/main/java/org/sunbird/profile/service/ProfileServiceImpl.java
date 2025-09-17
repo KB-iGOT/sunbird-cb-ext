@@ -2609,6 +2609,129 @@ public class ProfileServiceImpl implements ProfileService {
 			throw new IllegalArgumentException(emailError);
 	}
 
+    @Override
+    public SBApiResponse bulkUploadBySuperAdmin(
+            MultipartFile mFile,
+            String orgId,
+            String orgName,
+            String userId,
+            String userAuthToken,
+            String childOrgId,
+            String childOrgChannel) {
+
+        SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.API_USER_BULK_UPLOAD);
+
+        try {
+            Map<String, Object> orgResponse = getOrgDetailsById(childOrgId);
+            if (MapUtils.isNotEmpty(orgResponse)) {
+                String ministryOrStateType = (String) orgResponse.get("ministryorstatetype");
+                String ministryorstateid  = (String) orgResponse.get("ministryorstateid");
+
+                if (!Constants.MINISTRY.equalsIgnoreCase(ministryOrStateType) || !Constants.STATE.equalsIgnoreCase(ministryOrStateType) && !ministryorstateid.equalsIgnoreCase(orgId)) {
+                    setErrorData(response, "OrgId must belong to a Ministry or State.");
+                    return response;
+                }
+
+                List<Map<String, Object>> content = populateDataFromApi(orgId, ministryOrStateType);
+                if (MapUtils.isEmpty(orgResponse) || CollectionUtils.isEmpty(content)) {
+                    setErrorData(response, "Organization not found");
+                    return response;
+                }
+
+                boolean isMatchFound = content.stream().anyMatch(orgEntry ->
+                        childOrgId.equalsIgnoreCase((String) orgEntry.get(Constants.ID)) &&
+                                childOrgChannel.equalsIgnoreCase((String) orgEntry.get(Constants.CHANNEL))
+                );
+                if (!isMatchFound) {
+                    setErrorData(response, "Provided childOrgId and childOrgChannel are not valid children of given orgId.");
+                    return response;
+                }
+            } else {
+                setErrorData(response, "Organization not found");
+                return response;
+            }
+
+            return bulkUploadV2(mFile, childOrgId, childOrgChannel, userId, userAuthToken);
+
+        } catch (Exception e) {
+            log.error("Error during bulkUploadBySuperAdmin", e);
+            setErrorData(response, "Failed to upload file due to internal error.");
+            return response;
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<Map<String, Object>> extractContentFromSearch(Map<String, Object> orgChildSearchRes) {
+        if (MapUtils.isNotEmpty(orgChildSearchRes)) {
+            Map<String, Object> result = (Map<String, Object>) orgChildSearchRes.get(Constants.RESULT);
+            if (MapUtils.isNotEmpty(result)) {
+                Map<String, Object> response = (Map<String, Object>) result.get(Constants.RESPONSE);
+                if (MapUtils.isNotEmpty(response)) {
+                    return (List<Map<String, Object>>) response.get(Constants.CONTENT);
+                }
+            }
+        }
+        return Collections.emptyList();
+    }
+
+    private List<Map<String, Object>> populateDataFromApi(String orgId, String type) throws Exception {
+        Map<String, String> headers = new HashMap<>();
+        headers.put(Constants.AUTHORIZATION, serverProperties.getSbApiKey());
+        String url = serverProperties.getLearnerServiceHost() + serverProperties.getOrgSearchUrl();
+        Map<String, Object> response = (Map<String, Object>) outboundRequestHandlerService.fetchResultUsingPost(
+                url, buildOrgSearchRequest(orgId, type), headers);
+        if (MapUtils.isNotEmpty(response)) {
+            Map<String, Object> result = ((Map<String, Object>) response.get(Constants.RESULT));
+            if (MapUtils.isNotEmpty(result)) {
+                Map<String, Object> contentObject = ((Map<String, Object>) result.get(Constants.RESPONSE));
+                if (MapUtils.isNotEmpty(contentObject)) {
+                    return (List<Map<String, Object>>) contentObject.get(Constants.CONTENT);
+                }
+            }
+        }
+        return null;
+    }
+
+    private Map<String, Object> buildOrgSearchRequest(String orgId, String type) {
+        Map<String, Object> request = new HashMap<>();
+
+        Map<String, Object> filters = new HashMap<>();
+        filters.put(Constants.STATUS, 1);
+        filters.put(Constants.MINISTRY_OR_STATE_ID, orgId);
+        filters.put(Constants.MINISTRY_STATE_TYPE, type);
+
+        List<String> fields = Arrays.asList(Constants.CHANNEL, Constants.ID);
+
+        Map<String, Object> innerRequest = new HashMap<>();
+        innerRequest.put(Constants.FILTERS, filters);
+        innerRequest.put(Constants.FIELDS_CONSTANT, fields);
+        innerRequest.put(Constants.LIMIT, serverProperties.getOrgSearchLimit());
+        innerRequest.put(Constants.OFFSET, 0);
+
+        request.put(Constants.REQUEST, innerRequest);
+
+        return request;
+    }
+
+    private Map<String, Object> getOrgDetailsById(String orgId) {
+        Map<String, Object> propertyMap = new HashMap<>();
+        propertyMap.put(Constants.ID, orgId);
+
+        List<Map<String, Object>> orgDetails = cassandraOperation.getRecordsByPropertiesWithoutFiltering(
+                Constants.KEYSPACE_SUNBIRD,
+                Constants.ORG_TABLE,
+                propertyMap,
+                null,
+                1
+        );
+
+        if (CollectionUtils.isNotEmpty(orgDetails)) {
+            return orgDetails.get(0);
+        } else {
+            return null;
+        }
+    }
+
 }
 
 
