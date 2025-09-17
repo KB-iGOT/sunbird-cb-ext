@@ -2633,7 +2633,7 @@ public class ProfileServiceImpl implements ProfileService {
                 }
 
                 List<Map<String, Object>> content = populateDataFromApi(orgId, ministryOrStateType);
-                if (MapUtils.isEmpty(orgResponse) || CollectionUtils.isEmpty(content)) {
+                if (CollectionUtils.isEmpty(content)) {
                     setErrorData(response, "Organization not found");
                     return response;
                 }
@@ -2658,20 +2658,6 @@ public class ProfileServiceImpl implements ProfileService {
             setErrorData(response, "Failed to upload file due to internal error.");
             return response;
         }
-    }
-
-    @SuppressWarnings("unchecked")
-    private List<Map<String, Object>> extractContentFromSearch(Map<String, Object> orgChildSearchRes) {
-        if (MapUtils.isNotEmpty(orgChildSearchRes)) {
-            Map<String, Object> result = (Map<String, Object>) orgChildSearchRes.get(Constants.RESULT);
-            if (MapUtils.isNotEmpty(result)) {
-                Map<String, Object> response = (Map<String, Object>) result.get(Constants.RESPONSE);
-                if (MapUtils.isNotEmpty(response)) {
-                    return (List<Map<String, Object>>) response.get(Constants.CONTENT);
-                }
-            }
-        }
-        return Collections.emptyList();
     }
 
     private List<Map<String, Object>> populateDataFromApi(String orgId, String type) throws Exception {
