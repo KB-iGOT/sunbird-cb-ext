@@ -5,25 +5,35 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.collections.MapUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.ss.util.CellRangeAddressList;
+import org.apache.poi.ss.util.WorkbookUtil;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.elasticsearch.common.recycler.Recycler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.util.ObjectUtils;
+import org.springframework.web.multipart.MultipartFile;
 import org.sunbird.cassandra.utils.CassandraOperation;
 import org.sunbird.common.model.SBApiResponse;
 import org.sunbird.common.service.OutboundRequestHandlerServiceImpl;
-import org.sunbird.common.util.CbExtServerProperties;
-import org.sunbird.common.util.Constants;
-import org.sunbird.common.util.ProjectUtil;
-import org.sunbird.common.util.PropertiesCache;
+import org.sunbird.common.util.*;
 import org.sunbird.core.config.PropertiesConfig;
+import org.sunbird.core.producer.Producer;
 import org.sunbird.migrate.service.UserMigrationService;
+import org.sunbird.org.util.ExcelUtil;
 import org.sunbird.profile.service.ProfileService;
+import org.sunbird.storage.service.StorageServiceImpl;
 import org.sunbird.user.service.UserUtilityService;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -56,6 +66,9 @@ public class UserMigrationServiceImpl implements UserMigrationService {
 
     @Autowired
     ObjectMapper mapper;
+
+    @Autowired
+    ExcelUtil excelUtil;
 
     @Override
     public SBApiResponse migrateUsers() {
@@ -398,5 +411,146 @@ public class UserMigrationServiceImpl implements UserMigrationService {
             errMsg = "Failed to call Data Sync after updating Profile for User: " + userId;
         }
         return errMsg;
+    }
+
+    @Override
+    public ResponseEntity<ByteArrayResource> downloadBulkTransferSampleFile(String rootOrgId, String userAuthToken) throws IOException {
+        Workbook workbook = new XSSFWorkbook();
+        try {
+            Sheet referenceSheet = workbook.createSheet(
+                    WorkbookUtil.createSafeSheetName(serverConfig.getBulkTransferUserReferenceSheetName()));
+            Sheet masterDataSheet = workbook.createSheet(
+                    WorkbookUtil.createSafeSheetName(serverConfig.getBulkTransferUserMasterDataSheetName()));
+
+            excelUtil.createHeaderRow(masterDataSheet, serverConfig.getBulkTransferUserMasterDataHeaders());
+
+            excelUtil.createHeaderRow(referenceSheet, serverConfig.getBulkTransferUserReferenceHeaders());
+
+
+            List<Map<String, String>> orgList = fetchOrganizationsFromApi(rootOrgId);
+            int rowIdx = 1;
+
+            for (Map<String, String> org : orgList) {
+                Row row = masterDataSheet.createRow(rowIdx++);
+                String orgChannel = org.get(Constants.CHANNEL) != null ? org.get(Constants.CHANNEL) : "";
+                String orgId = org.get(Constants.ID) != null ? org.get(Constants.ID) : "";
+
+
+                row.createCell(0).setCellValue(orgChannel);
+                row.createCell(1).setCellValue(orgId);
+                row.createCell(2).setCellValue("");
+
+                row.createCell(3).setCellValue(orgChannel + " (" + orgId + ")");
+                row.createCell(4).setCellValue("");
+            }
+
+            excelUtil.makeSheetReadOnly(masterDataSheet);
+
+            masterDataSheet.setColumnHidden(3, true);
+            masterDataSheet.setColumnHidden(4, true);
+
+            DataValidationHelper helper = referenceSheet.getDataValidationHelper();
+
+            CellRangeAddressList currentOrgRange = new CellRangeAddressList(1, 1000, 1, 1);
+            DataValidationConstraint currentOrgConstraint = helper.createFormulaListConstraint(
+                    masterDataSheet.getSheetName() + "!$D$2:$D$" + rowIdx);
+            DataValidation currentOrgValidation = helper.createValidation(currentOrgConstraint, currentOrgRange);
+            currentOrgValidation.setShowErrorBox(true);
+            referenceSheet.addValidationData(currentOrgValidation);
+
+            CellRangeAddressList targetOrgRange = new CellRangeAddressList(1, 1000, 2, 2);
+            DataValidationConstraint targetOrgConstraint = helper.createFormulaListConstraint(
+                    masterDataSheet.getSheetName() + "!$D$2:$D$" + rowIdx);
+            DataValidation targetOrgValidation = helper.createValidation(targetOrgConstraint, targetOrgRange);
+            targetOrgValidation.setShowErrorBox(true);
+            referenceSheet.addValidationData(targetOrgValidation);
+
+            CellRangeAddressList notifRange = new CellRangeAddressList(1, 1000, 3, 3);
+            DataValidationConstraint notifConstraint = helper.createExplicitListConstraint(new String[]{"TRUE", "FALSE"});
+            DataValidation notifValidation = helper.createValidation(notifConstraint, notifRange);
+            notifValidation.setShowErrorBox(true);
+            referenceSheet.addValidationData(notifValidation);
+
+            excelUtil.setColumnWidths(referenceSheet);
+            excelUtil.setColumnWidths(masterDataSheet);
+
+            excelUtil.addDuplicateHighlighting(referenceSheet, 1, 1000, 0,
+                    referenceSheet.getRow(0).getLastCellNum() - 1);
+
+            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+            workbook.write(outputStream);
+
+            ByteArrayResource resource = new ByteArrayResource(outputStream.toByteArray());
+
+
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.add(HttpHeaders.CONTENT_DISPOSITION,
+                    "attachment; filename=\"" + serverConfig.getBulkTransferUserFileName() + "\"");
+
+            return ResponseEntity.ok()
+                    .headers(headers)
+                    .contentLength(resource.contentLength())
+                    .contentType(org.springframework.http.MediaType.APPLICATION_OCTET_STREAM)
+                    .body(resource);
+
+        } catch (Exception e) {
+            log.error("Error while generating bulk transfer sample file", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        } finally {
+            workbook.close();
+        }
+    }
+
+    private List<Map<String, String>> fetchOrganizationsFromApi(String orgId) throws Exception {
+        Map<String, String> headers = new HashMap<>();
+        headers.put(Constants.AUTHORIZATION, serverConfig.getSbApiKey());
+
+       String url = serverConfig.getLearnerServiceHost() + serverConfig.getOrgSearchUrl();
+
+        Map<String, Object> response = (Map<String, Object>) outboundRequestHandlerService.fetchResultUsingPost(
+                url, buildOrgSearchRequest(orgId), headers);
+
+        List<Map<String, String>> orgList = new ArrayList<>();
+
+        if (MapUtils.isNotEmpty(response)) {
+            Map<String, Object> result = (Map<String, Object>) response.get(Constants.RESULT);
+            if (MapUtils.isNotEmpty(result)) {
+                Map<String, Object> contentObject = (Map<String, Object>) result.get(Constants.RESPONSE);
+                if (MapUtils.isNotEmpty(contentObject)) {
+                    List<Map<String, Object>> content = (List<Map<String, Object>>) contentObject.get(Constants.CONTENT);
+                    if (content != null) {
+                        for (Map<String, Object> orgEntry : content) {
+                            Map<String, String> orgMap = new HashMap<>();
+                            orgMap.put(Constants.CHANNEL, (String) orgEntry.get(Constants.CHANNEL));
+                            orgMap.put(Constants.ID, (String) orgEntry.get(Constants.ID));
+                            orgList.add(orgMap);
+                        }
+                    }
+                }
+            }
+        }
+
+        return orgList;
+    }
+
+    private Map<String, Object> buildOrgSearchRequest(String orgId) {
+        Map<String, Object> request = new HashMap<>();
+
+        Map<String, Object> filters = new HashMap<>();
+        filters.put(Constants.STATUS, serverConfig.getStatus());
+        filters.put(Constants.MINISTRY_OR_STATE_ID, orgId);
+
+        List<String> fields = Arrays.asList(Constants.CHANNEL, Constants.ID);
+
+        Map<String, Object> innerRequest = new HashMap<>();
+        innerRequest.put(Constants.FILTERS, filters);
+        innerRequest.put(Constants.FIELDS_CONSTANT, fields);
+        innerRequest.put(Constants.LIMIT, serverConfig.getOrgSearchLimit());
+        innerRequest.put(Constants.OFFSET, 0);
+
+        request.put(Constants.REQUEST, innerRequest);
+
+        return request;
     }
 }

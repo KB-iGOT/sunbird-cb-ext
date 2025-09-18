@@ -1091,6 +1091,24 @@ public class CbExtServerProperties {
     @Value("${org.search.status}")
     private int status;
 
+    @Value("${bulk.transfer.user.masterdata.sheet.name}")
+    private String bulkTransferUserMasterDataSheetName;
+
+    @Value("${bulk.transfer.user.reference.sheet.name}")
+    private String bulkTransferUserReferenceSheetName;
+
+    @Value("${bulk.transfer.user.masterdata.headers}")
+    private String[] bulkTransferUserMasterDataHeaders;
+
+    @Value("${bulk.transfer.user.reference.headers}")
+    private String[] bulkTransferUserReferenceHeaders;
+
+    @Value("${bulk.transfer.user.notification.header.values}")
+    private String[] bulkTransferNotificationHeaderValues;
+
+    @Value("${bulk.transfer.user.filename}")
+    private String bulkTransferUserFileName;
+
 	public String getStateLearningInsightsRedisKeyMapping() {
 		return stateLearningInsightsRedisKeyMapping;
 	}
@@ -3705,5 +3723,29 @@ public class CbExtServerProperties {
 
     public int getStatus() {
         return status;
+    }
+
+    public String getBulkTransferUserMasterDataSheetName() {
+        return bulkTransferUserMasterDataSheetName;
+    }
+
+    public String getBulkTransferUserReferenceSheetName() {
+        return bulkTransferUserReferenceSheetName;
+    }
+
+    public String[] getBulkTransferUserMasterDataHeaders() {
+        return bulkTransferUserMasterDataHeaders;
+    }
+
+    public String[] getBulkTransferUserReferenceHeaders() {
+        return bulkTransferUserReferenceHeaders;
+    }
+
+    public String[] getBulkTransferNotificationHeaderValues() {
+        return bulkTransferNotificationHeaderValues;
+    }
+
+    public String getBulkTransferUserFileName() {
+        return bulkTransferUserFileName;
     }
 }
