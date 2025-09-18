@@ -1088,6 +1088,9 @@ public class CbExtServerProperties {
 	@Value("${rating.allowed.lang.content.status.primaryCategory}")
 	private String ratingAllowedLangContentStatusPrimaryCategory;
 
+    @Value("${org.search.status}")
+    private int status;
+
 	public String getStateLearningInsightsRedisKeyMapping() {
 		return stateLearningInsightsRedisKeyMapping;
 	}
@@ -3699,4 +3702,8 @@ public class CbExtServerProperties {
 	public void setRatingAllowedLangContentStatusPrimaryCategory(String ratingAllowedLangContentStatusPrimaryCategory) {
 		this.ratingAllowedLangContentStatusPrimaryCategory = ratingAllowedLangContentStatusPrimaryCategory;
 	}
+
+    public int getStatus() {
+        return status;
+    }
 }

@@ -2613,7 +2613,6 @@ public class ProfileServiceImpl implements ProfileService {
     public SBApiResponse bulkUploadBySuperAdmin(
             MultipartFile mFile,
             String orgId,
-            String orgName,
             String userId,
             String userAuthToken,
             String childOrgId,
@@ -2624,17 +2623,17 @@ public class ProfileServiceImpl implements ProfileService {
         try {
             Map<String, Object> orgResponse = getOrgDetailsById(childOrgId);
             if (MapUtils.isNotEmpty(orgResponse)) {
-                String ministryOrStateType = (String) orgResponse.get("ministryorstatetype");
-                String ministryorstateid  = (String) orgResponse.get("ministryorstateid");
+                String ministryOrStateType = (String) orgResponse.get(Constants.MINISTRY_OR_STATE_TYPE);
+                String ministryorstateid = (String) orgResponse.get(Constants.MINISTRY_STATE_ID);
 
                 if (!Constants.MINISTRY.equalsIgnoreCase(ministryOrStateType) || !Constants.STATE.equalsIgnoreCase(ministryOrStateType) && !ministryorstateid.equalsIgnoreCase(orgId)) {
-                    setErrorData(response, "OrgId must belong to a Ministry or State.");
+                    setErrorData(response, Constants.ORG_ID_MUST_BE_MINISTRY_OR_STATE);
                     return response;
                 }
 
-                List<Map<String, Object>> content = populateDataFromApi(orgId, ministryOrStateType);
+                List<Map<String, Object>> content = fetchOrganizationsFromApi(orgId, ministryOrStateType);
                 if (CollectionUtils.isEmpty(content)) {
-                    setErrorData(response, "Organization not found");
+                    setErrorData(response, Constants.ORGANIZATION_NOT_FOUND);
                     return response;
                 }
 
@@ -2643,11 +2642,11 @@ public class ProfileServiceImpl implements ProfileService {
                                 childOrgChannel.equalsIgnoreCase((String) orgEntry.get(Constants.CHANNEL))
                 );
                 if (!isMatchFound) {
-                    setErrorData(response, "Provided childOrgId and childOrgChannel are not valid children of given orgId.");
+                    setErrorData(response, Constants.INVALID_CHILD_ORG);
                     return response;
                 }
             } else {
-                setErrorData(response, "Organization not found");
+                setErrorData(response, Constants.ORGANIZATION_NOT_FOUND);
                 return response;
             }
 
@@ -2660,7 +2659,7 @@ public class ProfileServiceImpl implements ProfileService {
         }
     }
 
-    private List<Map<String, Object>> populateDataFromApi(String orgId, String type) throws Exception {
+    private List<Map<String, Object>> fetchOrganizationsFromApi(String orgId, String type) throws Exception {
         Map<String, String> headers = new HashMap<>();
         headers.put(Constants.AUTHORIZATION, serverProperties.getSbApiKey());
         String url = serverProperties.getLearnerServiceHost() + serverProperties.getOrgSearchUrl();
@@ -2682,7 +2681,7 @@ public class ProfileServiceImpl implements ProfileService {
         Map<String, Object> request = new HashMap<>();
 
         Map<String, Object> filters = new HashMap<>();
-        filters.put(Constants.STATUS, 1);
+        filters.put(Constants.STATUS, serverConfig.getStatus());
         filters.put(Constants.MINISTRY_OR_STATE_ID, orgId);
         filters.put(Constants.MINISTRY_STATE_TYPE, type);
 
@@ -2705,7 +2704,7 @@ public class ProfileServiceImpl implements ProfileService {
 
         List<Map<String, Object>> orgDetails = cassandraOperation.getRecordsByPropertiesWithoutFiltering(
                 Constants.KEYSPACE_SUNBIRD,
-                Constants.ORG_TABLE,
+                Constants.TABLE_ORGANIZATION,
                 propertyMap,
                 null,
                 1

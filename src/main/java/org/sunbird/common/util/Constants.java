@@ -1407,8 +1407,12 @@ public class Constants {
     public static final String MDO_LEADERBOARD_ORG_ID = "org_id";
     public static final String MDO_LEADERBOARD_ORG_NAME = "org_name";
     public static final String MDO_LEADERBOARD_TOTAL_USERS= "total_users";
-    public static final String ORG_TABLE = "organisation";
-	private Constants() {
+    public static final String MINISTRY_OR_STATE_TYPE = "ministryorstatetype";
+    public static final String MINISTRY_STATE_ID = "ministryorstateid";
+    public static final String INVALID_CHILD_ORG = "Provided childOrgId and childOrgChannel are not valid children of given orgId.";
+    public static final String ORG_ID_MUST_BE_MINISTRY_OR_STATE = "OrgId must belong to a Ministry or State.";
+    public static final String ORGANIZATION_NOT_FOUND = "Organization not found";
+    private Constants() {
 		throw new IllegalStateException("Utility class");
 	}
 

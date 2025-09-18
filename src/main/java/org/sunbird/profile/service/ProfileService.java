@@ -61,7 +61,6 @@ public interface ProfileService {
     SBApiResponse bulkUploadBySuperAdmin(
             MultipartFile mFile,
             String orgId,
-            String orgName,
             String userId,
             String userAuthToken,
             String childOrgId,
