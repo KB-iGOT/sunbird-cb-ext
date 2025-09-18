@@ -1109,6 +1109,9 @@ public class CbExtServerProperties {
     @Value("${bulk.transfer.user.filename}")
     private String bulkTransferUserFileName;
 
+    @Value("${bulk.user.transfer.max.rows}")
+    private int bulkUserTransferMaxRows;
+
 	public String getStateLearningInsightsRedisKeyMapping() {
 		return stateLearningInsightsRedisKeyMapping;
 	}
@@ -3747,5 +3750,9 @@ public class CbExtServerProperties {
 
     public String getBulkTransferUserFileName() {
         return bulkTransferUserFileName;
+    }
+
+    public int getBulkUserTransferMaxRows() {
+        return bulkUserTransferMaxRows;
     }
 }

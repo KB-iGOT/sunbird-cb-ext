@@ -8,6 +8,7 @@ import java.io.IOException;
 
 public interface UserMigrationService {
     public SBApiResponse migrateUsers();
+
     ResponseEntity<ByteArrayResource> downloadBulkTransferSampleFile(String rootOrgId, String userAuthToken) throws IOException;
 
 }

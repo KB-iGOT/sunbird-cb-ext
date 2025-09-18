@@ -27,6 +27,7 @@ import org.sunbird.common.util.*;
 import org.sunbird.core.config.PropertiesConfig;
 import org.sunbird.core.producer.Producer;
 import org.sunbird.migrate.service.UserMigrationService;
+import org.sunbird.migrate.util.OrganizationUtils;
 import org.sunbird.org.util.ExcelUtil;
 import org.sunbird.profile.service.ProfileService;
 import org.sunbird.storage.service.StorageServiceImpl;
@@ -69,6 +70,9 @@ public class UserMigrationServiceImpl implements UserMigrationService {
 
     @Autowired
     ExcelUtil excelUtil;
+
+    @Autowired
+    OrganizationUtils organizationUtils;
 
     @Override
     public SBApiResponse migrateUsers() {
@@ -427,7 +431,7 @@ public class UserMigrationServiceImpl implements UserMigrationService {
             excelUtil.createHeaderRow(referenceSheet, serverConfig.getBulkTransferUserReferenceHeaders());
 
 
-            List<Map<String, String>> orgList = fetchOrganizationsFromApi(rootOrgId);
+            List<Map<String, String>> orgList = fetchOrganizationList(rootOrgId);
             int rowIdx = 1;
 
             for (Map<String, String> org : orgList) {
@@ -451,21 +455,21 @@ public class UserMigrationServiceImpl implements UserMigrationService {
 
             DataValidationHelper helper = referenceSheet.getDataValidationHelper();
 
-            CellRangeAddressList currentOrgRange = new CellRangeAddressList(1, 1000, 1, 1);
+            CellRangeAddressList currentOrgRange = new CellRangeAddressList(1, serverConfig.getBulkUserTransferMaxRows(), 1, 1);
             DataValidationConstraint currentOrgConstraint = helper.createFormulaListConstraint(
                     masterDataSheet.getSheetName() + "!$D$2:$D$" + rowIdx);
             DataValidation currentOrgValidation = helper.createValidation(currentOrgConstraint, currentOrgRange);
             currentOrgValidation.setShowErrorBox(true);
             referenceSheet.addValidationData(currentOrgValidation);
 
-            CellRangeAddressList targetOrgRange = new CellRangeAddressList(1, 1000, 2, 2);
+            CellRangeAddressList targetOrgRange = new CellRangeAddressList(1, serverConfig.getBulkUserTransferMaxRows(), 2, 2);
             DataValidationConstraint targetOrgConstraint = helper.createFormulaListConstraint(
                     masterDataSheet.getSheetName() + "!$D$2:$D$" + rowIdx);
             DataValidation targetOrgValidation = helper.createValidation(targetOrgConstraint, targetOrgRange);
             targetOrgValidation.setShowErrorBox(true);
             referenceSheet.addValidationData(targetOrgValidation);
 
-            CellRangeAddressList notifRange = new CellRangeAddressList(1, 1000, 3, 3);
+            CellRangeAddressList notifRange = new CellRangeAddressList(1, serverConfig.getBulkUserTransferMaxRows(), 3, 3);
             DataValidationConstraint notifConstraint = helper.createExplicitListConstraint(new String[]{"TRUE", "FALSE"});
             DataValidation notifValidation = helper.createValidation(notifConstraint, notifRange);
             notifValidation.setShowErrorBox(true);
@@ -474,7 +478,7 @@ public class UserMigrationServiceImpl implements UserMigrationService {
             excelUtil.setColumnWidths(referenceSheet);
             excelUtil.setColumnWidths(masterDataSheet);
 
-            excelUtil.addDuplicateHighlighting(referenceSheet, 1, 1000, 0,
+            excelUtil.addDuplicateHighlighting(referenceSheet, 1, serverConfig.getBulkUserTransferMaxRows(), 0,
                     referenceSheet.getRow(0).getLastCellNum() - 1);
 
             ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
@@ -502,14 +506,14 @@ public class UserMigrationServiceImpl implements UserMigrationService {
         }
     }
 
-    private List<Map<String, String>> fetchOrganizationsFromApi(String orgId) throws Exception {
+    private List<Map<String, String>> fetchOrganizationList(String orgId) throws Exception {
         Map<String, String> headers = new HashMap<>();
         headers.put(Constants.AUTHORIZATION, serverConfig.getSbApiKey());
 
        String url = serverConfig.getLearnerServiceHost() + serverConfig.getOrgSearchUrl();
 
         Map<String, Object> response = (Map<String, Object>) outboundRequestHandlerService.fetchResultUsingPost(
-                url, buildOrgSearchRequest(orgId), headers);
+                url, organizationUtils.generateOrgSearchRequest(orgId, Arrays.asList(Constants.CHANNEL, Constants.ID),null), headers);
 
         List<Map<String, String>> orgList = new ArrayList<>();
 
@@ -532,25 +536,5 @@ public class UserMigrationServiceImpl implements UserMigrationService {
         }
 
         return orgList;
-    }
-
-    private Map<String, Object> buildOrgSearchRequest(String orgId) {
-        Map<String, Object> request = new HashMap<>();
-
-        Map<String, Object> filters = new HashMap<>();
-        filters.put(Constants.STATUS, serverConfig.getStatus());
-        filters.put(Constants.MINISTRY_OR_STATE_ID, orgId);
-
-        List<String> fields = Arrays.asList(Constants.CHANNEL, Constants.ID);
-
-        Map<String, Object> innerRequest = new HashMap<>();
-        innerRequest.put(Constants.FILTERS, filters);
-        innerRequest.put(Constants.FIELDS_CONSTANT, fields);
-        innerRequest.put(Constants.LIMIT, serverConfig.getOrgSearchLimit());
-        innerRequest.put(Constants.OFFSET, 0);
-
-        request.put(Constants.REQUEST, innerRequest);
-
-        return request;
     }
 }
