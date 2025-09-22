@@ -455,7 +455,6 @@ public class UserMigrationServiceImpl implements UserMigrationService {
             String cacheKey = "bulkTransfer:hierarchy:" + frameworkId;
             String cachedDataStr = redisCacheMgr.getCache(cacheKey);
             if (cachedDataStr != null) {
-                System.out.println("cache hit for getCompleteFrameworkDataFromUtil "+frameworkId);
                 log.info("Cache hit for getCompleteFrameworkDataFromUtil, frameworkId: {}", frameworkId);
                 return mapper.readValue(cachedDataStr, Map.class);
             }
@@ -466,7 +465,6 @@ public class UserMigrationServiceImpl implements UserMigrationService {
             Map<String, Object> frameworkResponse = (Map<String, Object>) outboundRequestHandlerService.fetchUsingGetWithHeaders(url, headers);
 
             if (frameworkResponse != null && Constants.OK.equals(frameworkResponse.get(Constants.RESPONSE_CODE))) {
-                System.out.println("api call happend from getCompleteFrameworkDataFromUtil "+frameworkId);
                 redisCacheMgr.putCache(cacheKey, frameworkResponse, serverConfig.getBulkTransferRedisTtl());
                 return frameworkResponse;
             } else {
