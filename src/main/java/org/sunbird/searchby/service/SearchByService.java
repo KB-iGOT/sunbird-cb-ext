@@ -451,11 +451,15 @@ public class SearchByService {
 
     private Map<String, Object> listCompetencyDetails(List<String> identifiers) throws Exception {
         Map<String, Object> compositeSearchRes = null;
+        String competencySelected = cbExtServerProperties.getCompetencySelectedVersion();
+        String facetsDetails = cbExtServerProperties.getCompetencySelectedVersionFacetsMap().get(competencySelected);
+
         if (identifiers != null && identifiers.size() > 20) {
             List<Map<String, Object>> allContent = new ArrayList<>();
             for (int i = 0; i < identifiers.size(); i += 20) {
                 List<String> chunk = identifiers.subList(i, Math.min(i + 20, identifiers.size()));
                 Map<String, Object> req = new HashMap<>();
+                req.put(Constants.FACETS, Arrays.asList(facetsDetails.split(",", -1)));
                 Map<String, Object> filters = new HashMap<>();
                 filters.put(Constants.IDENTIFIER, chunk);
                 filters.put(Constants.STATUS, Arrays.asList(Constants.LIVE));
@@ -465,7 +469,7 @@ public class SearchByService {
                 reqBody.put(Constants.REQUEST, req);
 
                 Map<String, Object> chunkResponse = outboundRequestHandlerService.fetchResultUsingPost(
-                        cbExtServerProperties.getKmBaseHost() + cbExtServerProperties.getKmCompositeSearchPath(),
+                        cbExtServerProperties.getSbSearchServiceHost() + cbExtServerProperties.getSbCompositeV4Search(),
                         reqBody, null);
 
                 if (chunkResponse != null && chunkResponse.containsKey(Constants.RESULT)) {
@@ -484,6 +488,21 @@ public class SearchByService {
                 result.put(Constants.CONTENT, allContent);
                 compositeSearchRes.put(Constants.RESULT, result);
             }
+        }
+        else {
+            HashMap<String, Object> reqBody = new HashMap<>();
+            HashMap<String, Object> req = new HashMap<>();
+            req.put(Constants.FACETS, Arrays.asList(facetsDetails.split(",", -1)));
+            Map<String, Object> filters = new HashMap<>();
+            filters.put(Constants.IDENTIFIER, identifiers);
+            filters.put(Constants.STATUS, Arrays.asList(Constants.LIVE));
+            req.put(Constants.FILTERS, filters);
+            req.put(Constants.LIMIT, 0);
+            reqBody.put(Constants.REQUEST, req);
+
+            Map<String, Object> compositeSearchRes = outboundRequestHandlerService.fetchResultUsingPost(
+                    cbExtServerProperties.getSbSearchServiceHost() + cbExtServerProperties.getSbCompositeV4Search(), reqBody,
+                    null);
         }
         return compositeSearchRes != null ? compositeSearchRes : new HashMap<>();
     }
