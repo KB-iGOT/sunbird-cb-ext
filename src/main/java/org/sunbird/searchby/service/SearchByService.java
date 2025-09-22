@@ -466,7 +466,7 @@ public class SearchByService {
         if (total > batchSize) {
             for (int i = 0; i < total; i += batchSize) {
                 List<String> chunk = identifiers.subList(i, Math.min(i + batchSize, total));
-                Map<String, Object> reqBody = createRequestBody(chunk, facetsDetails, chunk.size());
+                Map<String, Object> reqBody = createRequestBody(chunk, facetsDetails);
                 Map<String, Object> chunkResponse = outboundRequestHandlerService.fetchResultUsingPost(
                         cbExtServerProperties.getSbSearchServiceHost() + cbExtServerProperties.getSbCompositeV4Search(),
                         reqBody, null);
@@ -487,7 +487,7 @@ public class SearchByService {
                 result.put(Constants.CONTENT, allContent);
             }
         } else {
-            Map<String, Object> reqBody = createRequestBody(identifiers, facetsDetails, 0);
+            Map<String, Object> reqBody = createRequestBody(identifiers, facetsDetails);
             compositeSearchRes = outboundRequestHandlerService.fetchResultUsingPost(
                     cbExtServerProperties.getSbSearchServiceHost() + cbExtServerProperties.getSbCompositeV4Search(),
                     reqBody, null);
@@ -495,14 +495,14 @@ public class SearchByService {
         return compositeSearchRes != null ? compositeSearchRes : new HashMap<>();
     }
 
-    private Map<String, Object> createRequestBody(List<String> identifiers, String facetsDetails, int limit) {
+    private Map<String, Object> createRequestBody(List<String> identifiers, String facetsDetails) {
         Map<String, Object> req = new HashMap<>();
         req.put(Constants.FACETS, Arrays.asList(facetsDetails.split(",", -1)));
         Map<String, Object> filters = new HashMap<>();
         filters.put(Constants.IDENTIFIER, identifiers);
         filters.put(Constants.STATUS, Arrays.asList(Constants.LIVE));
         req.put(Constants.FILTERS, filters);
-        req.put(Constants.LIMIT, limit);
+        req.put(Constants.LIMIT, 0);
         Map<String, Object> reqBody = new HashMap<>();
         reqBody.put(Constants.REQUEST, req);
         return reqBody;
