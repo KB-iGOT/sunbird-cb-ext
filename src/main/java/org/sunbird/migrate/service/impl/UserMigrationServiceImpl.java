@@ -449,8 +449,7 @@ public class UserMigrationServiceImpl implements UserMigrationService {
         try {
             Map<String, String> headers = new HashMap<>();
             headers.put(Constants.AUTHORIZATION, serverConfig.getSbApiKey());
-            //String url = serverConfig.getKmBaseHost() + serverConfig.getKmFrameWorkPath() + "/" + frameworkId;
-            String url = "https://portal.dev.karmayogibharat.net/api/framework/v1/read/"+frameworkId;
+            String url = serverConfig.getKmBaseHost() + serverConfig.getKmFrameWorkPath() + "/" + frameworkId;
 
             Map<String, Object> frameworkResponse = (Map<String, Object>) outboundRequestHandlerService.fetchUsingGetWithHeaders(url, headers);
 
