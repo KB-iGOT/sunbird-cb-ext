@@ -1412,6 +1412,7 @@ public class Constants {
     public static final String INVALID_CHILD_ORG = "Provided childOrgId and childOrgChannel are not valid children of given orgId.";
     public static final String ORG_ID_MUST_BE_MINISTRY_OR_STATE = "OrgId must belong to a Ministry or State.";
     public static final String ORGANIZATION_NOT_FOUND = "Organization not found";
+    public static final String SPV_LOWER_CASE = "spv";
     private Constants() {
 		throw new IllegalStateException("Utility class");
 	}

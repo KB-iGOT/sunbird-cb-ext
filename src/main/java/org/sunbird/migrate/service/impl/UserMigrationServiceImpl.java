@@ -21,6 +21,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.util.ObjectUtils;
 import org.springframework.web.multipart.MultipartFile;
+import org.sunbird.cache.RedisCacheMgr;
 import org.sunbird.cassandra.utils.CassandraOperation;
 import org.sunbird.common.model.SBApiResponse;
 import org.sunbird.common.service.OutboundRequestHandlerServiceImpl;
@@ -38,6 +39,7 @@ import org.sunbird.user.service.UserUtilityService;
 import java.io.ByteArrayOutputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.nio.file.AccessDeniedException;
 import java.sql.Timestamp;
 import java.text.MessageFormat;
 import java.text.SimpleDateFormat;
@@ -84,6 +86,9 @@ public class UserMigrationServiceImpl implements UserMigrationService {
 
     @Autowired
     FrameworkUtil frameworkUtil;
+
+    @Autowired
+    RedisCacheMgr redisCacheMgr;
 
     @Override
     public SBApiResponse migrateUsers() {
@@ -447,6 +452,13 @@ public class UserMigrationServiceImpl implements UserMigrationService {
 
     private Map<String, Object> getCompleteFrameworkDataFromUtil(String frameworkId) throws Exception {
         try {
+            String cacheKey = "bulkTransfer:hierarchy:" + frameworkId;
+            String cachedDataStr = redisCacheMgr.getCache(cacheKey);
+            if (cachedDataStr != null) {
+                System.out.println("cache hit for getCompleteFrameworkDataFromUtil "+frameworkId);
+                log.info("Cache hit for getCompleteFrameworkDataFromUtil, frameworkId: {}", frameworkId);
+                return mapper.readValue(cachedDataStr, Map.class);
+            }
             Map<String, String> headers = new HashMap<>();
             headers.put(Constants.AUTHORIZATION, serverConfig.getSbApiKey());
             String url = serverConfig.getKmBaseHost() + serverConfig.getKmFrameWorkPath() + "/" + frameworkId;
@@ -454,6 +466,8 @@ public class UserMigrationServiceImpl implements UserMigrationService {
             Map<String, Object> frameworkResponse = (Map<String, Object>) outboundRequestHandlerService.fetchUsingGetWithHeaders(url, headers);
 
             if (frameworkResponse != null && Constants.OK.equals(frameworkResponse.get(Constants.RESPONSE_CODE))) {
+                System.out.println("api call happend from getCompleteFrameworkDataFromUtil "+frameworkId);
+                redisCacheMgr.putCache(cacheKey, frameworkResponse, serverConfig.getBulkTransferRedisTtl());
                 return frameworkResponse;
             } else {
                 log.error("Framework API call failed for frameworkId: {}. Response: {}", frameworkId, frameworkResponse);
@@ -574,12 +588,66 @@ public class UserMigrationServiceImpl implements UserMigrationService {
     }
 
     public ResponseEntity<ByteArrayResource> downloadBulkTransferSampleFile(String rootOrgId, String userAuthToken, String orgHierarchyFrameworkId) throws IOException {
+
+        Map<String, Object> propertyMap = new HashMap<>();
+        propertyMap.put(Constants.ID, rootOrgId);
+        List<Map<String, Object>> orgDetailsList = cassandraOperation.getRecordsByProperties(Constants.DATABASE,
+                Constants.ORGANISATION, propertyMap, null);
+
+        if (orgDetailsList == null || orgDetailsList.isEmpty()) {
+            throw new AccessDeniedException("Organization not found.");
+        }
+        Map<String, Object> orgRecord = orgDetailsList.get(0);
+        String sbOrgType = (String) orgRecord.get(serverConfig.getOrgTypeFieldName());
+        if (StringUtils.isEmpty(sbOrgType)) {
+            throw new AccessDeniedException(
+                    "Organization type not found. Cannot determine access permissions."
+            );
+        }
+
+        if (!Arrays.asList(Constants.SPV_LOWER_CASE, Constants.MINISTRY, Constants.STATE)
+                .contains(sbOrgType.toLowerCase())) {
+            throw new AccessDeniedException(
+                    "Only SPV and MDO (Ministry/State) organizations can access the Bulk Transfer feature."
+            );
+        }
+        Map<String, Object> payload = accessTokenValidator.extractTokenPayload(userAuthToken);
+        List<String> userRoles = (List<String>) payload.get("user_roles");
+        if ((Constants.MINISTRY.equalsIgnoreCase(sbOrgType) ||
+                Constants.STATE.equalsIgnoreCase(sbOrgType)) &&
+                !(userRoles.contains(Constants.MDO_ADMIN) || userRoles.contains(Constants.MDO_LEADER))) {
+            throw new AccessDeniedException(
+                    "Only MDO Admins and Leaders can access the Bulk Transfer feature."
+            );
+        }
+
+        List<String> allowedRoles = serverConfig.getBulkTransferAuthorizedRoles();
+        Boolean hasRole = false;
+        for (String role : userRoles) {
+            for (String allowedRole : allowedRoles) {
+                if (role != null && allowedRole != null &&
+                        role.trim().equalsIgnoreCase(allowedRole.trim())) {
+                    hasRole = true;
+                    break;
+                }
+            }
+            if (hasRole) {
+                break;
+            }
+        }
+
+        if (!hasRole) {
+            throw new AccessDeniedException("You do not have permission to download this file.");
+        }
+
+        String tokenOrg = (String) payload.get(Constants.ORG);
+
         Workbook workbook = new XSSFWorkbook();
         try {
             Sheet referenceSheet = createReferenceSheet(workbook);
             Sheet masterDataSheet = createMasterDataSheet(workbook);
 
-            List<Map<String, String>> orgList = getOrgList(userAuthToken, orgHierarchyFrameworkId);
+            List<Map<String, String>> orgList = getOrgList(orgHierarchyFrameworkId, tokenOrg);
             Map<String, Map<String, String>> uniqueOrgs = getUniqueOrgs(orgList);
 
             int rowIdx = populateMasterDataSheet(masterDataSheet, uniqueOrgs);
@@ -618,9 +686,7 @@ public class UserMigrationServiceImpl implements UserMigrationService {
         return masterDataSheet;
     }
 
-    private List<Map<String, String>> getOrgList(String userAuthToken, String orgHierarchyFrameworkId) throws Exception {
-        Map<String, Object> payload = accessTokenValidator.extractTokenPayload(userAuthToken);
-        String tokenOrg = (String) payload.get(Constants.ORG);
+    private List<Map<String, String>> getOrgList(String orgHierarchyFrameworkId, String tokenOrg) throws Exception {
         String baseFrameworkOrgId = orgHierarchyFrameworkId.replace("_org_hierarchy", "");
         if (tokenOrg != null && tokenOrg.equals(baseFrameworkOrgId)) {
             return fetchCompleteFrameworkHierarchy(orgHierarchyFrameworkId);
