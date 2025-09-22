@@ -23,11 +23,10 @@ public class UserMigrationController {
         return new ResponseEntity<>(response, response.getResponseCode());
     }
 
-    @GetMapping("/v1/getMappingFile/sample/{orgId}")
-    public ResponseEntity<?> getSampleMappingFileBulkUpload(@PathVariable(Constants.ORG_ID) String rootOrgId,
-                                                            @RequestHeader(Constants.X_AUTH_TOKEN) String userAuthToken) throws IOException {
+    @GetMapping("/v1/getMappingFile/sample/{orgHierarchyFrameworkId}")
+    public ResponseEntity<?> getSampleMappingFileBulkUpload(@RequestHeader(Constants.X_AUTH_USER_ORG_ID) String rootOrgId, @RequestHeader(Constants.X_AUTH_TOKEN) String userAuthToken, @PathVariable(Constants.ORG_HIERARCHY_FRAMEWORK_ID_KEY) String orgHierarchyFrameworkId) throws IOException {
 
-        return userMigrationService.downloadBulkTransferSampleFile(rootOrgId, userAuthToken);
+        return userMigrationService.downloadBulkTransferSampleFile(rootOrgId, userAuthToken, orgHierarchyFrameworkId);
     }
 
 

@@ -16,6 +16,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.util.ObjectUtils;
@@ -29,18 +30,23 @@ import org.sunbird.core.producer.Producer;
 import org.sunbird.migrate.service.UserMigrationService;
 import org.sunbird.migrate.util.OrganizationUtils;
 import org.sunbird.org.util.ExcelUtil;
+import org.sunbird.org.util.FrameworkUtil;
 import org.sunbird.profile.service.ProfileService;
 import org.sunbird.storage.service.StorageServiceImpl;
 import org.sunbird.user.service.UserUtilityService;
 
 import java.io.ByteArrayOutputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.sql.Timestamp;
+import java.text.MessageFormat;
 import java.text.SimpleDateFormat;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @Service
 public class UserMigrationServiceImpl implements UserMigrationService {
@@ -73,6 +79,11 @@ public class UserMigrationServiceImpl implements UserMigrationService {
 
     @Autowired
     OrganizationUtils organizationUtils;
+
+    @Autowired AccessTokenValidator accessTokenValidator;
+
+    @Autowired
+    FrameworkUtil frameworkUtil;
 
     @Override
     public SBApiResponse migrateUsers() {
@@ -417,85 +428,173 @@ public class UserMigrationServiceImpl implements UserMigrationService {
         return errMsg;
     }
 
-    @Override
-    public ResponseEntity<ByteArrayResource> downloadBulkTransferSampleFile(String rootOrgId, String userAuthToken) throws IOException {
+    private void addTermToHierarchy(String orgId, Map<String, Map<String, Object>> termMap,
+                                    List<Map<String, String>> hierarchyList) {
+        Map<String, Object> term = termMap.get(orgId);
+        if (term != null) {
+            Map<String, String> hierarchyEntry = new HashMap<>();
+            hierarchyEntry.put(Constants.CHANNEL, (String) term.get(Constants.NAME));
+            hierarchyEntry.put(Constants.ID, orgId);
+            hierarchyEntry.put(Constants.CATEGORY, (String) term.get(Constants.CATEGORY));
+            hierarchyList.add(hierarchyEntry);
+        }
+    }
+
+    private String extractOrgId(Map<String, Object> term) {
+        Map<String, Object> additionalProperties = (Map<String, Object>) term.get(Constants.ADDITIONAL_PROPERTIES);
+        return additionalProperties != null ? (String) additionalProperties.get(Constants.ORG_ID) : null;
+    }
+
+    private Map<String, Object> getCompleteFrameworkDataFromUtil(String frameworkId) throws Exception {
+        try {
+            Map<String, String> headers = new HashMap<>();
+            headers.put(Constants.AUTHORIZATION, serverConfig.getSbApiKey());
+            //String url = serverConfig.getKmBaseHost() + serverConfig.getKmFrameWorkPath() + "/" + frameworkId;
+            String url = "https://portal.dev.karmayogibharat.net/api/framework/v1/read/"+frameworkId;
+
+            Map<String, Object> frameworkResponse = (Map<String, Object>) outboundRequestHandlerService.fetchUsingGetWithHeaders(url, headers);
+
+            if (frameworkResponse != null && Constants.OK.equals(frameworkResponse.get(Constants.RESPONSE_CODE))) {
+                return frameworkResponse;
+            } else {
+                log.error("Framework API call failed for frameworkId: {}. Response: {}", frameworkId, frameworkResponse);
+                return null;
+            }
+        } catch (Exception e) {
+            log.error("Error calling framework API for frameworkId: {}", frameworkId, e);
+            throw e;
+        }
+    }
+
+    private List<Map<String, String>> fetchCompleteFrameworkHierarchy(String frameworkId) throws Exception {
+        Map<String, Object> frameworkData = getCompleteFrameworkDataFromUtil(frameworkId);
+        List<Map<String, String>> hierarchyList = new ArrayList<>();
+
+        if (frameworkData != null && frameworkData.containsKey(Constants.RESULT)) {
+            Map<String, Object> result = (Map<String, Object>) frameworkData.get(Constants.RESULT);
+            if (result != null && result.containsKey(Constants.FRAMEWORK)) {
+                Map<String, Object> framework = (Map<String, Object>) result.get(Constants.FRAMEWORK);
+                if (framework != null) {
+                    // Build complete term maps
+                    Map<String, Map<String, Object>> termMap = new HashMap<>();
+                    Map<String, List<String>> parentChildMap = new HashMap<>();
+                    buildCompleteTermMaps(framework, termMap, parentChildMap);
+
+                    // Add all terms to hierarchy
+                    for (String orgId : termMap.keySet()) {
+                        addTermToHierarchy(orgId, termMap, hierarchyList);
+                    }
+                }
+            }
+        }
+        return hierarchyList;
+    }
+
+    private List<Map<String, String>> fetchTokenOrgDescendantHierarchy(String frameworkId, String tokenOrg) throws Exception {
+        Map<String, Object> frameworkData = getCompleteFrameworkDataFromUtil(frameworkId);
+        List<Map<String, String>> hierarchyList = new ArrayList<>();
+
+        if (frameworkData != null && frameworkData.containsKey(Constants.RESULT)) {
+            Map<String, Object> result = (Map<String, Object>) frameworkData.get(Constants.RESULT);
+            if (result != null && result.containsKey(Constants.FRAMEWORK)) {
+                Map<String, Object> framework = (Map<String, Object>) result.get(Constants.FRAMEWORK);
+                if (framework != null) {
+                    Map<String, Map<String, Object>> termMap = new HashMap<>();
+                    Map<String, List<String>> parentChildMap = new HashMap<>();
+                    buildCompleteTermMaps(framework, termMap, parentChildMap);
+                    if (termMap.containsKey(tokenOrg)) {
+                        log.info("Found token org {} in framework. Building complete descendant hierarchy.", tokenOrg);
+                        addTermToHierarchy(tokenOrg, termMap, hierarchyList);
+                        Set<String> allDescendants = getAllDescendants(tokenOrg, parentChildMap, new HashSet<>());
+                        for (String descendantOrgId : allDescendants) {
+                            addTermToHierarchy(descendantOrgId, termMap, hierarchyList);
+                        }
+                    } else {
+                        log.warn("Token org {} not found in framework {}. Returning empty hierarchy.", tokenOrg, frameworkId);
+                    }
+                }
+            }
+        }
+        return hierarchyList;
+    }
+
+    private void buildCompleteTermMaps(Map<String, Object> framework,
+                                       Map<String, Map<String, Object>> termMap,
+                                       Map<String, List<String>> parentChildMap) {
+        List<Map<String, Object>> categories = (List<Map<String, Object>>) framework.get(Constants.CATEGORIES);
+
+        if (categories != null) {
+            for (Map<String, Object> category : categories) {
+                List<Map<String, Object>> terms = (List<Map<String, Object>>) category.get(Constants.TERMS);
+                if (terms != null) {
+                    for (Map<String, Object> term : terms) {
+                        String termOrgId = extractOrgId(term);
+                        if (termOrgId != null) {
+                            termMap.put(termOrgId, term);
+
+                            // Build parent-child relationships from associations
+                            List<Map<String, Object>> associations = (List<Map<String, Object>>) term.get(Constants.ASSOCIATIONS);
+                            if (associations != null) {
+                                List<String> children = new ArrayList<>();
+                                for (Map<String, Object> association : associations) {
+                                    String childOrgId = extractOrgId(association);
+                                    if (childOrgId != null) {
+                                        children.add(childOrgId);
+                                    }
+                                }
+                                if (!children.isEmpty()) {
+                                    parentChildMap.put(termOrgId, children);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private Set<String> getAllDescendants(String parentOrgId,
+                                          Map<String, List<String>> parentChildMap,
+                                          Set<String> visited) {
+        Set<String> descendants = new HashSet<>();
+
+        if (visited.contains(parentOrgId)) {
+            return descendants;
+        }
+        visited.add(parentOrgId);
+
+        List<String> directChildren = parentChildMap.get(parentOrgId);
+        if (directChildren != null) {
+            for (String childOrgId : directChildren) {
+                descendants.add(childOrgId);
+                descendants.addAll(getAllDescendants(childOrgId, parentChildMap, visited));
+            }
+        }
+
+        return descendants;
+    }
+
+    public ResponseEntity<ByteArrayResource> downloadBulkTransferSampleFile(String rootOrgId, String userAuthToken, String orgHierarchyFrameworkId) throws IOException {
         Workbook workbook = new XSSFWorkbook();
         try {
-            Sheet referenceSheet = workbook.createSheet(
-                    WorkbookUtil.createSafeSheetName(serverConfig.getBulkTransferUserReferenceSheetName()));
-            Sheet masterDataSheet = workbook.createSheet(
-                    WorkbookUtil.createSafeSheetName(serverConfig.getBulkTransferUserMasterDataSheetName()));
+            Sheet referenceSheet = createReferenceSheet(workbook);
+            Sheet masterDataSheet = createMasterDataSheet(workbook);
 
-            excelUtil.createHeaderRow(masterDataSheet, serverConfig.getBulkTransferUserMasterDataHeaders());
+            List<Map<String, String>> orgList = getOrgList(userAuthToken, orgHierarchyFrameworkId);
+            Map<String, Map<String, String>> uniqueOrgs = getUniqueOrgs(orgList);
 
-            excelUtil.createHeaderRow(referenceSheet, serverConfig.getBulkTransferUserReferenceHeaders());
+            int rowIdx = populateMasterDataSheet(masterDataSheet, uniqueOrgs);
+            setupReferenceSheet(referenceSheet, masterDataSheet, rowIdx);
 
-
-            List<Map<String, String>> orgList = fetchOrganizationList(rootOrgId);
-            int rowIdx = 1;
-
-            for (Map<String, String> org : orgList) {
-                Row row = masterDataSheet.createRow(rowIdx++);
-                String orgChannel = org.get(Constants.CHANNEL) != null ? org.get(Constants.CHANNEL) : "";
-                String orgId = org.get(Constants.ID) != null ? org.get(Constants.ID) : "";
-
-
-                row.createCell(0).setCellValue(orgChannel);
-                row.createCell(1).setCellValue(orgId);
-                row.createCell(2).setCellValue("");
-
-                row.createCell(3).setCellValue(orgChannel + " (" + orgId + ")");
-                row.createCell(4).setCellValue("");
-            }
-
-            excelUtil.makeSheetReadOnly(masterDataSheet);
-
-            masterDataSheet.setColumnHidden(3, true);
-            masterDataSheet.setColumnHidden(4, true);
-
-            DataValidationHelper helper = referenceSheet.getDataValidationHelper();
-
-            CellRangeAddressList currentOrgRange = new CellRangeAddressList(1, serverConfig.getBulkUserTransferMaxRows(), 1, 1);
-            DataValidationConstraint currentOrgConstraint = helper.createFormulaListConstraint(
-                    masterDataSheet.getSheetName() + "!$D$2:$D$" + rowIdx);
-            DataValidation currentOrgValidation = helper.createValidation(currentOrgConstraint, currentOrgRange);
-            currentOrgValidation.setShowErrorBox(true);
-            referenceSheet.addValidationData(currentOrgValidation);
-
-            CellRangeAddressList targetOrgRange = new CellRangeAddressList(1, serverConfig.getBulkUserTransferMaxRows(), 2, 2);
-            DataValidationConstraint targetOrgConstraint = helper.createFormulaListConstraint(
-                    masterDataSheet.getSheetName() + "!$D$2:$D$" + rowIdx);
-            DataValidation targetOrgValidation = helper.createValidation(targetOrgConstraint, targetOrgRange);
-            targetOrgValidation.setShowErrorBox(true);
-            referenceSheet.addValidationData(targetOrgValidation);
-
-            CellRangeAddressList notifRange = new CellRangeAddressList(1, serverConfig.getBulkUserTransferMaxRows(), 3, 3);
-            DataValidationConstraint notifConstraint = helper.createExplicitListConstraint(new String[]{"TRUE", "FALSE"});
-            DataValidation notifValidation = helper.createValidation(notifConstraint, notifRange);
-            notifValidation.setShowErrorBox(true);
-            referenceSheet.addValidationData(notifValidation);
-
-            excelUtil.setColumnWidths(referenceSheet);
-            excelUtil.setColumnWidths(masterDataSheet);
-
-            excelUtil.addDuplicateHighlighting(referenceSheet, 1, serverConfig.getBulkUserTransferMaxRows(), 0,
-                    referenceSheet.getRow(0).getLastCellNum() - 1);
-
-            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-            workbook.write(outputStream);
-
-            ByteArrayResource resource = new ByteArrayResource(outputStream.toByteArray());
-
-
+            ByteArrayResource resource = writeWorkbookToResource(workbook);
 
             HttpHeaders headers = new HttpHeaders();
-            headers.add(HttpHeaders.CONTENT_DISPOSITION,
-                    "attachment; filename=\"" + serverConfig.getBulkTransferUserFileName() + "\"");
+            headers.add(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + serverConfig.getBulkTransferUserFileName() + "\"");
 
             return ResponseEntity.ok()
                     .headers(headers)
                     .contentLength(resource.contentLength())
-                    .contentType(org.springframework.http.MediaType.APPLICATION_OCTET_STREAM)
+                    .contentType(MediaType.APPLICATION_OCTET_STREAM)
                     .body(resource);
 
         } catch (Exception e) {
@@ -506,35 +605,118 @@ public class UserMigrationServiceImpl implements UserMigrationService {
         }
     }
 
-    private List<Map<String, String>> fetchOrganizationList(String orgId) throws Exception {
-        Map<String, String> headers = new HashMap<>();
-        headers.put(Constants.AUTHORIZATION, serverConfig.getSbApiKey());
+    private Sheet createReferenceSheet(Workbook workbook) {
+        Sheet referenceSheet = workbook.createSheet(
+                WorkbookUtil.createSafeSheetName(serverConfig.getBulkTransferUserReferenceSheetName()));
+        excelUtil.createHeaderRow(referenceSheet, serverConfig.getBulkTransferUserReferenceHeaders());
+        return referenceSheet;
+    }
 
-       String url = serverConfig.getLearnerServiceHost() + serverConfig.getOrgSearchUrl();
+    private Sheet createMasterDataSheet(Workbook workbook) {
+        Sheet masterDataSheet = workbook.createSheet(
+                WorkbookUtil.createSafeSheetName(serverConfig.getBulkTransferUserMasterDataSheetName()));
+        excelUtil.createHeaderRow(masterDataSheet, serverConfig.getBulkTransferUserMasterDataHeaders());
+        return masterDataSheet;
+    }
 
-        Map<String, Object> response = (Map<String, Object>) outboundRequestHandlerService.fetchResultUsingPost(
-                url, organizationUtils.generateOrgSearchRequest(orgId, Arrays.asList(Constants.CHANNEL, Constants.ID),null), headers);
+    private List<Map<String, String>> getOrgList(String userAuthToken, String orgHierarchyFrameworkId) throws Exception {
+        Map<String, Object> payload = accessTokenValidator.extractTokenPayload(userAuthToken);
+        String tokenOrg = (String) payload.get(Constants.ORG);
+        String baseFrameworkOrgId = orgHierarchyFrameworkId.replace("_org_hierarchy", "");
+        if (tokenOrg != null && tokenOrg.equals(baseFrameworkOrgId)) {
+            return fetchCompleteFrameworkHierarchy(orgHierarchyFrameworkId);
+        } else {
+            return fetchTokenOrgDescendantHierarchy(orgHierarchyFrameworkId, tokenOrg);
+        }
+    }
 
-        List<Map<String, String>> orgList = new ArrayList<>();
-
-        if (MapUtils.isNotEmpty(response)) {
-            Map<String, Object> result = (Map<String, Object>) response.get(Constants.RESULT);
-            if (MapUtils.isNotEmpty(result)) {
-                Map<String, Object> contentObject = (Map<String, Object>) result.get(Constants.RESPONSE);
-                if (MapUtils.isNotEmpty(contentObject)) {
-                    List<Map<String, Object>> content = (List<Map<String, Object>>) contentObject.get(Constants.CONTENT);
-                    if (content != null) {
-                        for (Map<String, Object> orgEntry : content) {
-                            Map<String, String> orgMap = new HashMap<>();
-                            orgMap.put(Constants.CHANNEL, (String) orgEntry.get(Constants.CHANNEL));
-                            orgMap.put(Constants.ID, (String) orgEntry.get(Constants.ID));
-                            orgList.add(orgMap);
-                        }
-                    }
-                }
+    private Map<String, Map<String, String>> getUniqueOrgs(List<Map<String, String>> orgList) {
+        Map<String, Map<String, String>> uniqueOrgs = new HashMap<>();
+        for (Map<String, String> org : orgList) {
+            String orgId = org.get(Constants.ID);
+            if (orgId != null && !uniqueOrgs.containsKey(orgId)) {
+                uniqueOrgs.put(orgId, org);
             }
         }
-
-        return orgList;
+        return uniqueOrgs;
     }
+
+    private int populateMasterDataSheet(Sheet masterDataSheet, Map<String, Map<String, String>> uniqueOrgs) {
+        int rowIdx = 1;
+        for (Map<String, String> org : uniqueOrgs.values()) {
+            Row row = masterDataSheet.createRow(rowIdx++);
+            String orgChannel = org.get(Constants.CHANNEL) != null ? org.get(Constants.CHANNEL) : "";
+            String orgId = org.get(Constants.ID) != null ? org.get(Constants.ID) : "";
+            row.createCell(0).setCellValue(orgChannel);
+            row.createCell(1).setCellValue(orgId);
+            row.createCell(2).setCellValue("");
+            row.createCell(3).setCellValue(orgChannel + " (" + orgId + ")");
+            row.createCell(4).setCellValue("");
+        }
+        excelUtil.makeSheetReadOnly(masterDataSheet);
+        masterDataSheet.setColumnHidden(0, true);
+        masterDataSheet.setColumnHidden(1, true);
+        masterDataSheet.setColumnHidden(2, true);
+        masterDataSheet.setColumnHidden(4, true);
+        excelUtil.setColumnWidths(masterDataSheet);
+        return rowIdx;
+    }
+
+    private void setupReferenceSheet(Sheet referenceSheet, Sheet masterDataSheet, int rowIdx) {
+        DataValidationHelper helper = referenceSheet.getDataValidationHelper();
+
+        CellRangeAddressList currentOrgRange = new CellRangeAddressList(1, serverConfig.getBulkUserTransferMaxRows(), 1, 1);
+        DataValidationConstraint currentOrgConstraint = helper.createFormulaListConstraint(
+                masterDataSheet.getSheetName() + "!$D$2:$D$" + rowIdx);
+        DataValidation currentOrgValidation = helper.createValidation(currentOrgConstraint, currentOrgRange);
+        currentOrgValidation.setShowErrorBox(true);
+        currentOrgValidation.setErrorStyle(DataValidation.ErrorStyle.STOP);
+        currentOrgValidation.createErrorBox("Invalid Selection", "Please select a valid organisation from the dropdown.");
+        referenceSheet.addValidationData(currentOrgValidation);
+
+        CellRangeAddressList targetOrgRange = new CellRangeAddressList(1, serverConfig.getBulkUserTransferMaxRows(), 2, 2);
+        DataValidationConstraint targetOrgConstraint = helper.createFormulaListConstraint(
+                masterDataSheet.getSheetName() + "!$D$2:$D$" + rowIdx);
+        DataValidation targetOrgValidation = helper.createValidation(targetOrgConstraint, targetOrgRange);
+        targetOrgValidation.setShowErrorBox(true);
+        targetOrgValidation.setErrorStyle(DataValidation.ErrorStyle.STOP);
+        targetOrgValidation.createErrorBox("Invalid Selection", "Please select a valid organisation from the dropdown.");
+        referenceSheet.addValidationData(targetOrgValidation);
+
+        int validationColumnIndex = 4;
+        for (int rowNum = 1; rowNum <= serverConfig.getBulkUserTransferMaxRows(); rowNum++) {
+            Row row = referenceSheet.getRow(rowNum);
+            if (row == null) {
+                row = referenceSheet.createRow(rowNum);
+            }
+            Cell validationCell = row.createCell(validationColumnIndex);
+            validationCell.setCellFormula("IF(AND(B" + (rowNum + 1) + "<>\"\",C" + (rowNum + 1) + "<>\"\",B" + (rowNum + 1) + "=C" + (rowNum + 1) + "),\"SAME_ORG\",\"VALID\")");
+        }
+
+        excelUtil.addSameOrgHighlighting(referenceSheet, 1, serverConfig.getBulkUserTransferMaxRows(), 4, 1, 2);
+        referenceSheet.setColumnHidden(validationColumnIndex, true);
+
+        excelUtil.addDuplicateHighlighting(referenceSheet, 1, serverConfig.getBulkUserTransferMaxRows(), 0, serverConfig.getBulkTransferUserReferenceHeaders().length - 1);
+
+        CellRangeAddressList notificationRange = new CellRangeAddressList(1, serverConfig.getBulkUserTransferMaxRows(), 3, 3);
+        DataValidationConstraint notificationConstraint = helper.createExplicitListConstraint(new String[]{"true", "false"});
+        DataValidation notificationValidation = helper.createValidation(notificationConstraint, notificationRange);
+        notificationValidation.setShowErrorBox(true);
+        notificationValidation.setErrorStyle(DataValidation.ErrorStyle.STOP);
+        notificationValidation.createErrorBox("Invalid Notification", "Please select either 'true' or 'false'.");
+        referenceSheet.addValidationData(notificationValidation);
+
+        excelUtil.addDuplicateHighlighting(referenceSheet, 1, serverConfig.getBulkUserTransferMaxRows(), 0, serverConfig.getBulkTransferUserReferenceHeaders().length - 1);
+
+        for (int i = 0; i < serverConfig.getBulkTransferUserReferenceHeaders().length; i++) {
+            referenceSheet.autoSizeColumn(i);
+        }
+    }
+
+    private ByteArrayResource writeWorkbookToResource(Workbook workbook) throws IOException {
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        workbook.write(outputStream);
+        return new ByteArrayResource(outputStream.toByteArray());
+    }
+
 }

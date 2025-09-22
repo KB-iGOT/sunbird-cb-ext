@@ -160,5 +160,23 @@ public class ExcelUtil {
         sheetCF.addConditionalFormatting(regions, rule);
     }
 
+    public void addSameOrgHighlighting(Sheet sheet, int startRow, int endRow, int validationCol, int currentOrgCol, int targetOrgCol) {
+        SheetConditionalFormatting sheetCF = sheet.getSheetConditionalFormatting();
+        String validationColLetter = CellReference.convertNumToColString(validationCol);
+
+        String formula = validationColLetter + (startRow + 1) + "=\"SAME_ORG\"";
+
+        ConditionalFormattingRule rule = sheetCF.createConditionalFormattingRule(formula);
+
+        PatternFormatting fill = rule.createPatternFormatting();
+        fill.setFillBackgroundColor(IndexedColors.PINK.getIndex());
+        fill.setFillPattern(PatternFormatting.SOLID_FOREGROUND);
+
+        CellRangeAddress[] regions = {
+                new CellRangeAddress(startRow, endRow, currentOrgCol, targetOrgCol)
+        };
+
+        sheetCF.addConditionalFormatting(regions, rule);
+    }
 
 }
