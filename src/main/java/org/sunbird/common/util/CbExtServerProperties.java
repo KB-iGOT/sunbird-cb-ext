@@ -1112,7 +1112,16 @@ public class CbExtServerProperties {
     @Value("${bulk.user.transfer.max.rows}")
     private int bulkUserTransferMaxRows;
 
-	public String getStateLearningInsightsRedisKeyMapping() {
+    @Value("${bulk-transfer.allowed-roles}")
+    private String bulkTransferAuthorizedRoles;
+
+    @Value("${bulktransfer.redis.ttl}")
+    private int bulkTransferRedisTtl;
+
+    @Value("${org.type.field.name}")
+    private String orgTypeFieldName;
+
+    public String getStateLearningInsightsRedisKeyMapping() {
 		return stateLearningInsightsRedisKeyMapping;
 	}
 
@@ -3754,5 +3763,17 @@ public class CbExtServerProperties {
 
     public int getBulkUserTransferMaxRows() {
         return bulkUserTransferMaxRows;
+    }
+
+    public List<String> getBulkTransferAuthorizedRoles() {
+        return Arrays.asList(bulkTransferAuthorizedRoles.split(","));
+    }
+
+    public int getBulkTransferRedisTtl() {
+        return bulkTransferRedisTtl;
+    }
+
+    public String getOrgTypeFieldName() {
+        return orgTypeFieldName;
     }
 }
