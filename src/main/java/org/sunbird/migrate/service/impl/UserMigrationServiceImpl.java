@@ -436,7 +436,7 @@ public class UserMigrationServiceImpl implements UserMigrationService {
     private void addTermToHierarchy(String orgId, Map<String, Map<String, Object>> termMap,
                                     List<Map<String, String>> hierarchyList) {
         Map<String, Object> term = termMap.get(orgId);
-        if (term != null) {
+        if (MapUtils.isNotEmpty(term)) {
             Map<String, String> hierarchyEntry = new HashMap<>();
             hierarchyEntry.put(Constants.CHANNEL, (String) term.get(Constants.NAME));
             hierarchyEntry.put(Constants.ID, orgId);
@@ -447,14 +447,14 @@ public class UserMigrationServiceImpl implements UserMigrationService {
 
     private String extractOrgId(Map<String, Object> term) {
         Map<String, Object> additionalProperties = (Map<String, Object>) term.get(Constants.ADDITIONAL_PROPERTIES);
-        return additionalProperties != null ? (String) additionalProperties.get(Constants.ORG_ID) : null;
+        return MapUtils.isNotEmpty(additionalProperties) ? (String) additionalProperties.get(Constants.ORG_ID) : null;
     }
 
     private Map<String, Object> getCompleteFrameworkDataFromUtil(String frameworkId) throws Exception {
         try {
-            String cacheKey = "bulkTransfer:hierarchy:" + frameworkId;
+            String cacheKey = Constants.BULK_TRANSFER_FRAMEWORK_HIERARCHY_CACHE_KEY_PREFIX + frameworkId;
             String cachedDataStr = redisCacheMgr.getCache(cacheKey);
-            if (cachedDataStr != null) {
+            if (StringUtils.isNotEmpty(cachedDataStr)) {
                 log.info("Cache hit for getCompleteFrameworkDataFromUtil, frameworkId: {}", frameworkId);
                 return mapper.readValue(cachedDataStr, Map.class);
             }
@@ -464,7 +464,7 @@ public class UserMigrationServiceImpl implements UserMigrationService {
 
             Map<String, Object> frameworkResponse = (Map<String, Object>) outboundRequestHandlerService.fetchUsingGetWithHeaders(url, headers);
 
-            if (frameworkResponse != null && Constants.OK.equals(frameworkResponse.get(Constants.RESPONSE_CODE))) {
+            if (MapUtils.isNotEmpty(frameworkResponse)  && Constants.OK.equals(frameworkResponse.get(Constants.RESPONSE_CODE))) {
                 redisCacheMgr.putCache(cacheKey, frameworkResponse, serverConfig.getBulkTransferRedisTtl());
                 return frameworkResponse;
             } else {
@@ -481,11 +481,11 @@ public class UserMigrationServiceImpl implements UserMigrationService {
         Map<String, Object> frameworkData = getCompleteFrameworkDataFromUtil(frameworkId);
         List<Map<String, String>> hierarchyList = new ArrayList<>();
 
-        if (frameworkData != null && frameworkData.containsKey(Constants.RESULT)) {
+        if (MapUtils.isNotEmpty(frameworkData) && frameworkData.containsKey(Constants.RESULT)) {
             Map<String, Object> result = (Map<String, Object>) frameworkData.get(Constants.RESULT);
-            if (result != null && result.containsKey(Constants.FRAMEWORK)) {
+            if (MapUtils.isNotEmpty(result) && result.containsKey(Constants.FRAMEWORK)) {
                 Map<String, Object> framework = (Map<String, Object>) result.get(Constants.FRAMEWORK);
-                if (framework != null) {
+                if (MapUtils.isNotEmpty(framework)) {
                     // Build complete term maps
                     Map<String, Map<String, Object>> termMap = new HashMap<>();
                     Map<String, List<String>> parentChildMap = new HashMap<>();
@@ -505,11 +505,11 @@ public class UserMigrationServiceImpl implements UserMigrationService {
         Map<String, Object> frameworkData = getCompleteFrameworkDataFromUtil(frameworkId);
         List<Map<String, String>> hierarchyList = new ArrayList<>();
 
-        if (frameworkData != null && frameworkData.containsKey(Constants.RESULT)) {
+        if (MapUtils.isNotEmpty(frameworkData) && frameworkData.containsKey(Constants.RESULT)) {
             Map<String, Object> result = (Map<String, Object>) frameworkData.get(Constants.RESULT);
-            if (result != null && result.containsKey(Constants.FRAMEWORK)) {
+            if (MapUtils.isNotEmpty(result) && result.containsKey(Constants.FRAMEWORK)) {
                 Map<String, Object> framework = (Map<String, Object>) result.get(Constants.FRAMEWORK);
-                if (framework != null) {
+                if (MapUtils.isNotEmpty(framework)) {
                     Map<String, Map<String, Object>> termMap = new HashMap<>();
                     Map<String, List<String>> parentChildMap = new HashMap<>();
                     buildCompleteTermMaps(framework, termMap, parentChildMap);
@@ -534,22 +534,22 @@ public class UserMigrationServiceImpl implements UserMigrationService {
                                        Map<String, List<String>> parentChildMap) {
         List<Map<String, Object>> categories = (List<Map<String, Object>>) framework.get(Constants.CATEGORIES);
 
-        if (categories != null) {
+        if (CollectionUtils.isNotEmpty(categories)) {
             for (Map<String, Object> category : categories) {
                 List<Map<String, Object>> terms = (List<Map<String, Object>>) category.get(Constants.TERMS);
                 if (terms != null) {
                     for (Map<String, Object> term : terms) {
                         String termOrgId = extractOrgId(term);
-                        if (termOrgId != null) {
+                        if (StringUtils.isNotEmpty(termOrgId)) {
                             termMap.put(termOrgId, term);
 
                             // Build parent-child relationships from associations
                             List<Map<String, Object>> associations = (List<Map<String, Object>>) term.get(Constants.ASSOCIATIONS);
-                            if (associations != null) {
+                            if (CollectionUtils.isNotEmpty(associations)) {
                                 List<String> children = new ArrayList<>();
                                 for (Map<String, Object> association : associations) {
                                     String childOrgId = extractOrgId(association);
-                                    if (childOrgId != null) {
+                                    if (StringUtils.isNotEmpty(childOrgId)) {
                                         children.add(childOrgId);
                                     }
                                 }
@@ -575,7 +575,7 @@ public class UserMigrationServiceImpl implements UserMigrationService {
         visited.add(parentOrgId);
 
         List<String> directChildren = parentChildMap.get(parentOrgId);
-        if (directChildren != null) {
+        if (CollectionUtils.isNotEmpty(directChildren)) {
             for (String childOrgId : directChildren) {
                 descendants.add(childOrgId);
                 descendants.addAll(getAllDescendants(childOrgId, parentChildMap, visited));
@@ -592,34 +592,32 @@ public class UserMigrationServiceImpl implements UserMigrationService {
         List<Map<String, Object>> orgDetailsList = cassandraOperation.getRecordsByProperties(Constants.DATABASE,
                 Constants.ORGANISATION, propertyMap, null);
 
-        if (orgDetailsList == null || orgDetailsList.isEmpty()) {
-            throw new AccessDeniedException("Organization not found.");
+        if (CollectionUtils.isEmpty(orgDetailsList)) {
+            log.error("Organization not found for rootOrgId: {}", rootOrgId);
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
         Map<String, Object> orgRecord = orgDetailsList.get(0);
         String sbOrgType = (String) orgRecord.get(serverConfig.getOrgTypeFieldName());
         if (StringUtils.isEmpty(sbOrgType)) {
-            throw new AccessDeniedException(
-                    "Organization type not found. Cannot determine access permissions."
-            );
+            log.error("ERR_ORG_TYPE_NOT_FOUND: Organization type not found. Cannot determine access permissions for rootOrgId {}", rootOrgId);
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
 
         if (!Arrays.asList(Constants.SPV_LOWER_CASE, Constants.MINISTRY, Constants.STATE)
                 .contains(sbOrgType.toLowerCase())) {
-            throw new AccessDeniedException(
-                    "Only SPV and MDO (Ministry/State) organizations can access the Bulk Transfer feature."
-            );
+            log.error("ERR_BULK_TRANSFER_ACCESS_DENIED: Only SPV and MDO (Ministry/State) organizations can access the Bulk Transfer feature. OrgType: {}", sbOrgType);
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
         Map<String, Object> payload = accessTokenValidator.extractTokenPayload(userAuthToken);
-        List<String> userRoles = (List<String>) payload.get("user_roles");
+        List<String> allowedRoles = serverConfig.getBulkTransferAuthorizedRoles();
+        List<String> userRoles = (List<String>) payload.get(Constants.USER_ROLES_KEY);
         if ((Constants.MINISTRY.equalsIgnoreCase(sbOrgType) ||
                 Constants.STATE.equalsIgnoreCase(sbOrgType)) &&
-                !(userRoles.contains(Constants.MDO_ADMIN) || userRoles.contains(Constants.MDO_LEADER))) {
-            throw new AccessDeniedException(
-                    "Only MDO Admins and Leaders can access the Bulk Transfer feature."
-            );
+                userRoles.stream().noneMatch(allowedRoles::contains)) {
+            log.error("ERR_BULK_TRANSFER_ROLE_DENIED: Only MDO Admins and Leaders can access the Bulk Transfer feature. UserRoles: {}", userRoles);
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
 
-        List<String> allowedRoles = serverConfig.getBulkTransferAuthorizedRoles();
         Boolean hasRole = false;
         for (String role : userRoles) {
             for (String allowedRole : allowedRoles) {
@@ -635,7 +633,7 @@ public class UserMigrationServiceImpl implements UserMigrationService {
         }
 
         if (!hasRole) {
-            throw new AccessDeniedException("You do not have permission to download this file.");
+            throw new AccessDeniedException(Constants.FILE_DOWNLOAD_PERMISSION_DENIED);
         }
 
         String tokenOrg = (String) payload.get(Constants.ORG);
@@ -697,7 +695,7 @@ public class UserMigrationServiceImpl implements UserMigrationService {
         Map<String, Map<String, String>> uniqueOrgs = new HashMap<>();
         for (Map<String, String> org : orgList) {
             String orgId = org.get(Constants.ID);
-            if (orgId != null && !uniqueOrgs.containsKey(orgId)) {
+            if (StringUtils.isNotEmpty(orgId) && !uniqueOrgs.containsKey(orgId)) {
                 uniqueOrgs.put(orgId, org);
             }
         }

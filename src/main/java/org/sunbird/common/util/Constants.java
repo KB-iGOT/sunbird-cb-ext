@@ -1413,6 +1413,9 @@ public class Constants {
     public static final String ORG_ID_MUST_BE_MINISTRY_OR_STATE = "OrgId must belong to a Ministry or State.";
     public static final String ORGANIZATION_NOT_FOUND = "Organization not found";
     public static final String SPV_LOWER_CASE = "spv";
+    public static final String BULK_TRANSFER_FRAMEWORK_HIERARCHY_CACHE_KEY_PREFIX = "bulkTransfer:framework:hierarchy:";
+    public static final String FILE_DOWNLOAD_PERMISSION_DENIED = "You do not have permission to download this file.";
+    public static final String USER_ROLES_KEY = "user_roles";
     private Constants() {
 		throw new IllegalStateException("Utility class");
 	}
