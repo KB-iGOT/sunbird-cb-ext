@@ -1121,6 +1121,12 @@ public class CbExtServerProperties {
     @Value("${org.type.field.name}")
     private String orgTypeFieldName;
 
+    @Value("${org.hierarchy.bulk.user.transfer.container.name}")
+    private String orgHierarchyUserBulkTransfer;
+
+    @Value("${kafka.topics.org.user.bulk.transfer.event}")
+    private String orgHierarchyUserBulkTransferTopic;
+
     public String getStateLearningInsightsRedisKeyMapping() {
 		return stateLearningInsightsRedisKeyMapping;
 	}
@@ -3775,5 +3781,13 @@ public class CbExtServerProperties {
 
     public String getOrgTypeFieldName() {
         return orgTypeFieldName;
+    }
+
+    public String getOrgHierarchyUserBulkTransfer() {
+        return orgHierarchyUserBulkTransfer;
+    }
+
+    public String getOrgHierarchyUserBulkTransferTopic() {
+        return orgHierarchyUserBulkTransferTopic;
     }
 }
