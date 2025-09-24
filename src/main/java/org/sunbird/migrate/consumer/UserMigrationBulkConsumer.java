@@ -9,7 +9,6 @@ import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFSheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
-import org.elasticsearch.common.recycler.Recycler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -126,8 +125,7 @@ public class UserMigrationBulkConsumer {
         }
     }
 
-    private void processExcelWithStatusUpdate(String fileName, String frameworkId, String rootOrgId,
-                                              String userAuthToken, String identifier) throws Exception {
+    private void processExcelWithStatusUpdate(String fileName, String frameworkId, String rootOrgId, String userAuthToken, String identifier) throws Exception {
 
         Map<String, Object> frameworkData = userMigrationService.getCompleteFrameworkDataFromUtil(frameworkId);
         Map<String, Set<String>> orgHierarchyMap = buildOrgHierarchyMap(frameworkData);
@@ -152,12 +150,11 @@ public class UserMigrationBulkConsumer {
             Row headerRow = sheet.getRow(0);
             if (headerRow == null) {
                 logger.error("Error processing bulk user transfer: {}", Constants.HEADER_ROW_NOT_FOUND);
-                updateBulkTransferFilePathAndStatus(rootOrgId, identifier, null, Constants.FAILED_UPPERCASE,
-                        totalRecords, successCount, failedCount, Constants.HEADER_ROW_NOT_FOUND);
+                updateBulkTransferFilePathAndStatus(rootOrgId, identifier, null, Constants.FAILED_UPPERCASE, totalRecords, successCount, failedCount, Constants.HEADER_ROW_NOT_FOUND);
                 return;
             }
 
-            int statusColumnIndex = findOrAddColumn(headerRow, Constants.PascalCaseStatus);
+            int statusColumnIndex = findOrAddColumn(headerRow, Constants.PASCALCASESTATUS);
             int errorColumnIndex = findOrAddColumn(headerRow, Constants.ERRORMESSAGE);
 
             Iterator<Row> rowIterator = sheet.iterator();
@@ -171,9 +168,7 @@ public class UserMigrationBulkConsumer {
                 }
 
                 totalRecords++;
-                boolean success = processRowWithStatusUpdate(row, orgHierarchyMap, orgIdToChannelMap,
-                        rootOrgId, userAuthToken, userRoles,
-                        statusColumnIndex, errorColumnIndex);
+                boolean success = processRowWithStatusUpdate(row, orgHierarchyMap, orgIdToChannelMap, rootOrgId, userAuthToken, userRoles, statusColumnIndex, errorColumnIndex);
                 if (success) {
                     successCount++;
                 } else {
@@ -183,8 +178,7 @@ public class UserMigrationBulkConsumer {
 
             uploadTheUpdatedFile(file, wb);
             String finalStatus = failedCount > 0 ? Constants.FAILED_UPPERCASE : Constants.COMPLETED;
-            updateBulkTransferFilePathAndStatus(rootOrgId, identifier, null, finalStatus,
-                    totalRecords, successCount, failedCount);
+            updateBulkTransferFilePathAndStatus(rootOrgId, identifier, null, finalStatus, totalRecords, successCount, failedCount);
 
         } finally {
             if (wb != null) {
@@ -198,8 +192,7 @@ public class UserMigrationBulkConsumer {
             }
         }
 
-        logger.info("Bulk transfer completed for identifier: {}. Total: {}, Success: {}, Failed: {}",
-                identifier, totalRecords, successCount, failedCount);
+        logger.info("Bulk transfer completed for identifier: {}. Total: {}, Success: {}, Failed: {}", identifier, totalRecords, successCount, failedCount);
     }
 
     private Map<String, Set<String>> buildOrgHierarchyMap(Map<String, Object> frameworkData) {
@@ -249,8 +242,7 @@ public class UserMigrationBulkConsumer {
         return hierarchyMap;
     }
 
-    private void buildFullHierarchy(String parentId, Map<String, Set<String>> immediateChildren,
-                                    Set<String> allDescendants, Set<String> visited) {
+    private void buildFullHierarchy(String parentId, Map<String, Set<String>> immediateChildren, Set<String> allDescendants, Set<String> visited) {
         if (visited.contains(parentId)) {
             return;
         }
@@ -323,10 +315,7 @@ public class UserMigrationBulkConsumer {
         }
     }
 
-    private boolean processRowWithStatusUpdate(Row row, Map<String, Set<String>> orgHierarchyMap,
-                                               Map<String, String> orgIdToChannelMap, String rootOrgId,
-                                               String userAuthToken, List<String> userRoles,
-                                               int statusColumnIndex, int errorColumnIndex) {
+    private boolean processRowWithStatusUpdate(Row row, Map<String, Set<String>> orgHierarchyMap, Map<String, String> orgIdToChannelMap, String rootOrgId, String userAuthToken, List<String> userRoles, int statusColumnIndex, int errorColumnIndex) {
         String emailId = "";
         String currentOrgName = "";
         String targetOrgName = "";
@@ -339,8 +328,7 @@ public class UserMigrationBulkConsumer {
             notifyUser = getCellStringValue(row.getCell(3));
 
             if (StringUtils.isAnyBlank(emailId, currentOrgName, targetOrgName)) {
-                updateRowStatus(row, statusColumnIndex, errorColumnIndex,
-                        Constants.FAILED_UPPERCASE, Constants.MISSING_REQUIRED_FIELDS);
+                updateRowStatus(row, statusColumnIndex, errorColumnIndex, Constants.FAILED_UPPERCASE, Constants.MISSING_REQUIRED_FIELDS);
                 return false;
             }
 
@@ -348,27 +336,23 @@ public class UserMigrationBulkConsumer {
             String targetOrgId = extractOrgIdFromName(targetOrgName);
 
             if (!orgIdToChannelMap.containsKey(currentOrgId)) {
-                updateRowStatus(row, statusColumnIndex, errorColumnIndex,
-                        Constants.FAILED_UPPERCASE, Constants.CURRENT_ORG_NOT_FOUND);
+                updateRowStatus(row, statusColumnIndex, errorColumnIndex, Constants.FAILED_UPPERCASE, Constants.CURRENT_ORG_NOT_FOUND);
                 return false;
             }
 
             if (!orgIdToChannelMap.containsKey(targetOrgId)) {
-                updateRowStatus(row, statusColumnIndex, errorColumnIndex,
-                        Constants.FAILED_UPPERCASE, Constants.TARGET_ORG_NOT_FOUND);
+                updateRowStatus(row, statusColumnIndex, errorColumnIndex, Constants.FAILED_UPPERCASE, Constants.TARGET_ORG_NOT_FOUND);
                 return false;
             }
 
             if (!isValidTransferBasedOnRole(userRoles, rootOrgId, currentOrgId, targetOrgId, orgHierarchyMap)) {
-                updateRowStatus(row, statusColumnIndex, errorColumnIndex,
-                        Constants.FAILED_UPPERCASE, Constants.TRANSFER_NOT_ALLOWED);
+                updateRowStatus(row, statusColumnIndex, errorColumnIndex, Constants.FAILED_UPPERCASE, Constants.TRANSFER_NOT_ALLOWED);
                 return false;
             }
 
             Map<String, Object> userDetails = getUserByEmailAndOrg(emailId, currentOrgId);
             if (MapUtils.isEmpty(userDetails)) {
-                updateRowStatus(row, statusColumnIndex, errorColumnIndex,
-                        Constants.FAILED_UPPERCASE, Constants.USER_NOT_FOUND_IN_CURRENT_ORG);
+                updateRowStatus(row, statusColumnIndex, errorColumnIndex, Constants.FAILED_UPPERCASE, Constants.USER_NOT_FOUND_IN_CURRENT_ORG);
                 return false;
             }
 
@@ -377,38 +361,29 @@ public class UserMigrationBulkConsumer {
             String expectedTargetOrgName = extractOrgNameFromInput(targetOrgName);
 
             if (!targetChannel.equalsIgnoreCase(expectedTargetOrgName)) {
-                updateRowStatus(row, statusColumnIndex, errorColumnIndex,
-                        Constants.FAILED_UPPERCASE,
-                        String.format(Constants.TARGET_ORG_NAME_MISMATCH,
-                                expectedTargetOrgName, targetChannel));
+                updateRowStatus(row, statusColumnIndex, errorColumnIndex, Constants.FAILED_UPPERCASE, String.format(Constants.TARGET_ORG_NAME_MISMATCH, expectedTargetOrgName, targetChannel));
                 return false;
             }
 
-            boolean success = processUserTransfer(userId, targetChannel,
-                    Constants.TRUE.equalsIgnoreCase(notifyUser), userAuthToken);
+            boolean success = processUserTransfer(userId, targetChannel, Constants.TRUE.equalsIgnoreCase(notifyUser), userAuthToken);
 
             if (success) {
-                updateRowStatus(row, statusColumnIndex, errorColumnIndex,
-                        Constants.SUCCESS_UPPERCASE, "");
+                updateRowStatus(row, statusColumnIndex, errorColumnIndex, Constants.SUCCESS_UPPERCASE, "");
                 return true;
             } else {
-                updateRowStatus(row, statusColumnIndex, errorColumnIndex,
-                        Constants.FAILED_UPPERCASE, Constants.USER_TRANSFER_FAILED);
+                updateRowStatus(row, statusColumnIndex, errorColumnIndex, Constants.FAILED_UPPERCASE, Constants.USER_TRANSFER_FAILED);
                 return false;
             }
 
         } catch (Exception e) {
-            String errorMessage = String.format(Constants.ERROR_PROCESSING_TRANSFER,
-                    emailId, e.getMessage());
+            String errorMessage = String.format(Constants.ERROR_PROCESSING_TRANSFER, emailId, e.getMessage());
             logger.error(errorMessage, e);
-            updateRowStatus(row, statusColumnIndex, errorColumnIndex,
-                    Constants.FAILED_UPPERCASE, errorMessage);
+            updateRowStatus(row, statusColumnIndex, errorColumnIndex, Constants.FAILED_UPPERCASE, errorMessage);
             return false;
         }
     }
 
-    private void updateRowStatus(Row row, int statusColumnIndex, int errorColumnIndex,
-                                 String status, String errorMessage) {
+    private void updateRowStatus(Row row, int statusColumnIndex, int errorColumnIndex, String status, String errorMessage) {
         Cell statusCell = row.getCell(statusColumnIndex);
         if (statusCell == null) {
             statusCell = row.createCell(statusColumnIndex);
@@ -422,31 +397,24 @@ public class UserMigrationBulkConsumer {
         errorCell.setCellValue(errorMessage);
     }
 
-    private boolean isValidTransferBasedOnRole(List<String> userRoles, String rootOrgId,
-                                               String currentOrgId, String targetOrgId,
-                                               Map<String, Set<String>> orgHierarchyMap) {
+    private boolean isValidTransferBasedOnRole(List<String> userRoles, String rootOrgId, String currentOrgId, String targetOrgId, Map<String, Set<String>> orgHierarchyMap) {
         if (userRoles.contains(Constants.MDO_LEADER)) {
             return isForwardPathInHierarchy(currentOrgId, targetOrgId, orgHierarchyMap);
         }
 
-        if (userRoles.contains(Constants.MDO_ADMIN) ||
-                userRoles.contains(Constants.SPV_ADMIN) ||
-                userRoles.contains(Constants.STATE_ADMIN)) {
+        if (userRoles.contains(Constants.MDO_ADMIN) || userRoles.contains(Constants.SPV_ADMIN) || userRoles.contains(Constants.STATE_ADMIN)) {
             return isInSameHierarchyPath(currentOrgId, targetOrgId, orgHierarchyMap);
         }
 
         return false;
     }
 
-    private boolean isForwardPathInHierarchy(String currentOrgId, String targetOrgId,
-                                             Map<String, Set<String>> orgHierarchyMap) {
+    private boolean isForwardPathInHierarchy(String currentOrgId, String targetOrgId, Map<String, Set<String>> orgHierarchyMap) {
         Set<String> visited = new HashSet<>();
         return findForwardPath(currentOrgId, targetOrgId, orgHierarchyMap, visited);
     }
 
-    private boolean findForwardPath(String currentOrgId, String targetOrgId,
-                                    Map<String, Set<String>> orgHierarchyMap,
-                                    Set<String> visited) {
+    private boolean findForwardPath(String currentOrgId, String targetOrgId, Map<String, Set<String>> orgHierarchyMap, Set<String> visited) {
         if (visited.contains(currentOrgId)) {
             return false;
         }
@@ -472,17 +440,14 @@ public class UserMigrationBulkConsumer {
         return false;
     }
 
-    private boolean isInSameHierarchyPath(String currentOrgId, String targetOrgId,
-                                          Map<String, Set<String>> orgHierarchyMap) {
+    private boolean isInSameHierarchyPath(String currentOrgId, String targetOrgId, Map<String, Set<String>> orgHierarchyMap) {
         Set<String> currentOrgPath = new HashSet<>();
         buildCompletePath(currentOrgId, orgHierarchyMap, currentOrgPath);
 
-        return currentOrgPath.contains(targetOrgId) ||
-                isAncestor(targetOrgId, currentOrgId, orgHierarchyMap);
+        return currentOrgPath.contains(targetOrgId) || isAncestor(targetOrgId, currentOrgId, orgHierarchyMap);
     }
 
-    private void buildCompletePath(String orgId, Map<String, Set<String>> orgHierarchyMap,
-                                   Set<String> path) {
+    private void buildCompletePath(String orgId, Map<String, Set<String>> orgHierarchyMap, Set<String> path) {
         Set<String> children = orgHierarchyMap.get(orgId);
         if (CollectionUtils.isEmpty(children)) {
             return;
@@ -494,11 +459,9 @@ public class UserMigrationBulkConsumer {
         }
     }
 
-    private boolean isAncestor(String possibleAncestor, String currentOrgId,
-                               Map<String, Set<String>> orgHierarchyMap) {
+    private boolean isAncestor(String possibleAncestor, String currentOrgId, Map<String, Set<String>> orgHierarchyMap) {
         for (Map.Entry<String, Set<String>> entry : orgHierarchyMap.entrySet()) {
-            if (entry.getKey().equals(possibleAncestor) &&
-                    entry.getValue().contains(currentOrgId)) {
+            if (entry.getKey().equals(possibleAncestor) && entry.getValue().contains(currentOrgId)) {
                 return true;
             }
         }
@@ -519,8 +482,7 @@ public class UserMigrationBulkConsumer {
 
             SBApiResponse migrateResponse = profileService.migrateUser(request, userAuthToken, serverProperties.getSbApiKey());
 
-            if ((migrateResponse != null
-                    && Constants.SUCCESS.equalsIgnoreCase((String) migrateResponse.get(Constants.RESPONSE)))) {
+            if ((migrateResponse != null && Constants.SUCCESS.equalsIgnoreCase((String) migrateResponse.get(Constants.RESPONSE)))) {
                 logger.info("User migration successful: userId={}, targetChannel={}", userId, targetChannel);
                 return true;
             } else {
@@ -594,11 +556,7 @@ public class UserMigrationBulkConsumer {
 
             Map<String, String> headers = new HashMap<>();
             headers.put(Constants.AUTHORIZATION, serverProperties.getSbApiKey());
-            Map<String, Object> searchResponse = outboundRequestHandlerService.fetchResultUsingPost(
-                    configuration.getLmsServiceHost() + configuration.getLmsUserSearchEndPoint(),
-                    request,
-                    null
-            );
+            Map<String, Object> searchResponse = outboundRequestHandlerService.fetchResultUsingPost(configuration.getLmsServiceHost() + configuration.getLmsUserSearchEndPoint(), request, null);
 
             if (searchResponse != null && Constants.OK.equalsIgnoreCase((String) searchResponse.get(Constants.RESPONSE_CODE))) {
                 Map<String, Object> result = (Map<String, Object>) searchResponse.get(Constants.RESULT);
@@ -633,8 +591,7 @@ public class UserMigrationBulkConsumer {
         fileOut.close();
         SBApiResponse uploadResponse = storageService.uploadFile(file, serverProperties.getOrgHierarchyBulkUploadContainerName(), serverProperties.getCloudContainerName());
         if (!HttpStatus.OK.equals(uploadResponse.getResponseCode())) {
-            logger.info(String.format(Constants.FAILED_TO_UPLOAD_FILE,
-                    uploadResponse.getParams().getErrmsg()));
+            logger.info(String.format(Constants.FAILED_TO_UPLOAD_FILE, uploadResponse.getParams().getErrmsg()));
             return Constants.FAILED_UPPERCASE;
         }
         return Constants.SUCCESSFUL_UPPERCASE;
@@ -644,13 +601,11 @@ public class UserMigrationBulkConsumer {
         updateBulkTransferFilePathAndStatus(rootOrgId, identifier, null, status, 0, 0, 0, comment);
     }
 
-    private void updateBulkTransferFilePathAndStatus(String rootOrgId, String identifier, String filePath,
-                                                     String status, int totalRecords, int successCount, int failedCount) {
+    private void updateBulkTransferFilePathAndStatus(String rootOrgId, String identifier, String filePath, String status, int totalRecords, int successCount, int failedCount) {
         updateBulkTransferFilePathAndStatus(rootOrgId, identifier, filePath, status, totalRecords, successCount, failedCount, null);
     }
 
-    private void updateBulkTransferFilePathAndStatus(String rootOrgId, String identifier, String filePath,
-                                                     String status, int totalRecords, int successCount, int failedCount, String comment) {
+    private void updateBulkTransferFilePathAndStatus(String rootOrgId, String identifier, String filePath, String status, int totalRecords, int successCount, int failedCount, String comment) {
         try {
             Map<String, Object> updateData = new HashMap<>();
             updateData.put(Constants.STATUS, status);

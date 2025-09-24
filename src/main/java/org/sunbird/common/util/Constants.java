@@ -1420,7 +1420,7 @@ public class Constants {
     public static final String  ORG_USER_BULK_TRANSFER_TABLE  = "org_user_bulktransfer";
     public static final String  SPV_ADMIN      = "SPV_ADMIN";
     public static final String STATE_ADMIN = "STATE_ADMIN";
-    public static final String PascalCaseStatus = "status";
+    public static final String PASCALCASESTATUS = "Status";
     public static final String ERRORMESSAGE     = "Error Message";
     public static final String MISSING_REQUIRED_FIELDS = "Missing required fields";
     public static final String CURRENT_ORG_NOT_FOUND = "Current organization not found in framework";
@@ -1433,11 +1433,6 @@ public class Constants {
     public static final String FAILED_TO_UPLOAD_FILE = "Failed to upload file. Error: %s";
     public static final String PROCESS_INTERRUPTED_DURING_SHUTDOWN = "Process interrupted during shutdown";
     public static final String HEADER_ROW_NOT_FOUND = "Header row not found in Excel file";
-
-
-
-
-
     private Constants() {
 		throw new IllegalStateException("Utility class");
 	}
