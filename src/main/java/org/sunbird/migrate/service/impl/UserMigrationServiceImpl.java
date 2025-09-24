@@ -26,6 +26,7 @@ import org.sunbird.cassandra.utils.CassandraOperation;
 import org.sunbird.common.model.SBApiResponse;
 import org.sunbird.common.service.OutboundRequestHandlerServiceImpl;
 import org.sunbird.common.util.*;
+import org.sunbird.consumer.KafkaProducer;
 import org.sunbird.core.config.PropertiesConfig;
 import org.sunbird.core.producer.Producer;
 import org.sunbird.migrate.service.UserMigrationService;
@@ -37,9 +38,13 @@ import org.sunbird.storage.service.StorageServiceImpl;
 import org.sunbird.user.service.UserUtilityService;
 
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.file.AccessDeniedException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.sql.Timestamp;
 import java.text.MessageFormat;
 import java.text.SimpleDateFormat;
@@ -89,6 +94,11 @@ public class UserMigrationServiceImpl implements UserMigrationService {
 
     @Autowired
     RedisCacheMgr redisCacheMgr;
+
+    @Autowired StorageServiceImpl storageService;
+
+    @Autowired
+    Producer kafkaProducer;
 
     @Override
     public SBApiResponse migrateUsers() {
@@ -450,7 +460,7 @@ public class UserMigrationServiceImpl implements UserMigrationService {
         return MapUtils.isNotEmpty(additionalProperties) ? (String) additionalProperties.get(Constants.ORG_ID) : null;
     }
 
-    private Map<String, Object> getCompleteFrameworkDataFromUtil(String frameworkId) throws Exception {
+    public Map<String, Object> getCompleteFrameworkDataFromUtil(String frameworkId) throws Exception {
         try {
             String cacheKey = Constants.BULK_TRANSFER_FRAMEWORK_HIERARCHY_CACHE_KEY_PREFIX + frameworkId;
             String cachedDataStr = redisCacheMgr.getCache(cacheKey);
@@ -477,7 +487,7 @@ public class UserMigrationServiceImpl implements UserMigrationService {
         }
     }
 
-    private List<Map<String, String>> fetchCompleteFrameworkHierarchy(String frameworkId) throws Exception {
+    public List<Map<String, String>> fetchCompleteFrameworkHierarchy(String frameworkId) throws Exception {
         Map<String, Object> frameworkData = getCompleteFrameworkDataFromUtil(frameworkId);
         List<Map<String, String>> hierarchyList = new ArrayList<>();
 
@@ -779,5 +789,192 @@ public class UserMigrationServiceImpl implements UserMigrationService {
         workbook.write(outputStream);
         return new ByteArrayResource(outputStream.toByteArray());
     }
+
+    @Override
+    public SBApiResponse bulkUploadUserTransfer(MultipartFile file, String rootOrgId, String userAuthToken, String frameworkId) {
+        SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.API_BULK_TRANSFER_UPLOAD);
+        try {
+            Map<String, Object> tokenPayload = accessTokenValidator.extractTokenPayload(userAuthToken);
+            String userId = (String) tokenPayload.get(Constants.SUB);
+            if (StringUtils.isNotBlank(userId)) {
+                int pos = userId.lastIndexOf(":");
+                userId = userId.substring(pos + 1);
+            }
+            String currentOrgId = (String) tokenPayload.get(Constants.ORG);
+            List<String> userRoles = (List<String>) tokenPayload.get(Constants.USER_ROLES_KEY);
+
+            if (StringUtils.isBlank(userId)) {
+                setErrorData(response, Constants.USER_ID_DOESNT_EXIST, HttpStatus.BAD_REQUEST);
+                return response;
+            }
+
+            Map<String, Object> propertyMap = new HashMap<>();
+            propertyMap.put(Constants.ID, currentOrgId);
+            List<Map<String, Object>> orgDetailsList = cassandraOperation.getRecordsByProperties(Constants.DATABASE,
+                    Constants.ORGANISATION, propertyMap, null);
+
+            if (CollectionUtils.isEmpty(orgDetailsList)) {
+                setErrorData(response, "Organization not found", HttpStatus.FORBIDDEN);
+                return response;
+            }
+
+            Map<String, Object> orgRecord = orgDetailsList.get(0);
+            String sbOrgType = (String) orgRecord.get(serverConfig.getOrgTypeFieldName());
+            if (StringUtils.isEmpty(sbOrgType)) {
+                setErrorData(response, "Organization type not found", HttpStatus.FORBIDDEN);
+                return response;
+            }
+
+            if (!Arrays.asList(Constants.SPV_LOWER_CASE, Constants.MINISTRY, Constants.STATE)
+                    .contains(sbOrgType.toLowerCase())) {
+                setErrorData(response, "Only SPV and MDO (Ministry/State) organizations can access the Bulk Transfer feature",
+                        HttpStatus.FORBIDDEN);
+                return response;
+            }
+
+            List<String> allowedRoles = serverConfig.getBulkTransferAuthorizedRoles();
+            if ((Constants.MINISTRY.equalsIgnoreCase(sbOrgType) ||
+                    Constants.STATE.equalsIgnoreCase(sbOrgType)) &&
+                    userRoles.stream().noneMatch(allowedRoles::contains)) {
+                setErrorData(response, "Only MDO Admins and Leaders can access the Bulk Transfer feature",
+                        HttpStatus.FORBIDDEN);
+                return response;
+            }
+
+            SBApiResponse uploadResponse = storageService.uploadFile(file,
+                    serverConfig.getOrgHierarchyBulkUploadContainerName());
+            if (!HttpStatus.OK.equals(uploadResponse.getResponseCode())) {
+                setErrorData(response, "Failed to upload file: " +
+                                uploadResponse.getParams().getErrmsg(),
+                        HttpStatus.INTERNAL_SERVER_ERROR);
+                return response;
+            }
+
+            String identifier = UUID.randomUUID().toString();
+            Map<String, Object> uploadedFile = new HashMap<>();
+            uploadedFile.put(Constants.ROOT_ORG_ID, currentOrgId);
+            uploadedFile.put(Constants.IDENTIFIER, identifier);
+            uploadedFile.put(Constants.FILE_NAME, uploadResponse.getResult().get(Constants.NAME));
+            uploadedFile.put(Constants.FILE_PATH, uploadResponse.getResult().get(Constants.URL));
+            uploadedFile.put(Constants.DATE_CREATED_ON, new Timestamp(System.currentTimeMillis()));
+            uploadedFile.put(Constants.STATUS, Constants.INITIATED_CAPITAL);
+            uploadedFile.put(Constants.CREATED_BY, userId);
+
+            SBApiResponse insertResponse = cassandraOperation.insertRecord(
+                    Constants.DATABASE,
+                    Constants.ORG_USER_BULK_TRANSFER_TABLE,
+                    uploadedFile
+            );
+
+            if (!Constants.SUCCESS.equalsIgnoreCase((String) insertResponse.get(Constants.RESPONSE))) {
+                setErrorData(response, "Failed to update database with bulk transfer details",
+                        HttpStatus.INTERNAL_SERVER_ERROR);
+                return response;
+            }
+
+            response.getParams().setStatus(Constants.SUCCESSFUL);
+            response.setResponseCode(HttpStatus.OK);
+            response.getResult().putAll(uploadedFile);
+            uploadedFile.put(Constants.X_AUTH_TOKEN, userAuthToken);
+            uploadedFile.put(Constants.FRAMEWORK_ID, frameworkId);
+            kafkaProducer.pushWithKey(serverConfig.getOrgHierarchyUserBulkTransferTopic(),
+                    uploadedFile, rootOrgId);
+
+        } catch (Exception e) {
+            log.error("Error in bulk transfer upload: ", e);
+            setErrorData(response, "Failed to process bulk transfer request: " + e.getMessage(),
+                    HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+        return response;
+    }
+
+    private void setErrorData(SBApiResponse response, String errMsg, HttpStatus httpStatus) {
+        response.getParams().setStatus(Constants.FAILED);
+        response.getParams().setErrmsg(errMsg);
+        response.setResponseCode(httpStatus);
+    }
+
+    @Override
+    public SBApiResponse getBulkUploadDetailsForOrgDesignationMapping(String orgId, String rootOrgId, String userAuthToken) {
+        SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.API_ORG_DESIGNATION_BULK_UPLOAD_STATUS);
+        try {
+            Map<String, Object> propertyMap = new HashMap<>();
+            if (StringUtils.isNotBlank(orgId)) {
+                propertyMap.put(Constants.ROOT_ORG_ID, orgId);
+            }
+            String userId = accessTokenValidator.fetchUserIdFromAccessToken(userAuthToken);
+            if (StringUtils.isBlank(userId)) {
+                response.getParams().setStatus(Constants.FAILED);
+                response.getParams().setErrmsg(Constants.USER_ID_DOESNT_EXIST);
+                response.setResponseCode(HttpStatus.BAD_REQUEST);
+                return response;
+            }
+            if (!validateUserOrgId(rootOrgId, userId)) {
+                log.error("User is not authorized to get the fileInfo for other org: " + rootOrgId + ", request orgId " + orgId);
+                response.getParams().setStatus(Constants.FAILED);
+                response.getParams().setErrmsg("User is not authorized to get the fileInfo for other org");
+                response.setResponseCode(HttpStatus.UNAUTHORIZED);
+                return response;
+            }
+            List<Map<String, Object>> bulkUploadList = cassandraOperation.getRecordsByProperties(Constants.KEYSPACE_SUNBIRD,
+                    Constants.ORG_USER_BULK_TRANSFER_TABLE, propertyMap, null);
+            response.getParams().setStatus(Constants.SUCCESSFUL);
+            response.setResponseCode(HttpStatus.OK);
+            response.getResult().put(Constants.CONTENT, bulkUploadList);
+            response.getResult().put(Constants.COUNT, bulkUploadList != null ? bulkUploadList.size() : 0);
+        } catch (Exception e) {
+            setErrorData(response,
+                    String.format("Failed to get user bulk upload request status. Error: ", e.getMessage()), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+        return response;
+    }
+
+    private boolean validateUserOrgId(String orgId, String userId) {
+        Map<String, Map<String, String>> userInfoMap = new HashMap<>();
+        userUtilityService.getUserDetailsFromDB(Arrays.asList(userId), Arrays.asList(Constants.USER_ID, Constants.ROOT_ORG_ID, Constants.CHANNEL), userInfoMap);
+        if (org.apache.commons.collections4.MapUtils.isNotEmpty(userInfoMap)) {
+            String rootOrgId = userInfoMap.get(userId).get(Constants.ROOT_ORG_ID);
+            String channel = userInfoMap.get(userId).get(Constants.CHANNEL);
+            return (StringUtils.equalsIgnoreCase(serverConfig.getSpvChannelName(), channel) || StringUtils.equalsIgnoreCase(orgId, rootOrgId));
+        }
+        return false;
+    }
+
+    @Override
+    public ResponseEntity<?> downloadFile(String fileName, String rootOrgId, String userAuthToken) {
+        try {
+            String userId = accessTokenValidator.fetchUserIdFromAccessToken(userAuthToken);
+            if (StringUtils.isBlank(userId)) {
+                log.error("Not able to get userId from authToken ");
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            }
+            if (!validateUserOrgId(rootOrgId, userId)) {
+                log.error("User is not authorized to download the file for other org");
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            }
+            storageService.downloadFile(fileName, serverConfig.getOrgHierarchyBulkUploadContainerName());
+            Path tmpPath = Paths.get(Constants.LOCAL_BASE_PATH + fileName);
+            ByteArrayResource resource = new ByteArrayResource(Files.readAllBytes(tmpPath));
+            HttpHeaders headers = new HttpHeaders();
+            headers.add(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + fileName + "\"");
+            return ResponseEntity.ok()
+                    .headers(headers)
+                    .contentLength(tmpPath.toFile().length())
+                    .contentType(MediaType.parseMediaType(MediaType.MULTIPART_FORM_DATA_VALUE))
+                    .body(resource);
+        } catch (IOException e) {
+            log.error("Failed to read the downloaded file: " + fileName + ", Exception: ", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        } finally {
+            try {
+                File file = new File(Constants.LOCAL_BASE_PATH + fileName);
+                if (file.exists()) {
+                    file.delete();
+                }
+            } catch (Exception e1) {
+            }
+        }
+    }
+
 
 }

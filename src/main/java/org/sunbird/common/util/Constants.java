@@ -1416,6 +1416,28 @@ public class Constants {
     public static final String BULK_TRANSFER_FRAMEWORK_HIERARCHY_CACHE_KEY_PREFIX = "bulkTransfer:framework:hierarchy:";
     public static final String FILE_DOWNLOAD_PERMISSION_DENIED = "You do not have permission to download this file.";
     public static final String USER_ROLES_KEY = "user_roles";
+    public static final String API_BULK_TRANSFER_UPLOAD  = "api.bulk.transfer.upload";
+    public static final String  ORG_USER_BULK_TRANSFER_TABLE  = "org_user_bulktransfer";
+    public static final String  SPV_ADMIN      = "SPV_ADMIN";
+    public static final String STATE_ADMIN = "STATE_ADMIN";
+    public static final String PascalCaseStatus = "status";
+    public static final String ERRORMESSAGE     = "Error Message";
+    public static final String MISSING_REQUIRED_FIELDS = "Missing required fields";
+    public static final String CURRENT_ORG_NOT_FOUND = "Current organization not found in framework";
+    public static final String TARGET_ORG_NOT_FOUND = "Target organization not found in framework";
+    public static final String TRANSFER_NOT_ALLOWED = "Transfer not allowed based on user role and organization hierarchy";
+    public static final String USER_NOT_FOUND_IN_CURRENT_ORG = "User not found in current organization";
+    public static final String TARGET_ORG_NAME_MISMATCH = "Target organization name mismatch. Expected: %s, Found: %s";
+    public static final String USER_TRANSFER_FAILED = "User transfer failed";
+    public static final String ERROR_PROCESSING_TRANSFER = "Error processing transfer for email: %s. Error: %s";
+    public static final String FAILED_TO_UPLOAD_FILE = "Failed to upload file. Error: %s";
+    public static final String PROCESS_INTERRUPTED_DURING_SHUTDOWN = "Process interrupted during shutdown";
+    public static final String HEADER_ROW_NOT_FOUND = "Header row not found in Excel file";
+
+
+
+
+
     private Constants() {
 		throw new IllegalStateException("Utility class");
 	}

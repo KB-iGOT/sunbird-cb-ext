@@ -3,6 +3,7 @@ package org.sunbird.migrate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 import org.sunbird.common.model.SBApiResponse;
 import org.sunbird.common.util.Constants;
 import org.sunbird.migrate.service.UserMigrationService;
@@ -29,5 +30,32 @@ public class UserMigrationController {
         return userMigrationService.downloadBulkTransferSampleFile(rootOrgId, userAuthToken, orgHierarchyFrameworkId);
     }
 
+    @PostMapping("/v1/hierarchy/bulkUpload/{frameworkId}")
+    public ResponseEntity<?> bulkUploadOrgHierarchyMapping(@RequestHeader(Constants.X_AUTH_USER_ORG_ID) String rootOrgId,
+                                                           @RequestParam(value = "file") MultipartFile file,
+                                                           @PathVariable(Constants.FRAMEWORK_ID) String frameworkId,
+                                                           @RequestHeader(Constants.X_AUTH_TOKEN) String userAuthToken) {
+
+        SBApiResponse uploadResponse = userMigrationService.bulkUploadUserTransfer(file, rootOrgId, userAuthToken, frameworkId);
+        return new ResponseEntity<>(uploadResponse, uploadResponse.getResponseCode());
+
+    }
+
+    @GetMapping("/v1/orgMapping/progress/details/bulkUpload/{orgId}")
+    public ResponseEntity<?> getBulkUploadDetails(@PathVariable(Constants.ORG_ID) String orgId,
+                                                  @RequestHeader(Constants.X_AUTH_USER_ORG_ID) String rootOrgId,
+                                                  @RequestHeader(Constants.X_AUTH_TOKEN) String userAuthToken) {
+
+        SBApiResponse response = userMigrationService.getBulkUploadDetailsForOrgDesignationMapping(orgId, rootOrgId, userAuthToken);
+        return new ResponseEntity<>(response, response.getResponseCode());
+    }
+
+    @GetMapping("/v1/orgMapping/download/{fileName}")
+    public ResponseEntity<?> downloadFile(@PathVariable(Constants.FILE_NAME) String fileName,
+                                          @RequestHeader(Constants.X_AUTH_USER_ORG_ID) String rootOrgId,
+                                          @RequestHeader(Constants.X_AUTH_TOKEN) String userAuthToken) {
+
+        return userMigrationService.downloadFile(fileName, rootOrgId, userAuthToken);
+    }
 
 }

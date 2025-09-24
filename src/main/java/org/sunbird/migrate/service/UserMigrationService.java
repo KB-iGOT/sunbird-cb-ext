@@ -12,4 +12,10 @@ public interface UserMigrationService {
 
     ResponseEntity<ByteArrayResource> downloadBulkTransferSampleFile(String rootOrgId, String userAuthToken, String orgHierarchyFrameworkId) throws IOException;
 
+    SBApiResponse bulkUploadUserTransfer(MultipartFile file, String rootOrgId, String userAuthToken, String frameworkId);
+
+    SBApiResponse getBulkUploadDetailsForOrgDesignationMapping(String orgId, String rootOrgId, String userAuthToken);
+
+    ResponseEntity<?> downloadFile(String fileName, String rootOrgId, String userAuthToken);
+
 }
