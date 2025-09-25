@@ -135,6 +135,14 @@ public class UserMigrationBulkConsumer {
 
         storageService.downloadFile(fileName, serverProperties.getOrgHierarchyBulkUploadContainerName());
         File file = new File(Constants.LOCAL_BASE_PATH + fileName);
+
+        if (!file.exists() || file.length() == 0) {
+            logger.error("Error processing bulk user transfer:");
+            updateBulkTransferFilePathAndStatus(rootOrgId, identifier, null,
+                    Constants.FAILED_UPPERCASE, 0, 0, 0, Constants.EMPTY_FILE);
+            return;
+        }
+
         int totalRecords = 0;
         int successCount = 0;
         int failedCount = 0;
@@ -350,7 +358,7 @@ public class UserMigrationBulkConsumer {
                 return false;
             }
 
-            if (!isValidTransferBasedOnRole(userRoles, rootOrgId, currentOrgId, targetOrgId, orgHierarchyMap)) {
+            if (!isValidTransferBasedOnRole(userRoles, currentOrgId, targetOrgId, orgHierarchyMap)) {
                 updateRowStatus(row, statusColumnIndex, errorColumnIndex, Constants.FAILED_UPPERCASE, Constants.TRANSFER_NOT_ALLOWED);
                 return false;
             }
@@ -402,12 +410,12 @@ public class UserMigrationBulkConsumer {
         errorCell.setCellValue(errorMessage);
     }
 
-    private boolean isValidTransferBasedOnRole(List<String> userRoles, String rootOrgId, String currentOrgId, String targetOrgId, Map<String, Set<String>> orgHierarchyMap) {
-        if (userRoles.contains(Constants.MDO_LEADER)) {
+    private boolean isValidTransferBasedOnRole(List<String> userRoles, String currentOrgId, String targetOrgId, Map<String, Set<String>> orgHierarchyMap) {
+        if (userRoles.contains(Constants.MDO_ADMIN)) {
             return isForwardPathInHierarchy(currentOrgId, targetOrgId, orgHierarchyMap);
         }
 
-        if (userRoles.contains(Constants.MDO_ADMIN) || userRoles.contains(Constants.SPV_ADMIN) || userRoles.contains(Constants.STATE_ADMIN)) {
+        if (userRoles.contains(Constants.MDO_LEADER) || userRoles.contains(Constants.SPV_ADMIN) || userRoles.contains(Constants.STATE_ADMIN)) {
             return isInSameHierarchyPath(currentOrgId, targetOrgId, orgHierarchyMap);
         }
 
