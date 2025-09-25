@@ -34,9 +34,10 @@ public class UserMigrationController {
     public ResponseEntity<?> bulkUploadOrgHierarchyMapping(@RequestHeader(Constants.X_AUTH_USER_ORG_ID) String rootOrgId,
                                                            @RequestParam(value = "file") MultipartFile file,
                                                            @PathVariable(Constants.FRAMEWORK_ID) String frameworkId,
-                                                           @RequestHeader(Constants.X_AUTH_TOKEN) String userAuthToken) {
+                                                           @RequestHeader(Constants.X_AUTH_TOKEN) String userAuthToken,
+                                                           @RequestParam(value = Constants.ORG_ID) String orgId) {
 
-        SBApiResponse uploadResponse = userMigrationService.bulkUploadUserTransfer(file, rootOrgId, userAuthToken, frameworkId);
+        SBApiResponse uploadResponse = userMigrationService.bulkUploadUserTransfer(file, rootOrgId, userAuthToken, frameworkId, orgId);
         return new ResponseEntity<>(uploadResponse, uploadResponse.getResponseCode());
 
     }
