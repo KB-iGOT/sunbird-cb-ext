@@ -1088,7 +1088,46 @@ public class CbExtServerProperties {
 	@Value("${rating.allowed.lang.content.status.primaryCategory}")
 	private String ratingAllowedLangContentStatusPrimaryCategory;
 
-	public String getStateLearningInsightsRedisKeyMapping() {
+    @Value("${org.search.status}")
+    private int status;
+
+    @Value("${bulk.transfer.user.masterdata.sheet.name}")
+    private String bulkTransferUserMasterDataSheetName;
+
+    @Value("${bulk.transfer.user.reference.sheet.name}")
+    private String bulkTransferUserReferenceSheetName;
+
+    @Value("${bulk.transfer.user.masterdata.headers}")
+    private String[] bulkTransferUserMasterDataHeaders;
+
+    @Value("${bulk.transfer.user.reference.headers}")
+    private String[] bulkTransferUserReferenceHeaders;
+
+    @Value("${bulk.transfer.user.notification.header.values}")
+    private String[] bulkTransferNotificationHeaderValues;
+
+    @Value("${bulk.transfer.user.filename}")
+    private String bulkTransferUserFileName;
+
+    @Value("${bulk.user.transfer.max.rows}")
+    private int bulkUserTransferMaxRows;
+
+    @Value("${bulk-transfer.allowed-roles}")
+    private String bulkTransferAuthorizedRoles;
+
+    @Value("${bulktransfer.redis.ttl}")
+    private int bulkTransferRedisTtl;
+
+    @Value("${org.type.field.name}")
+    private String orgTypeFieldName;
+
+    @Value("${org.hierarchy.bulk.user.transfer.container.name}")
+    private String orgHierarchyUserBulkTransfer;
+
+    @Value("${kafka.topics.org.user.bulk.transfer.event}")
+    private String orgHierarchyUserBulkTransferTopic;
+
+    public String getStateLearningInsightsRedisKeyMapping() {
 		return stateLearningInsightsRedisKeyMapping;
 	}
 
@@ -3699,4 +3738,56 @@ public class CbExtServerProperties {
 	public void setRatingAllowedLangContentStatusPrimaryCategory(String ratingAllowedLangContentStatusPrimaryCategory) {
 		this.ratingAllowedLangContentStatusPrimaryCategory = ratingAllowedLangContentStatusPrimaryCategory;
 	}
+
+    public int getStatus() {
+        return status;
+    }
+
+    public String getBulkTransferUserMasterDataSheetName() {
+        return bulkTransferUserMasterDataSheetName;
+    }
+
+    public String getBulkTransferUserReferenceSheetName() {
+        return bulkTransferUserReferenceSheetName;
+    }
+
+    public String[] getBulkTransferUserMasterDataHeaders() {
+        return bulkTransferUserMasterDataHeaders;
+    }
+
+    public String[] getBulkTransferUserReferenceHeaders() {
+        return bulkTransferUserReferenceHeaders;
+    }
+
+    public String[] getBulkTransferNotificationHeaderValues() {
+        return bulkTransferNotificationHeaderValues;
+    }
+
+    public String getBulkTransferUserFileName() {
+        return bulkTransferUserFileName;
+    }
+
+    public int getBulkUserTransferMaxRows() {
+        return bulkUserTransferMaxRows;
+    }
+
+    public List<String> getBulkTransferAuthorizedRoles() {
+        return Arrays.asList(bulkTransferAuthorizedRoles.split(","));
+    }
+
+    public int getBulkTransferRedisTtl() {
+        return bulkTransferRedisTtl;
+    }
+
+    public String getOrgTypeFieldName() {
+        return orgTypeFieldName;
+    }
+
+    public String getOrgHierarchyUserBulkTransfer() {
+        return orgHierarchyUserBulkTransfer;
+    }
+
+    public String getOrgHierarchyUserBulkTransferTopic() {
+        return orgHierarchyUserBulkTransferTopic;
+    }
 }

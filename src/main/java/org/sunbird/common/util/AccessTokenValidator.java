@@ -12,6 +12,7 @@ import org.springframework.stereotype.Component;
 import org.sunbird.common.model.SBApiResponse;
 
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 @Component
 public class AccessTokenValidator {
@@ -133,4 +134,18 @@ public class AccessTokenValidator {
         }
         return clientAccessTokenId;
     }
+
+    public Map<String, Object> extractTokenPayload(String token) {
+        Map<String, Object> tokenPayload = new HashMap<>();
+        try {
+            Map<String, Object> payload = validateToken(token);
+            if (MapUtils.isNotEmpty(payload) && checkIss((String) payload.get("iss"))) {
+                tokenPayload = payload;
+            }
+        } catch (Exception ex) {
+            logger.error("Exception in extractTokenPayload: ", ex);
+        }
+        return tokenPayload;
+    }
+
 }
