@@ -416,7 +416,7 @@ public class UserMigrationBulkConsumer {
         }
 
         if (userRoles.contains(Constants.MDO_LEADER) || userRoles.contains(Constants.SPV_ADMIN) || userRoles.contains(Constants.STATE_ADMIN)) {
-            return isInSameHierarchyPath(currentOrgId, targetOrgId, orgHierarchyMap);
+            return isValidOrgInFramework(targetOrgId, orgHierarchyMap);
         }
 
         return false;
@@ -681,6 +681,19 @@ public class UserMigrationBulkConsumer {
             return orgNameInput.substring(0, startIndex).trim();
         }
         return orgNameInput.trim();
+    }
+
+    private boolean isValidOrgInFramework(String targetOrgId, Map<String, Set<String>> orgHierarchyMap) {
+        if (orgHierarchyMap.containsKey(targetOrgId)) {
+            return true;
+        }
+        for (Set<String> children : orgHierarchyMap.values()) {
+            if (children.contains(targetOrgId)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
 }
