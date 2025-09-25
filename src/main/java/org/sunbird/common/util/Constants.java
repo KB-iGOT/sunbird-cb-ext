@@ -1433,6 +1433,7 @@ public class Constants {
     public static final String FAILED_TO_UPLOAD_FILE = "Failed to upload file. Error: %s";
     public static final String PROCESS_INTERRUPTED_DURING_SHUTDOWN = "Process interrupted during shutdown";
     public static final String HEADER_ROW_NOT_FOUND = "Header row not found in Excel file";
+    public static final String ORGANIZATION_MISMATCH = "User's current organization does not match with the root organization. Please verify the organization hierarchy.";
     private Constants() {
 		throw new IllegalStateException("Utility class");
 	}

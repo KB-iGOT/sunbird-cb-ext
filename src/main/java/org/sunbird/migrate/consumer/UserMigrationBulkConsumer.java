@@ -335,6 +335,11 @@ public class UserMigrationBulkConsumer {
             String currentOrgId = extractOrgIdFromName(currentOrgName);
             String targetOrgId = extractOrgIdFromName(targetOrgName);
 
+            if (!currentOrgId.equalsIgnoreCase(rootOrgId)) {
+                updateRowStatus(row, statusColumnIndex, errorColumnIndex, Constants.FAILED_UPPERCASE, Constants.ORGANIZATION_MISMATCH);
+                return false;
+            }
+
             if (!orgIdToChannelMap.containsKey(currentOrgId)) {
                 updateRowStatus(row, statusColumnIndex, errorColumnIndex, Constants.FAILED_UPPERCASE, Constants.CURRENT_ORG_NOT_FOUND);
                 return false;

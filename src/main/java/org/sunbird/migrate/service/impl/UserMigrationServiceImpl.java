@@ -791,7 +791,7 @@ public class UserMigrationServiceImpl implements UserMigrationService {
     }
 
     @Override
-    public SBApiResponse bulkUploadUserTransfer(MultipartFile file, String rootOrgId, String userAuthToken, String frameworkId) {
+    public SBApiResponse bulkUploadUserTransfer(MultipartFile file, String rootOrgId, String userAuthToken, String frameworkId, String orgId) {
         SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.API_BULK_TRANSFER_UPLOAD);
         try {
             Map<String, Object> tokenPayload = accessTokenValidator.extractTokenPayload(userAuthToken);
@@ -800,7 +800,6 @@ public class UserMigrationServiceImpl implements UserMigrationService {
                 int pos = userId.lastIndexOf(":");
                 userId = userId.substring(pos + 1);
             }
-            String currentOrgId = (String) tokenPayload.get(Constants.ORG);
             List<String> userRoles = (List<String>) tokenPayload.get(Constants.USER_ROLES_KEY);
 
             if (StringUtils.isBlank(userId)) {
@@ -809,7 +808,7 @@ public class UserMigrationServiceImpl implements UserMigrationService {
             }
 
             Map<String, Object> propertyMap = new HashMap<>();
-            propertyMap.put(Constants.ID, currentOrgId);
+            propertyMap.put(Constants.ID, orgId);
             List<Map<String, Object>> orgDetailsList = cassandraOperation.getRecordsByProperties(Constants.DATABASE,
                     Constants.ORGANISATION, propertyMap, null);
 
@@ -852,7 +851,7 @@ public class UserMigrationServiceImpl implements UserMigrationService {
 
             String identifier = UUID.randomUUID().toString();
             Map<String, Object> uploadedFile = new HashMap<>();
-            uploadedFile.put(Constants.ROOT_ORG_ID, currentOrgId);
+            uploadedFile.put(Constants.ROOT_ORG_ID, orgId);
             uploadedFile.put(Constants.IDENTIFIER, identifier);
             uploadedFile.put(Constants.FILE_NAME, uploadResponse.getResult().get(Constants.NAME));
             uploadedFile.put(Constants.FILE_PATH, uploadResponse.getResult().get(Constants.URL));
