@@ -692,8 +692,6 @@ public class UserMigrationBulkConsumer {
                 return true;
             }
         }
-
         return false;
     }
-
 }
