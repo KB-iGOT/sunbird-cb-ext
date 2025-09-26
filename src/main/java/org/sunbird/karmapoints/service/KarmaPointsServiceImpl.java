@@ -71,7 +71,7 @@ public class KarmaPointsServiceImpl implements KarmaPointsService {
         Map<String, Object> propertyMap = new HashMap<>();
         String key = userId +"|"+cntxType+"|"+ cntxtId;
         propertyMap.put(Constants.DB_COLUMN_USER_KARMA_POINTS_KEY, key);
-        List<Map<String, Object>> userCourseKpList = cassandraOperation.getRecordsByProperties(Constants.KEYSPACE_SUNBIRD,
+        List<Map<String, Object>> userCourseKpList = cassandraOperation.getRecordsByPropertiesWithoutFiltering(Constants.KEYSPACE_SUNBIRD,
                 Constants.TABLE_KARMA_POINTS_LOOK_UP, propertyMap, null);
         if(userCourseKpList.size() < 1)
             return resultMap;
