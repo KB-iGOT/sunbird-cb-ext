@@ -1435,6 +1435,12 @@ public class Constants {
     public static final String HEADER_ROW_NOT_FOUND = "Header row not found in Excel file";
     public static final String ORGANIZATION_MISMATCH = "User's current organization does not match with the root organization. Please verify the organization hierarchy.";
     public static final String EMPTY_FILE = "The uploaded file is empty or could not be processed";
+    public static final String ASSIGNMENT_UPLOAD_FILE = "api.blended_program.Assignment.ans.fileUpload";
+    public static final String FILE_EMPTY = "Uploaded file is empty.";
+    public static final String INVALID_CONTENT_ID = "Invalid or missing content ID.";
+    public static final String INVALID_BATCH_ID = "Invalid or missing batch ID.";
+    public static final String INVALID_FORM_ID = "Invalid or missing form ID.";
+    public static final String FILE = "file";
     private Constants() {
 		throw new IllegalStateException("Utility class");
 	}
