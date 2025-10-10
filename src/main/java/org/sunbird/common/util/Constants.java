@@ -1439,6 +1439,8 @@ public class Constants {
     public static final String EMPTY_JSON_OBJECT = "{}";
     public static final String EMPTY_JSON_ARRAY = "[]";
     public static final String ORG_HIERARCHY_SUFFIX = "_org_hierarchy";
+    public static final String LEFT_ANGLE_BRACKET = "<";
+    public static final String RIGHT_ANGLE_BRACKET = ">";
     private Constants() {
 		throw new IllegalStateException("Utility class");
 	}

@@ -625,7 +625,7 @@ public class OrgHierarchyBulkUploadConsumer {
 
     private String extractIdentifier(String cellValue) {
         if (cellValue == null) return null;
-        java.util.regex.Matcher matcher = java.util.regex.Pattern.compile("<([^>]+)>").matcher(cellValue);
+        java.util.regex.Matcher matcher = java.util.regex.Pattern.compile(serverProperties.getOrgIdRegexPattern()).matcher(cellValue);
         return matcher.find() ? matcher.group(1) : null;
     }
 

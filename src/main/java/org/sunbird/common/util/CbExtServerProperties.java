@@ -1127,6 +1127,9 @@ public class CbExtServerProperties {
     @Value("${kafka.topics.org.user.bulk.transfer.event}")
     private String orgHierarchyUserBulkTransferTopic;
 
+    @Value("${org.hierarchy.identifier.regex.pattern}")
+    private String orgIdRegexPattern;
+
     public String getStateLearningInsightsRedisKeyMapping() {
 		return stateLearningInsightsRedisKeyMapping;
 	}
@@ -3789,5 +3792,9 @@ public class CbExtServerProperties {
 
     public String getOrgHierarchyUserBulkTransferTopic() {
         return orgHierarchyUserBulkTransferTopic;
+    }
+
+    public String getOrgIdRegexPattern() {
+        return orgIdRegexPattern;
     }
 }

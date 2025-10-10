@@ -727,7 +727,7 @@ public class UserMigrationServiceImpl implements UserMigrationService {
             row.createCell(0).setCellValue(orgChannel);
             row.createCell(1).setCellValue(orgId);
             row.createCell(2).setCellValue("");
-            row.createCell(3).setCellValue(orgChannel + " <" + orgId + ">");
+            row.createCell(3).setCellValue(orgChannel + Constants.LEFT_ANGLE_BRACKET + orgId + Constants.RIGHT_ANGLE_BRACKET);
             row.createCell(4).setCellValue("");
         }
         excelUtil.makeSheetReadOnly(masterDataSheet);
