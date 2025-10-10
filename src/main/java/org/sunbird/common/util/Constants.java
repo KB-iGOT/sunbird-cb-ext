@@ -1440,6 +1440,7 @@ public class Constants {
     public static final String INVALID_CONTENT_ID = "Invalid or missing content ID.";
     public static final String INVALID_BATCH_ID = "Invalid or missing batch ID.";
     public static final String INVALID_FORM_ID = "Invalid or missing form ID.";
+    public static final String FILE = "file";
     private Constants() {
 		throw new IllegalStateException("Utility class");
 	}

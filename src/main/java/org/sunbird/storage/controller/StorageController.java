@@ -123,10 +123,10 @@ public class StorageController {
 
     @PostMapping("/v1/bpAssignmentAnsFile/{contentId}/{batchId}/{formId}")
     public ResponseEntity<SBApiResponse> uploadAssignmentFile(
-            @RequestParam(value = "file", required = true) MultipartFile multipartFile,
-            @PathVariable(value = "contentId", required = true) String contentId,
-            @PathVariable(value = "batchId", required = true) String batchId,
-            @PathVariable(value = "formId", required = true) String formId) {
+            @RequestParam(value = Constants.FILE, required = true) MultipartFile multipartFile,
+            @PathVariable(value = Constants.CONTENT_ID_KEY, required = true) String contentId,
+            @PathVariable(value = Constants.BATCH_ID, required = true) String batchId,
+            @PathVariable(value = Constants.FORM_ID, required = true) String formId) {
         SBApiResponse uploadResponse = storageService.uploadAssignmentAnsFile(multipartFile, contentId, batchId, formId);
         return new ResponseEntity<>(uploadResponse, uploadResponse.getResponseCode());
     }
