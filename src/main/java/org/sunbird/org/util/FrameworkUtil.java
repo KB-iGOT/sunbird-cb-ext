@@ -86,7 +86,7 @@ public class FrameworkUtil {
 
                 row.createCell(1).setCellValue(orgName);
 
-                row.createCell(2).setCellValue(orgName + " (" + orgId + ")");
+                row.createCell(2).setCellValue(orgName + " <" + orgId + ">");
             }
         } else {
             Row row = sheet.createRow(rowIndex++);

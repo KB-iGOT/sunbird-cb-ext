@@ -547,8 +547,8 @@ public class UserMigrationBulkConsumer {
 
     private String extractOrgIdFromName(String orgName) {
         if (StringUtils.isNotEmpty(orgName) && orgName.contains("(") && orgName.endsWith(")")) {
-            int startIndex = orgName.lastIndexOf("(") + 1;
-            int endIndex = orgName.lastIndexOf(")");
+            int startIndex = orgName.lastIndexOf("<") + 1;
+            int endIndex = orgName.lastIndexOf(">");
             return orgName.substring(startIndex, endIndex).trim();
         }
         return orgName;
@@ -676,8 +676,8 @@ public class UserMigrationBulkConsumer {
     }
 
     private String extractOrgNameFromInput(String orgNameInput) {
-        if (StringUtils.isNotEmpty(orgNameInput) && orgNameInput.contains("(") && orgNameInput.endsWith(")")) {
-            int startIndex = orgNameInput.lastIndexOf("(");
+        if (StringUtils.isNotEmpty(orgNameInput) && orgNameInput.contains("<") && orgNameInput.endsWith(">")) {
+            int startIndex = orgNameInput.lastIndexOf("<");
             return orgNameInput.substring(0, startIndex).trim();
         }
         return orgNameInput.trim();
