@@ -120,4 +120,14 @@ public class StorageController {
 		SBApiResponse uploadResponse = storageService.uploadImageToGCPContainer(multipartFile, requestBody,authUserToken);
 		return new ResponseEntity<>(uploadResponse, uploadResponse.getResponseCode());
 	}
+
+    @PostMapping("/v1/bpAssignmentAnsFile/{contentId}/{batchId}/{formId}")
+    public ResponseEntity<SBApiResponse> uploadAssignmentFile(
+            @RequestParam(value = "file", required = true) MultipartFile multipartFile,
+            @PathVariable(value = "contentId", required = true) String contentId,
+            @PathVariable(value = "batchId", required = true) String batchId,
+            @PathVariable(value = "formId", required = true) String formId) {
+        SBApiResponse uploadResponse = storageService.uploadAssignmentAnsFile(multipartFile, contentId, batchId, formId);
+        return new ResponseEntity<>(uploadResponse, uploadResponse.getResponseCode());
+    }
 }

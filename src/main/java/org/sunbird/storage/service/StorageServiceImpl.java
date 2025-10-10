@@ -672,4 +672,51 @@ public class StorageServiceImpl implements StorageService {
 		response.getParams().setErrmsg(Constants.USER_ID_DOESNT_EXIST);
 		response.setResponseCode(responseCode);
 	}
+
+    @Override
+    public SBApiResponse uploadAssignmentAnsFile(MultipartFile multipartFile, String contentId, String batchId, String formId) {
+        SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.ASSIGNMENT_UPLOAD_FILE);
+
+        if (multipartFile.isEmpty()) {
+            return ProjectUtil.returnErrorMsg(Constants.FILE_EMPTY, HttpStatus.BAD_REQUEST, response, Constants.FAILED);
+        }
+        if (StringUtils.isBlank(contentId)) {
+            return ProjectUtil.returnErrorMsg(Constants.INVALID_CONTENT_ID, HttpStatus.BAD_REQUEST, response, Constants.FAILED);
+        }
+        if (StringUtils.isBlank(batchId)) {
+            return ProjectUtil.returnErrorMsg(Constants.INVALID_BATCH_ID, HttpStatus.BAD_REQUEST, response, Constants.FAILED);
+        }
+        if (StringUtils.isBlank(formId)) {
+            return ProjectUtil.returnErrorMsg(Constants.INVALID_FORM_ID, HttpStatus.BAD_REQUEST, response, Constants.FAILED);
+        }
+
+        File tempFile = null;
+        try {
+            tempFile = new File(System.currentTimeMillis() + "_" + multipartFile.getOriginalFilename());
+            if (!tempFile.createNewFile()) {
+                logger.warn("Temporary file already exists or could not be created: {}", tempFile.getAbsolutePath());
+                return ProjectUtil.returnErrorMsg("Failed to create temporary file for upload.", HttpStatus.INTERNAL_SERVER_ERROR, response, Constants.FAILED);
+            }
+            try (FileOutputStream fos = new FileOutputStream(tempFile)) {
+                fos.write(multipartFile.getBytes());
+            }
+            String uploadFolderPath = serverProperties.getBpAssignmentAnsFolderName() + "/" + contentId + "/" + batchId + "/" + formId;
+            return uploadFile(tempFile, uploadFolderPath, serverProperties.getCloudPublicContainerName());
+
+        } catch (Exception e) {
+            logger.error("Failed to upload assignment answer file. Exception: ", e);
+            response.getParams().setStatus(Constants.FAILED);
+            response.getParams().setErrmsg("Failed to upload assignment answer file. Exception: " + e.getMessage());
+            response.setResponseCode(HttpStatus.INTERNAL_SERVER_ERROR);
+            return response;
+        } finally {
+            if (tempFile != null && tempFile.exists()) {
+                boolean deleted = tempFile.delete();
+                if (!deleted) {
+                    logger.warn("Temporary file {} could not be deleted.", tempFile.getAbsolutePath());
+                }
+            }
+        }
+    }
+
 }

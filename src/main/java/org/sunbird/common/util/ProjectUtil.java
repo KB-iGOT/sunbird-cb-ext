@@ -260,4 +260,13 @@ public class ProjectUtil {
 		headers.put(Constants.X_AUTH_TOKEN, userAuthToken);
 		return headers;
 	}
+
+    public static SBApiResponse returnErrorMsg(String errMsg, HttpStatus httpStatus, SBApiResponse response, String status) {
+        response.getParams().setStatus(status);
+        response.getParams().setErrmsg(errMsg);
+        response.setResponseCode(httpStatus);
+        response.getResult().put("message", errMsg);
+        return response;
+    }
+
 }
