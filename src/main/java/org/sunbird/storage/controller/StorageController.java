@@ -121,7 +121,7 @@ public class StorageController {
 		return new ResponseEntity<>(uploadResponse, uploadResponse.getResponseCode());
 	}
 
-    @PostMapping("/v1/bpAssignmentAnsFile/{contentId}/{batchId}/{formId}")
+    @PostMapping("/v1/bp/assignment/answer/{contentId}/{batchId}/{formId}")
     public ResponseEntity<SBApiResponse> uploadAssignmentFile(
             @RequestParam(value = Constants.FILE, required = true) MultipartFile multipartFile,
             @PathVariable(value = Constants.CONTENT_ID_KEY, required = true) String contentId,
