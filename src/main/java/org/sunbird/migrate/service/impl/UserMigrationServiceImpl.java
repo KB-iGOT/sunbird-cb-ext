@@ -464,10 +464,10 @@ public class UserMigrationServiceImpl implements UserMigrationService {
         try {
             String cacheKey = Constants.BULK_TRANSFER_FRAMEWORK_HIERARCHY_CACHE_KEY_PREFIX + frameworkId;
             String cachedDataStr = redisCacheMgr.getCache(cacheKey);
-            if (StringUtils.isNotEmpty(cachedDataStr) ||
-                    Constants.NULL_STRING.equalsIgnoreCase(cachedDataStr) ||
-                    Constants.EMPTY_JSON_OBJECT.equals(cachedDataStr) ||
-                    Constants.EMPTY_JSON_ARRAY.equals(cachedDataStr)) {
+            if (StringUtils.isNotEmpty(cachedDataStr) &&
+                    !Constants.NULL_STRING.equalsIgnoreCase(cachedDataStr) &&
+                    !Constants.EMPTY_JSON_OBJECT.equals(cachedDataStr) &&
+                    !Constants.EMPTY_JSON_ARRAY.equals(cachedDataStr)) {
                 log.info("Cache hit for getCompleteFrameworkDataFromUtil, frameworkId: {}", frameworkId);
                 return mapper.readValue(cachedDataStr, Map.class);
             }
