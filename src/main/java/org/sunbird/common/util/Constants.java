@@ -1441,6 +1441,7 @@ public class Constants {
     public static final String INVALID_BATCH_ID = "Invalid or missing batch ID.";
     public static final String INVALID_FORM_ID = "Invalid or missing form ID.";
     public static final String FILE = "file";
+    public static final String EMPTY_FILE_NAME = "The uploaded file name is empty or could not be processed";
     private Constants() {
 		throw new IllegalStateException("Utility class");
 	}
