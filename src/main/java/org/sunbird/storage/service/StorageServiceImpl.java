@@ -736,7 +736,7 @@ public class StorageServiceImpl implements StorageService {
             );
         }
         String originalFilename = multipartFile.getOriginalFilename();
-        if (originalFilename == null) {
+        if (StringUtils.isEmpty(originalFilename)) {
             return ProjectUtil.returnErrorMsg(Constants.EMPTY_FILE_NAME, HttpStatus.BAD_REQUEST, response, Constants.FAILED);
         }
         String fileExtension = originalFilename.substring(originalFilename.lastIndexOf('.') + 1).toLowerCase();
