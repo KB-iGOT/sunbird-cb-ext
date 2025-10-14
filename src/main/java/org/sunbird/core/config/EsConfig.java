@@ -36,6 +36,12 @@ public class EsConfig {
 				configuration.getSbEsPassword());
 	}
 
+	@Bean(name = "userESClient", destroyMethod = "close")
+	public RestHighLevelClient getUserESRestClient(CbExtServerProperties configuration) {
+		return createRestClient(configuration.getUserESHostList(), configuration.getUserESUserName(),
+				configuration.getUserESPassword());
+	}
+
 	private RestHighLevelClient createRestClient(String[] hosts, String user, String password) {
 		final CredentialsProvider credentialsProvider = new BasicCredentialsProvider();
 		credentialsProvider.setCredentials(AuthScope.ANY, new UsernamePasswordCredentials(user, password));

@@ -28,6 +28,7 @@ import org.sunbird.cassandra.utils.CassandraOperation;
 import org.sunbird.common.model.SBApiResponse;
 import org.sunbird.common.service.OutboundRequestHandlerServiceImpl;
 import org.sunbird.common.util.*;
+import org.sunbird.common.util.ProjectUtil.ESIndexType;
 import org.sunbird.cqfassessment.model.CQFAssessmentModel;
 
 import java.io.IOException;
@@ -194,7 +195,7 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
             searchSourceBuilder.from((Integer.parseInt(requestBody.get(Constants.CURRENT_PAGE).toString()) - 1) * Integer.parseInt(requestBody.get(Constants.PAGE_SIZE).toString()));
             searchSourceBuilder.size(Integer.parseInt(requestBody.get(Constants.PAGE_SIZE).toString()));
             if(indexerService.isIndexPresent(serverProperties.getQuestionSetHierarchyIndex())) {
-                searchResponse = indexerService.getEsResult(serverProperties.getQuestionSetHierarchyIndex(), serverConfig.getEsProfileIndexType(), searchSourceBuilder, true);
+                searchResponse = indexerService.getEsResult(serverProperties.getQuestionSetHierarchyIndex(), serverConfig.getEsProfileIndexType(), searchSourceBuilder, ESIndexType.SUNBIRD_ES);
                 long totalCount = searchResponse.getHits().getTotalHits();
                 int pageSize = Integer.parseInt(requestBody.get(Constants.PAGE_SIZE).toString());
                 int totalPages = (int) Math.ceil((double) totalCount / pageSize);

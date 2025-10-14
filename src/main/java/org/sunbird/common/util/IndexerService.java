@@ -28,6 +28,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
+import org.sunbird.common.util.ProjectUtil.ESIndexType;
 
 @Service
 public class IndexerService {
@@ -41,6 +42,10 @@ public class IndexerService {
 	@Autowired
 	@Qualifier("sbEsClient")
 	private RestHighLevelClient sbEsClient;
+
+	@Autowired
+	@Qualifier("userEsClient")
+	private RestHighLevelClient userEsClient;
 
 	/**
 	 * @param index         name of index
@@ -118,13 +123,13 @@ public class IndexerService {
 	 * @throws IOException
 	 */
 	public SearchResponse getEsResult(String indexName, String type, SearchSourceBuilder searchSourceBuilder,
-			boolean isSunbirdES) throws IOException {
+			ESIndexType esType) throws IOException {
 		SearchRequest searchRequest = new SearchRequest();
 		searchRequest.indices(indexName);
 		if (!StringUtils.isEmpty(type))
 			searchRequest.types(type);
 		searchRequest.source(searchSourceBuilder);
-		return getEsResult(searchRequest, isSunbirdES);
+		return getEsResult(searchRequest, esType);
 	}
 
 	public RestStatus BulkInsert(List<IndexRequest> indexRequestList) {
@@ -155,27 +160,32 @@ public class IndexerService {
 		}
 	}
 
-	public long getDocumentCount(String index, boolean isSunbirdES) {
+	public long getDocumentCount(String index, ESIndexType esType) {
 		try {
 			CountRequest countRequest = new CountRequest().indices(index);
-			if (isSunbirdES) {
+			if (ESIndexType.SUNBIRD_ES.equals(esType)) {
 				return sbEsClient.count(countRequest, RequestOptions.DEFAULT).getCount();
-			} else {
+			} else if (ESIndexType.USER_ES.equals(esType)) {
+				return userEsClient.count(countRequest, RequestOptions.DEFAULT).getCount();
+			} else if (ESIndexType.IGOT_ES.equals(esType)) {
 				return esClient.count(countRequest, RequestOptions.DEFAULT).getCount();
 			}
-
+			return 0l;
 		} catch (Exception e) {
 
 		}
 		return 0l;
 	}
 
-	private SearchResponse getEsResult(SearchRequest searchRequest, boolean isSbES) throws IOException {
-		if (isSbES) {
+	private SearchResponse getEsResult(SearchRequest searchRequest, ESIndexType esType) throws IOException {
+		if (ESIndexType.SUNBIRD_ES.equals(esType)) {
 			return sbEsClient.search(searchRequest, RequestOptions.DEFAULT);
-		} else {
+		} else if (ESIndexType.USER_ES.equals(esType)) {
+			return userEsClient.search(searchRequest, RequestOptions.DEFAULT);
+		} else if (ESIndexType.IGOT_ES.equals(esType)) {
 			return esClient.search(searchRequest, RequestOptions.DEFAULT);
 		}
+		return null;
 	}
 
 	public boolean isIndexPresent(String indexName) {

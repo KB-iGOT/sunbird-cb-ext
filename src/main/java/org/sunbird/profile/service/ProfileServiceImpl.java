@@ -48,6 +48,7 @@ import org.sunbird.common.model.SunbirdApiRespParam;
 import org.sunbird.common.service.ContentService;
 import org.sunbird.common.service.OutboundRequestHandlerServiceImpl;
 import org.sunbird.common.util.*;
+import org.sunbird.common.util.ProjectUtil.ESIndexType;
 import org.sunbird.core.cipher.DecryptServiceImpl;
 import org.sunbird.core.producer.Producer;
 import org.sunbird.org.service.ExtendedOrgService;
@@ -1489,7 +1490,7 @@ public class ProfileServiceImpl implements ProfileService {
 		sourceBuilder.size(serverConfig.getEsDefaultResultLimit());
 		sourceBuilder.fetchSource(serverConfig.getEsAutoCompleteIncludeFields(), new String[]{});
 		SearchResponse searchResponse = indexerService.getEsResult(serverConfig.getSbEsUserProfileIndex(),
-				serverConfig.getEsProfileIndexType(), sourceBuilder, true);
+				serverConfig.getEsProfileIndexType(), sourceBuilder, ESIndexType.USER_ES);
 		for (SearchHit hit : searchResponse.getHits()) {
 			result = hit.getSourceAsMap();
 			resultArray.add(result);
@@ -1514,7 +1515,7 @@ public class ProfileServiceImpl implements ProfileService {
 		SearchSourceBuilder sourceBuilder = new SearchSourceBuilder().query(finalQuery);
 		sourceBuilder.fetchSource(serverConfig.getEsAutoCompleteIncludeFields(), new String[]{});
 		SearchResponse searchResponse = indexerService.getEsResult(serverConfig.getSbEsUserProfileIndex(),
-				serverConfig.getEsProfileIndexType(), sourceBuilder, true);
+				serverConfig.getEsProfileIndexType(), sourceBuilder, ESIndexType.USER_ES);
 		for (SearchHit hit : searchResponse.getHits()) {
 			result = hit.getSourceAsMap();
 			resultArray.add(result);
@@ -1815,7 +1816,7 @@ public class ProfileServiceImpl implements ProfileService {
 				sourceBuilder = new SearchSourceBuilder().query(finalQuery).from(index).size(size);
 				sourceBuilder.fetchSource(serverConfig.getEsUserReportIncludeFields(), new String[] {});
 				SearchResponse searchResponse = indexerService.getEsResult(serverConfig.getSbEsUserProfileIndex(),
-						serverConfig.getEsProfileIndexType(), sourceBuilder, true);
+						serverConfig.getEsProfileIndexType(), sourceBuilder, ESIndexType.USER_ES);
 
 				if (index == 0) {
 					userCount = searchResponse.getHits().getTotalHits();
