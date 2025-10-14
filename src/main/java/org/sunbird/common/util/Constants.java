@@ -1442,6 +1442,10 @@ public class Constants {
     public static final String INVALID_FORM_ID = "Invalid or missing form ID.";
     public static final String FILE = "file";
     public static final String EMPTY_FILE_NAME = "The uploaded file name is empty or could not be processed";
+    public static final String FILE_NOT_FOUND = "File not found for the given details.";
+    public static final String READ_ASSIGNMENT_FILE = "api.assignment.answer.read";
+    public static final String READ_ASSIGNMENT_FILE_VALIDATION = "api.assignment.answer.read.validation";
+    public static final String UNAUTHORIZED_USER = "Unauthorized user or invalid token.";
     private Constants() {
 		throw new IllegalStateException("Utility class");
 	}
