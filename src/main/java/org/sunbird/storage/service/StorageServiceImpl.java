@@ -11,6 +11,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import javax.annotation.PostConstruct;
@@ -677,19 +678,10 @@ public class StorageServiceImpl implements StorageService {
     public SBApiResponse uploadAssignmentAnsFile(MultipartFile multipartFile, String contentId, String batchId, String formId) {
         SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.ASSIGNMENT_UPLOAD_FILE);
 
-        if (multipartFile.isEmpty()) {
-            return ProjectUtil.returnErrorMsg(Constants.FILE_EMPTY, HttpStatus.BAD_REQUEST, response, Constants.FAILED);
+        SBApiResponse validationError = validateAssignmentFileInputs(multipartFile, contentId, batchId, formId);
+        if (validationError != null) {
+            return validationError;
         }
-        if (StringUtils.isBlank(contentId)) {
-            return ProjectUtil.returnErrorMsg(Constants.INVALID_CONTENT_ID, HttpStatus.BAD_REQUEST, response, Constants.FAILED);
-        }
-        if (StringUtils.isBlank(batchId)) {
-            return ProjectUtil.returnErrorMsg(Constants.INVALID_BATCH_ID, HttpStatus.BAD_REQUEST, response, Constants.FAILED);
-        }
-        if (StringUtils.isBlank(formId)) {
-            return ProjectUtil.returnErrorMsg(Constants.INVALID_FORM_ID, HttpStatus.BAD_REQUEST, response, Constants.FAILED);
-        }
-
         File tempFile = null;
         try {
             tempFile = new File(System.currentTimeMillis() + "_" + multipartFile.getOriginalFilename());
@@ -717,6 +709,47 @@ public class StorageServiceImpl implements StorageService {
                 }
             }
         }
+    }
+
+    private SBApiResponse validateAssignmentFileInputs(MultipartFile multipartFile, String contentId, String batchId, String formId) {
+        SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.ASSIGNMENT_UPLOAD_FILE);
+
+        if (multipartFile == null || multipartFile.isEmpty()) {
+            return ProjectUtil.returnErrorMsg(Constants.FILE_EMPTY, HttpStatus.BAD_REQUEST, response, Constants.FAILED);
+        }
+        if (StringUtils.isBlank(contentId)) {
+            return ProjectUtil.returnErrorMsg(Constants.INVALID_CONTENT_ID, HttpStatus.BAD_REQUEST, response, Constants.FAILED);
+        }
+        if (StringUtils.isBlank(batchId)) {
+            return ProjectUtil.returnErrorMsg(Constants.INVALID_BATCH_ID, HttpStatus.BAD_REQUEST, response, Constants.FAILED);
+        }
+        if (StringUtils.isBlank(formId)) {
+            return ProjectUtil.returnErrorMsg(Constants.INVALID_FORM_ID, HttpStatus.BAD_REQUEST, response, Constants.FAILED);
+        }
+
+        // Validate file size (configured in KB)
+        long maxSizeBytes = serverProperties.getBpAssignmentAnsFileMaxSize() * 1024L;
+        if (multipartFile.getSize() > maxSizeBytes) {
+            return ProjectUtil.returnErrorMsg(
+                    "File size exceeds the maximum allowed limit of " + serverProperties.getBpAssignmentAnsFileMaxSize() + " KB.",
+                    HttpStatus.BAD_REQUEST, response, Constants.FAILED
+            );
+        }
+        String originalFilename = multipartFile.getOriginalFilename();
+        if (StringUtils.isEmpty(originalFilename)) {
+            return ProjectUtil.returnErrorMsg(Constants.EMPTY_FILE_NAME, HttpStatus.BAD_REQUEST, response, Constants.FAILED);
+        }
+        String fileExtension = originalFilename.substring(originalFilename.lastIndexOf('.') + 1).toLowerCase();
+        List<String> allowedExtensions = serverProperties.getBpAssignmentAnsFileExtensions();
+
+        if (!allowedExtensions.contains(fileExtension)) {
+            return ProjectUtil.returnErrorMsg(
+                    "Unsupported file type. Allowed types: " + String.join(", ", allowedExtensions),
+                    HttpStatus.BAD_REQUEST, response, Constants.FAILED
+            );
+        }
+
+        return null;
     }
 
 }
