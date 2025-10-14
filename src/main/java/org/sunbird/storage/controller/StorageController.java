@@ -130,4 +130,16 @@ public class StorageController {
         SBApiResponse uploadResponse = storageService.uploadAssignmentAnsFile(multipartFile, contentId, batchId, formId);
         return new ResponseEntity<>(uploadResponse, uploadResponse.getResponseCode());
     }
+
+    @GetMapping("/v1/bp/assignment/answer/read/file")
+    public ResponseEntity<?> readAssignmentAnswerFile(
+            @RequestParam(value = "contentId", required = true) String contentId,
+            @RequestParam(value = "batchId", required = true) String batchId,
+            @RequestParam(value = "formId", required = true) String formId,
+            @RequestParam(value = "fileName", required = true) String fileName,
+            @RequestHeader(Constants.X_AUTH_TOKEN) String userToken){
+        return storageService.readAssignmentAnsFile(contentId, batchId, formId, fileName, userToken);
+    }
+
+
 }

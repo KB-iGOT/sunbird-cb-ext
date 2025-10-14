@@ -9,10 +9,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 import javax.annotation.PostConstruct;
 
@@ -749,6 +746,96 @@ public class StorageServiceImpl implements StorageService {
             );
         }
 
+        return null;
+    }
+
+    @Override
+    public ResponseEntity<?> readAssignmentAnsFile(String contentId, String batchId, String formId, String fileName, String userToken) {
+        SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.READ_ASSIGNMENT_FILE);
+        try {
+            ResponseEntity<SBApiResponse> validationResponse = validateAssignmentReadRequest(contentId, batchId, formId, fileName, userToken);
+            if (validationResponse != null) {
+                return validationResponse;
+            }
+            String bucketName = serverProperties.getCloudPublicContainerName();
+            String folderPrefix = serverProperties.getBpAssignmentAnsFolderName();
+            String objectKey = folderPrefix + "/" + contentId + "/" + batchId + "/" + formId + "/" + fileName;
+            logger.debug("Downloading assignment answer file from bucket: {}, object: {}", bucketName, objectKey);
+            storageService.download(bucketName, objectKey, Constants.LOCAL_BASE_PATH, Option.apply(Boolean.FALSE));
+
+            Path tmpPath = Paths.get(Constants.LOCAL_BASE_PATH + fileName);
+            File localFile = tmpPath.toFile();
+            if (!localFile.exists() || localFile.isDirectory() || localFile.length() == 0) {
+                logger.warn("File not found or invalid after download: {}", localFile.getAbsolutePath());
+                return new ResponseEntity<>(
+                        ProjectUtil.returnErrorMsg(Constants.FILE_NOT_FOUND, HttpStatus.NOT_FOUND, response, Constants.FAILED),
+                        HttpStatus.NOT_FOUND
+                );
+            }
+            ByteArrayResource resource = new ByteArrayResource(Files.readAllBytes(tmpPath));
+            HttpHeaders headers = new HttpHeaders();
+            headers.add(HttpHeaders.CONTENT_DISPOSITION, "form-data; name=\"file\"; filename=\"" + fileName + "\"");
+            logger.info("Successfully downloaded assignment answer file: {}", fileName);
+            return ResponseEntity.ok()
+                    .headers(headers)
+                    .contentLength(tmpPath.toFile().length())
+                    .contentType(MediaType.MULTIPART_FORM_DATA)
+                    .body(resource);
+
+        } catch (Exception e) {
+            logger.error("Failed to download assignment answer file. Exception: ", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Failed to download file: " + e.getMessage());
+        } finally {
+            try {
+                File tempFile = new File(Constants.LOCAL_BASE_PATH + fileName);
+                if (tempFile.exists()) {
+                    boolean deleted = tempFile.delete();
+                    if (!deleted) {
+                        logger.warn("Temp file {} could not be deleted.", tempFile.getAbsolutePath());
+                    }
+                }
+            } catch (Exception cleanupEx) {
+                logger.warn("Error deleting temp file: {}", cleanupEx.getMessage());
+            }
+        }
+    }
+
+    private ResponseEntity<SBApiResponse> validateAssignmentReadRequest(String contentId, String batchId, String formId, String fileName, String userToken) {
+        SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.READ_ASSIGNMENT_FILE_VALIDATION);
+
+        String userId = accessTokenValidator.fetchUserIdFromAccessToken(userToken);
+        if (StringUtils.isBlank(userId)) {
+            logger.error("Unauthorized access: Failed to extract user info from token");
+            return new ResponseEntity<>(
+                    ProjectUtil.returnErrorMsg(Constants.UNAUTHORIZED_USER, HttpStatus.UNAUTHORIZED, response, Constants.FAILED),
+                    HttpStatus.UNAUTHORIZED
+            );
+        }
+        if (StringUtils.isBlank(contentId)) {
+            return new ResponseEntity<>(
+                    ProjectUtil.returnErrorMsg(Constants.INVALID_CONTENT_ID, HttpStatus.BAD_REQUEST, response, Constants.FAILED),
+                    HttpStatus.BAD_REQUEST
+            );
+        }
+        if (StringUtils.isBlank(batchId)) {
+            return new ResponseEntity<>(
+                    ProjectUtil.returnErrorMsg(Constants.INVALID_BATCH_ID, HttpStatus.BAD_REQUEST, response, Constants.FAILED),
+                    HttpStatus.BAD_REQUEST
+            );
+        }
+        if (StringUtils.isBlank(formId)) {
+            return new ResponseEntity<>(
+                    ProjectUtil.returnErrorMsg(Constants.INVALID_FORM_ID, HttpStatus.BAD_REQUEST, response, Constants.FAILED),
+                    HttpStatus.BAD_REQUEST
+            );
+        }
+        if (StringUtils.isBlank(fileName)) {
+            return new ResponseEntity<>(
+                    ProjectUtil.returnErrorMsg(Constants.EMPTY_FILE_NAME, HttpStatus.BAD_REQUEST, response, Constants.FAILED),
+                    HttpStatus.BAD_REQUEST
+            );
+        }
         return null;
     }
 
