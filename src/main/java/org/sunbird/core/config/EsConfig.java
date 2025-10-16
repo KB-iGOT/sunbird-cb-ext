@@ -36,7 +36,7 @@ public class EsConfig {
 				configuration.getSbEsPassword());
 	}
 
-	@Bean(name = "userESClient", destroyMethod = "close")
+	@Bean(name = "userEsClient", destroyMethod = "close")
 	public RestHighLevelClient getUserESRestClient(CbExtServerProperties configuration) {
 		return createRestClient(configuration.getUserESHostList(), configuration.getUserESUserName(),
 				configuration.getUserESPassword());
