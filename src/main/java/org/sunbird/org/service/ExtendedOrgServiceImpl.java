@@ -27,7 +27,6 @@ import org.sunbird.common.util.ProjectUtil;
 import org.sunbird.org.model.OrgHierarchy;
 import org.sunbird.org.model.OrgHierarchyInfo;
 import org.sunbird.org.repository.OrgHierarchyRepository;
-import org.sunbird.org.warehouse.repository.MdoChildrenLookUpRepository;
 
 @Service
 public class ExtendedOrgServiceImpl implements ExtendedOrgService {
@@ -44,11 +43,6 @@ public class ExtendedOrgServiceImpl implements ExtendedOrgService {
 
 	ObjectMapper objectMapper = new ObjectMapper();
 
-    @Autowired
-    MdoChildrenLookUpRepository mdoChildrenLookupRepository;
-
-    @Autowired
-    OutboundRequestHandlerServiceImpl outboundRequestHandlerService;
 
     @SuppressWarnings("unchecked")
 	@Override
@@ -1137,101 +1131,4 @@ public class ExtendedOrgServiceImpl implements ExtendedOrgService {
 		return errMsg;
 	}
 
-    @Override
-    public SBApiResponse orgExtSearchV3(Map<String, Object> request) {
-        SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.API_ORG_HIERACHY_SEARCH_V3);
-        Map<String, Object> searchFilters = new HashMap<>();
-        String errMsg = validateSearchRequest(request, searchFilters);
-        if (StringUtils.isNotBlank(errMsg)) {
-            response.setResponseCode(HttpStatus.BAD_REQUEST);
-            response.getParams().setErrmsg(errMsg);
-            return response;
-        }
-        List<String> indentifiersList = (List<String>) searchFilters.get(Constants.IDENTIFIER);
-        List<String> childrenIdsList = mdoChildrenLookupRepository.findAllChildrenByMdoId(indentifiersList);
-        if (CollectionUtils.isEmpty(childrenIdsList)) {
-            return handleNoChildrenScenario(request);
-        }
-        handleChildrenScenario(childrenIdsList, response);
-        return response;
-    }
-
-    private void handleChildrenScenario(List<String> childrenIdsList, SBApiResponse response) {
-        String childrenIds = childrenIdsList.get(0);
-        List<String> orgIds = Arrays.asList(childrenIds.split(","));
-        Map<String, Object> requestMap = new HashMap<>();
-        requestMap.put(Constants.OFFSET, 0);
-        requestMap.put(Constants.LIMIT, 1000);
-        Map<String, Object> sortByMap = new HashMap<>();
-        sortByMap.put(Constants.CHANNEL, Constants.ASC_ORDER);
-        requestMap.put(Constants.SORT_BY, sortByMap);
-        Map<String, Object> filters = new HashMap<>();
-        filters.put(Constants.IS_TENANT, Boolean.TRUE);
-        filters.put(Constants.IDENTIFIER, orgIds);
-        requestMap.put(Constants.FILTERS, filters);
-        String serviceURL = configProperties.getSbUrl() + configProperties.getSbOrgSearchPath();
-        Map<String, Object> payload = new HashMap<>();
-        payload.put(Constants.REQUEST, requestMap);
-        Map<String, Object> orgResponse = (Map<String, Object>) outboundRequestHandlerService.fetchResultUsingPost(serviceURL, payload);
-        Map<String, Object> responseMap = (Map<String, Object>) orgResponse.get(Constants.RESULT);
-        List<Map<String, Object>> mappedList = buildMappedOrgList(responseMap);
-        response.put(Constants.RESPONSE, mappedList);
-    }
-
-    private SBApiResponse handleNoChildrenScenario(Map<String, Object> request) {
-        SBApiResponse orgSearchResponse =orgExtSearchV2(request);
-        Map<String, Object> result = orgSearchResponse.getResult();
-        List<OrgHierarchyInfo> responseList = (List<OrgHierarchyInfo>) result.get(Constants.RESPONSE);
-        SBApiResponse listAllOrgResponse = listAllOrg(responseList.get(0).getMapId());
-        result = listAllOrgResponse.getResult();
-        Map<String,Object> responseMap = (Map<String, Object>) result.get(Constants.RESPONSE);
-        List<OrgHierarchy> contentList = (List<OrgHierarchy>) responseMap.get(Constants.CONTENT);
-        cleanOrgHierarchyList(contentList);
-        Map<String,Object> contentMap = new HashMap<>();
-        contentMap.put(Constants.CONTENT, contentList);
-        contentMap.put(Constants.COUNT, contentList.size());
-        listAllOrgResponse.put(Constants.RESPONSE, contentMap);
-        return listAllOrgResponse;
-    }
-
-    private  void cleanOrgHierarchyList(List<OrgHierarchy> content) {
-        for (OrgHierarchy org : content) {
-            org.setId(null);
-            org.setMapId("");
-            org.setOrgCode("");
-            org.setParentMapId("");
-            org.setSbRootOrgId("");
-            org.setSbOrgType("");
-            org.setSbOrgSubType("");
-            org.setL1MapId("");
-            org.setL2MapId(null);
-            org.setL1OrgName("");
-            org.setL2OrgName(null);
-        }
-    }
-
-    private  List<Map<String, Object>> buildMappedOrgList(Map<String, Object> responseMap) {
-        Map<String, Object> responseData = (Map<String, Object>) responseMap.get(Constants.RESPONSE);
-        List<Map<String, Object>> contentList = (List<Map<String, Object>>) responseData.get(Constants.CONTENT);
-        List<Map<String, Object>> mappedList = new ArrayList<>();
-        for (Map<String, Object> org : contentList) {
-            Map<String, Object> mapped = new HashMap<>();
-            mapped.put(Constants.ID, "");
-            mapped.put(Constants.ORG_NAME, org.getOrDefault(Constants.ORG_NAME, ""));
-            mapped.put(Constants.CHANNEL, org.getOrDefault(Constants.CHANNEL, ""));
-            mapped.put(Constants.MAP_ID, "");
-            mapped.put(Constants.ORG_CODE, "");
-            mapped.put(Constants.PARENT_MAP_ID, "");
-            mapped.put(Constants.SB_ORG_ID, org.getOrDefault("id", ""));
-            mapped.put(Constants.SB_ROOT_ORG_ID, "");
-            mapped.put(Constants.SB_ORG_TYPE, "");
-            mapped.put(Constants.SB_SUB_ORG_TYPE, "");
-            mapped.put(Constants.L1_MAP_ID, "");
-            mapped.put(Constants.L2_MAP_ID, "");
-            mapped.put(Constants.L1_ORG_NAME, "");
-            mapped.put(Constants.L2_ORG_NAME, "");
-            mappedList.add(mapped);
-        }
-        return mappedList;
-    }
 }

@@ -1,8 +1,8 @@
-package org.sunbird.org.warehouse.repository;
+package org.sunbird.orghierarchyreport.repository;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
-import org.sunbird.org.warehouse.entity.MdoChildrenLookupEntity;
+import org.sunbird.orghierarchyreport.entity.MdoChildrenLookupEntity;
 
 import java.util.List;
 

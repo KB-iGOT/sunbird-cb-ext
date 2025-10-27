@@ -1,4 +1,4 @@
-package org.sunbird.org.warehouse.entity;
+package org.sunbird.orghierarchyreport.entity;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -12,7 +12,7 @@ import javax.persistence.Table;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "mdo_children_lookup" ,schema = "public")
+@Table(name = "mdo_children_lookup", schema = "public")
 @NoArgsConstructor
 @AllArgsConstructor
 @Getter

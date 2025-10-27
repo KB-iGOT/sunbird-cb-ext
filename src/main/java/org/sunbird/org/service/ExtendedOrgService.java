@@ -24,5 +24,4 @@ public interface ExtendedOrgService {
 
 	SBApiResponse updateV2(Map<String, Object> orgRequest, String userToken);
 
-    SBApiResponse orgExtSearchV3(Map<String, Object> request);
 }
