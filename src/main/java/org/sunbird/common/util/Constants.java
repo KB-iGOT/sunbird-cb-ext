@@ -1446,6 +1446,8 @@ public class Constants {
     public static final String READ_ASSIGNMENT_FILE = "api.assignment.answer.read";
     public static final String READ_ASSIGNMENT_FILE_VALIDATION = "api.assignment.answer.read.validation";
     public static final String UNAUTHORIZED_USER = "Unauthorized user or invalid token.";
+    public static final String API_ORG_HIERACHY_SEARCH_V3 = "api.org.hierarchy.searchV3";
+
     private Constants() {
 		throw new IllegalStateException("Utility class");
 	}
