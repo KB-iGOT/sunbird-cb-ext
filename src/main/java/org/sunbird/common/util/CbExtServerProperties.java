@@ -1139,6 +1139,15 @@ public class CbExtServerProperties {
     @Value("${org.hierarchy.identifier.regex.pattern}")
     private String orgIdRegexPattern;
 
+    @Value("${org.level.hierarchy.cache.key.ttl}")
+    private int orgLevelHierarchyCacheKeyTTL;
+
+    @Value("${org.level.hierarchy.es.limit}")
+    private int orgLevelHierarchyESLimit;
+
+    @Value("${org.level.hierarchy.es.offset}")
+    private int orgLevelHierarchyESOffset;
+
     public String getStateLearningInsightsRedisKeyMapping() {
 		return stateLearningInsightsRedisKeyMapping;
 	}
@@ -3829,5 +3838,29 @@ public class CbExtServerProperties {
 
     public String getOrgIdRegexPattern() {
         return orgIdRegexPattern;
+    }
+
+    public int getOrgLevelHierarchyCacheKeyTTL() {
+        return orgLevelHierarchyCacheKeyTTL;
+    }
+
+    public void setOrgLevelHierarchyCacheKeyTTL(int orgLevelHierarchyCacheKeyTTL) {
+        this.orgLevelHierarchyCacheKeyTTL = orgLevelHierarchyCacheKeyTTL;
+    }
+
+    public int getOrgLevelHierarchyESOffset() {
+        return orgLevelHierarchyESOffset;
+    }
+
+    public void setOrgLevelHierarchyESOffset(int orgLevelHierarchyESOffset) {
+        this.orgLevelHierarchyESOffset = orgLevelHierarchyESOffset;
+    }
+
+    public int getOrgLevelHierarchyESLimit() {
+        return orgLevelHierarchyESLimit;
+    }
+
+    public void setOrgLevelHierarchyESLimit(int orgLevelHierarchyESLimit) {
+        this.orgLevelHierarchyESLimit = orgLevelHierarchyESLimit;
     }
 }

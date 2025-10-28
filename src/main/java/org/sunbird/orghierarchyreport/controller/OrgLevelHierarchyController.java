@@ -5,22 +5,22 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 import org.sunbird.common.model.SBApiResponse;
-import org.sunbird.orghierarchyreport.service.OrgHierarchyReportService;
+import org.sunbird.orghierarchyreport.service.OrgLevelHierarchyService;
 
 import java.util.Map;
 
 @RestController
-public class OrgHierarchyReportController {
+public class OrgLevelHierarchyController {
 
-    private final OrgHierarchyReportService orgHierarchyReportService;
+    private final OrgLevelHierarchyService orgLevelHierarchyService;
 
-    public OrgHierarchyReportController(OrgHierarchyReportService orgHierarchyReportService) {
-        this.orgHierarchyReportService = orgHierarchyReportService;
+    public OrgLevelHierarchyController(OrgLevelHierarchyService orgLevelHierarchyService) {
+        this.orgLevelHierarchyService = orgLevelHierarchyService;
     }
 
-    @PostMapping("/orghierarchy/report")
+    @PostMapping("/org/level/hierarchy")
     public ResponseEntity<SBApiResponse> orgExtSearchV3(@RequestBody Map<String, Object> request) {
-        SBApiResponse response = orgHierarchyReportService.orgExtSearchV3(request);
+        SBApiResponse response = orgLevelHierarchyService.orgExtSearchV3(request);
         return new ResponseEntity<>(response, response.getResponseCode());
     }
 }
