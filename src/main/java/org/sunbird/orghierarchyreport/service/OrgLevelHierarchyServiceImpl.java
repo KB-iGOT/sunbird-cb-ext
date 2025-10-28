@@ -68,7 +68,7 @@ public class OrgLevelHierarchyServiceImpl implements OrgLevelHierarchyService {
         List<Map<String, Object>> cachedChildrenDataList = new ArrayList<>();
         List<String> missingChildrenIds = new ArrayList<>();
         for (String identifier : indentifiersList) {
-            String cacheKey = "orghierarchy:report:" + identifier;
+            String cacheKey = Constants.ORG_LEVEL_HIERARCHY_CACHE_KEY + identifier;
             String cachedChildrenData = redisCacheMgr.getCache(cacheKey);
             if (StringUtils.isNotEmpty(cachedChildrenData)) {
                 try {
