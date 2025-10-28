@@ -15,7 +15,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.util.ObjectUtils;
@@ -44,7 +43,8 @@ public class ExtendedOrgServiceImpl implements ExtendedOrgService {
 
 	ObjectMapper objectMapper = new ObjectMapper();
 
-	@SuppressWarnings("unchecked")
+
+    @SuppressWarnings("unchecked")
 	@Override
 	public SBApiResponse createOrg(Map<String, Object> request, String userToken) {
 		SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.API_ORG_EXT_CREATE);
@@ -1130,4 +1130,5 @@ public class ExtendedOrgServiceImpl implements ExtendedOrgService {
 		}
 		return errMsg;
 	}
+
 }

@@ -1441,6 +1441,8 @@ public class Constants {
     public static final String ORG_HIERARCHY_SUFFIX = "_org_hierarchy";
     public static final String LEFT_ANGLE_BRACKET = "<";
     public static final String RIGHT_ANGLE_BRACKET = ">";
+    public static final String API_ORG_HIERACHY_SEARCH_V3 = "api.org.hierarchy.searchV3";
+    public static final String ORG_LEVEL_HIERARCHY_CACHE_KEY = "org:level:hierarchy:";
     private Constants() {
 		throw new IllegalStateException("Utility class");
 	}

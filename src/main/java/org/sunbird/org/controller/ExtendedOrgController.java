@@ -66,4 +66,5 @@ public class ExtendedOrgController {
 		SBApiResponse response = orgService.updateV2(orgRequest, userToken);
 		return new ResponseEntity<>(response, response.getResponseCode());
 	}
+
 }
