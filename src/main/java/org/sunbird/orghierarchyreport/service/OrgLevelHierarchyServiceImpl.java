@@ -185,7 +185,9 @@ public class OrgLevelHierarchyServiceImpl implements OrgLevelHierarchyService {
             mapped.put(Constants.MAP_ID, "");
             mapped.put(Constants.ORG_CODE, "");
             mapped.put(Constants.PARENT_MAP_ID, "");
-            mapped.put(Constants.SB_ORG_ID, org.getOrDefault("id", ""));
+            mapped.put(Constants.SB_ORG_ID,
+                    org.getOrDefault(Constants.SB_ORG_ID, org.getOrDefault(Constants.ID, ""))
+            );
             mapped.put(Constants.SB_ROOT_ORG_ID, "");
             mapped.put(Constants.SB_ORG_TYPE, "");
             mapped.put(Constants.SB_SUB_ORG_TYPE, "");
