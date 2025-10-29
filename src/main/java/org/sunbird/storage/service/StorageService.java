@@ -52,4 +52,9 @@ public interface StorageService {
 	 * @return the response object containing the result of the upload operation
 	 */
 	SBApiResponse uploadImageToGCPContainer(MultipartFile multipartFile, Map<String, Object> requestBody, String authUserToken);
+
+    SBApiResponse uploadAssignmentAnsFile(MultipartFile multipartFile, String contentId, String batchId, String formId);
+
+    ResponseEntity<?> readAssignmentAnsFile(String contentId, String batchId, String formId, String fileName, String userToken);
+
 }

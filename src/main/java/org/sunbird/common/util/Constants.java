@@ -1435,6 +1435,17 @@ public class Constants {
     public static final String HEADER_ROW_NOT_FOUND = "Header row not found in Excel file";
     public static final String ORGANIZATION_MISMATCH = "User's current organization does not match with the root organization. Please verify the organization hierarchy.";
     public static final String EMPTY_FILE = "The uploaded file is empty or could not be processed";
+    public static final String ASSIGNMENT_UPLOAD_FILE = "api.blended_program.Assignment.ans.fileUpload";
+    public static final String FILE_EMPTY = "Uploaded file is empty.";
+    public static final String INVALID_CONTENT_ID = "Invalid or missing content ID.";
+    public static final String INVALID_BATCH_ID = "Invalid or missing batch ID.";
+    public static final String INVALID_FORM_ID = "Invalid or missing form ID.";
+    public static final String FILE = "file";
+    public static final String EMPTY_FILE_NAME = "The uploaded file name is empty or could not be processed";
+    public static final String FILE_NOT_FOUND = "File not found for the given details.";
+    public static final String READ_ASSIGNMENT_FILE = "api.assignment.answer.read";
+    public static final String READ_ASSIGNMENT_FILE_VALIDATION = "api.assignment.answer.read.validation";
+    public static final String UNAUTHORIZED_USER = "Unauthorized user or invalid token.";
     public static final String NULL_STRING = "null";
     public static final String EMPTY_JSON_OBJECT = "{}";
     public static final String EMPTY_JSON_ARRAY = "[]";

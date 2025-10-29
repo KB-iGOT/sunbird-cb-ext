@@ -1136,6 +1136,14 @@ public class CbExtServerProperties {
     @Value("${kafka.topics.org.user.bulk.transfer.event}")
     private String orgHierarchyUserBulkTransferTopic;
 
+    @Value("${bp.assignment.ans.folder.name}")
+    private String bpAssignmentAnsFolderName;
+
+    @Value("${bp.assignment.answer.file.upload.max-size-kb}")
+    private long bpAssignmentAnsFileMaxSize;
+
+    @Value("#{'${bp.assignment.answer.file.upload.allowed-extensions}'.split(',')}")
+    private List<String> bpAssignmentAnsFileExtensions;
     @Value("${org.hierarchy.identifier.regex.pattern}")
     private String orgIdRegexPattern;
 
@@ -3825,6 +3833,30 @@ public class CbExtServerProperties {
 
     public String getOrgHierarchyUserBulkTransferTopic() {
         return orgHierarchyUserBulkTransferTopic;
+    }
+
+    public String getBpAssignmentAnsFolderName() {
+        return bpAssignmentAnsFolderName;
+    }
+
+    public void setBpAssignmentAnsFolderName(String bpAssignmentAnsFolderName) {
+        this.bpAssignmentAnsFolderName = bpAssignmentAnsFolderName;
+    }
+
+    public long getBpAssignmentAnsFileMaxSize() {
+        return bpAssignmentAnsFileMaxSize;
+    }
+
+    public void setBpAssignmentAnsFileMaxSize(long bpAssignmentAnsFileMaxSize) {
+        this.bpAssignmentAnsFileMaxSize = bpAssignmentAnsFileMaxSize;
+    }
+
+    public List<String> getBpAssignmentAnsFileExtensions() {
+        return bpAssignmentAnsFileExtensions;
+    }
+
+    public void setBpAssignmentAnsFileExtensions(List<String> bpAssignmentAnsFileExtensions) {
+        this.bpAssignmentAnsFileExtensions = bpAssignmentAnsFileExtensions;
     }
 
     public String getOrgIdRegexPattern() {
