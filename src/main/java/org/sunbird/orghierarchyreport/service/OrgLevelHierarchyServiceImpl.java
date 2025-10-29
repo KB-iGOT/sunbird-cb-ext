@@ -163,7 +163,7 @@ public class OrgLevelHierarchyServiceImpl implements OrgLevelHierarchyService {
             }
         }
         Map<String, Object> contentMap = new HashMap<>();
-        contentMap.put(Constants.CONTENT, cachedChildrenDataList);
+        contentMap.put(Constants.CONTENT, mapOrgList(cachedChildrenDataList));
         contentMap.put(Constants.COUNT, cachedChildrenDataList.size());
         listAllOrgResponse.put(Constants.RESPONSE, contentMap);
         return listAllOrgResponse;
@@ -172,6 +172,10 @@ public class OrgLevelHierarchyServiceImpl implements OrgLevelHierarchyService {
     private List<Map<String, Object>> buildMappedOrgList(Map<String, Object> responseMap) {
         Map<String, Object> responseData = (Map<String, Object>) responseMap.get(Constants.RESPONSE);
         List<Map<String, Object>> contentList = (List<Map<String, Object>>) responseData.get(Constants.CONTENT);
+        return mapOrgList(contentList);
+    }
+
+    private List<Map<String, Object>> mapOrgList(List<Map<String, Object>> contentList) {
         List<Map<String, Object>> mappedList = new ArrayList<>();
         for (Map<String, Object> org : contentList) {
             Map<String, Object> mapped = new HashMap<>();
@@ -193,6 +197,7 @@ public class OrgLevelHierarchyServiceImpl implements OrgLevelHierarchyService {
         }
         return mappedList;
     }
+
 
 
     private String validateSearchRequest(Map<String, Object> request, Map<String, Object> searchFilters) {
