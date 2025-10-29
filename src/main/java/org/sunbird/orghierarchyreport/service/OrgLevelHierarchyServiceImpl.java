@@ -156,7 +156,7 @@ public class OrgLevelHierarchyServiceImpl implements OrgLevelHierarchyService {
                                     }))
                                     .collect(Collectors.toList());
                             cachedChildrenDataList.addAll(modifiedContentList);
-                            redisCacheMgr.putCache(Constants.ORG_LEVEL_HIERARCHY_CACHE_KEY + identifier, modifiedContentList, configProperties.getOrgLevelHierarchyCacheKeyTTL());
+                            redisCacheMgr.putCache(Constants.ORG_LEVEL_HIERARCHY_CACHE_KEY + identifier, mapOrgList(modifiedContentList), configProperties.getOrgLevelHierarchyCacheKeyTTL());
                         }
                     }
                 }
