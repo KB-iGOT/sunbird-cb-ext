@@ -269,4 +269,16 @@ public class ProjectUtil {
         return response;
     }
 
+	public static enum ESIndexType {
+		SUNBIRD_ES("sunbird_es"), USER_ES("user_es"), IGOT_ES("igot_es");
+		private String indexName;
+
+		ESIndexType(String indexName) {
+			this.indexName = indexName;
+		}
+
+		public String getIndexName() {
+			return indexName;
+		}
+	}
 }

@@ -37,6 +37,7 @@ import org.sunbird.common.service.PdfGenerationService;
 import org.sunbird.common.util.CbExtServerProperties;
 import org.sunbird.common.util.Constants;
 import org.sunbird.common.util.IndexerService;
+import org.sunbird.common.util.ProjectUtil.ESIndexType;
 import org.sunbird.core.exception.BadRequestException;
 import org.sunbird.workallocation.model.Child;
 import org.sunbird.workallocation.model.ChildNode;
@@ -225,7 +226,7 @@ public class AllocationService {
 		Map<String, Object> result;
 		long totalCount = 0;
 		try {
-			SearchResponse searchResponse = indexerService.getEsResult(index, indexType, sourceBuilder, false);
+			SearchResponse searchResponse = indexerService.getEsResult(index, indexType, sourceBuilder, ESIndexType.IGOT_ES);
 			totalCount = searchResponse.getHits().getTotalHits();
 			for (SearchHit hit : searchResponse.getHits()) {
 				allocationSearchList.add(mapper.convertValue(hit.getSourceAsMap(), WorkAllocation.class));
@@ -264,7 +265,7 @@ public class AllocationService {
 		SearchSourceBuilder sourceBuilder = new SearchSourceBuilder().query(query);
 		sourceBuilder.fetchSource(includeFields, new String[] {});
 		SearchResponse searchResponse = indexerService.getEsResult(configuration.getEsProfileIndex(),
-				configuration.getEsProfileIndexType(), sourceBuilder, false);
+				configuration.getEsProfileIndexType(), sourceBuilder, ESIndexType.USER_ES);
 		for (SearchHit hit : searchResponse.getHits()) {
 			Map<String, Object> userResult = extractUserDetails(hit.getSourceAsMap());
 			if (!StringUtils.isEmpty(userResult.get("wid")))
@@ -319,7 +320,7 @@ public class AllocationService {
 		SearchSourceBuilder sourceBuilder = new SearchSourceBuilder().query(query);
 		sourceBuilder.fetchSource(includeFields, new String[] {});
 		SearchResponse searchResponse = indexerService.getEsResult(configuration.getEsProfileIndex(),
-				configuration.getEsProfileIndexType(), sourceBuilder, false);
+				configuration.getEsProfileIndexType(), sourceBuilder, ESIndexType.USER_ES);
 		for (SearchHit hit : searchResponse.getHits()) {
 			result = extractUserDetails(hit.getSourceAsMap());
 			resultArray.add(result);

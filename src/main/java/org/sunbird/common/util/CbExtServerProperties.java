@@ -379,6 +379,15 @@ public class CbExtServerProperties {
 	@Value("${sb.es.password}")
 	private String sbEsPassword;
 
+	@Value("${user_es_host}")
+	private String userESHost;
+
+	@Value("${user_es_username}")
+	private String userESUserName;
+
+	@Value("${user_es_password}")
+	private String userESPassword;
+
 	@Value("${km.base.content.search}")
 	private String kmBaseContentSearch;
 
@@ -1135,6 +1144,8 @@ public class CbExtServerProperties {
 
     @Value("#{'${bp.assignment.answer.file.upload.allowed-extensions}'.split(',')}")
     private List<String> bpAssignmentAnsFileExtensions;
+    @Value("${org.hierarchy.identifier.regex.pattern}")
+    private String orgIdRegexPattern;
 
     public String getStateLearningInsightsRedisKeyMapping() {
 		return stateLearningInsightsRedisKeyMapping;
@@ -2150,6 +2161,30 @@ public class CbExtServerProperties {
 
 	public void setSbEsPassword(String sbEsPassword) {
 		this.sbEsPassword = sbEsPassword;
+	}
+
+	public String[] getUserESHostList() {
+		return userESHost.split(",", -1);
+	}
+
+	public void setUserESHostList(String userESHost) {
+		this.userESHost = userESHost;
+	}
+
+	public String getUserESUserName() {
+		return userESUserName;
+	}
+
+	public void setUserESUserName(String userESUserName) {
+		this.userESUserName = userESUserName;
+	}
+
+	public String getUserESPassword() {
+		return userESPassword;
+	}
+
+	public void setUserESPassword(String userESPassword) {
+		this.userESPassword = userESPassword;
 	}
 
 	public String getKmBaseContentSearch() {
@@ -3824,4 +3859,7 @@ public class CbExtServerProperties {
         this.bpAssignmentAnsFileExtensions = bpAssignmentAnsFileExtensions;
     }
 
+    public String getOrgIdRegexPattern() {
+        return orgIdRegexPattern;
+    }
 }

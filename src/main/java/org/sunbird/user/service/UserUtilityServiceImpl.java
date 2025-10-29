@@ -35,6 +35,7 @@ import org.sunbird.common.model.*;
 import org.sunbird.common.service.ContentService;
 import org.sunbird.common.service.OutboundRequestHandlerServiceImpl;
 import org.sunbird.common.util.*;
+import org.sunbird.common.util.ProjectUtil.ESIndexType;
 import org.sunbird.core.cipher.DecryptServiceImpl;
 import org.sunbird.core.exception.ApplicationLogicError;
 import org.sunbird.telemetry.model.LastLoginInfo;
@@ -746,7 +747,7 @@ public class UserUtilityServiceImpl implements UserUtilityService {
 			sourceBuilder = new SearchSourceBuilder().query(finalQuery).from(index).size(size);
 			sourceBuilder.fetchSource(userFields.toArray(new String[0]), new String[]{});
 			SearchResponse searchResponse = indexerService.getEsResult(serverConfig.getSbEsUserProfileIndex(),
-					serverConfig.getSbEsProfileIndexType(), sourceBuilder, true);
+					serverConfig.getSbEsProfileIndexType(), sourceBuilder, ESIndexType.USER_ES);
 			if (index == 0) {
 				userCount = searchResponse.getHits().getTotalHits();
 				logger.info(String.format("Number of users in ES index : %s", userCount));

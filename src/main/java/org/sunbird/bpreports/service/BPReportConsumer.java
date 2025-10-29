@@ -30,6 +30,7 @@ import org.sunbird.common.model.SBApiResponse;
 import org.sunbird.common.util.CbExtServerProperties;
 import org.sunbird.common.util.Constants;
 import org.sunbird.common.util.IndexerService;
+import org.sunbird.common.util.ProjectUtil.ESIndexType;
 import org.sunbird.storage.service.StorageService;
 
 import java.io.File;
@@ -438,7 +439,7 @@ public class BPReportConsumer {
                     serverProperties.getIgotEsUserFormIndex(),
                     serverProperties.getEsFormIndexType(),
                     sourceBuilder,
-                    false
+                    ESIndexType.IGOT_ES
             );
 
             if (searchResponse != null && searchResponse.getHits().getHits().length > 0) {
@@ -748,7 +749,7 @@ public class BPReportConsumer {
                     serverProperties.getIgotEsUserFormIndex(),
                     serverProperties.getEsFormIndexType(),
                     sourceBuilder,
-                    false
+                    ESIndexType.IGOT_ES
             );
 
             if (searchResponse != null && searchResponse.getHits().getHits().length > 0) {

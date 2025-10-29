@@ -397,17 +397,17 @@ public class UserMigrationBulkConsumer {
     }
 
     private void updateRowStatus(Row row, int statusColumnIndex, int errorColumnIndex, String status, String errorMessage) {
-        Cell statusCell = row.getCell(statusColumnIndex);
-        if (statusCell == null) {
-            statusCell = row.createCell(statusColumnIndex);
-        }
+        Cell statusCell = row.getCell(statusColumnIndex, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK);
+        statusCell.setCellType(CellType.STRING);
         statusCell.setCellValue(status);
 
-        Cell errorCell = row.getCell(errorColumnIndex);
-        if (errorCell == null) {
-            errorCell = row.createCell(errorColumnIndex);
-        }
+        Cell errorCell = row.getCell(errorColumnIndex, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK);
+        errorCell.setCellType(CellType.STRING);
         errorCell.setCellValue(errorMessage);
+        Sheet sheet = row.getSheet();
+        sheet.setColumnHidden(statusColumnIndex, false);
+        sheet.setColumnHidden(errorColumnIndex, false);
+        clearStatusErrorColumns(sheet, statusColumnIndex, errorColumnIndex);
     }
 
     private boolean isValidTransferBasedOnRole(List<String> userRoles, String currentOrgId, String targetOrgId, Map<String, Set<String>> orgHierarchyMap) {
@@ -546,9 +546,9 @@ public class UserMigrationBulkConsumer {
     }
 
     private String extractOrgIdFromName(String orgName) {
-        if (StringUtils.isNotEmpty(orgName) && orgName.contains("(") && orgName.endsWith(")")) {
-            int startIndex = orgName.lastIndexOf("(") + 1;
-            int endIndex = orgName.lastIndexOf(")");
+        if (StringUtils.isNotEmpty(orgName) && orgName.contains(Constants.LEFT_ANGLE_BRACKET) && orgName.endsWith(Constants.RIGHT_ANGLE_BRACKET)) {
+            int startIndex = orgName.lastIndexOf(Constants.LEFT_ANGLE_BRACKET) + 1;
+            int endIndex = orgName.lastIndexOf(Constants.RIGHT_ANGLE_BRACKET);
             return orgName.substring(startIndex, endIndex).trim();
         }
         return orgName;
@@ -676,8 +676,8 @@ public class UserMigrationBulkConsumer {
     }
 
     private String extractOrgNameFromInput(String orgNameInput) {
-        if (StringUtils.isNotEmpty(orgNameInput) && orgNameInput.contains("(") && orgNameInput.endsWith(")")) {
-            int startIndex = orgNameInput.lastIndexOf("(");
+        if (StringUtils.isNotEmpty(orgNameInput) && orgNameInput.contains(Constants.LEFT_ANGLE_BRACKET) && orgNameInput.endsWith(Constants.RIGHT_ANGLE_BRACKET)) {
+            int startIndex = orgNameInput.lastIndexOf(Constants.LEFT_ANGLE_BRACKET);
             return orgNameInput.substring(0, startIndex).trim();
         }
         return orgNameInput.trim();
@@ -693,5 +693,19 @@ public class UserMigrationBulkConsumer {
             }
         }
         return false;
+    }
+
+    private void clearStatusErrorColumns(Sheet sheet, int statusColumnIndex, int errorColumnIndex) {
+        for (Row row : sheet) {
+            if (row.getRowNum() == 0) continue;
+            Cell statusCell = row.getCell(statusColumnIndex, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK);
+            if (statusCell.getCellType() == CellType.FORMULA) {
+                statusCell.setCellType(CellType.BLANK);
+            }
+            Cell errorCell = row.getCell(errorColumnIndex, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK);
+            if (errorCell.getCellType() == CellType.FORMULA) {
+                errorCell.setCellType(CellType.BLANK);
+            }
+        }
     }
 }

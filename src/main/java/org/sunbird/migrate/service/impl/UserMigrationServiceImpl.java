@@ -464,7 +464,10 @@ public class UserMigrationServiceImpl implements UserMigrationService {
         try {
             String cacheKey = Constants.BULK_TRANSFER_FRAMEWORK_HIERARCHY_CACHE_KEY_PREFIX + frameworkId;
             String cachedDataStr = redisCacheMgr.getCache(cacheKey);
-            if (StringUtils.isNotEmpty(cachedDataStr)) {
+            if (StringUtils.isNotEmpty(cachedDataStr) &&
+                    !Constants.NULL_STRING.equalsIgnoreCase(cachedDataStr) &&
+                    !Constants.EMPTY_JSON_OBJECT.equals(cachedDataStr) &&
+                    !Constants.EMPTY_JSON_ARRAY.equals(cachedDataStr)) {
                 log.info("Cache hit for getCompleteFrameworkDataFromUtil, frameworkId: {}", frameworkId);
                 return mapper.readValue(cachedDataStr, Map.class);
             }
@@ -475,6 +478,7 @@ public class UserMigrationServiceImpl implements UserMigrationService {
             Map<String, Object> frameworkResponse = (Map<String, Object>) outboundRequestHandlerService.fetchUsingGetWithHeaders(url, headers);
 
             if (MapUtils.isNotEmpty(frameworkResponse)  && Constants.OK.equals(frameworkResponse.get(Constants.RESPONSE_CODE))) {
+                log.info("Successfully received framework data for frameworkId: {}", frameworkId);
                 redisCacheMgr.putCache(cacheKey, frameworkResponse, serverConfig.getBulkTransferRedisTtl());
                 return frameworkResponse;
             } else {
@@ -693,7 +697,9 @@ public class UserMigrationServiceImpl implements UserMigrationService {
     }
 
     private List<Map<String, String>> getOrgList(String orgHierarchyFrameworkId, String tokenOrg) throws Exception {
-        String baseFrameworkOrgId = orgHierarchyFrameworkId.replace("_org_hierarchy", "");
+        String baseFrameworkOrgId = orgHierarchyFrameworkId.split(Constants.ORG_HIERARCHY_SUFFIX)[0];
+        log.info("Framework processing - baseFrameworkOrgId: {}, orgHierarchyFrameworkId: {}, tokenOrg: {}",
+                baseFrameworkOrgId, orgHierarchyFrameworkId, tokenOrg);
         if (tokenOrg != null && tokenOrg.equals(baseFrameworkOrgId)) {
             return fetchCompleteFrameworkHierarchy(orgHierarchyFrameworkId);
         } else {
@@ -721,7 +727,7 @@ public class UserMigrationServiceImpl implements UserMigrationService {
             row.createCell(0).setCellValue(orgChannel);
             row.createCell(1).setCellValue(orgId);
             row.createCell(2).setCellValue("");
-            row.createCell(3).setCellValue(orgChannel + " (" + orgId + ")");
+            row.createCell(3).setCellValue(orgChannel + Constants.LEFT_ANGLE_BRACKET + orgId + Constants.RIGHT_ANGLE_BRACKET);
             row.createCell(4).setCellValue("");
         }
         excelUtil.makeSheetReadOnly(masterDataSheet);

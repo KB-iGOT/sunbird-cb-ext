@@ -44,6 +44,7 @@ import org.sunbird.common.service.OutboundRequestHandlerServiceImpl;
 import org.sunbird.common.util.CbExtServerProperties;
 import org.sunbird.common.util.Constants;
 import org.sunbird.common.util.IndexerService;
+import org.sunbird.common.util.ProjectUtil.ESIndexType;
 import org.sunbird.core.exception.ApplicationLogicError;
 import org.sunbird.core.exception.BadRequestException;
 import org.sunbird.core.producer.Producer;
@@ -424,7 +425,7 @@ public class AllocationServiceV2 {
 		long totalCount = 0;
 		try {
 			SearchResponse searchResponse = indexerService.getEsResult(workOrderIndex, workOrderIndexType,
-					sourceBuilder, false);
+					sourceBuilder, ESIndexType.IGOT_ES);
 			totalCount = searchResponse.getHits().getTotalHits();
 			for (SearchHit hit : searchResponse.getHits()) {
 				workOrderDTOList.add(mapper.convertValue(hit.getSourceAsMap(), WorkOrderDTO.class));
@@ -475,7 +476,7 @@ public class AllocationServiceV2 {
 		final BoolQueryBuilder query = QueryBuilders.boolQuery();
 		query.must(QueryBuilders.termsQuery("id.keyword", workAllocationIds));
 		SearchSourceBuilder sourceBuilder = new SearchSourceBuilder().query(query);
-		return indexerService.getEsResult(workAllocationIndex, workAllocationIndexType, sourceBuilder, false);
+		return indexerService.getEsResult(workAllocationIndex, workAllocationIndexType, sourceBuilder, ESIndexType.IGOT_ES);
 	}
 
 	private List<WorkAllocationDTOV2> getWorkAllocationListByIds(List<String> workAllocationIds) {
@@ -774,7 +775,7 @@ public class AllocationServiceV2 {
 				sourceBuilder.fetchSource(includeFields, new String[] {});
 				try {
 					SearchResponse searchResponse = indexerService.getEsResult(workAllocationIndex,
-							workAllocationIndexType, sourceBuilder, false);
+							workAllocationIndexType, sourceBuilder, ESIndexType.IGOT_ES);
 					for (SearchHit hit : searchResponse.getHits()) {
 						Map<String, Object> sourceAsMap = hit.getSourceAsMap();
 						List<RoleCompetency> roleCompetencies = mapper.convertValue(

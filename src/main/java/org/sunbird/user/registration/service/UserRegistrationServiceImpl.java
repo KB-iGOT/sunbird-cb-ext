@@ -40,6 +40,7 @@ import org.sunbird.common.util.CbExtServerProperties;
 import org.sunbird.common.util.Constants;
 import org.sunbird.common.util.IndexerService;
 import org.sunbird.common.util.ProjectUtil;
+import org.sunbird.common.util.ProjectUtil.ESIndexType;
 import org.sunbird.core.producer.Producer;
 import org.sunbird.org.model.CustomeSelfRegistrationEntity;
 import org.sunbird.org.repository.CustomSelfRegistrationRepository;
@@ -444,7 +445,7 @@ public class UserRegistrationServiceImpl implements UserRegistrationService {
 
 	private UserRegistration getUserRegistrationDocument(Map<String, Object> mustMatch) throws Exception {
 		SearchResponse searchResponse = indexerService.getEsResult(serverProperties.getUserRegistrationIndex(),
-				serverProperties.getEsProfileIndexType(), queryBuilder(mustMatch), false);
+				serverProperties.getEsProfileIndexType(), queryBuilder(mustMatch), ESIndexType.SUNBIRD_ES);
 
 		if (searchResponse.getHits().getTotalHits() > 0) {
 			SearchHit hit = searchResponse.getHits().getAt(0);
