@@ -10,6 +10,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.context.request.async.DeferredResult;
+import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 import org.sunbird.common.model.SBApiResponse;
 import org.sunbird.common.util.Constants;
 import org.sunbird.operationalreports.service.OperationalReportService;
@@ -54,8 +56,8 @@ public class OperationalReportController {
     }
 
     @PostMapping("/v2/download/{rootOrgId}")
-    public ResponseEntity<?> downloadIndividualReport(@PathVariable("rootOrgId") String rootOrgId,
-            @RequestHeader(Constants.X_AUTH_TOKEN) String authToken, @RequestBody Map<String, Object> requestBody) throws Exception {
-        return operationalReport.downloadIndividualReportV3(rootOrgId, authToken, requestBody);
+    public DeferredResult<ResponseEntity<StreamingResponseBody>> downloadIndividualReport(@PathVariable("rootOrgId") String rootOrgId,
+                                                                                          @RequestHeader(Constants.X_AUTH_TOKEN) String authToken, @RequestBody Map<String, Object> requestBody) throws Exception {
+        return operationalReport.downloadIndividualReportV4(rootOrgId, authToken, requestBody);
     }
 }
