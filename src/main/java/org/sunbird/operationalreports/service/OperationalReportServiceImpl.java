@@ -627,25 +627,32 @@ public class OperationalReportServiceImpl implements OperationalReportService {
                 final Path finalPath = Paths.get(outputPath + "/" + reportFileName);
                 final String finalSourceFolderPath = sourceFolderPath; // effectively final for lambda
 
-                if (!Files.exists(finalPath)) {
-                    deferredResult.setResult(ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                            .body((StreamingResponseBody) outputStream -> {}));
-                    return;
-                }
-
                 HttpHeaders headers = new HttpHeaders();
                 headers.add(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + reportFileName + "\"");
                 headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
-                long contentLength = Files.size(finalPath);
 
-                // --- StreamingResponseBody: streams file & cleans up after streaming ---
+                // --- StreamingResponseBody with heartbeat while waiting for file ---
                 StreamingResponseBody body = outputStream -> {
                     byte[] buffer = new byte[128 * 1024]; // 128KB buffer
-                    try (InputStream fis = Files.newInputStream(finalPath)) {
-                        int read;
-                        while ((read = fis.read(buffer)) != -1) {
-                            outputStream.write(buffer, 0, read);
-                            outputStream.flush(); // keeps Kong alive
+                    try {
+                        // Wait for file to exist while sending heartbeat bytes every 1 sec
+                        while (!Files.exists(finalPath)) {
+                            outputStream.write(new byte[]{'\n'}); // heartbeat
+                            outputStream.flush();
+                            try {
+                                Thread.sleep(1000); // wait 1 second
+                            } catch (InterruptedException e) {
+                                throw new RuntimeException(e);
+                            }
+                        }
+
+                        // Stream the actual file
+                        try (InputStream fis = Files.newInputStream(finalPath)) {
+                            int read;
+                            while ((read = fis.read(buffer)) != -1) {
+                                outputStream.write(buffer, 0, read);
+                                outputStream.flush(); // flush periodically
+                            }
                         }
                     } finally {
                         // Cleanup temp folder after streaming completes
@@ -659,6 +666,8 @@ public class OperationalReportServiceImpl implements OperationalReportService {
                         }
                     }
                 };
+
+                long contentLength = Files.exists(finalPath) ? Files.size(finalPath) : 0;
 
                 deferredResult.setResult(ResponseEntity.ok()
                         .headers(headers)
