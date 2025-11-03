@@ -8,6 +8,7 @@ import java.util.Map;
 
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 import org.sunbird.common.model.SBApiResponse;
 
 public interface OperationalReportService {
@@ -20,4 +21,6 @@ public interface OperationalReportService {
     public SBApiResponse readGrantAccess(String authToken, boolean isAdminAPI);
 
     ResponseEntity<InputStreamResource> downloadIndividualReport(String rootOrgId, String authToken, Map<String, Object> requestBody);
+
+    ResponseEntity<StreamingResponseBody> downloadIndividualReportV3(String rootOrgId, String authToken, Map<String, Object> requestBody);
 }

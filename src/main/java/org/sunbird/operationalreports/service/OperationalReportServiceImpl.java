@@ -16,6 +16,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 import org.sunbird.cache.RedisCacheMgr;
 import org.sunbird.cassandra.utils.CassandraOperation;
 import org.sunbird.cloud.storage.BaseStorageService;
@@ -38,6 +39,7 @@ import scala.Option;
 import javax.annotation.PostConstruct;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
@@ -556,6 +558,126 @@ public class OperationalReportServiceImpl implements OperationalReportService {
             }
         }
 
+    }
+
+    @Override
+    public ResponseEntity<StreamingResponseBody> downloadIndividualReportV3(String rootOrgId, String authToken, Map<String, Object> requestBody) {
+        HttpHeaders headers = new HttpHeaders();
+        String sourceFolderPath = null;
+        try {
+            String userId = accessTokenValidator.fetchUserIdFromAccessToken(authToken);
+            if (StringUtils.isBlank(userId)) {
+                throw new Exception("Failed to read user details from access token.");
+            }
+            Map<String, Map<String, String>> userInfoMap = new HashMap<>();
+            userUtilityService.getUserDetailsFromDB(
+                    Collections.singletonList(userId), Arrays.asList(Constants.ROOT_ORG_ID, Constants.USER_ID, Constants.CHANNEL),
+                    userInfoMap);
+            Map<String, String> userDetailsMap = userInfoMap.get(userId);
+            String rootOrg = userDetailsMap.get(Constants.ROOT_ORG_ID);
+            logger.info("the rootOrg for user is:" + rootOrg + " the rootOrgId is: " + rootOrgId);
+            if (StringUtils.isNotBlank(rootOrg) && StringUtils.isNotBlank(rootOrgId)) {
+                if (!rootOrg.equalsIgnoreCase(rootOrgId)) {
+                    throw new Exception("the org is not proper.");
+                }
+            } else {
+                throw new Exception("the org is not proper.");
+            }
+            Map<String, Object> request = (Map<String, Object>) requestBody.get(Constants.REQUEST);
+            if (MapUtils.isEmpty(request)) {
+                throw new Exception("RequestBody is not proper.");
+            }
+            List<String> childIds = (List<String>) request.get(Constants.CHILD_ID);
+            List<OrgHierarchy> orgHierarchyList = orgHierarchyRepository.findAllBySbOrgId(Collections.singletonList(rootOrgId));
+            String mapId = "";
+            if (CollectionUtils.isNotEmpty(orgHierarchyList)) {
+                if (orgHierarchyList.get(0) != null) {
+                    mapId = orgHierarchyList.get(0).getMapId();
+                }
+            }
+
+            if (StringUtils.isBlank(mapId) && CollectionUtils.isNotEmpty((childIds))) {
+                throw new Exception("Issue while fetching orgHierarchy for orgId: " + rootOrgId);
+            }
+            String reportFileName = serverProperties.getOperationReportFileName();
+            sourceFolderPath = String.format("%s/%s/%s/", Constants.LOCAL_BASE_PATH, rootOrgId, UUID.randomUUID());
+            String outputPath = sourceFolderPath + Constants.OUTPUT_PATH;
+
+            // --- CORE LOGIC UNCHANGED: create zip files for each child / root org ---
+            for (String childId : childIds) {
+                boolean isChildPresent = orgHierarchyRepository.isChildOrgPresent(mapId, childId);
+                if (isChildPresent) {
+                    logger.info("This is under mdo: " + childId + " rootOrgId: " + rootOrgId);
+                    String objectKey = serverProperties.getOperationalReportFolderName() + "/mdoid=" + childId + "/"
+                            + serverProperties.getOperationReportFileName();
+                    createTheZipAndStoreForOrg(reportFileName, objectKey, sourceFolderPath);
+                } else {
+                    logger.error("ChildId is not proper for orgId: " + rootOrgId);
+                    if (childIds.size() == 1) {
+                        throw new Exception("ChildId is not proper for orgId:: " + rootOrgId);
+                    }
+                }
+            }
+            if (CollectionUtils.isEmpty(childIds)) {
+                String objectKey = serverProperties.getOperationalReportFolderName() + "/mdoid=" + rootOrgId + "/"
+                        + serverProperties.getOperationReportFileName();
+                createTheZipAndStoreForOrg(reportFileName, objectKey, sourceFolderPath);
+            }
+            // --- end core logic ---
+
+            // Prepare final file path and final copies for lambda
+            final String finalOutputPath = outputPath; // effectively final for lambda
+            final String finalFileName = serverProperties.getOperationReportFileName();
+            final String finalSourceFolderPath = sourceFolderPath;
+
+            Path finalPath = Paths.get(finalOutputPath + "/" + finalFileName);
+            if (!Files.exists(finalPath)) {
+                logger.error("Final file not found: {}", finalPath);
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            }
+
+            headers.add(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + finalFileName + "\"");
+            headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
+
+            long contentLength = Files.size(finalPath);
+
+            // StreamingResponseBody streams the file and performs cleanup in finally
+            StreamingResponseBody body = outputStream -> {
+                byte[] buffer = new byte[64 * 1024]; // 64KB
+                try (InputStream fis = Files.newInputStream(finalPath)) {
+                    int read;
+                    while ((read = fis.read(buffer)) != -1) {
+                        outputStream.write(buffer, 0, read);
+                        // flush periodically so upstream proxy (KONG) sees activity
+                        outputStream.flush();
+                    }
+                } catch (Exception e) {
+                    logger.error("Error streaming file {}: {}", finalPath, e.getMessage(), e);
+                    // client will receive truncated stream; cannot change response status now
+                } finally {
+                    // CLEANUP: remove temp folder after streaming completes
+                    if (finalSourceFolderPath != null) {
+                        try {
+                            removeDirectory(String.valueOf(Paths.get(finalSourceFolderPath)));
+                        } catch (InvalidPathException ex) {
+                            logger.error("Failed to delete the file: " + finalSourceFolderPath + ", Exception: ", ex);
+                        } catch (Exception ex) {
+                            logger.warn("Cleanup failed for {}: {}", finalSourceFolderPath, ex.getMessage());
+                        }
+                    }
+                }
+            };
+
+            return ResponseEntity.ok()
+                    .headers(headers)
+                    .contentLength(contentLength)
+                    .body(body);
+
+        } catch (Exception e) {
+            logger.error("Failed to read the downloaded file: " + serverProperties.getOperationReportFileName()
+                    + ", Exception: ", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
     }
 
     private Map<String, Object> upsertReportAccessExpiry(String mdoAdminUserId, String rootOrgId,
