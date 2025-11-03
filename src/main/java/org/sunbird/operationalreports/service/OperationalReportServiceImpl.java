@@ -590,13 +590,11 @@ public class OperationalReportServiceImpl implements OperationalReportService {
             List<String> childIds = (List<String>) request.get(Constants.CHILD_ID);
             List<OrgHierarchy> orgHierarchyList = orgHierarchyRepository.findAllBySbOrgId(Collections.singletonList(rootOrgId));
             String mapId = "";
-            if (CollectionUtils.isNotEmpty(orgHierarchyList)) {
-                if (orgHierarchyList.get(0) != null) {
-                    mapId = orgHierarchyList.get(0).getMapId();
-                }
+            if (CollectionUtils.isNotEmpty(orgHierarchyList) && orgHierarchyList.get(0) != null) {
+                mapId = orgHierarchyList.get(0).getMapId();
             }
 
-            if (StringUtils.isBlank(mapId) && CollectionUtils.isNotEmpty((childIds))) {
+            if (StringUtils.isBlank(mapId) && CollectionUtils.isNotEmpty(childIds)) {
                 throw new Exception("Issue while fetching orgHierarchy for orgId: " + rootOrgId);
             }
             String reportFileName = serverProperties.getOperationReportFileName();
@@ -609,7 +607,7 @@ public class OperationalReportServiceImpl implements OperationalReportService {
                 if (isChildPresent) {
                     logger.info("This is under mdo: " + childId + " rootOrgId: " + rootOrgId);
                     String objectKey = serverProperties.getOperationalReportFolderName() + "/mdoid=" + childId + "/"
-                            + serverProperties.getOperationReportFileName();
+                            + reportFileName;
                     createTheZipAndStoreForOrg(reportFileName, objectKey, sourceFolderPath);
                 } else {
                     logger.error("ChildId is not proper for orgId: " + rootOrgId);
@@ -620,14 +618,14 @@ public class OperationalReportServiceImpl implements OperationalReportService {
             }
             if (CollectionUtils.isEmpty(childIds)) {
                 String objectKey = serverProperties.getOperationalReportFolderName() + "/mdoid=" + rootOrgId + "/"
-                        + serverProperties.getOperationReportFileName();
+                        + reportFileName;
                 createTheZipAndStoreForOrg(reportFileName, objectKey, sourceFolderPath);
             }
             // --- end core logic ---
 
-            // Prepare final file path and final copies for lambda
+            // --- Prepare final file path for streaming ---
             final String finalOutputPath = outputPath; // effectively final for lambda
-            final String finalFileName = serverProperties.getOperationReportFileName();
+            final String finalFileName = reportFileName;
             final String finalSourceFolderPath = sourceFolderPath;
 
             Path finalPath = Paths.get(finalOutputPath + "/" + finalFileName);
@@ -638,29 +636,25 @@ public class OperationalReportServiceImpl implements OperationalReportService {
 
             headers.add(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + finalFileName + "\"");
             headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
-
             long contentLength = Files.size(finalPath);
 
-            // StreamingResponseBody streams the file and performs cleanup in finally
+            // --- StreamingResponseBody: streams the file & cleans up after streaming ---
             StreamingResponseBody body = outputStream -> {
                 byte[] buffer = new byte[64 * 1024]; // 64KB
                 try (InputStream fis = Files.newInputStream(finalPath)) {
                     int read;
                     while ((read = fis.read(buffer)) != -1) {
                         outputStream.write(buffer, 0, read);
-                        // flush periodically so upstream proxy (KONG) sees activity
-                        outputStream.flush();
+                        outputStream.flush(); // keeps upstream proxy alive
                     }
                 } catch (Exception e) {
                     logger.error("Error streaming file {}: {}", finalPath, e.getMessage(), e);
-                    // client will receive truncated stream; cannot change response status now
                 } finally {
                     // CLEANUP: remove temp folder after streaming completes
                     if (finalSourceFolderPath != null) {
                         try {
-                            removeDirectory(String.valueOf(Paths.get(finalSourceFolderPath)));
-                        } catch (InvalidPathException ex) {
-                            logger.error("Failed to delete the file: " + finalSourceFolderPath + ", Exception: ", ex);
+                            removeDirectory(finalSourceFolderPath);
+                            logger.info("Directory removed successfully: {}", finalSourceFolderPath);
                         } catch (Exception ex) {
                             logger.warn("Cleanup failed for {}: {}", finalSourceFolderPath, ex.getMessage());
                         }
