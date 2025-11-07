@@ -146,7 +146,7 @@ public class BPReportConsumer {
 
             // Get BP survey form questions if survey ID is present
             List<Map<String, Object>> formQuestions = getFormQuestionsList(surveyId);
-            if(CollectionUtils.isEmpty(formQuestions)){
+            if (CollectionUtils.isEmpty(formQuestions)) {
                 logger.info("No form details found for formId: {}", surveyId);
                 updateDataBase(adminOrgId, courseId, batchId, reportRequester, null, null, Constants.FAILED_UPPERCASE, 0, 0, 0, new Date());
                 return;
@@ -241,7 +241,7 @@ public class BPReportConsumer {
                                     qa -> (String) qa.get(Constants.QUESTION),
                                     qa -> qa.get(Constants.ANSWER),
                                     (existing, replacement) -> replacement,
-                                    LinkedHashMap::new // ✅ preserves order
+                                    LinkedHashMap::new //preserves order
                             ));
                 }
             }
@@ -261,18 +261,18 @@ public class BPReportConsumer {
         headers.put(HttpHeaders.ACCEPT, MediaType.APPLICATION_JSON);
 
         Map<String, Object> formReadResponse = (Map<String, Object>) outboundRequestHandlerService.fetchResultUsingGet(url, headers);
-        if (formReadResponse == null || !formReadResponse.containsKey(Constants.RESULT)) {
+        if (MapUtils.isEmpty(formReadResponse) || !formReadResponse.containsKey(Constants.RESULT)) {
             return Collections.emptyList();
         }
         Map<String, Object> result = (Map<String, Object>) formReadResponse.get(Constants.RESULT);
 
         Map<String, Object> response = (Map<String, Object>) result.get(Constants.RESPONSE);
-        if (response == null || !response.containsKey(Constants.FIELDS)) {
+        if (MapUtils.isEmpty(response) || !response.containsKey(Constants.FIELDS)) {
             return Collections.emptyList();
         }
 
         List<Map<String, Object>> fields = (List<Map<String, Object>>) response.get(Constants.FIELDS);
-        if (fields == null) {
+        if (CollectionUtils.isEmpty(fields)) {
             return Collections.emptyList();
         }
 
