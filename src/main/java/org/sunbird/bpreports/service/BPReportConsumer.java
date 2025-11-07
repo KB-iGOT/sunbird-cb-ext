@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.collections.MapUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.http.HttpHeaders;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
@@ -27,18 +28,21 @@ import org.sunbird.bpreports.postgres.entity.WfStatusEntity;
 import org.sunbird.bpreports.postgres.repository.WfStatusEntityRepository;
 import org.sunbird.cassandra.utils.CassandraOperation;
 import org.sunbird.common.model.SBApiResponse;
+import org.sunbird.common.service.OutboundRequestHandlerServiceImpl;
 import org.sunbird.common.util.CbExtServerProperties;
 import org.sunbird.common.util.Constants;
 import org.sunbird.common.util.IndexerService;
 import org.sunbird.common.util.ProjectUtil.ESIndexType;
 import org.sunbird.storage.service.StorageService;
 
+import javax.ws.rs.core.MediaType;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 
 @Component
 public class BPReportConsumer {
@@ -62,6 +66,9 @@ public class BPReportConsumer {
 
     @Autowired
     StorageService storageService;
+
+    @Autowired
+    OutboundRequestHandlerServiceImpl outboundRequestHandlerService;
 
 
     @KafkaListener(topics = "${kafka.topic.bp.report}", groupId = "${kafka.topic.bp.report.group}")
@@ -136,8 +143,14 @@ public class BPReportConsumer {
             }
 
             String surveyId = (String) request.get(Constants.SURVEY_ID);
-            // Get BP survey data if survey ID is present
-            Map<String, Object> dataObject = getSurveyData(surveyId, null);
+
+            // Get BP survey form questions if survey ID is present
+            List<Map<String, Object>> formQuestions = getFormQuestionsList(surveyId);
+            if (CollectionUtils.isEmpty(formQuestions)) {
+                logger.info("No form details found for formId: {}", surveyId);
+                updateDataBase(adminOrgId, courseId, batchId, reportRequester, null, null, Constants.FAILED_UPPERCASE, 0, 0, 0, new Date());
+                return;
+            }
 
             //Get BP Profile survey data
             String batchAttributesStr = (String) batchReadResp.get(Constants.BATCH_ATTRIBUTES);
@@ -149,15 +162,15 @@ public class BPReportConsumer {
             Map<String, Object> batchAttributes = mapper.readValue(batchAttributesStr, new TypeReference<Map<String, Object>>() {
             });
             String profileSurveyId = (String) batchAttributes.get(Constants.PROFILE_SURVEY_ID);
-            Map<String, Object> profileSurveyData = getSurveyResponse(profileSurveyId);
+            Map<String, Object> userBatchFormData = getUserBatchFormData(profileSurveyId);
 
             // Create header row and apply styles
             Sheet sheet = workbook.createSheet("Enrollment Report");
             if (Constants.MDO_ADMIN.equalsIgnoreCase(reportRequester) || Constants.MDO_LEADER.equalsIgnoreCase(reportRequester)) {
-                createHeaderRowWithDefaultFields(workbook, sheet, dataObject, headerKeyMapping);
+                createHeaderRowWithDefaultFields(workbook, sheet, formQuestions, headerKeyMapping);
             } else {
                 mandatoryProfileFieldsKeyMappingForPC(batchAttributes, headerKeyMapping);
-                createHeaderRow(workbook, sheet, dataObject, headerKeyMapping);
+                createHeaderRow(workbook, sheet, formQuestions, headerKeyMapping);
             }
             int rowNum = 1;
 
@@ -193,10 +206,10 @@ public class BPReportConsumer {
                     } else {
                         pendingUserCount++;
                     }
-                    Map<String, Object> userSurveyDataObject = StringUtils.isNotEmpty(surveyId) ? getSurveyData(surveyId, userId) : new HashMap<>();
+                    Map<String, Object> userQuestionsAnswer = StringUtils.isNotEmpty(surveyId) ? getUserQuestionsAnswer(surveyId, userId, courseId) : new HashMap<>();
                     Map<String, Object> userInfo = getUserInfo(userDetailsObj);
                     String enrollmentStatus = getEnrollmentStatus(currentStatus);
-                    processReport(userInfo, enrollmentStatus, MapUtils.isNotEmpty(userSurveyDataObject) ? userSurveyDataObject : new HashMap<>(), (Map<String, Object>) profileSurveyData.get(userId), sheet, headerKeyMapping, rowNum);
+                    processReport(userInfo, enrollmentStatus, MapUtils.isNotEmpty(userQuestionsAnswer) ? userQuestionsAnswer : new HashMap<>(), (Map<String, Object>) userBatchFormData.get(userId), sheet, headerKeyMapping, rowNum);
 
                 } catch (Exception e) {
                     logger.error("Error processing report for userId: {}", userId, e);
@@ -212,17 +225,61 @@ public class BPReportConsumer {
         }
     }
 
-    private Map<String, Object> getSurveyData(String surveyId, String userId) {
+    private Map<String, Object> getUserQuestionsAnswer(String surveyId, String userId, String contextId) {
         if (StringUtils.isNotEmpty(surveyId)) {
-            List<Map<String, Object>> surveyResponse = getSurveyResponse(surveyId, userId);
-            if (!CollectionUtils.isEmpty(surveyResponse)) {
-                Map<String, Object> firstResponse = surveyResponse.get(0);
-                if (firstResponse != null && firstResponse.get(Constants.DATA_OBJECT) instanceof Map) {
-                    return (Map<String, Object>) firstResponse.get(Constants.DATA_OBJECT);
+            List<Map<String, Object>> userFormData = getUserFormData(surveyId, userId, contextId);
+            if (!CollectionUtils.isEmpty(userFormData)) {
+                Map<String, Object> firstResponse = userFormData.get(0);
+                if (!CollectionUtils.isEmpty((Collection<?>) firstResponse.get(Constants.RESPONSES))) {
+                    List<Map<String, Object>> userFormQuestionsAnswerList =
+                            (List<Map<String, Object>>) firstResponse.get(Constants.RESPONSES);
+
+                    return userFormQuestionsAnswerList.stream()
+                            .filter(Objects::nonNull)
+                            .filter(qa -> qa.get(Constants.QUESTION) != null)
+                            .collect(Collectors.toMap(
+                                    qa -> (String) qa.get(Constants.QUESTION),
+                                    qa -> qa.get(Constants.ANSWER),
+                                    (existing, replacement) -> replacement,
+                                    LinkedHashMap::new //preserves order
+                            ));
                 }
             }
         }
-        return new HashMap<>();
+        return new LinkedHashMap<>();
+    }
+
+    private List<Map<String, Object>> getFormQuestionsList(String formId) {
+        String url = String.format("%s%s?%s=%s",
+                serverProperties.getFormServiceHost(),
+                serverProperties.getGetFormByIdV2Path(),
+                Constants.FORM_ID,
+                formId);
+
+        Map<String, String> headers = new HashMap<>();
+        headers.put(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON);
+        headers.put(HttpHeaders.ACCEPT, MediaType.APPLICATION_JSON);
+
+        Map<String, Object> formReadResponse = (Map<String, Object>) outboundRequestHandlerService.fetchResultUsingGet(url, headers);
+        if (MapUtils.isEmpty(formReadResponse) || !formReadResponse.containsKey(Constants.RESULT)) {
+            return Collections.emptyList();
+        }
+        Map<String, Object> result = (Map<String, Object>) formReadResponse.get(Constants.RESULT);
+
+        Map<String, Object> response = (Map<String, Object>) result.get(Constants.RESPONSE);
+        if (MapUtils.isEmpty(response) || !response.containsKey(Constants.FIELDS)) {
+            return Collections.emptyList();
+        }
+
+        List<Map<String, Object>> fields = (List<Map<String, Object>>) response.get(Constants.FIELDS);
+        if (CollectionUtils.isEmpty(fields)) {
+            return Collections.emptyList();
+        }
+
+        return fields.stream()
+                .filter(field -> Constants.QUESTION.equalsIgnoreCase(
+                        (String) field.get(Constants.CONTEXT_TYPE)))
+                .collect(Collectors.toList());
     }
 
     private Map<String, Object> getBatchDetails(String courseId, String batchId) {
@@ -408,64 +465,53 @@ public class BPReportConsumer {
         return null;
     }
 
-    private List<Map<String, Object>> getSurveyResponse(String surveyId, String userId) {
+    private List<Map<String, Object>> getUserFormData(String surveyId, String userId, String contextId) {
         List<Map<String, Object>> result = new ArrayList<>();
         try {
-            // Query construction
+            // Build the search request
             SearchSourceBuilder sourceBuilder = new SearchSourceBuilder();
 
-            // If userId is null, fetch only one record
-            if (userId == null) {
-                sourceBuilder.size(1);  // Set the result size to 1
-            }
+            // Build the base query
+            BoolQueryBuilder finalQuery = QueryBuilders.boolQuery()
+                    .must(QueryBuilders.termQuery(Constants.FORM_ID, surveyId))
+                    .must(QueryBuilders.termQuery(Constants.CONTEXT_ID_CAMEL, contextId))
+                    .must(QueryBuilders.termQuery(Constants.SUBMITTED_BY, userId));
 
-            // Build the query for surveyId
-            MatchQueryBuilder matchFormIdQuery = QueryBuilders.matchQuery(Constants.FORM_ID, surveyId);
-            BoolQueryBuilder boolQuery = new BoolQueryBuilder().must(matchFormIdQuery);
-
-            // If userId is provided, add it to the query
-            if (userId != null) {
-                MatchQueryBuilder matchUserIdQuery = QueryBuilders.matchQuery(Constants.UPDATED_BY, userId);
-                boolQuery.must(matchUserIdQuery);
-            }
-
-            sourceBuilder.query(boolQuery);
-
-            // Sorting by timestamp in ascending order
-            sourceBuilder.sort("timestamp", SortOrder.DESC);
+            // Apply query and sorting
+            sourceBuilder.query(finalQuery);
+            sourceBuilder.sort(Constants.SUBMITTED_DATE, SortOrder.DESC); // Sorting by timestamp in descending order
 
             // Execute the search request
             SearchResponse searchResponse = indexerService.getEsResult(
-                    serverProperties.getIgotEsUserFormIndex(),
+                    serverProperties.getUserFormDataIndexV2(),
                     serverProperties.getEsFormIndexType(),
                     sourceBuilder,
                     ESIndexType.IGOT_ES
             );
 
+            // Process search results
             if (searchResponse != null && searchResponse.getHits().getHits().length > 0) {
-                // Process each record (hit)
                 for (SearchHit hit : searchResponse.getHits().getHits()) {
                     Map<String, Object> sourceMap = hit.getSourceAsMap();
                     if (sourceMap != null) {
-                        // Put the result in the map using the "updatedBy" field as the key
                         result.add(sourceMap);
                     }
                 }
             } else {
-                logger.warn("No results found for surveyId: {}", surveyId);
+                logger.warn("No results found for surveyId: {} and userId: {}", surveyId, userId);
             }
 
         } catch (IOException e) {
-            logger.error("Error while processing user form response for surveyId: {}", surveyId, e);
+            logger.error("Error while processing user form response for surveyId: {} and userId: {}", surveyId, userId, e);
         }
 
         return result;
     }
 
-    private void processReport(Map<String, Object> userInfo, String enrollmentStatus, Map<String, Object> userSurveyDataObject, Map<String, Object> userBatchFormData, Sheet sheet, Map<String, Object> headerKeyMapping, int rowNum) {
+    private void processReport(Map<String, Object> userInfo, String enrollmentStatus, Map<String, Object> userQuestionsAnswer, Map<String, Object> userBatchFormData, Sheet sheet, Map<String, Object> headerKeyMapping, int rowNum) {
         try {
             // Create a new sheet or get existing one based on requirement
-            Map<String, Object> reportInfo = prepareReportInfo(userInfo, enrollmentStatus, userSurveyDataObject, userBatchFormData);
+            Map<String, Object> reportInfo = prepareReportInfo(userInfo, enrollmentStatus, userQuestionsAnswer, userBatchFormData);
 
             // Add user data to the sheet
             fillDataRows(sheet, rowNum, headerKeyMapping, reportInfo);
@@ -476,7 +522,7 @@ public class BPReportConsumer {
     }
 
     private void createHeaderRow(Workbook workbook, Sheet sheet,
-                                 Map<String, Object> formQuestionsMap, Map<String, Object> headerKeyMapping) throws IOException {
+                                 List<Map<String, Object>> formQuestionsListMap, Map<String, Object> headerKeyMapping) throws IOException {
 
         Row headerRow = sheet.createRow(0);
         CellStyle headerStyle = createHeaderCellStyle(workbook);
@@ -518,11 +564,8 @@ public class BPReportConsumer {
         List<String> formQuestionsList = new ArrayList<>();
 
         // Populate header row with form questions that are not already mapped
-        for (Map.Entry<String, Object> entry : formQuestionsMap.entrySet()) {
-            String questionKey = entry.getKey();
-            if (Constants.COURSE_ID_AND_NAME.equalsIgnoreCase(questionKey)) {
-                continue;
-            }
+        for (Map<String, Object> question : formQuestionsListMap) {
+            String questionKey = (String) question.get(Constants.NAME);
             if (!headerKeyMapping.containsKey(questionKey)) {
                 cell = headerRow.createCell(currentColumnIndex++);
                 cell.setCellValue(questionKey.trim());
@@ -532,7 +575,7 @@ public class BPReportConsumer {
             }
         }
 
-        headerKeyMapping.put("formQuestions", formQuestionsList);
+        headerKeyMapping.put(Constants.FORM_QUESTIONS, formQuestionsList);
     }
 
     private CellStyle createHeaderCellStyle(Workbook workbook) {
@@ -551,8 +594,8 @@ public class BPReportConsumer {
         int cellNum = 0;
 
         for (String columnKey : headerKeyMapping.keySet()) {
-            if (columnKey.equalsIgnoreCase("formQuestions")) {
-                Map<String, Object> formAllQuestionsAns = (Map<String, Object>) reportInfo.get(columnKey);
+            if (columnKey.equalsIgnoreCase(Constants.FORM_QUESTIONS)) {
+                Map<String, Object> formAllQuestionsAns = (Map<String, Object>) reportInfo.get(Constants.FORM_QUESTIONS_ANSWER);
                 List<String> formAllRequiredQuestionskey = (List<String>) headerKeyMapping.get(columnKey);
 
                 if (!CollectionUtils.isEmpty(formAllRequiredQuestionskey)) {
@@ -575,25 +618,23 @@ public class BPReportConsumer {
         }
     }
 
-    private Map<String, Object> prepareReportInfo(Map<String, Object> userInfo, String enrollmentStatus, Map<String, Object> userSurveyDataObject, Map<String, Object> userProfileSurveyData) {
+    private Map<String, Object> prepareReportInfo(Map<String, Object> userInfo, String enrollmentStatus, Map<String, Object> userQuestionsAnswer, Map<String, Object> userBatchFormData) {
 
         Map<String, Object> reportInfo = new HashMap<>(userInfo);
         reportInfo.put(Constants.ENROLLMENT_STATUS, enrollmentStatus);
 
         // Extract and add survey questions and ans.
-        if (MapUtils.isNotEmpty(userSurveyDataObject)) {
-            Map<String, Object> formQuestions = new LinkedHashMap<>(userSurveyDataObject);
-            reportInfo.put("formQuestions", formQuestions);
+        if (MapUtils.isNotEmpty(userQuestionsAnswer)) {
+            reportInfo.put(Constants.FORM_QUESTIONS_ANSWER, userQuestionsAnswer);
         }
 
         // Add batch for questions and ans.
-        if (MapUtils.isNotEmpty(userProfileSurveyData)) {
-            Map<String, Object> userProfileSurveyDataObject = (Map<String, Object>) userProfileSurveyData.get(Constants.DATA_OBJECT);
-            if (userProfileSurveyDataObject.containsKey(Constants.GROUP_TITLE_CASE)) {
-                reportInfo.put(Constants.GROUP_TITLE_CASE, userProfileSurveyDataObject.get(Constants.GROUP_TITLE_CASE));
+        if (MapUtils.isNotEmpty(userBatchFormData)) {
+            if (userBatchFormData.containsKey(Constants.GROUP_TITLE_CASE)) {
+                reportInfo.put(Constants.GROUP_TITLE_CASE, userBatchFormData.get(Constants.GROUP_TITLE_CASE));
             }
-            if (userProfileSurveyDataObject.containsKey(Constants.DESIGNATION_TITLE_CASE)) {
-                reportInfo.put(Constants.DESIGNATION_TITLE_CASE, userProfileSurveyDataObject.get(Constants.DESIGNATION_TITLE_CASE));
+            if (userBatchFormData.containsKey(Constants.DESIGNATION_TITLE_CASE)) {
+                reportInfo.put(Constants.DESIGNATION_TITLE_CASE, userBatchFormData.get(Constants.DESIGNATION_TITLE_CASE));
             }
 
         }
@@ -639,7 +680,7 @@ public class BPReportConsumer {
     }
 
     private void createHeaderRowWithDefaultFields(Workbook workbook, Sheet sheet,
-                                                  Map<String, Object> formQuestionsMap, Map<String, Object> headerKeyMapping) throws IOException {
+                                                  List<Map<String, Object>> formQuestionsListMap, Map<String, Object> headerKeyMapping) throws IOException {
 
         String bpReportDefaultFieldsStr = serverProperties.getBpEnrolmentReportDefaultFields();
         Map<String, String> bpReportDefaultFieldsMap = mapper.readValue(bpReportDefaultFieldsStr, new TypeReference<LinkedHashMap<String, Object>>() {
@@ -686,11 +727,8 @@ public class BPReportConsumer {
         List<String> formQuestionsList = new ArrayList<>();
 
         // Populate header row with form questions that are not already mapped
-        for (Map.Entry<String, Object> entry : formQuestionsMap.entrySet()) {
-            String questionKey = entry.getKey();
-            if (Constants.COURSE_ID_AND_NAME.equalsIgnoreCase(questionKey)) {
-                continue;
-            }
+        for (Map<String, Object> question : formQuestionsListMap) {
+            String questionKey = (String) question.get(Constants.NAME);
             if (!headerKeyMapping.containsKey(questionKey)) {
                 cell = headerRow.createCell(currentColumnIndex++);
                 cell.setCellValue(questionKey.trim());
@@ -700,7 +738,7 @@ public class BPReportConsumer {
             }
         }
 
-        headerKeyMapping.put("formQuestions", formQuestionsList);
+        headerKeyMapping.put(Constants.FORM_QUESTIONS, formQuestionsList);
     }
 
     private void mandatoryProfileFieldsKeyMappingForPC(Map<String, Object> batchAttributes, Map<String, Object> headerKeyMapping) throws IOException {
@@ -730,39 +768,62 @@ public class BPReportConsumer {
         }
     }
 
-    private Map<String, Object> getSurveyResponse(String surveyId) {
-        Map<String, Object> resultMap = new HashMap<>();
+    private Map<String, Object> getUserBatchFormData(String surveyId) {
+        Map<String, Object> resultMap = new LinkedHashMap<>();
+        final int BATCH_SIZE = 500;
+        Object[] searchAfter = null;
+
         try {
-            // Query construction
-            SearchSourceBuilder sourceBuilder = new SearchSourceBuilder();
+            while (true) {
+                SearchSourceBuilder sourceBuilder = new SearchSourceBuilder();
 
-            // Build the query for surveyId
-            MatchQueryBuilder matchFormIdQuery = QueryBuilders.matchQuery(Constants.FORM_ID, surveyId);
-            BoolQueryBuilder boolQuery = new BoolQueryBuilder().must(matchFormIdQuery);
-            sourceBuilder.query(boolQuery);
+                // Query
+                BoolQueryBuilder finalQuery = QueryBuilders.boolQuery()
+                        .must(QueryBuilders.termQuery(Constants.FORM_ID, surveyId));
 
-            // Sorting by timestamp in ascending order
-            sourceBuilder.sort("timestamp", SortOrder.DESC);
+                sourceBuilder.query(finalQuery);
+                sourceBuilder.sort(Constants.SUBMITTED_DATE, SortOrder.DESC);
+                sourceBuilder.size(BATCH_SIZE);
 
-            // Execute the search request
-            SearchResponse searchResponse = indexerService.getEsResult(
-                    serverProperties.getIgotEsUserFormIndex(),
-                    serverProperties.getEsFormIndexType(),
-                    sourceBuilder,
-                    ESIndexType.IGOT_ES
-            );
+                if (searchAfter != null) {
+                    sourceBuilder.searchAfter(searchAfter);
+                }
 
-            if (searchResponse != null && searchResponse.getHits().getHits().length > 0) {
-                // Process each record (hit)
-                for (SearchHit hit : searchResponse.getHits().getHits()) {
+                SearchResponse searchResponse = indexerService.getEsResult(
+                        serverProperties.getUserFormDataIndexV2(),
+                        serverProperties.getEsFormIndexType(),
+                        sourceBuilder,
+                        ESIndexType.IGOT_ES
+                );
+
+                SearchHit[] hits = searchResponse.getHits().getHits();
+                if (hits == null || hits.length == 0) {
+                    logger.info("No more records found for surveyId: {}", surveyId);
+                    break; // stop when no records found
+                }
+
+                for (SearchHit hit : hits) {
                     Map<String, Object> sourceMap = hit.getSourceAsMap();
                     if (sourceMap != null) {
-                        // Put the result in the map using the "updatedBy" field as the key
-                        resultMap.put((String) sourceMap.get(Constants.UPDATED_BY), sourceMap);
+                        List<Map<String, Object>> questionsAnswerList =
+                                (List<Map<String, Object>>) sourceMap.get(Constants.RESPONSES);
+
+                        Map<String, Object> questionsAnswerMap = questionsAnswerList.stream()
+                                .filter(Objects::nonNull)
+                                .filter(qa -> qa.get(Constants.QUESTION) != null)
+                                .collect(Collectors.toMap(
+                                        qa -> (String) qa.get(Constants.QUESTION),
+                                        qa -> qa.get(Constants.ANSWER),
+                                        (existing, replacement) -> replacement,
+                                        LinkedHashMap::new
+                                ));
+
+                        resultMap.put((String) sourceMap.get(Constants.SUBMITTED_BY), questionsAnswerMap);
                     }
                 }
-            } else {
-                logger.warn("No results found for surveyId: {}", surveyId);
+
+                // Prepare next search_after value (use last hit’s sort values)
+                searchAfter = hits[hits.length - 1].getSortValues();
             }
 
         } catch (IOException e) {

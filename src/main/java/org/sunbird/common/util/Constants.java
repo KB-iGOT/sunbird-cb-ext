@@ -123,6 +123,7 @@ public class Constants {
 	public static final Float ASSESSMENT_PASS_SCORE = 60.0f;
 	public static final String DATE_FORMAT = "yyyy-mm-dd hh:mm:ss";
 	public static final String RESPONSE = "response";
+    public static final String RESPONSES = "responses";
 	public static final String STAFF = "staff";
 	public static final String API_STAFF_POSITION_ADD = "api.staff.position.add";
 	public static final String API_STAFF_POSITION_UPDATE = "api.staff.position.update";
@@ -1455,5 +1456,9 @@ public class Constants {
     private Constants() {
 		throw new IllegalStateException("Utility class");
 	}
+    public static final String SUBMITTED_BY = "submittedBy";
+    public static final String FORM_QUESTIONS_ANSWER = "formQuestionsAnswer";
+    public static final String FORM_QUESTIONS = "formQuestions";
+    public static final String SUBMITTED_DATE = "submittedDate";
 
 }
