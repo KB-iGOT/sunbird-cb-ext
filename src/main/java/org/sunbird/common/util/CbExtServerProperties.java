@@ -1147,6 +1147,15 @@ public class CbExtServerProperties {
     @Value("${org.hierarchy.identifier.regex.pattern}")
     private String orgIdRegexPattern;
 
+    @Value("${igot.es.user.form.data.index.v2}")
+    private String userFormDataIndexV2;
+
+    @Value("${form.service.host}")
+    private String formServiceHost;
+
+    @Value("${get.v2.formbyid.path}")
+    private String getFormByIdV2Path;
+
     public String getStateLearningInsightsRedisKeyMapping() {
 		return stateLearningInsightsRedisKeyMapping;
 	}
@@ -3861,5 +3870,29 @@ public class CbExtServerProperties {
 
     public String getOrgIdRegexPattern() {
         return orgIdRegexPattern;
+    }
+
+    public String getUserFormDataIndexV2() {
+        return userFormDataIndexV2;
+    }
+
+    public void setUserFormDataIndexV2(String userFormDataIndexV2) {
+        this.userFormDataIndexV2 = userFormDataIndexV2;
+    }
+
+    public String getFormServiceHost() {
+        return formServiceHost;
+    }
+
+    public void setFormServiceHost(String formServiceHost) {
+        this.formServiceHost = formServiceHost;
+    }
+
+    public String getGetFormByIdV2Path() {
+        return getFormByIdV2Path;
+    }
+
+    public void setGetFormByIdV2Path(String getFormByIdV2Path) {
+        this.getFormByIdV2Path = getFormByIdV2Path;
     }
 }
