@@ -449,28 +449,68 @@ public class SearchByService {
 		return response;
 	}
 
-	private Map<String, Object> listCompetencyDetails(List<String> identifiers) throws Exception {
+    private Map<String, Object> listCompetencyDetails(List<String> identifiers) throws Exception {
+        if (identifiers == null || identifiers.isEmpty()) {
+            return new HashMap<>();
+        }
 
-		HashMap<String, Object> reqBody = new HashMap<>();
-		HashMap<String, Object> req = new HashMap<>();
-		String competencySelected = cbExtServerProperties.getCompetencySelectedVersion();
-		String facetsDetails = cbExtServerProperties.getCompetencySelectedVersionFacetsMap().get(competencySelected);
-		req.put(Constants.FACETS, Arrays.asList(facetsDetails.split(",", -1)));
-		Map<String, Object> filters = new HashMap<>();
-		filters.put(Constants.IDENTIFIER, identifiers);
-		filters.put(Constants.STATUS, Arrays.asList(Constants.LIVE));
-		req.put(Constants.FILTERS, filters);
-		req.put(Constants.LIMIT, 0);
-		reqBody.put(Constants.REQUEST, req);
+        String competencySelected = cbExtServerProperties.getCompetencySelectedVersion();
+        String facetsDetails = cbExtServerProperties.getCompetencySelectedVersionFacetsMap().get(competencySelected);
 
-		Map<String, Object> compositeSearchRes = outboundRequestHandlerService.fetchResultUsingPost(
-				cbExtServerProperties.getSbSearchServiceHost() + cbExtServerProperties.getSbCompositeV4Search(), reqBody,
-				null);
+        Map<String, Object> compositeSearchRes = null;
+        List<Map<String, Object>> allContent = new ArrayList<>();
 
-		return compositeSearchRes;
-	}
+        int batchSize = 20;
+        int total = identifiers.size();
 
-	private String validateAuthTokenAndFetchUserId(String authUserToken) {
+        if (total > batchSize) {
+            for (int i = 0; i < total; i += batchSize) {
+                List<String> chunk = identifiers.subList(i, Math.min(i + batchSize, total));
+                Map<String, Object> reqBody = createRequestBody(chunk, facetsDetails);
+                Map<String, Object> chunkResponse = outboundRequestHandlerService.fetchResultUsingPost(
+                        cbExtServerProperties.getSbSearchServiceHost() + cbExtServerProperties.getSbCompositeV4Search(),
+                        reqBody, null);
+
+                if (chunkResponse != null && chunkResponse.containsKey(Constants.RESULT)) {
+                    Map<String, Object> result = (Map<String, Object>) chunkResponse.get(Constants.RESULT);
+                    List<Map<String, Object>> content = (List<Map<String, Object>>) result.get(Constants.CONTENT);
+                    if (content != null) {
+                        allContent.addAll(content);
+                    }
+                    if (compositeSearchRes == null) {
+                        compositeSearchRes = chunkResponse;
+                    }
+                }
+            }
+            if (compositeSearchRes != null) {
+                Map<String, Object> result = (Map<String, Object>) compositeSearchRes.get(Constants.RESULT);
+                result.put(Constants.CONTENT, allContent);
+            }
+        } else {
+            Map<String, Object> reqBody = createRequestBody(identifiers, facetsDetails);
+            compositeSearchRes = outboundRequestHandlerService.fetchResultUsingPost(
+                    cbExtServerProperties.getSbSearchServiceHost() + cbExtServerProperties.getSbCompositeV4Search(),
+                    reqBody, null);
+        }
+        return compositeSearchRes != null ? compositeSearchRes : new HashMap<>();
+    }
+
+    private Map<String, Object> createRequestBody(List<String> identifiers, String facetsDetails) {
+        Map<String, Object> req = new HashMap<>();
+        req.put(Constants.FACETS, Arrays.asList(facetsDetails.split(",", -1)));
+        Map<String, Object> filters = new HashMap<>();
+        filters.put(Constants.IDENTIFIER, identifiers);
+        filters.put(Constants.STATUS, Arrays.asList(Constants.LIVE));
+        req.put(Constants.FILTERS, filters);
+        req.put(Constants.LIMIT, 0);
+        Map<String, Object> reqBody = new HashMap<>();
+        reqBody.put(Constants.REQUEST, req);
+        return reqBody;
+    }
+
+
+
+    private String validateAuthTokenAndFetchUserId(String authUserToken) {
 		return accessTokenValidator.fetchUserIdFromAccessToken(authUserToken);
 	}
 	public SBApiResponse getCompetencyDetailsV2() {
