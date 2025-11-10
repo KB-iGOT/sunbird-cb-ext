@@ -146,7 +146,6 @@ public class BPReportConsumer {
             List<Map<String, Object>> formQuestions = new ArrayList<>();
             if (StringUtils.isNotBlank(surveyId)) {
                 formQuestions = getFormQuestionsList(surveyId);
-
                 if (CollectionUtils.isEmpty(formQuestions)) {
                     logger.info("Survey form questions not found for surveyId: {}", surveyId);
                 } else {
@@ -158,7 +157,7 @@ public class BPReportConsumer {
 
             //Get BP Profile survey data
             String batchAttributesStr = (String) batchReadResp.get(Constants.BATCH_ATTRIBUTES);
-            if (batchAttributesStr == null) {
+            if (StringUtils.isEmpty(batchAttributesStr)) {
                 logger.error("No batch attributes found for batchId: {}", batchId);
                 updateDataBase(adminOrgId, courseId, batchId, reportRequester, null, null, Constants.FAILED_UPPERCASE, 0, 0, 0, new Date());
                 return;
