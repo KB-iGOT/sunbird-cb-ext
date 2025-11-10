@@ -71,11 +71,16 @@ public class KarmaPointsServiceImpl implements KarmaPointsService {
         Map<String, Object> propertyMap = new HashMap<>();
         String key = userId +"|"+cntxType+"|"+ cntxtId;
         propertyMap.put(Constants.DB_COLUMN_USER_KARMA_POINTS_KEY, key);
-        Map<String, Object> userCourseKpList = cassandraOperation.getRecordsByProperties(Constants.KEYSPACE_SUNBIRD,
-                Constants.TABLE_KARMA_POINTS_LOOK_UP, propertyMap, null, Constants.DB_COLUMN_USER_KARMA_POINTS_KEY);
+        List<Map<String, Object>> userCourseKpList = cassandraOperation.getRecordsByPropertiesWithoutFiltering(Constants.KEYSPACE_SUNBIRD,
+                Constants.TABLE_KARMA_POINTS_LOOK_UP, propertyMap, null);
         if(userCourseKpList.size() < 1)
-          return resultMap;
-        long credit_date = ((Date)((Map<String, Object>)userCourseKpList.get(key)).get(Constants.DB_COLUMN_CREDIT_DATE)).getTime();
+            return resultMap;
+
+        long credit_date = userCourseKpList.stream()
+                .filter(row -> Constants.COURSE_COMPLETION.equals(row.get(Constants.DB_COLUMN_OPERATION_TYPE)))
+                .map(row -> ((Date) row.get(Constants.DB_COLUMN_CREDIT_DATE)).getTime())
+                .findFirst().orElse(0L);
+
         Map<String, Object> whereMap = new HashMap<>();
         whereMap.put(Constants.KARMA_POINTS_USER_ID, userId);
         whereMap.put(Constants.DB_COLUMN_CREDIT_DATE, credit_date);
