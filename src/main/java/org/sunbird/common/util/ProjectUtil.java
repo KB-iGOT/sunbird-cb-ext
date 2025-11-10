@@ -261,6 +261,14 @@ public class ProjectUtil {
 		return headers;
 	}
 
+    public static SBApiResponse returnErrorMsg(String errMsg, HttpStatus httpStatus, SBApiResponse response, String status) {
+        response.getParams().setStatus(status);
+        response.getParams().setErrmsg(errMsg);
+        response.setResponseCode(httpStatus);
+        response.getResult().put("message", errMsg);
+        return response;
+    }
+
 	public static enum ESIndexType {
 		SUNBIRD_ES("sunbird_es"), USER_ES("user_es"), IGOT_ES("igot_es");
 		private String indexName;
