@@ -138,24 +138,27 @@ public class BPReportConsumer {
             List<WfStatusEntity> wfStatusEntities = getAllWfStatusEntitiesByBatchId(batchId);
             if (CollectionUtils.isEmpty(wfStatusEntities)) {
                 logger.info("No workflow status entities found for batchId: {}", batchId);
-                updateDataBase(adminOrgId, courseId, batchId, reportRequester, null, null, Constants.COMPLETED_UPPER_CASE, 0, 0, 0, new Date());
-                return;
             }
 
             String surveyId = (String) request.get(Constants.SURVEY_ID);
 
             // Get BP survey form questions if survey ID is present
-            List<Map<String, Object>> formQuestions = getFormQuestionsList(surveyId);
-            if (CollectionUtils.isEmpty(formQuestions)) {
-                logger.info("No form details found for formId: {}", surveyId);
-                updateDataBase(adminOrgId, courseId, batchId, reportRequester, null, null, Constants.FAILED_UPPERCASE, 0, 0, 0, new Date());
-                return;
+            List<Map<String, Object>> formQuestions = new ArrayList<>();
+            if (StringUtils.isNotBlank(surveyId)) {
+                formQuestions = getFormQuestionsList(surveyId);
+                if (CollectionUtils.isEmpty(formQuestions)) {
+                    logger.info("Survey form questions not found for surveyId: {}", surveyId);
+                } else {
+                    logger.info("Loaded {} survey form questions for surveyId: {}", formQuestions.size(), surveyId);
+                }
+            } else {
+                logger.info("surveyId is null or empty. BP enrolment report will be generated using profile survey details only.");
             }
 
             //Get BP Profile survey data
             String batchAttributesStr = (String) batchReadResp.get(Constants.BATCH_ATTRIBUTES);
-            if (batchAttributesStr == null) {
-                logger.info("No batch attributes found for batchId: {}", batchId);
+            if (StringUtils.isEmpty(batchAttributesStr)) {
+                logger.error("No batch attributes found for batchId: {}", batchId);
                 updateDataBase(adminOrgId, courseId, batchId, reportRequester, null, null, Constants.FAILED_UPPERCASE, 0, 0, 0, new Date());
                 return;
             }
@@ -798,7 +801,6 @@ public class BPReportConsumer {
 
                 SearchHit[] hits = searchResponse.getHits().getHits();
                 if (hits == null || hits.length == 0) {
-                    logger.info("No more records found for surveyId: {}", surveyId);
                     break; // stop when no records found
                 }
 
@@ -830,6 +832,7 @@ public class BPReportConsumer {
             logger.error("Error while processing user form response for surveyId: {}", surveyId, e);
         }
 
+        logger.info("Total {} records found for batch surveyId: {}", resultMap.size(), surveyId);
         return resultMap;
     }
 }
