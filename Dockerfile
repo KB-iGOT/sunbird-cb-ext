@@ -10,15 +10,15 @@ RUN apt-get update \
         xfonts-75dpi \
         xfonts-base \
         xz-utils \
-            && apt-get clean \
-            && rm -rf /var/lib/apt/lists/*
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
-        # Use the Jammy-specific .deb
-        RUN curl -L -o wkhtmltox.deb \
-              https://github.com/wkhtmltopdf/packaging/releases/download/0.12.6.1-2/wkhtmltox_0.12.6.1-2.jammy_amd64.deb \
-         && dpkg -i wkhtmltox.deb \
-         && apt-get -f install -y \
-         && rm wkhtmltox.deb
+# Use the Jammy-specific .deb
+RUN curl -L -o wkhtmltox.deb \
+      https://github.com/wkhtmltopdf/packaging/releases/download/0.12.6.1-2/wkhtmltox_0.12.6.1-2.jammy_amd64.deb \
+ && dpkg -i wkhtmltox.deb \
+ && apt-get -f install -y \
+ && rm wkhtmltox.deb
 
 
 COPY sb-cb-ext-0.0.1-SNAPSHOT.jar /opt/
