@@ -806,9 +806,7 @@ public class OrgHierarchyBulkUploadConsumer {
                     .append(Constants.CATEGORY)
                     .append(Constants.EQUALS)
                     .append(parentCategory);
-
             logger.info("Fetching latest associations for parent term from KM: {}", strUrl);
-
             Map<String, Object> termResponse =
                     (Map<String, Object>) outboundRequestHandler.fetchResult(strUrl.toString());
 
@@ -830,12 +828,9 @@ public class OrgHierarchyBulkUploadConsumer {
             } else {
                 logger.warn("Null response received from KM while fetching associations for parent {}", parentCode);
             }
-
         } catch (Exception e) {
             logger.error("Failed to fetch latest associations for parent {}: {}", parentCode, e.getMessage(), e);
         }
         return associations;
     }
-
-
 }
