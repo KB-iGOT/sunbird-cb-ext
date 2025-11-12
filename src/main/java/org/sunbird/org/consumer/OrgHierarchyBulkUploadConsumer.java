@@ -457,11 +457,8 @@ public class OrgHierarchyBulkUploadConsumer {
             if (i > 0 && parentTerm != null) {
                 String parentCode = (String) parentTerm.get(Constants.CODE);
                 String parentCategory = categories.get(i-1);
-                Map<String, Object> parentTermInFramework = findTermInFramework(frameworkData, parentCategory, (String) parentTerm.get(Constants.NAME));
-                List<Map<String, Object>> associations = parentTermInFramework != null &&
-                        parentTermInFramework.get(Constants.ASSOCIATIONS) != null
-                        ? new ArrayList<>((List<Map<String, Object>>) parentTermInFramework.get(Constants.ASSOCIATIONS))
-                        : new ArrayList<>();
+                List<Map<String, Object>> associations =
+                        fetchLatestAssociationsFromKM(frameworkId, parentCategory, parentCode);
                 boolean exists = false;
                 for (Map<String, Object> assoc : associations) {
                     if (currentTerm.get(Constants.IDENTIFIER).equals(assoc.get(Constants.IDENTIFIER))) {
@@ -792,5 +789,48 @@ public class OrgHierarchyBulkUploadConsumer {
         } catch (Exception e) {
             logger.error("Error occurred while retiring framework with ID: {}", frameworkId, e);
         }
+    }
+
+    private List<Map<String, Object>> fetchLatestAssociationsFromKM(String frameworkId, String parentCategory, String parentCode) {
+        List<Map<String, Object>> associations = new ArrayList<>();
+        try {
+            StringBuilder strUrl = new StringBuilder(serverProperties.getKmBaseHost());
+            strUrl.append(serverProperties.getKmFrameworkTermReadPath())
+                    .append(Constants.SEPARATOR_SLASH)
+                    .append(parentCode)
+                    .append(Constants.QUESTION_MARK)
+                    .append(Constants.FRAMEWORK)
+                    .append(Constants.EQUALS)
+                    .append(frameworkId)
+                    .append(Constants.AMPERSAND)
+                    .append(Constants.CATEGORY)
+                    .append(Constants.EQUALS)
+                    .append(parentCategory);
+            logger.info("Fetching latest associations for parent term from KM: {}", strUrl);
+            Map<String, Object> termResponse =
+                    (Map<String, Object>) outboundRequestHandler.fetchResult(strUrl.toString());
+
+            if (MapUtils.isNotEmpty(termResponse)) {
+                if (Constants.OK.equalsIgnoreCase((String) termResponse.get(Constants.RESPONSE_CODE))) {
+                    Map<String, Object> resultMap = (Map<String, Object>) termResponse.get(Constants.RESULT);
+                    Map<String, Object> termData = (Map<String, Object>) resultMap.get(Constants.TERM);
+                    Object existingAssoc = termData.get(Constants.ASSOCIATIONS);
+
+                    if (existingAssoc instanceof List) {
+                        associations.addAll((List<Map<String, Object>>) existingAssoc);
+                        logger.info("Fetched {} existing associations for parent {}", associations.size(), parentCode);
+                    } else {
+                        logger.info("No existing associations found for parent {}", parentCode);
+                    }
+                } else {
+                    logger.warn("KM returned non-OK response for parent {}: {}", parentCode, termResponse);
+                }
+            } else {
+                logger.warn("Null response received from KM while fetching associations for parent {}", parentCode);
+            }
+        } catch (Exception e) {
+            logger.error("Failed to fetch latest associations for parent {}: {}", parentCode, e.getMessage(), e);
+        }
+        return associations;
     }
 }
