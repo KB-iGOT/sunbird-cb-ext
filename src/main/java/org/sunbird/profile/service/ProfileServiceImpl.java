@@ -162,10 +162,6 @@ public class ProfileServiceImpl implements ProfileService {
 				return response;
 			}
 
-			if (!validateOTPForPersonalDetails(profileDetailsMap, requestData, response)) {
-				return response;
-			}
-
 			List<String> approvalFieldList = approvalFields();
 			String newDeptName = checkDepartment(profileDetailsMap);
 			Map<String, Object> transitionData = new HashMap<>();
@@ -2820,6 +2816,47 @@ public class ProfileServiceImpl implements ProfileService {
         }
     }
 
+    @Override
+    public SBApiResponse profileUpdateV3(Map<String, Object> request, String userToken, String authToken, String rootOrgId) {
+        SBApiResponse response = new SBApiResponse(Constants.API_PROFILE_UPDATE);
+        try {
+            Map<String, Object> requestData = (Map<String, Object>) request.get(Constants.REQUEST);
+            if (!validateRequest(requestData)) {
+                response.setResponseCode(HttpStatus.BAD_REQUEST);
+                response.getParams().setStatus(Constants.FAILED);
+                return response;
+            }
+
+            String userId = (String) requestData.get(Constants.USER_ID);
+            String userIdFromToken = accessTokenValidator.fetchUserIdFromAccessToken(userToken);
+            if (!userId.equalsIgnoreCase(userIdFromToken)) {
+                response.setResponseCode(HttpStatus.BAD_REQUEST);
+                response.getParams().setStatus(Constants.FAILED);
+                response.getParams().setErrmsg("Invalid UserId in the request");
+                return response;
+            }
+            Map<String, Object> profileDetailsMap = (Map<String, Object>) requestData.get(Constants.PROFILE_DETAILS);
+            String validatePhoneEmailErrMsg = validateExistingPhoneEmail(profileDetailsMap);
+            if (!validatePhoneEmailErrMsg.isEmpty()) {
+                response.setResponseCode(HttpStatus.BAD_REQUEST);
+                response.getParams().setStatus(Constants.FAILED);
+                response.getParams().setErrmsg(validatePhoneEmailErrMsg);
+                return response;
+            }
+
+            if (!validateOTPForPersonalDetails(profileDetailsMap, requestData, response)) {
+                return response;
+            }
+
+            return profileUpdate(request, userToken, authToken, rootOrgId);
+        } catch (Exception e) {
+            log.error("Failed to process profile update V3. Exception: ", e);
+            response.getParams().setStatus(Constants.FAILED);
+            response.getParams().setErr(e.getMessage());
+            response.setResponseCode(HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+        return response;
+    }
 }
 
 
