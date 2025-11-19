@@ -1165,6 +1165,9 @@ public class CbExtServerProperties {
     @Value("${org.level.hierarchy.es.offset}")
     private int orgLevelHierarchyESOffset;
 
+    @Value("${lms.otp.verify.path}")
+    private String lmsOTPVerifyPath;
+
     public String getStateLearningInsightsRedisKeyMapping() {
 		return stateLearningInsightsRedisKeyMapping;
 	}
@@ -3928,4 +3931,8 @@ public class CbExtServerProperties {
     public void setOrgLevelHierarchyESLimit(int orgLevelHierarchyESLimit) {
         this.orgLevelHierarchyESLimit = orgLevelHierarchyESLimit;
     }
+
+    public String getLmsOTPVerifyPath() { return lmsOTPVerifyPath; }
+
+    public void setLmsOTPVerifyPath(String lmsOTPVerifyPath) { this.lmsOTPVerifyPath = lmsOTPVerifyPath; }
 }
