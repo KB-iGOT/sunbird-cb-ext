@@ -268,7 +268,6 @@ public class ProfileServiceImpl implements ProfileService {
 					response.getParams().setStatus(Constants.FAILED);
 					String errMsg = (String) ((Map<String, Object>) updateResponse.get(Constants.PARAMS))
 							.get(Constants.ERROR_MESSAGE);
-					errMsg = PropertiesCache.getInstance().readCustomError(errMsg);
 					response.getParams().setErrmsg(errMsg);
 					log.error(errMsg, new Exception(errMsg));
 					return response;
