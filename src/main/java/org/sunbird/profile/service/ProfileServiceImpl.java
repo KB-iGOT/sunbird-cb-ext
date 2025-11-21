@@ -2821,25 +2821,20 @@ public class ProfileServiceImpl implements ProfileService {
         try {
             Map<String, Object> requestData = (Map<String, Object>) request.get(Constants.REQUEST);
             if (!validateRequest(requestData)) {
-                response.setResponseCode(HttpStatus.BAD_REQUEST);
-                response.getParams().setStatus(Constants.FAILED);
+                setResponse(response, "Invalid request", HttpStatus.BAD_REQUEST, Constants.FAILED);
                 return response;
             }
 
             String userId = (String) requestData.get(Constants.USER_ID);
             String userIdFromToken = accessTokenValidator.fetchUserIdFromAccessToken(userToken);
             if (!userId.equalsIgnoreCase(userIdFromToken)) {
-                response.setResponseCode(HttpStatus.BAD_REQUEST);
-                response.getParams().setStatus(Constants.FAILED);
-                response.getParams().setErrmsg("Invalid UserId in the request");
+                setResponse(response, "Invalid UserId in the request", HttpStatus.BAD_REQUEST, Constants.FAILED);
                 return response;
             }
             Map<String, Object> profileDetailsMap = (Map<String, Object>) requestData.get(Constants.PROFILE_DETAILS);
             String validatePhoneEmailErrMsg = validateExistingPhoneEmail(profileDetailsMap);
             if (!validatePhoneEmailErrMsg.isEmpty()) {
-                response.setResponseCode(HttpStatus.BAD_REQUEST);
-                response.getParams().setStatus(Constants.FAILED);
-                response.getParams().setErrmsg(validatePhoneEmailErrMsg);
+                setResponse(response, validatePhoneEmailErrMsg, HttpStatus.BAD_REQUEST, Constants.FAILED);
                 return response;
             }
 
@@ -2850,9 +2845,16 @@ public class ProfileServiceImpl implements ProfileService {
             return profileUpdate(request, userToken, authToken, rootOrgId);
         } catch (Exception e) {
             log.error("Failed to process profile update V3. Exception: ", e);
-            response.getParams().setStatus(Constants.FAILED);
-            response.getParams().setErr(e.getMessage());
-            response.setResponseCode(HttpStatus.INTERNAL_SERVER_ERROR);
+            setResponse(response, e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR, Constants.FAILED);
+        }
+        return response;
+    }
+
+    private SBApiResponse setResponse(SBApiResponse response, String errMsg, HttpStatus status, String message) {
+        response.setResponseCode(status);
+        response.getParams().setStatus(message);
+        if (StringUtils.isNotBlank(errMsg)) {
+            response.getParams().setErrmsg(errMsg);
         }
         return response;
     }
