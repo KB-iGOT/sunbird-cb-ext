@@ -1466,5 +1466,5 @@ public class Constants {
     public static final String FORM_QUESTIONS_ANSWER = "formQuestionsAnswer";
     public static final String FORM_QUESTIONS = "formQuestions";
     public static final String SUBMITTED_DATE = "submittedDate";
-
+    public static final String ACTIVE_TITLE_CASE = "Active";
 }
