@@ -2,6 +2,7 @@ package org.sunbird.profile.service;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.commons.collections.MapUtils;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVPrinter;
@@ -18,12 +19,15 @@ import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 import org.sunbird.cache.RedisCacheMgr;
 import org.sunbird.cassandra.utils.CassandraOperation;
 import org.sunbird.common.model.SBApiResponse;
+import org.sunbird.common.service.OutboundRequestHandlerServiceImpl;
 import org.sunbird.common.util.CbExtServerProperties;
 import org.sunbird.common.util.Constants;
 import org.sunbird.common.util.ProjectUtil;
@@ -57,6 +61,9 @@ public class UserBulkUploadService {
 
     @Autowired
     RedisCacheMgr redisCacheMgr;
+
+    @Autowired
+    private OutboundRequestHandlerServiceImpl outboundRequestHandlerService;
 
     public void initiateUserBulkUploadProcess(String inputData) {
         logger.info("UserBulkUploadService:: initiateUserBulkUploadProcess: Started");
@@ -234,7 +241,7 @@ public class UserBulkUploadService {
                             invalidErrList.add("Invalid value for Designation column type. Expecting string format");
                         }
                         if (StringUtils.isNotBlank(userRegistration.getPosition())) {
-                            if (!ProjectUtil.validateRegexPatternWithSpecialCharacter(userRegistration.getPosition()) || this.validateFieldValue(Constants.POSITION, userRegistration.getPosition())) {
+                            if (!ProjectUtil.validateRegexPatternWithSpecialCharacter(userRegistration.getPosition()) || this.validateDesignationFieldValue(userRegistration.getPosition())) {
                                 invalidErrList.add("Invalid Designation: Designation should be added from default list and/or cannot contain special character");
                             }
                         }
@@ -568,7 +575,7 @@ public class UserBulkUploadService {
                         } else {
                             String position = record.get(4).trim();
                             userRegistration.setPosition(position);
-                            if (!ProjectUtil.validateRegexPatternWithSpecialCharacter(userRegistration.getPosition()) || this.validateFieldValue(Constants.POSITION, userRegistration.getPosition())) {
+                            if (!ProjectUtil.validateRegexPatternWithSpecialCharacter(userRegistration.getPosition()) || this.validateDesignationFieldValue(userRegistration.getPosition())) {
                                 invalidErrList.add("Invalid Designation: Designation should be added from default list and/or cannot contain special character");
                             }
                         }
@@ -864,6 +871,42 @@ public class UserBulkUploadService {
     private String getFileExtension(String fileName) {
         int lastIndexOfDot= fileName.lastIndexOf('.');
         return lastIndexOfDot == -1 ? "" : fileName.substring(lastIndexOfDot);
+    }
+
+    public boolean validateDesignationFieldValue(String designation) {
+        int page = 0;
+        int pageSize = serverProperties.getSearchDesignationResultSize();
+        String url = serverProperties.getCbPoresServiceHost() + serverProperties.getCbPoresMasterDesignationEndpoint();
+        HashMap<String, String> headersValue = new HashMap<>();
+        headersValue.put(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
+        Map<String, Object> searchRequest = new HashMap<>();
+        searchRequest.put(Constants.PAGE_NUMBER, page);
+        searchRequest.put(Constants.PAGE_SIZE, pageSize);
+        searchRequest.put(Constants.REQUEST_FIELDS, new ArrayList<>());
+
+        Map<String, Object> filterCriteria = new HashMap<>();
+        filterCriteria.put(Constants.STATUS, Constants.ACTIVE_TITLE_CASE);
+        filterCriteria.put(Constants.DESIGNATION, designation);
+        searchRequest.put(Constants.FILTER_CRITERIA_MAP, filterCriteria);
+
+        Map<String, Object> response =  outboundRequestHandlerService.fetchResultUsingPost(url, searchRequest, headersValue);
+        if (MapUtils.isEmpty(response)) {
+            return false;
+        }
+
+        Map<String, Object> outerResult = (Map<String, Object>) response.get(Constants.RESULT);
+        if (MapUtils.isEmpty(outerResult)) {
+            return false;
+        }
+
+        Map<String, Object> innerResult = (Map<String, Object>) outerResult.get(Constants.RESULT);
+        if (MapUtils.isEmpty(innerResult)) {
+            return false;
+        }
+
+        List<Map<String, Object>> data = (List<Map<String, Object>>) innerResult.get(Constants.DATA);
+
+        return CollectionUtils.isEmpty(data);
     }
 
 }

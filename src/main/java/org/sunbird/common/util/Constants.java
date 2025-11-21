@@ -1455,6 +1455,10 @@ public class Constants {
     public static final String RIGHT_ANGLE_BRACKET = ">";
     public static final String API_ORG_HIERACHY_SEARCH_V3 = "api.org.hierarchy.searchV3";
     public static final String ORG_LEVEL_HIERARCHY_CACHE_KEY = "org:level:hierarchy:";
+    public static final String SEPARATOR_SLASH = "/";
+    public static final String QUESTION_MARK = "?";
+    public static final String AMPERSAND = "&";
+    public static final String EQUALS = "=";
     private Constants() {
 		throw new IllegalStateException("Utility class");
 	}
@@ -1462,5 +1466,5 @@ public class Constants {
     public static final String FORM_QUESTIONS_ANSWER = "formQuestionsAnswer";
     public static final String FORM_QUESTIONS = "formQuestions";
     public static final String SUBMITTED_DATE = "submittedDate";
-
+    public static final String ACTIVE_TITLE_CASE = "Active";
 }
