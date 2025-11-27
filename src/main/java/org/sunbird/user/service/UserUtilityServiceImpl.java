@@ -22,6 +22,7 @@ import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.MessageSource;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -87,6 +88,9 @@ public class UserUtilityServiceImpl implements UserUtilityService {
 
     @Autowired
     ContentService contentService;
+
+    @Autowired
+    MessageSource messageSource;
 
 	private Logger logger = LoggerFactory.getLogger(UserUtilityServiceImpl.class);
 
@@ -1230,10 +1234,10 @@ public class UserUtilityServiceImpl implements UserUtilityService {
 			boolean retValue = isApprovedDomains(emailDomain, Constants.USER_REGISTRATION_DOMAIN)
 					|| isApprovedDomains(emailDomain, Constants.USER_REGISTRATION_PRE_APPROVED_DOMAIN);
 			if (!retValue) {
-				str.append("Email domain of this email address is not approved. Please use Request for help.");
+                str.append(messageSource.getMessage("email.domain.not.allowed", new Object[]{emailDomain}, Locale.ENGLISH));
 			}
 		} else {
-			str.append("Invalid Email ID");
+            str.append(messageSource.getMessage("email.invalid", null, Locale.ENGLISH));
 		}
 		return str.toString();
 	}
