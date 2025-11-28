@@ -89,9 +89,6 @@ public class UserUtilityServiceImpl implements UserUtilityService {
     @Autowired
     ContentService contentService;
 
-    @Autowired
-    MessageSource messageSource;
-
 	private Logger logger = LoggerFactory.getLogger(UserUtilityServiceImpl.class);
 
 	public boolean validateUser(String userId) {
@@ -1234,10 +1231,10 @@ public class UserUtilityServiceImpl implements UserUtilityService {
 			boolean retValue = isApprovedDomains(emailDomain, Constants.USER_REGISTRATION_DOMAIN)
 					|| isApprovedDomains(emailDomain, Constants.USER_REGISTRATION_PRE_APPROVED_DOMAIN);
 			if (!retValue) {
-                str.append(messageSource.getMessage("email.domain.not.allowed", new Object[]{emailDomain}, Locale.ENGLISH));
+                str.append(serverConfig.getEmailDomainNotAllowedMessage());
 			}
 		} else {
-            str.append(messageSource.getMessage("email.invalid", null, Locale.ENGLISH));
+            str.append(serverConfig.getInvalidEmailMessage());
 		}
 		return str.toString();
 	}
