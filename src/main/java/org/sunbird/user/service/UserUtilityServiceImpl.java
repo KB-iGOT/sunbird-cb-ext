@@ -1230,10 +1230,10 @@ public class UserUtilityServiceImpl implements UserUtilityService {
 			boolean retValue = isApprovedDomains(emailDomain, Constants.USER_REGISTRATION_DOMAIN)
 					|| isApprovedDomains(emailDomain, Constants.USER_REGISTRATION_PRE_APPROVED_DOMAIN);
 			if (!retValue) {
-				str.append("Email domain of this email address is not approved. Please use Request for help.");
+                str.append(serverConfig.getEmailDomainNotAllowedMessage());
 			}
 		} else {
-			str.append("Invalid Email ID");
+            str.append(serverConfig.getInvalidEmailMessage());
 		}
 		return str.toString();
 	}
