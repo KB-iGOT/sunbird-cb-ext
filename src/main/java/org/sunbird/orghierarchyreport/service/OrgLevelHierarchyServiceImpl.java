@@ -25,6 +25,7 @@ import org.sunbird.orghierarchyreport.repository.MdoChildrenLookUpRepository;
 import java.io.IOException;
 import java.util.*;
 import java.util.stream.Collectors;
+import com.fasterxml.jackson.core.JsonProcessingException;
 
 @Service
 public class OrgLevelHierarchyServiceImpl implements OrgLevelHierarchyService {
@@ -71,6 +72,7 @@ public class OrgLevelHierarchyServiceImpl implements OrgLevelHierarchyService {
             String cacheKey = Constants.ORG_LEVEL_HIERARCHY_CACHE_KEY + identifier;
             String cachedChildrenData = redisCacheMgr.getCache(cacheKey);
             if (StringUtils.isNotEmpty(cachedChildrenData)) {
+                logger.info("OrgLevelHierarchyServiceImpl:orgExtSearchV3:Fetching org level hierarchy data from cache for org id: " + identifier);
                 try {
                     List<Map<String, Object>> cachedDataList = objectMapper.readValue(cachedChildrenData, new TypeReference<List<Map<String, Object>>>() {
                     });
@@ -83,13 +85,16 @@ public class OrgLevelHierarchyServiceImpl implements OrgLevelHierarchyService {
                     return response;
                 }
             } else {
+                logger.info("OrgLevelHierarchyServiceImpl:orgExtSearchV3:No cache found for org id: " + identifier);
                 missingChildrenIds.add(identifier);
             }
         }
         if (CollectionUtils.isNotEmpty(missingChildrenIds)) {
+            logger.info("OrgLevelHierarchyServiceImpl:orgExtSearchV3:Fetching missing org level hierarchy data for org ids: " + String.join(", ", missingChildrenIds));
             indentifiersList = new ArrayList<>(missingChildrenIds);
             List<MdoChildrenLookupEntity> childrenIdsList = mdoChildrenLookupRepository.findAllChildrenByMdoId(indentifiersList);
             if (CollectionUtils.isEmpty(childrenIdsList)) {
+                logger.info("OrgLevelHierarchyServiceImpl:orgExtSearchV3:No children found for the given org ids.");
                 Map<String, Object> requestBody = (Map<String, Object>) request.get(Constants.REQUEST);
                 Map<String, Object> filters = (Map<String, Object>) requestBody.get(Constants.FILTERS);
                 filters.put(Constants.IDENTIFIER, indentifiersList);
@@ -106,6 +111,7 @@ public class OrgLevelHierarchyServiceImpl implements OrgLevelHierarchyService {
     private void handleChildrenScenario(List<MdoChildrenLookupEntity> childrenIdsList, SBApiResponse response, List<Map<String, Object>> cachedChildrenDataList) {
         List<Map<String, Object>> mappedList = new ArrayList<>();
         for (MdoChildrenLookupEntity entity : childrenIdsList) {
+            logger.info("OrgLevelHierarchyServiceImpl:handleChildrenScenario:Fetching org level hierarchy data for org id: " + entity.getMdoId());
             String childrenIds = entity.getChildrenId();
             List<String> orgIds = Arrays.asList(childrenIds.split(","));
             Map<String, Object> requestMap = new HashMap<>();
@@ -121,11 +127,15 @@ public class OrgLevelHierarchyServiceImpl implements OrgLevelHierarchyService {
             String serviceURL = configProperties.getSbUrl() + configProperties.getSbOrgSearchPath();
             Map<String, Object> payload = new HashMap<>();
             payload.put(Constants.REQUEST, requestMap);
+            logger.info("OrgLevelHierarchyServiceImpl :handleChildrenScenario:curl"+generateCurlCommand(serviceURL,payload));
             Map<String, Object> orgResponse = (Map<String, Object>) outboundRequestHandlerService.fetchResultUsingPost(serviceURL, payload);
             Map<String, Object> responseMap = (Map<String, Object>) orgResponse.get(Constants.RESULT);
             mappedList.addAll(buildMappedOrgList(responseMap));
             cachedChildrenDataList.addAll(mappedList);
-            redisCacheMgr.putCache(Constants.ORG_LEVEL_HIERARCHY_CACHE_KEY + entity.getMdoId(), mappedList, configProperties.getOrgLevelHierarchyCacheKeyTTL());
+            if (CollectionUtils.isNotEmpty(mappedList)) {
+                logger.info("OrgLevelHierarchyServiceImpl:handleChildrenScenario:Caching org level hierarchy data for org id: " + entity.getMdoId());
+                redisCacheMgr.putCache(Constants.ORG_LEVEL_HIERARCHY_CACHE_KEY + entity.getMdoId(), mappedList, configProperties.getOrgLevelHierarchyCacheKeyTTL());
+            }
         }
         Map<String, Object> contentMap = new HashMap<>();
         contentMap.put(Constants.COUNT, cachedChildrenDataList.size());
@@ -134,23 +144,29 @@ public class OrgLevelHierarchyServiceImpl implements OrgLevelHierarchyService {
     }
 
     private SBApiResponse handleNoChildrenScenario(Map<String, Object> request, List<Map<String, Object>> cachedChildrenDataList) {
+        logger.info("OrgLevelHierarchyServiceImpl:handleNoChildrenScenario:No children found in MDO lookup, fetching full hierarchy from org service.");
         Map<String, Object> requestBody = (Map<String, Object>) request.get(Constants.REQUEST);
         Map<String, Object> filters = (Map<String, Object>) requestBody.get(Constants.FILTERS);
         List<String> indentifiersList = (List<String>) filters.get(Constants.IDENTIFIER);
         SBApiResponse listAllOrgResponse = new SBApiResponse();
         for (String identifier : indentifiersList) {
+            logger.info("OrgLevelHierarchyServiceImpl:handleNoChildrenScenario:Fetching org level hierarchy data for org id: " + identifier);
             filters.put(Constants.IDENTIFIER, Collections.singletonList(identifier));
             SBApiResponse orgSearchResponse = extendedOrgService.orgExtSearchV2(request);
             Map<String, Object> result = orgSearchResponse.getResult();
             if (MapUtils.isNotEmpty(result)) {
+                logger.info("OrgLevelHierarchyServiceImpl:handleNoChildrenScenario:Org search successful, processing response for org id: " + identifier);
                 List<OrgHierarchyInfo> responseList = (List<OrgHierarchyInfo>) result.get(Constants.RESPONSE);
                 if (CollectionUtils.isNotEmpty(responseList)) {
+                    logger.info("OrgLevelHierarchyServiceImpl:handleNoChildrenScenario:Fetching full org hierarchy for mapId: " + responseList.get(0).getMapId());
                     listAllOrgResponse = extendedOrgService.listAllOrg(responseList.get(0).getMapId());
                     result = listAllOrgResponse.getResult();
                     if (MapUtils.isNotEmpty(result)) {
+                        logger.info("OrgLevelHierarchyServiceImpl:handleNoChildrenScenario:Processing full org hierarchy response for org id: " + identifier);
                         Map<String, Object> responseMap = (Map<String, Object>) result.get(Constants.RESPONSE);
                         List<OrgHierarchy> contentList = (List<OrgHierarchy>) responseMap.get(Constants.CONTENT);
                         if (CollectionUtils.isNotEmpty(contentList)) {
+                            logger.info("OrgLevelHierarchyServiceImpl:handleNoChildrenScenario:Caching full org hierarchy data for org id: " + identifier); `
                             List<Map<String, Object>> modifiedContentList = contentList.stream()
                                     .map(org -> (Map<String, Object>) objectMapper.convertValue(org, new TypeReference<Map<String, Object>>() {
                                     }))
@@ -278,5 +294,18 @@ public class OrgLevelHierarchyServiceImpl implements OrgLevelHierarchyService {
             errMsg = "OrgName is empty in search request.";
         }
         return errMsg;
+    }
+
+    /**
+     * Generate curl command for logging purposes
+     */
+    private String generateCurlCommand(String url, Map<String, Object> payload) {
+        try {
+            String jsonPayload = objectMapper.writeValueAsString(payload);
+            return String.format("curl -X POST '%s' -H 'Content-Type: application/json' -d '%s'", url, jsonPayload);
+        } catch (Exception e) {
+            logger.error("Error generating curl command: {}", e.getMessage());
+            return "curl -X POST '" + url + "' -H 'Content-Type: application/json' -d '<error serializing payload>'";
+        }
     }
 }
