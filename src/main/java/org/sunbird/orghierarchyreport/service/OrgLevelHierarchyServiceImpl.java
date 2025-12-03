@@ -166,7 +166,7 @@ public class OrgLevelHierarchyServiceImpl implements OrgLevelHierarchyService {
                         Map<String, Object> responseMap = (Map<String, Object>) result.get(Constants.RESPONSE);
                         List<OrgHierarchy> contentList = (List<OrgHierarchy>) responseMap.get(Constants.CONTENT);
                         if (CollectionUtils.isNotEmpty(contentList)) {
-                            logger.info("OrgLevelHierarchyServiceImpl:handleNoChildrenScenario:Caching full org hierarchy data for org id: " + identifier); `
+                            logger.info("OrgLevelHierarchyServiceImpl:handleNoChildrenScenario:Caching full org hierarchy data for org id: " + identifier);
                             List<Map<String, Object>> modifiedContentList = contentList.stream()
                                     .map(org -> (Map<String, Object>) objectMapper.convertValue(org, new TypeReference<Map<String, Object>>() {
                                     }))
