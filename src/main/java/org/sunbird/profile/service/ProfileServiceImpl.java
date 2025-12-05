@@ -2498,7 +2498,7 @@ public class ProfileServiceImpl implements ProfileService {
 
 	private boolean validateOTPForPersonalDetails(Map<String, Object> profileDetailsMap,
 												   Map<String, Object> requestData,
-												   SBApiResponse response) {
+												   SBApiResponse response, String userToken) {
 		if (!profileDetailsMap.containsKey(Constants.PERSONAL_DETAILS)) {
 			return true;
 		}
@@ -2523,7 +2523,7 @@ public class ProfileServiceImpl implements ProfileService {
 				return false;
 			}
 
-			if (!verifyOTP(phoneOtp, Constants.PHONE, mobile)) {
+			if (!verifyOTP(phoneOtp, Constants.PHONE, mobile, userToken)) {
 				response.setResponseCode(HttpStatus.BAD_REQUEST);
 				response.getParams().setStatus(Constants.FAILED);
 				response.getParams().setErrmsg("Invalid phone OTP");
@@ -2552,7 +2552,7 @@ public class ProfileServiceImpl implements ProfileService {
 				return false;
 			}
 
-			if (!verifyOTP(emailOtp, Constants.EMAIL, email)) {
+			if (!verifyOTP(emailOtp, Constants.EMAIL, email, userToken)) {
 				response.setResponseCode(HttpStatus.BAD_REQUEST);
 				response.getParams().setStatus(Constants.FAILED);
 				response.getParams().setErrmsg("Invalid email OTP");
@@ -2564,7 +2564,7 @@ public class ProfileServiceImpl implements ProfileService {
 		return true;
 	}
 
-	private boolean verifyOTP(String otp, String type, String key) {
+	private boolean verifyOTP(String otp, String type, String key, String userToken) {
 		try {
 			Map<String, Object> otpRequest = new HashMap<>();
 			Map<String, Object> requestData = new HashMap<>();
@@ -2576,6 +2576,7 @@ public class ProfileServiceImpl implements ProfileService {
 			String url = serverConfig.getLearnerServiceHost() + serverConfig.getLmsOTPVerifyPath();
 			Map<String, String> headers = new HashMap<>();
 			headers.put(Constants.CONTENT_TYPE, Constants.APPLICATION_JSON);
+            headers.put(Constants.X_AUTH_TOKEN, userToken);
 
 			Map<String, Object> apiResponse = outboundRequestHandlerService.fetchResultUsingPost(url, otpRequest, headers);
 			String responseCode = (String) apiResponse.get(Constants.RESPONSE_CODE);
@@ -2838,7 +2839,7 @@ public class ProfileServiceImpl implements ProfileService {
                 return response;
             }
 
-            if (!validateOTPForPersonalDetails(profileDetailsMap, requestData, response)) {
+            if (!validateOTPForPersonalDetails(profileDetailsMap, requestData, response, userToken)) {
                 return response;
             }
 
