@@ -2725,24 +2725,23 @@ public class ProfileServiceImpl implements ProfileService {
     public SBApiResponse profileUpdateV3(Map<String, Object> request, String userToken, String authToken, String rootOrgId) {
         SBApiResponse response = new SBApiResponse(Constants.API_PROFILE_UPDATE);
         try {
-            Map<String, Object> requestData = (Map<String, Object>) request.get(Constants.REQUEST);
-            if (!validateRequest(requestData)) {
-                setResponse(response, "Invalid request", HttpStatus.BAD_REQUEST, Constants.FAILED);
+            String userIdFromToken = accessTokenValidator.fetchUserIdFromAccessToken(userToken, response);
+            if (StringUtils.isBlank(userIdFromToken)) {
                 return response;
             }
 
-            String userId = (String) requestData.get(Constants.USER_ID);
-            String userIdFromToken = accessTokenValidator.fetchUserIdFromAccessToken(userToken);
+            String userId = (String) request.get(Constants.USER_ID);
             if (!userId.equalsIgnoreCase(userIdFromToken)) {
-                setResponse(response, "Invalid UserId in the request", HttpStatus.BAD_REQUEST, Constants.FAILED);
+                ProjectUtil.returnErrorMsg("Invalid UserId in the request", HttpStatus.BAD_REQUEST, response, Constants.FAILED);
+                return response;
+            }
+
+            Map<String, Object> requestData = (Map<String, Object>) request.get(Constants.REQUEST);
+            if (!validateRequest(requestData)) {
+                ProjectUtil.returnErrorMsg("Invalid request", HttpStatus.BAD_REQUEST, response, Constants.FAILED);
                 return response;
             }
             Map<String, Object> profileDetailsMap = (Map<String, Object>) requestData.get(Constants.PROFILE_DETAILS);
-            String validatePhoneEmailErrMsg = validateExistingPhoneEmail(profileDetailsMap);
-            if (!validatePhoneEmailErrMsg.isEmpty()) {
-                setResponse(response, validatePhoneEmailErrMsg, HttpStatus.BAD_REQUEST, Constants.FAILED);
-                return response;
-            }
 
             if (!otpValidator.validateOTPForPersonalDetails(profileDetailsMap, requestData, response, userToken)) {
                 return response;
@@ -2751,16 +2750,7 @@ public class ProfileServiceImpl implements ProfileService {
             return profileUpdate(request, userToken, authToken, rootOrgId);
         } catch (Exception e) {
             log.error("Failed to process profile update V3. Exception: ", e);
-            setResponse(response, e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR, Constants.FAILED);
-        }
-        return response;
-    }
-
-    private SBApiResponse setResponse(SBApiResponse response, String errMsg, HttpStatus status, String message) {
-        response.setResponseCode(status);
-        response.getParams().setStatus(message);
-        if (StringUtils.isNotBlank(errMsg)) {
-            response.getParams().setErrmsg(errMsg);
+            ProjectUtil.returnErrorMsg(e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR, response, Constants.FAILED);
         }
         return response;
     }
