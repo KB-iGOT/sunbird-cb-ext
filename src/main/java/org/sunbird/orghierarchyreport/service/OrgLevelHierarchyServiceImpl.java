@@ -3,7 +3,6 @@ package org.sunbird.orghierarchyreport.service;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.collections.CollectionUtils;
-import org.apache.commons.collections.MapUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -16,16 +15,12 @@ import org.sunbird.common.service.OutboundRequestHandlerServiceImpl;
 import org.sunbird.common.util.CbExtServerProperties;
 import org.sunbird.common.util.Constants;
 import org.sunbird.common.util.ProjectUtil;
-import org.sunbird.org.model.OrgHierarchy;
-import org.sunbird.org.model.OrgHierarchyInfo;
 import org.sunbird.org.service.ExtendedOrgServiceImpl;
 import org.sunbird.orghierarchyreport.entity.MdoChildrenLookupEntity;
 import org.sunbird.orghierarchyreport.repository.MdoChildrenLookUpRepository;
 
 import java.io.IOException;
 import java.util.*;
-import java.util.stream.Collectors;
-import com.fasterxml.jackson.core.JsonProcessingException;
 
 @Service
 public class OrgLevelHierarchyServiceImpl implements OrgLevelHierarchyService {
@@ -93,12 +88,15 @@ public class OrgLevelHierarchyServiceImpl implements OrgLevelHierarchyService {
             logger.info("OrgLevelHierarchyServiceImpl:orgExtSearchV3:Fetching missing org level hierarchy data for org ids: " + String.join(", ", missingChildrenIds));
             indentifiersList = new ArrayList<>(missingChildrenIds);
             List<MdoChildrenLookupEntity> childrenIdsList = mdoChildrenLookupRepository.findAllChildrenByMdoId(indentifiersList);
-            if (CollectionUtils.isEmpty(childrenIdsList)) {
+            boolean hasNullOrEmptyChildren = childrenIdsList == null || childrenIdsList.stream()
+                    .map(MdoChildrenLookupEntity::getChildrenId)
+                    .anyMatch(StringUtils::isEmpty);
+            if (hasNullOrEmptyChildren) {
                 logger.info("OrgLevelHierarchyServiceImpl:orgExtSearchV3:No children found for the given org ids.");
-                Map<String, Object> requestBody = (Map<String, Object>) request.get(Constants.REQUEST);
-                Map<String, Object> filters = (Map<String, Object>) requestBody.get(Constants.FILTERS);
-                filters.put(Constants.IDENTIFIER, indentifiersList);
-                return handleNoChildrenScenario(request, cachedChildrenDataList);
+                response.put(Constants.COUNT, 0);
+                response.put(Constants.RESPONSE, new ArrayList<>());
+                response.getParams().setErrmsg("No child org found");
+                return response;
             }
             handleChildrenScenario(childrenIdsList, response, cachedChildrenDataList);
         } else {
@@ -141,48 +139,6 @@ public class OrgLevelHierarchyServiceImpl implements OrgLevelHierarchyService {
         contentMap.put(Constants.COUNT, cachedChildrenDataList.size());
         contentMap.put(Constants.CONTENT, cachedChildrenDataList);
         response.put(Constants.RESPONSE, contentMap);
-    }
-
-    private SBApiResponse handleNoChildrenScenario(Map<String, Object> request, List<Map<String, Object>> cachedChildrenDataList) {
-        logger.info("OrgLevelHierarchyServiceImpl:handleNoChildrenScenario:No children found in MDO lookup, fetching full hierarchy from org service.");
-        Map<String, Object> requestBody = (Map<String, Object>) request.get(Constants.REQUEST);
-        Map<String, Object> filters = (Map<String, Object>) requestBody.get(Constants.FILTERS);
-        List<String> indentifiersList = (List<String>) filters.get(Constants.IDENTIFIER);
-        SBApiResponse listAllOrgResponse = new SBApiResponse();
-        for (String identifier : indentifiersList) {
-            logger.info("OrgLevelHierarchyServiceImpl:handleNoChildrenScenario:Fetching org level hierarchy data for org id: " + identifier);
-            filters.put(Constants.IDENTIFIER, Collections.singletonList(identifier));
-            SBApiResponse orgSearchResponse = extendedOrgService.orgExtSearchV2(request);
-            Map<String, Object> result = orgSearchResponse.getResult();
-            if (MapUtils.isNotEmpty(result)) {
-                logger.info("OrgLevelHierarchyServiceImpl:handleNoChildrenScenario:Org search successful, processing response for org id: " + identifier);
-                List<OrgHierarchyInfo> responseList = (List<OrgHierarchyInfo>) result.get(Constants.RESPONSE);
-                if (CollectionUtils.isNotEmpty(responseList)) {
-                    logger.info("OrgLevelHierarchyServiceImpl:handleNoChildrenScenario:Fetching full org hierarchy for mapId: " + responseList.get(0).getMapId());
-                    listAllOrgResponse = extendedOrgService.listAllOrg(responseList.get(0).getMapId());
-                    result = listAllOrgResponse.getResult();
-                    if (MapUtils.isNotEmpty(result)) {
-                        logger.info("OrgLevelHierarchyServiceImpl:handleNoChildrenScenario:Processing full org hierarchy response for org id: " + identifier);
-                        Map<String, Object> responseMap = (Map<String, Object>) result.get(Constants.RESPONSE);
-                        List<OrgHierarchy> contentList = (List<OrgHierarchy>) responseMap.get(Constants.CONTENT);
-                        if (CollectionUtils.isNotEmpty(contentList)) {
-                            logger.info("OrgLevelHierarchyServiceImpl:handleNoChildrenScenario:Caching full org hierarchy data for org id: " + identifier);
-                            List<Map<String, Object>> modifiedContentList = contentList.stream()
-                                    .map(org -> (Map<String, Object>) objectMapper.convertValue(org, new TypeReference<Map<String, Object>>() {
-                                    }))
-                                    .collect(Collectors.toList());
-                            cachedChildrenDataList.addAll(modifiedContentList);
-                            redisCacheMgr.putCache(Constants.ORG_LEVEL_HIERARCHY_CACHE_KEY + identifier, mapOrgList(modifiedContentList), configProperties.getOrgLevelHierarchyCacheKeyTTL());
-                        }
-                    }
-                }
-            }
-        }
-        Map<String, Object> contentMap = new HashMap<>();
-        contentMap.put(Constants.CONTENT, mapOrgList(cachedChildrenDataList));
-        contentMap.put(Constants.COUNT, cachedChildrenDataList.size());
-        listAllOrgResponse.put(Constants.RESPONSE, contentMap);
-        return listAllOrgResponse;
     }
 
     private List<Map<String, Object>> buildMappedOrgList(Map<String, Object> responseMap) {
