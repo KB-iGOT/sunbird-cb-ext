@@ -2731,7 +2731,7 @@ public class ProfileServiceImpl implements ProfileService {
             }
 
             String userId = (String) request.get(Constants.USER_ID);
-            if (!userId.equalsIgnoreCase(userIdFromToken)) {
+            if (!userIdFromToken.equalsIgnoreCase(userId)) {
                 ProjectUtil.returnErrorMsg("Invalid UserId in the request", HttpStatus.BAD_REQUEST, response, Constants.FAILED);
                 return response;
             }
