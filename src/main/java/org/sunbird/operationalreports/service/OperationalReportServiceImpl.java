@@ -519,18 +519,18 @@ public class OperationalReportServiceImpl implements OperationalReportService {
             sourceFolderPath = String.format("%s/%s/%s/", Constants.LOCAL_BASE_PATH, rootOrgId, UUID.randomUUID());
             String outputPath = sourceFolderPath +  Constants.OUTPUT_PATH;
             for (String childId : childIds) {
-                boolean isChildPresent = orgHierarchyRepository.isChildOrgPresent(mapId, childId);
-                if (isChildPresent) {
+                //boolean isChildPresent = orgHierarchyRepository.isChildOrgPresent(mapId, childId);
+               // if (isChildPresent) {
                     logger.info("This is under mdo: " + childId + " rootOrgId: " + rootOrgId);
                     String objectKey = serverProperties.getOperationalReportFolderName() + "/mdoid=" + childId + "/"
                             + serverProperties.getOperationReportFileName();
                     createTheZipAndStoreForOrg(reportFileName, objectKey, sourceFolderPath);
-                } else {
-                    logger.error("ChildId is not proper for orgId: " + rootOrgId);
-                    if (childIds.size() == 1) {
-                        throw new Exception("ChildId is not proper for orgId:: " + rootOrgId);
-                    }
-                }
+                // } else {
+                //     logger.error("ChildId is not proper for orgId: " + rootOrgId);
+                //     if (childIds.size() == 1) {
+                //         throw new Exception("ChildId is not proper for orgId:: " + rootOrgId);
+                //     }
+                // }
             }
             if (CollectionUtils.isEmpty(childIds)) {
                 String objectKey = serverProperties.getOperationalReportFolderName() + "/mdoid=" + rootOrgId + "/"

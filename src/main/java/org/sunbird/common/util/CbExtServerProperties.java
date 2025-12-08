@@ -1165,6 +1165,12 @@ public class CbExtServerProperties {
     @Value("${org.level.hierarchy.es.offset}")
     private int orgLevelHierarchyESOffset;
 
+    @Value("${email.domain.not.allowed}")
+    private String emailDomainNotAllowedMessage;
+
+    @Value("${email.invalid}")
+    private String invalidEmailMessage;
+
     public String getStateLearningInsightsRedisKeyMapping() {
 		return stateLearningInsightsRedisKeyMapping;
 	}
@@ -3927,5 +3933,13 @@ public class CbExtServerProperties {
 
     public void setOrgLevelHierarchyESLimit(int orgLevelHierarchyESLimit) {
         this.orgLevelHierarchyESLimit = orgLevelHierarchyESLimit;
+    }
+
+    public String getEmailDomainNotAllowedMessage() {
+        return emailDomainNotAllowedMessage;
+    }
+
+    public String getInvalidEmailMessage() {
+        return invalidEmailMessage;
     }
 }
