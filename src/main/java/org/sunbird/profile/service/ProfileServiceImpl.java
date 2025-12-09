@@ -2730,15 +2730,15 @@ public class ProfileServiceImpl implements ProfileService {
                 return response;
             }
 
-            String userId = (String) request.get(Constants.USER_ID);
-            if (!userIdFromToken.equalsIgnoreCase(userId)) {
-                ProjectUtil.returnErrorMsg("Invalid UserId in the request", HttpStatus.BAD_REQUEST, response, Constants.FAILED);
-                return response;
-            }
-
             Map<String, Object> requestData = (Map<String, Object>) request.get(Constants.REQUEST);
             if (!validateRequest(requestData)) {
                 ProjectUtil.returnErrorMsg("Invalid request", HttpStatus.BAD_REQUEST, response, Constants.FAILED);
+                return response;
+            }
+
+            String userId = (String) requestData.get(Constants.USER_ID);
+            if (!userIdFromToken.equalsIgnoreCase(userId)) {
+                ProjectUtil.returnErrorMsg("Invalid UserId in the request", HttpStatus.BAD_REQUEST, response, Constants.FAILED);
                 return response;
             }
             Map<String, Object> profileDetailsMap = (Map<String, Object>) requestData.get(Constants.PROFILE_DETAILS);
