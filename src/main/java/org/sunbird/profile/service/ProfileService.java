@@ -65,4 +65,6 @@ public interface ProfileService {
             String userAuthToken,
             String childOrgId,
             String childOrgChannel);
+
+    SBApiResponse profileUpdateV3(Map<String, Object> request, String userToken, String authToken, String rootOrgId);
 }

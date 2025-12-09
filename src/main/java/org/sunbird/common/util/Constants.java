@@ -1475,4 +1475,7 @@ public class Constants {
 	public static final String MILESTONES_V1 = "milestones_v1";
 	public static final String ASSESSMENT_DETAILS = "assessmentDetail";
 	public static final String PRELIMINARY_ASSESSMENT = "preliminaryAssessment";
+    public static final String OTP = "otp";
+    public static final String EMAIL_OTP = "emailOtp";
+    public static final String PHONE_OTP = "phoneOtp";
 }

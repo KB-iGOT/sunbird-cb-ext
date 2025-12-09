@@ -204,4 +204,13 @@ public class ProfileController {
         return new ResponseEntity<>(uploadResponse, uploadResponse.getResponseCode());
     }
 
+    @PostMapping("/v3/user/patch")
+    public ResponseEntity<?> profileUpdateV3(
+            @RequestHeader(value = Constants.X_AUTH_TOKEN, required = true) String userToken,
+            @RequestHeader(value = Constants.AUTH_TOKEN, required = false) String authToken,
+            @RequestHeader(value = Constants.X_AUTH_USER_ORG_ID, required = false) String rootOrgId,
+            @RequestBody Map<String, Object> request) {
+        SBApiResponse response = profileService.profileUpdateV3(request, userToken, authToken, rootOrgId);
+        return new ResponseEntity<>(response, response.getResponseCode());
+    }
 }

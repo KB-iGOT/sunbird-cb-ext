@@ -1180,6 +1180,9 @@ public class CbExtServerProperties {
 	@Value("${landing.page.insights.redis.key.mapping}")
 	private String landingPageInsightsRedisKeyMapping;
 
+	@Value("${lms.otp.verify.path}")
+	private String lmsOTPVerifyPath;
+
 	public String getStateLearningInsightsRedisKeyMapping() {
 		return stateLearningInsightsRedisKeyMapping;
 	}
@@ -3973,4 +3976,8 @@ public class CbExtServerProperties {
 	public void setLandingPageInsightsRedisKeyMapping(String landingPageInsightsRedisKeyMapping) {
 		this.landingPageInsightsRedisKeyMapping = landingPageInsightsRedisKeyMapping;
 	}
+
+    public String getLmsOTPVerifyPath() { return lmsOTPVerifyPath; }
+
+    public void setLmsOTPVerifyPath(String lmsOTPVerifyPath) { this.lmsOTPVerifyPath = lmsOTPVerifyPath; }
 }
