@@ -132,6 +132,9 @@ public class ProfileServiceImpl implements ProfileService {
   @Autowired
   RedisCacheMgr redisCacheMgr;
 
+  @Autowired
+  private OTPValidator otpValidator;
+
 	private Logger log = LoggerFactory.getLogger(getClass().getName());
 
 	@Override
@@ -161,6 +164,7 @@ public class ProfileServiceImpl implements ProfileService {
 				response.getParams().setErrmsg(validatePhoneEmailErrMsg);
 				return response;
 			}
+
 			List<String> approvalFieldList = approvalFields();
 			String newDeptName = checkDepartment(profileDetailsMap);
 			Map<String, Object> transitionData = new HashMap<>();
@@ -267,7 +271,6 @@ public class ProfileServiceImpl implements ProfileService {
 					response.getParams().setStatus(Constants.FAILED);
 					String errMsg = (String) ((Map<String, Object>) updateResponse.get(Constants.PARAMS))
 							.get(Constants.ERROR_MESSAGE);
-					errMsg = PropertiesCache.getInstance().readCustomError(errMsg);
 					response.getParams().setErrmsg(errMsg);
 					log.error(errMsg, new Exception(errMsg));
 					return response;
@@ -2062,7 +2065,7 @@ public class ProfileServiceImpl implements ProfileService {
 							List<Map<String, Object>> professionalList = (List<Map<String, Object>>) existingProfileDetails
 									.get(Constants.PROFESSIONAL_DETAILS);
 							Map<String, Object> existingProfessionalDetailsMap = null;
-							
+
 							// professional detail is empty... just replace...
 							if (CollectionUtils.isEmpty(professionalList)) {
 								existingProfileDetails.put(changedObj, profileDetailsMap.get(changedObj));
@@ -2192,7 +2195,7 @@ public class ProfileServiceImpl implements ProfileService {
 					} else {
 						existingProfileDetails.put(Constants.PROFILE_STATUS, Constants.NOT_VERIFIED);
 					}
-				
+
 					SimpleDateFormat sdf = new SimpleDateFormat("dd-MM-yyyy HH.mm.ss");
 					sdf.setTimeZone(TimeZone.getTimeZone("GMT+05:30"));
 					String timeStamp = sdf.format(new java.util.Date());
@@ -2718,6 +2721,39 @@ public class ProfileServiceImpl implements ProfileService {
         }
     }
 
+    @Override
+    public SBApiResponse profileUpdateV3(Map<String, Object> request, String userToken, String authToken, String rootOrgId) {
+        SBApiResponse response = new SBApiResponse(Constants.API_PROFILE_UPDATE);
+        try {
+            String userIdFromToken = accessTokenValidator.fetchUserIdFromAccessToken(userToken, response);
+            if (StringUtils.isBlank(userIdFromToken)) {
+                return response;
+            }
+
+            String userId = (String) request.get(Constants.USER_ID);
+            if (!userIdFromToken.equalsIgnoreCase(userId)) {
+                ProjectUtil.returnErrorMsg("Invalid UserId in the request", HttpStatus.BAD_REQUEST, response, Constants.FAILED);
+                return response;
+            }
+
+            Map<String, Object> requestData = (Map<String, Object>) request.get(Constants.REQUEST);
+            if (!validateRequest(requestData)) {
+                ProjectUtil.returnErrorMsg("Invalid request", HttpStatus.BAD_REQUEST, response, Constants.FAILED);
+                return response;
+            }
+            Map<String, Object> profileDetailsMap = (Map<String, Object>) requestData.get(Constants.PROFILE_DETAILS);
+
+            if (!otpValidator.validateOTPForPersonalDetails(profileDetailsMap, requestData, response, userToken)) {
+                return response;
+            }
+
+            return profileUpdate(request, userToken, authToken, rootOrgId);
+        } catch (Exception e) {
+            log.error("Failed to process profile update V3. Exception: ", e);
+            ProjectUtil.returnErrorMsg(e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR, response, Constants.FAILED);
+        }
+        return response;
+    }
 }
 
 
