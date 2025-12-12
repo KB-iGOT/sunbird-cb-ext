@@ -12,6 +12,7 @@ import org.codehaus.jackson.map.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -24,6 +25,7 @@ import org.sunbird.common.service.OutboundRequestHandlerServiceImpl;
 import org.sunbird.common.util.CbExtServerProperties;
 import org.sunbird.common.util.Constants;
 import org.sunbird.common.util.ProjectUtil;
+import org.sunbird.consumer.KafkaProducer;
 import org.sunbird.org.model.OrgHierarchy;
 import org.sunbird.org.model.OrgHierarchyInfo;
 import org.sunbird.org.repository.OrgHierarchyRepository;
@@ -41,7 +43,13 @@ public class ExtendedOrgServiceImpl implements ExtendedOrgService {
 	@Autowired
 	OrgHierarchyRepository orgRepository;
 
-	ObjectMapper objectMapper = new ObjectMapper();
+    @Autowired
+    KafkaProducer kafkaProducer;
+
+    @Value("${kafka.topics.org.hierarchy.framework.new.org.event}")
+    private String kafkaTopicCreateHierarchyFramework;
+
+    ObjectMapper objectMapper = new ObjectMapper();
 
 
     @SuppressWarnings("unchecked")
@@ -62,6 +70,7 @@ public class ExtendedOrgServiceImpl implements ExtendedOrgService {
 			String channelName = null;
 			boolean dbUpdateRequired = false;
 			boolean orgCreatedWithNewChannel = false;
+            boolean isNewOrgCreated = false;
 
 			if (StringUtils.isEmpty(orgId)) {
 				// There is no org exist for given Channel. We can simply create the same in
@@ -76,6 +85,7 @@ public class ExtendedOrgServiceImpl implements ExtendedOrgService {
 					return response;
 				}
 				dbUpdateRequired = true;
+                isNewOrgCreated = true;
 			} else {
 				// The channel already exist. We need to check OrgHierarchy table for duplicate.
 				if (Constants.STATE.equalsIgnoreCase(orgType)
@@ -198,6 +208,11 @@ public class ExtendedOrgServiceImpl implements ExtendedOrgService {
 				response.getResult().put(Constants.ORGANIZATION_ID, orgId);
 				response.getResult().put(Constants.RESPONSE, Constants.SUCCESS);
 			}
+            //Push Message to Kafka
+            if(isNewOrgCreated || orgCreatedWithNewChannel){
+                requestData.put(Constants.ORG_ID, orgId);
+                kafkaProducer.push(kafkaTopicCreateHierarchyFramework, requestData);
+            }
 		} catch (Exception e) {
 			logger.error("Failed to create user. Exception: ", e);
 			response.getParams().setErrmsg(e.getMessage());
