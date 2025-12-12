@@ -26,6 +26,8 @@ import java.util.concurrent.CompletableFuture;
 public class OrgHierarchyForNewOrgConsumer {
 
     private static final Logger logger = LoggerFactory.getLogger(OrgHierarchyForNewOrgConsumer.class);
+    private static final int MAX_RETRY = 3;
+    private static final long RETRY_DELAY_MS = 1500;
 
     @Autowired
     private ObjectMapper objectMapper;
@@ -38,7 +40,7 @@ public class OrgHierarchyForNewOrgConsumer {
 
     @KafkaListener(topics = "${kafka.topics.org.hierarchy.framework.new.org.event}", groupId = "${kafka.topics.org.hierarchy.framework.new.org.event.group}")
     public void processOrgHierarchyCreationForNewOrg(ConsumerRecord<String, String> data) {
-        logger.info("Received event for new org hierarchy creation.");
+        logger.info("processOrgHierarchyCreationForNewOrg::Received event for new org hierarchy creation.");
         logger.debug("Kafka Message: {}", data.value());
         if (StringUtils.isBlank(data.value())) {
             logger.error("Empty Kafka message received.");
@@ -48,7 +50,7 @@ public class OrgHierarchyForNewOrgConsumer {
             try {
                 initiateOrgHierarchyCreationForNewOrg(data.value());
             } catch (Exception e) {
-                logger.error("Async error while processing org hierarchy", e);
+                logger.error("Error while creating hierarchy framework for new org", e);
                 logger.error("Payload causing failure: {}", data.value());
             }
         });
@@ -56,7 +58,7 @@ public class OrgHierarchyForNewOrgConsumer {
 
     private void initiateOrgHierarchyCreationForNewOrg(String value) {
         long startTime = System.currentTimeMillis();
-        logger.info("OrgHierarchy creation started.");
+        logger.info("initiateOrgHierarchyCreationForNewOrg::OrgHierarchy framework creation started.");
         try {
             HashMap<String, String> inputData = objectMapper.readValue(
                     value,
@@ -72,7 +74,7 @@ public class OrgHierarchyForNewOrgConsumer {
         } catch (Exception e) {
             logger.error("Error processing orgHierarchy creation", e);
         }
-        logger.info("OrgHierarchy creation completed in {} ms",
+        logger.info("initiateOrgHierarchyCreationForNewOrg::OrgHierarchy framework creation completed in {} ms",
                 (System.currentTimeMillis() - startTime));
     }
 
@@ -95,10 +97,12 @@ public class OrgHierarchyForNewOrgConsumer {
         String sbRootOrgId = input.get(Constants.SB_ROOT_ORG_ID);
         String orgName = input.get(Constants.ORG_NAME);
         String orgId = input.get(Constants.ORG_ID);
+
         if (StringUtils.isBlank(sbRootOrgId) || StringUtils.isBlank(orgName) || StringUtils.isBlank(orgId)) {
             logger.error("Invalid input for term creation: required fields missing. Payload={}", input);
             return;
         }
+
         String frameworkId = sbRootOrgId + Constants.ORG_HIERARCHY_SUFFIX;
         String category = getCategoryForTermCreation(frameworkId, 0);
         if (StringUtils.isBlank(category)) {
@@ -106,7 +110,7 @@ public class OrgHierarchyForNewOrgConsumer {
             return;
         }
 
-        // Construct term object
+        // Build request body
         Map<String, Object> term = new HashMap<>();
         term.put(Constants.NAME, orgName);
         term.put(Constants.DESCRIPTION, input.get(Constants.DESCRIPTION));
@@ -121,20 +125,40 @@ public class OrgHierarchyForNewOrgConsumer {
         request.put(Constants.TERM, term);
         requestBody.put(Constants.REQUEST, request);
 
-        // Construct URL
         String createUrl = serverProperties.getKmBaseHost()
                 + serverProperties.getKmFrameworkTermCreatePath()
                 + "?framework=" + frameworkId
                 + "&category=" + category;
 
         logger.info("Creating framework term: orgId={}, framework={}", orgId, frameworkId);
-        Map<String, Object> response = outboundRequestHandler.fetchResultUsingPost(createUrl, requestBody, null);
-        if (response != null && response.get(Constants.RESPONSE_CODE) != null && "OK".equalsIgnoreCase(String.valueOf(response.get(Constants.RESPONSE_CODE)))) {
-            logger.info("Term created successfully for framework {}", frameworkId);
-            publishFramework(frameworkId, sbRootOrgId);
-        } else {
-            logger.error("Failed to create term for framework {}. Response={}", frameworkId, response);
+
+        Map<String, Object> response = null;
+        int attempt = 0;
+
+        while (attempt < MAX_RETRY) {
+            attempt++;
+            try {
+                response = outboundRequestHandler.fetchResultUsingPost(createUrl, requestBody, null);
+                if (response != null && Constants.OK.equalsIgnoreCase(String.valueOf(response.get(Constants.RESPONSE_CODE)))) {
+                    logger.info("Term created successfully on attempt {} for framework {}", attempt, frameworkId);
+                    publishFramework(frameworkId, sbRootOrgId);
+                    return;
+                }
+                logger.warn("Term creation attempt {} failed. Response={}", attempt, response);
+            } catch (Exception ex) {
+                logger.error("Error on attempt {} while creating term for framework {}: {}",
+                        attempt, frameworkId, ex.getMessage());
+            }
+
+            if (attempt < MAX_RETRY) {
+                try {
+                    Thread.sleep(RETRY_DELAY_MS);
+                } catch (InterruptedException ignored) {
+                }
+            }
         }
+        logger.error("Failed to create term for framework {} after {} attempts. LastResponse={}",
+                frameworkId, MAX_RETRY, response);
     }
 
     private void publishFramework(String frameworkId, String orgId) {
