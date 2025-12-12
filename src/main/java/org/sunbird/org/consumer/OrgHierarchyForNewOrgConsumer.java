@@ -10,6 +10,7 @@ import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 import org.sunbird.common.service.OutboundRequestHandlerServiceImpl;
@@ -26,8 +27,12 @@ import java.util.concurrent.CompletableFuture;
 public class OrgHierarchyForNewOrgConsumer {
 
     private static final Logger logger = LoggerFactory.getLogger(OrgHierarchyForNewOrgConsumer.class);
-    private static final int MAX_RETRY = 3;
-    private static final long RETRY_DELAY_MS = 1500;
+
+    @Value("${max.retry.term.creation.new.org}")
+    private String maxRetry;
+
+    @Value("${term.creation.new.org.retry.delay.ms}")
+    private String retryDelays;
 
     @Autowired
     private ObjectMapper objectMapper;
@@ -135,7 +140,7 @@ public class OrgHierarchyForNewOrgConsumer {
         Map<String, Object> response = null;
         int attempt = 0;
 
-        while (attempt < MAX_RETRY) {
+        while (attempt < Integer.parseInt(maxRetry)) {
             attempt++;
             try {
                 response = outboundRequestHandler.fetchResultUsingPost(createUrl, requestBody, null);
@@ -150,15 +155,15 @@ public class OrgHierarchyForNewOrgConsumer {
                         attempt, frameworkId, ex.getMessage());
             }
 
-            if (attempt < MAX_RETRY) {
+            if (attempt < Integer.parseInt(maxRetry)) {
                 try {
-                    Thread.sleep(RETRY_DELAY_MS);
+                    Thread.sleep(Long.parseLong(retryDelays));
                 } catch (InterruptedException ignored) {
                 }
             }
         }
         logger.error("Failed to create term for framework {} after {} attempts. LastResponse={}",
-                frameworkId, MAX_RETRY, response);
+                frameworkId, maxRetry, response);
     }
 
     private void publishFramework(String frameworkId, String orgId) {
