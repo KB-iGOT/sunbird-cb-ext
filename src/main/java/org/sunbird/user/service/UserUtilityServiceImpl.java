@@ -598,14 +598,13 @@ public class UserUtilityServiceImpl implements UserUtilityService {
 
 	@Override
 	public String createBulkUploadUser(UserRegistration userRegistration) {
-		Map<String, Object> request = constructBulkUserCreateRequest(userRegistration);
 		Map<String, String> headerValues = ProjectUtil.getDefaultHeaders();
 		if (StringUtils.isNotEmpty(userRegistration.getUserAuthToken())) {
 			headerValues.put(Constants.X_AUTH_TOKEN, userRegistration.getUserAuthToken());
 		}
 		try {
 			Map<String, Object> readData = (Map<String, Object>) outboundRequestHandlerService.fetchResultUsingPost(
-					props.getSbUrl() + props.getLmsBulkUserCreatePath(), request, headerValues);
+					props.getSbUrl() + props.getLmsBulkUserCreatePath(), constructBulkUserCreateRequest(userRegistration), headerValues);
 			if (readData != null && !Constants.OK.equalsIgnoreCase((String) readData.get(Constants.RESPONSE_CODE))) {
 				Map<String, Object> params = (Map<String, Object>) readData.get(Constants.PARAMS);
 				if (!MapUtils.isEmpty(params)) {
@@ -1268,7 +1267,7 @@ public class UserUtilityServiceImpl implements UserUtilityService {
 	 */
 	private void populateUserRoles(Map<String, Object> requestBody, UserRegistration userRegistration) {
 		if (CollectionUtils.isEmpty(userRegistration.getRoles())) {
-			requestBody.put(Constants.ROLES, Arrays.asList(Constants.PUBLIC));
+			requestBody.put(Constants.ROLES, Collections.singletonList(Constants.PUBLIC));
 		} else {
 			requestBody.put(Constants.ROLES, userRegistration.getRoles());
 		}
@@ -1382,7 +1381,7 @@ public class UserUtilityServiceImpl implements UserUtilityService {
 			profileDetails.put(Constants.PROFILE_STATUS, Constants.NOT_VERIFIED);
 		}
 		SimpleDateFormat sdf = new SimpleDateFormat(Constants.PROFILE_STATUS_DATE_FORMAT);
-		sdf.setTimeZone(TimeZone.getTimeZone("GMT+05:30"));
+		sdf.setTimeZone(TimeZone.getTimeZone(Constants.IST_TIMEZONE));
 		String timeStamp = sdf.format(new java.util.Date());
 		profileDetails.put(Constants.PROFILE_STATUS_UPDATED_ON, timeStamp);
 	}
