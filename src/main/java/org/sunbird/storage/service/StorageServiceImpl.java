@@ -161,7 +161,7 @@ public class StorageServiceImpl implements StorageService {
 	@Override
 	public ResponseEntity<Resource> downloadFile(String reportType, String date, String orgId, String fileName, String userToken) {
 		try {
-			String userId = accessTokenValidator.fetchUserIdFromAccessToken(userToken);
+            String userId = accessTokenValidator.fetchUserIdFromAccessToken(userToken);
 			if (StringUtils.isEmpty(userId)) {
 				logger.error("Failed to get UserId for orgId: " + orgId);
 				return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
@@ -837,6 +837,64 @@ public class StorageServiceImpl implements StorageService {
             );
         }
         return null;
+    }
+
+    public ResponseEntity<Resource> downloadFormReport(
+            String reportType,
+            String date,
+            String formId,
+            String fileName,
+            String userToken) {
+
+        try {
+            String userId = accessTokenValidator.fetchUserIdFromAccessToken(userToken);
+            if (StringUtils.isEmpty(userId)) {
+                logger.error("Failed to get userId from token");
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            }
+
+            String objectKey =
+                    serverProperties.getReportDownloadFolderName()
+                            + "/" + reportType
+                            + "/" + date
+                            + "/formId=" + formId
+                            + "/" + fileName;
+
+            storageService.download(
+                    serverProperties.getReportDownloadContainerName(),
+                    objectKey,
+                    Constants.LOCAL_BASE_PATH,
+                    Option.apply(Boolean.FALSE)
+            );
+
+            Path tmpPath = Paths.get(Constants.LOCAL_BASE_PATH + fileName);
+            ByteArrayResource resource =
+                    new ByteArrayResource(Files.readAllBytes(tmpPath));
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.add(
+                    HttpHeaders.CONTENT_DISPOSITION,
+                    "attachment; filename=\"" + fileName + "\""
+            );
+
+            return ResponseEntity.ok()
+                    .headers(headers)
+                    .contentLength(tmpPath.toFile().length())
+                    .contentType(MediaType.parseMediaType(MediaType.MULTIPART_FORM_DATA_VALUE))
+                    .body(resource);
+
+        } catch (Exception e) {
+            logger.error("Failed to download form report file: " + fileName, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        } finally {
+            try {
+                File file = new File(Constants.LOCAL_BASE_PATH + fileName);
+                if (file.exists()) {
+                    file.delete();
+                }
+            } catch (Exception ignore) {
+            }
+        }
     }
 
 }
