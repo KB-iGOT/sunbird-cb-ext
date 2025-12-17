@@ -122,6 +122,8 @@ public class Constants {
 	// User assessment pass mark
 	public static final Float ASSESSMENT_PASS_SCORE = 60.0f;
 	public static final String DATE_FORMAT = "yyyy-mm-dd hh:mm:ss";
+	public static final String PROFILE_STATUS_DATE_FORMAT = "dd-MM-yyyy HH.mm.ss";
+	public static final String IST_TIMEZONE = "GMT+05:30";
 	public static final String RESPONSE = "response";
     public static final String RESPONSES = "responses";
 	public static final String STAFF = "staff";

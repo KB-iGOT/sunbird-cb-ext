@@ -287,8 +287,8 @@ public class UserUtilityServiceImpl implements UserUtilityService {
 		profileDetails.put(Constants.PROFILE_STATUS, Constants.NOT_VERIFIED);
 		profileDetails.put(Constants.PROFILE_GROUP_STATUS, Constants.NOT_VERIFIED);
 		profileDetails.put(Constants.PROFILE_DESIGNATION_STATUS, Constants.NOT_VERIFIED);
-		SimpleDateFormat sdf = new SimpleDateFormat("dd-MM-yyyy HH.mm.ss");
-		sdf.setTimeZone(TimeZone.getTimeZone("GMT+05:30"));
+		SimpleDateFormat sdf = new SimpleDateFormat(Constants.PROFILE_STATUS_DATE_FORMAT);
+		sdf.setTimeZone(TimeZone.getTimeZone(Constants.IST_TIMEZONE));
 		String timeStamp = sdf.format(new java.util.Date());
 		profileDetails.put(Constants.PROFILE_STATUS_UPDATED_ON, timeStamp);
 		Map<String, Object> professionDetailObj = new HashMap<String, Object>();
@@ -598,37 +598,23 @@ public class UserUtilityServiceImpl implements UserUtilityService {
 
 	@Override
 	public String createBulkUploadUser(UserRegistration userRegistration) {
-		Map<String, Object> request = new HashMap<>();
-		Map<String, Object> requestBody = new HashMap<String, Object>();
-		requestBody.put(Constants.EMAIL, userRegistration.getEmail());
-		requestBody.put(Constants.CHANNEL, userRegistration.getChannel());
-		requestBody.put(Constants.FIRSTNAME, userRegistration.getFirstName());
-		requestBody.put(Constants.EMAIL_VERIFIED, true);
-		requestBody.put(Constants.PHONE, userRegistration.getPhone());
-		requestBody.put(Constants.PHONE_VERIFIED, true);
-		if (CollectionUtils.isEmpty(userRegistration.getRoles())) {
-			requestBody.put(Constants.ROLES, Arrays.asList(Constants.PUBLIC));
-		} else {
-			requestBody.put(Constants.ROLES, userRegistration.getRoles());
-		}
-		request.put(Constants.REQUEST, requestBody);
 		Map<String, String> headerValues = ProjectUtil.getDefaultHeaders();
 		if (StringUtils.isNotEmpty(userRegistration.getUserAuthToken())) {
 			headerValues.put(Constants.X_AUTH_TOKEN, userRegistration.getUserAuthToken());
 		}
 		try {
 			Map<String, Object> readData = (Map<String, Object>) outboundRequestHandlerService.fetchResultUsingPost(
-					props.getSbUrl() + props.getLmsBulkUserCreatePath(), request, headerValues);
+					props.getSbUrl() + props.getLmsBulkUserCreatePath(), constructBulkUserCreateRequest(userRegistration), headerValues);
 			if (readData != null && !Constants.OK.equalsIgnoreCase((String) readData.get(Constants.RESPONSE_CODE))) {
 				Map<String, Object> params = (Map<String, Object>) readData.get(Constants.PARAMS);
 				if (!MapUtils.isEmpty(params)) {
 					return (String) params.get(Constants.ERROR_MESSAGE);
 				}
-			} else if (readData != null && Constants.OK.equalsIgnoreCase((String) readData.get(Constants.RESPONSE_CODE))) {
+			}/* else if (readData != null && Constants.OK.equalsIgnoreCase((String) readData.get(Constants.RESPONSE_CODE))) {
 				Map<String, Object> result = (Map<String, Object>) readData.get(Constants.RESULT);
 				userRegistration.setUserId((String) result.get(Constants.USER_ID));
 				return updateBulkUploadUser(userRegistration);
-			}
+			}*/
 		} catch (Exception e) {
 			logger.error("Failed to run the create user flow. UserRegCode : " + userRegistration.getRegistrationCode(),
 					e);
@@ -704,8 +690,8 @@ public class UserUtilityServiceImpl implements UserUtilityService {
 		} else {
 			profileDetails.put(Constants.PROFILE_STATUS, Constants.NOT_VERIFIED);
 		}
-		SimpleDateFormat sdf = new SimpleDateFormat("dd-MM-yyyy HH.mm.ss");
-		sdf.setTimeZone(TimeZone.getTimeZone("GMT+05:30"));
+		SimpleDateFormat sdf = new SimpleDateFormat(Constants.PROFILE_STATUS_DATE_FORMAT);
+		sdf.setTimeZone(TimeZone.getTimeZone(Constants.IST_TIMEZONE));
 		String timeStamp = sdf.format(new java.util.Date());
 		profileDetails.put(Constants.PROFILE_STATUS_UPDATED_ON, timeStamp);
 		requestBody.put(Constants.PROFILE_DETAILS, profileDetails);
@@ -1245,5 +1231,158 @@ public class UserUtilityServiceImpl implements UserUtilityService {
 		List<Map<String, Object>> listOfDomains = cassandraOperation.getRecordsByPropertiesWithoutFiltering(
 				Constants.KEYSPACE_SUNBIRD, Constants.TABLE_MASTER_DATA, propertyMap, Arrays.asList(Constants.CONTEXT_TYPE, Constants.CONTEXT_NAME));
 		return org.apache.commons.collections.CollectionUtils.isNotEmpty(listOfDomains);
+	}
+
+	/**
+	 * Constructs the request body for bulk user creation
+	 *
+	 * @param userRegistration UserRegistration object containing user details
+	 * @return Map containing the constructed request body
+	 */
+	private Map<String, Object> constructBulkUserCreateRequest(UserRegistration userRegistration) {
+		Map<String, Object> request = new HashMap<>();
+		Map<String, Object> requestBody = new HashMap<>();
+		populateBasicUserInfo(requestBody, userRegistration);
+		populateUserRoles(requestBody, userRegistration);
+		Map<String, Object> profileDetails = buildProfileDetails(userRegistration);
+		requestBody.put(Constants.PROFILE_DETAILS, profileDetails);
+		request.put(Constants.REQUEST, requestBody);
+		return request;
+	}
+
+	/**
+	 * Populates basic user information in the request body
+	 */
+	private void populateBasicUserInfo(Map<String, Object> requestBody, UserRegistration userRegistration) {
+		requestBody.put(Constants.EMAIL, userRegistration.getEmail());
+		requestBody.put(Constants.CHANNEL, userRegistration.getChannel());
+		requestBody.put(Constants.FIRSTNAME, userRegistration.getFirstName());
+		requestBody.put(Constants.EMAIL_VERIFIED, true);
+		requestBody.put(Constants.PHONE, userRegistration.getPhone());
+		requestBody.put(Constants.PHONE_VERIFIED, true);
+	}
+
+	/**
+	 * Populates user roles in the request body
+	 */
+	private void populateUserRoles(Map<String, Object> requestBody, UserRegistration userRegistration) {
+		if (CollectionUtils.isEmpty(userRegistration.getRoles())) {
+			requestBody.put(Constants.ROLES, Collections.singletonList(Constants.PUBLIC));
+		} else {
+			requestBody.put(Constants.ROLES, userRegistration.getRoles());
+		}
+	}
+
+	/**
+	 * Builds complete profile details structure
+	 */
+	private Map<String, Object> buildProfileDetails(UserRegistration userRegistration) {
+		Map<String, Object> profileDetails = new HashMap<>();
+		profileDetails.put(Constants.MANDATORY_FIELDS_EXISTS, false);
+		profileDetails.put(Constants.EMPLOYMENTDETAILS, buildEmploymentDetails(userRegistration));
+		profileDetails.put(Constants.PERSONAL_DETAILS, buildPersonalDetails(userRegistration));
+		profileDetails.put(Constants.PROFESSIONAL_DETAILS, buildProfessionalDetails(userRegistration, profileDetails));
+		profileDetails.put(Constants.ADDITIONAL_PROPERTIES, buildAdditionalProperties(userRegistration));
+		setProfileStatus(profileDetails);
+		return profileDetails;
+	}
+
+	/**
+	 * Builds employment details section
+	 */
+	private Map<String, Object> buildEmploymentDetails(UserRegistration userRegistration) {
+		Map<String, Object> employementDetails = new HashMap<>();
+		employementDetails.put(Constants.DEPARTMENTNAME, userRegistration.getOrgName());
+		
+		if (StringUtils.isNotEmpty(userRegistration.getEmployeeId())) {
+			employementDetails.put(Constants.EMPLOYEE_CODE, userRegistration.getEmployeeId());
+		}
+		if (StringUtils.isNotEmpty(userRegistration.getPincode())) {
+			employementDetails.put(Constants.PINCODE, userRegistration.getPincode());
+		}
+		
+		return employementDetails;
+	}
+
+	/**
+	 * Builds personal details section
+	 */
+	private Map<String, Object> buildPersonalDetails(UserRegistration userRegistration) {
+		Map<String, Object> personalDetails = new HashMap<>();
+		personalDetails.put(Constants.FIRSTNAME.toLowerCase(), userRegistration.getFirstName());
+		personalDetails.put(Constants.PRIMARY_EMAIL, userRegistration.getEmail());
+		personalDetails.put(Constants.MOBILE, userRegistration.getPhone());
+		personalDetails.put(Constants.PHONE_VERIFIED, true);
+		if (StringUtils.isNotEmpty(userRegistration.getDob())) {
+			personalDetails.put(Constants.DOB, userRegistration.getDob());
+		}
+		if (StringUtils.isNotEmpty(userRegistration.getCategory())) {
+			personalDetails.put(Constants.CATEGORY, userRegistration.getCategory());
+		}
+		if (StringUtils.isNotEmpty(userRegistration.getDomicileMedium())) {
+			personalDetails.put(Constants.DOMICILE_MEDIUM, userRegistration.getDomicileMedium());
+		}
+		if (StringUtils.isNotEmpty(userRegistration.getGender())) {
+			personalDetails.put(Constants.GENDER, userRegistration.getGender());
+		}
+		return personalDetails;
+	}
+
+	/**
+	 * Builds professional details section
+	 */
+	private List<Map<String, Object>> buildProfessionalDetails(UserRegistration userRegistration, 
+															   Map<String, Object> profileDetails) {
+		profileDetails.put(Constants.PROFILE_GROUP_STATUS, Constants.NOT_VERIFIED);
+		profileDetails.put(Constants.PROFILE_DESIGNATION_STATUS, Constants.NOT_VERIFIED);
+		Map<String, Object> professionDetailObj = new HashMap<>();
+		professionDetailObj.put(Constants.ORGANIZATION_TYPE, Constants.GOVERNMENT);
+		if (StringUtils.isNotEmpty(userRegistration.getPosition())) {
+			professionDetailObj.put(Constants.DESIGNATION, userRegistration.getPosition());
+			profileDetails.put(Constants.PROFILE_DESIGNATION_STATUS, Constants.VERIFIED);
+		}
+		if (!StringUtils.isEmpty(userRegistration.getGroup())) {
+			professionDetailObj.put(Constants.GROUP, userRegistration.getGroup());
+			profileDetails.put(Constants.PROFILE_GROUP_STATUS, Constants.VERIFIED);
+		}
+		List<Map<String, Object>> professionalDetailsList = new ArrayList<>();
+		professionalDetailsList.add(professionDetailObj);
+		return professionalDetailsList;
+	}
+
+	/**
+	 * Builds additional properties section
+	 */
+	private Map<String, Object> buildAdditionalProperties(UserRegistration userRegistration) {
+		Map<String, Object> additionalProperties = new HashMap<>();
+		if (!CollectionUtils.isEmpty(userRegistration.getTag())) {
+			additionalProperties.put(Constants.TAG, userRegistration.getTag());
+		}
+		if (!StringUtils.isEmpty(userRegistration.getExternalSystemId())) {
+			additionalProperties.put(Constants.EXTERNAL_SYSTEM_ID, userRegistration.getExternalSystemId());
+		}
+		if (!StringUtils.isEmpty(userRegistration.getExternalSystem())) {
+			additionalProperties.put(Constants.EXTERNAL_SYSTEM, userRegistration.getExternalSystem());
+		}
+		
+		return additionalProperties;
+	}
+
+	/**
+	 * Sets profile status based on verification status
+	 */
+	private void setProfileStatus(Map<String, Object> profileDetails) {
+		profileDetails.put(Constants.VERIFIED_KARMAYOGI, false);
+		profileDetails.put(Constants.MANDATORY_FIELDS_EXISTS, false);
+		if (Constants.VERIFIED.equalsIgnoreCase((String) profileDetails.get(Constants.PROFILE_GROUP_STATUS))
+				&& Constants.VERIFIED.equalsIgnoreCase((String) profileDetails.get(Constants.PROFILE_DESIGNATION_STATUS))) {
+			profileDetails.put(Constants.PROFILE_STATUS, Constants.VERIFIED);
+		} else {
+			profileDetails.put(Constants.PROFILE_STATUS, Constants.NOT_VERIFIED);
+		}
+		SimpleDateFormat sdf = new SimpleDateFormat(Constants.PROFILE_STATUS_DATE_FORMAT);
+		sdf.setTimeZone(TimeZone.getTimeZone(Constants.IST_TIMEZONE));
+		String timeStamp = sdf.format(new java.util.Date());
+		profileDetails.put(Constants.PROFILE_STATUS_UPDATED_ON, timeStamp);
 	}
 }
