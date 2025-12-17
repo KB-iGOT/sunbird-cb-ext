@@ -287,8 +287,8 @@ public class UserUtilityServiceImpl implements UserUtilityService {
 		profileDetails.put(Constants.PROFILE_STATUS, Constants.NOT_VERIFIED);
 		profileDetails.put(Constants.PROFILE_GROUP_STATUS, Constants.NOT_VERIFIED);
 		profileDetails.put(Constants.PROFILE_DESIGNATION_STATUS, Constants.NOT_VERIFIED);
-		SimpleDateFormat sdf = new SimpleDateFormat("dd-MM-yyyy HH.mm.ss");
-		sdf.setTimeZone(TimeZone.getTimeZone("GMT+05:30"));
+		SimpleDateFormat sdf = new SimpleDateFormat(Constants.PROFILE_STATUS_DATE_FORMAT);
+		sdf.setTimeZone(TimeZone.getTimeZone(Constants.IST_TIMEZONE));
 		String timeStamp = sdf.format(new java.util.Date());
 		profileDetails.put(Constants.PROFILE_STATUS_UPDATED_ON, timeStamp);
 		Map<String, Object> professionDetailObj = new HashMap<String, Object>();
@@ -691,8 +691,8 @@ public class UserUtilityServiceImpl implements UserUtilityService {
 		} else {
 			profileDetails.put(Constants.PROFILE_STATUS, Constants.NOT_VERIFIED);
 		}
-		SimpleDateFormat sdf = new SimpleDateFormat("dd-MM-yyyy HH.mm.ss");
-		sdf.setTimeZone(TimeZone.getTimeZone("GMT+05:30"));
+		SimpleDateFormat sdf = new SimpleDateFormat(Constants.PROFILE_STATUS_DATE_FORMAT);
+		sdf.setTimeZone(TimeZone.getTimeZone(Constants.IST_TIMEZONE));
 		String timeStamp = sdf.format(new java.util.Date());
 		profileDetails.put(Constants.PROFILE_STATUS_UPDATED_ON, timeStamp);
 		requestBody.put(Constants.PROFILE_DETAILS, profileDetails);
@@ -1381,7 +1381,7 @@ public class UserUtilityServiceImpl implements UserUtilityService {
 		} else {
 			profileDetails.put(Constants.PROFILE_STATUS, Constants.NOT_VERIFIED);
 		}
-		SimpleDateFormat sdf = new SimpleDateFormat("dd-MM-yyyy HH.mm.ss");
+		SimpleDateFormat sdf = new SimpleDateFormat(Constants.PROFILE_STATUS_DATE_FORMAT);
 		sdf.setTimeZone(TimeZone.getTimeZone("GMT+05:30"));
 		String timeStamp = sdf.format(new java.util.Date());
 		profileDetails.put(Constants.PROFILE_STATUS_UPDATED_ON, timeStamp);
