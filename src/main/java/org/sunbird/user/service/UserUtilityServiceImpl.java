@@ -610,7 +610,11 @@ public class UserUtilityServiceImpl implements UserUtilityService {
 				if (!MapUtils.isEmpty(params)) {
 					return (String) params.get(Constants.ERROR_MESSAGE);
 				}
-			}/* else if (readData != null && Constants.OK.equalsIgnoreCase((String) readData.get(Constants.RESPONSE_CODE))) {
+			} else if (readData != null && Constants.OK.equalsIgnoreCase((String) readData.get(Constants.RESPONSE_CODE))) {
+				return (String) readData.get(Constants.RESPONSE_CODE);
+			}
+
+			/* else if (readData != null && Constants.OK.equalsIgnoreCase((String) readData.get(Constants.RESPONSE_CODE))) {
 				Map<String, Object> result = (Map<String, Object>) readData.get(Constants.RESULT);
 				userRegistration.setUserId((String) result.get(Constants.USER_ID));
 				return updateBulkUploadUser(userRegistration);
