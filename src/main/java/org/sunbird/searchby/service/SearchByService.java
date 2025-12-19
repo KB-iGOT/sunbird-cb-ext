@@ -258,7 +258,7 @@ public class SearchByService {
 		// Get facets from Composite Search
 		Map<String, String> headers = new HashMap<>();
 		headers.put(Constants.USER_TOKEN, authUserToken);
-		headers.put(Constants.AUTHORIZATION, cbExtServerProperties.getSbApiKey());
+		headers.put(Constants.AUTHORIZATION, "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiI5a04xTW1TcGVuVTAyam8zVHg1U2p0amhTOFVXeGVSUiJ9.LWAgFust4e0wntxqY8_MQjf5WQ9RSD6Hg45jX_NoCXY");
 
 		HashMap<String, Object> reqBody = new HashMap<>();
 		HashMap<String, Object> req = new HashMap<>();
@@ -271,7 +271,7 @@ public class SearchByService {
 		reqBody.put(Constants.REQUEST, req);
 
 		Map<String, Object> compositeSearchRes = outboundRequestHandlerService.fetchResultUsingPost(
-				cbExtServerProperties.getKmBaseHost() + cbExtServerProperties.getKmCompositeSearchPath(), reqBody,
+				"https://portal.igotkarmayogi.gov.in/api/content/v1/search", reqBody,
 				headers);
 
 		Map<String, Object> compositeSearchResult = (Map<String, Object>) compositeSearchRes.get(Constants.RESULT);
@@ -304,25 +304,52 @@ public class SearchByService {
 		}
 
 		// Get Provider Values
-		reqBody = new HashMap<>();
-		req = new HashMap<>();
-		filters = new HashMap<>();
-		filters.put(Constants.CHANNEL, providerMap.keySet().toArray());
-		filters.put(Constants.IS_TENANT, true);
-		req.put(Constants.FILTERS, filters);
-		reqBody.put(Constants.REQUEST, req);
 
-		Map<String, Object> orgSearchRes = outboundRequestHandlerService.fetchResultUsingPost(
-				cbExtServerProperties.getSbUrl() + cbExtServerProperties.getSbOrgSearchPath(), reqBody, headers);
+		final int batchSize = cbExtServerProperties.getOrgSearchListBatchSize();
+		List<String> allChannels = new ArrayList<>(providerMap.keySet());
+		int total = allChannels.size();
+		int fromIndex = 0;
 
-		Map<String, Object> orgSearchResponse = (Map<String, Object>) ((Map<String, Object>) orgSearchRes
-				.get(Constants.RESULT)).get(Constants.RESPONSE);
+      // Collecting all org responses first
+		List<Map<String, Object>> allOrgResponses = new ArrayList<>();
 
-		List<Map<String, Object>> orgResponseList = (List<Map<String, Object>>) orgSearchResponse
-				.get(Constants.CONTENT);
+		while (fromIndex < total) {
+			int toIndex = Math.min(fromIndex + batchSize, total);
+			List<String> batchChannels = allChannels.subList(fromIndex, toIndex);
 
-		if (!CollectionUtils.isEmpty(orgResponseList)) {
-			for (Map<String, Object> respObj : orgResponseList) {
+			reqBody = new HashMap<>();
+			req = new HashMap<>();
+			filters = new HashMap<>();
+			filters.put(Constants.CHANNEL, batchChannels.toArray());
+			filters.put(Constants.IS_TENANT, true);
+			req.put(Constants.FILTERS, filters);
+			reqBody.put(Constants.REQUEST, req);
+
+			Map<String, Object> orgSearchRes = outboundRequestHandlerService.fetchResultUsingPost(
+					"https://portal.igotkarmayogi.gov.in/api/org/v1/search", reqBody, headers);
+
+			Map<String, Object> orgSearchResponse = (Map<String, Object>) ((Map<String, Object>) orgSearchRes
+					.get(Constants.RESULT)).get(Constants.RESPONSE);
+
+			List<Map<String, Object>> orgResponseList = (List<Map<String, Object>>) orgSearchResponse
+					.get(Constants.CONTENT);
+
+			if (!CollectionUtils.isEmpty(orgResponseList)) {
+				allOrgResponses.addAll(orgResponseList);
+			} else {
+				Exception err = new Exception(COMPETENCY_ERROR);
+				logger.error(COMPETENCY_ERROR, err);
+				try {
+					logger.info("Received Response: " + (new ObjectMapper()).writeValueAsString(orgSearchRes));
+				} catch (Exception e) {
+				}
+				throw err;
+			}
+
+			fromIndex = toIndex;
+		}
+		if (!CollectionUtils.isEmpty(allOrgResponses)) {
+			for (Map<String, Object> respObj : allOrgResponses) {
 				String channelName = ((String) respObj.get(Constants.CHANNEL)).toLowerCase();
 				if (providerMap.containsKey(channelName)) {
 					ProviderInfo provInfo = providerMap.get(channelName);
@@ -330,14 +357,13 @@ public class SearchByService {
 					provInfo.setDescription((String) respObj.get(Constants.DESCRIPTION));
 					provInfo.setLogoUrl((String) respObj.get(Constants.IMG_URL_KEY));
 					provInfo.setOrgId((String) respObj.get(Constants.ID));
-					providerMap.put(channelName, provInfo);
 				}
 			}
 		} else {
 			Exception err = new Exception(COMPETENCY_ERROR);
 			logger.error(COMPETENCY_ERROR, err);
 			try {
-				logger.info("Received Response: " + (new ObjectMapper()).writeValueAsString(orgSearchRes));
+				logger.info("Received Response: " + (new ObjectMapper()).writeValueAsString(allOrgResponses));
 			} catch (Exception e) {
 			}
 			throw err;

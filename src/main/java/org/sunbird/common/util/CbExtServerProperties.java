@@ -1171,7 +1171,10 @@ public class CbExtServerProperties {
     @Value("${email.invalid}")
     private String invalidEmailMessage;
 
-    public String getStateLearningInsightsRedisKeyMapping() {
+	@Value("${org.search.list.batch.size}")
+	private int orgSearchListBatchSize;
+
+	public String getStateLearningInsightsRedisKeyMapping() {
 		return stateLearningInsightsRedisKeyMapping;
 	}
 
@@ -3942,4 +3945,12 @@ public class CbExtServerProperties {
     public String getInvalidEmailMessage() {
         return invalidEmailMessage;
     }
+
+	public int getOrgSearchListBatchSize() {
+		return orgSearchListBatchSize;
+	}
+
+	public void setOrgSearchListBatchSize(int orgSearchListBatchSize) {
+		this.orgSearchListBatchSize = orgSearchListBatchSize;
+	}
 }
