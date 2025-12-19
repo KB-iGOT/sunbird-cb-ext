@@ -141,5 +141,16 @@ public class StorageController {
         return storageService.readAssignmentAnsFile(contentId, batchId, formId, fileName, userToken);
     }
 
+    @GetMapping("/v1/report/form/{reportType}/{date}/{formId}/{fileName}")
+    public ResponseEntity<?> downloadFormReport(
+            @PathVariable("reportType") String reportType,
+            @PathVariable("date") String date,
+            @PathVariable("formId") String formId,
+            @PathVariable("fileName") String fileName,
+            @RequestHeader(Constants.X_AUTH_TOKEN) String userToken) {
+
+        return storageService.downloadFormReport(
+                reportType, date, formId, fileName, userToken);
+    }
 
 }
