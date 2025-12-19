@@ -57,4 +57,11 @@ public interface StorageService {
 
     ResponseEntity<?> readAssignmentAnsFile(String contentId, String batchId, String formId, String fileName, String userToken);
 
+    ResponseEntity<Resource> downloadFormReport(
+            String reportType,
+            String date,
+            String formId,
+            String fileName,
+            String userToken);
+
 }
