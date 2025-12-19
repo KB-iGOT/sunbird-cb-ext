@@ -258,7 +258,7 @@ public class SearchByService {
 		// Get facets from Composite Search
 		Map<String, String> headers = new HashMap<>();
 		headers.put(Constants.USER_TOKEN, authUserToken);
-		headers.put(Constants.AUTHORIZATION,  cbExtServerProperties.getSbApiKey());
+		headers.put(Constants.AUTHORIZATION, cbExtServerProperties.getSbApiKey());
 
 		HashMap<String, Object> reqBody = new HashMap<>();
 		HashMap<String, Object> req = new HashMap<>();
