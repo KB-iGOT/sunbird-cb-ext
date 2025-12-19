@@ -258,7 +258,7 @@ public class SearchByService {
 		// Get facets from Composite Search
 		Map<String, String> headers = new HashMap<>();
 		headers.put(Constants.USER_TOKEN, authUserToken);
-		headers.put(Constants.AUTHORIZATION, "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiI5a04xTW1TcGVuVTAyam8zVHg1U2p0amhTOFVXeGVSUiJ9.LWAgFust4e0wntxqY8_MQjf5WQ9RSD6Hg45jX_NoCXY");
+		headers.put(Constants.AUTHORIZATION,  cbExtServerProperties.getSbApiKey());
 
 		HashMap<String, Object> reqBody = new HashMap<>();
 		HashMap<String, Object> req = new HashMap<>();
@@ -271,7 +271,7 @@ public class SearchByService {
 		reqBody.put(Constants.REQUEST, req);
 
 		Map<String, Object> compositeSearchRes = outboundRequestHandlerService.fetchResultUsingPost(
-				"https://portal.igotkarmayogi.gov.in/api/content/v1/search", reqBody,
+				cbExtServerProperties.getKmBaseHost() + cbExtServerProperties.getKmCompositeSearchPath(), reqBody,
 				headers);
 
 		Map<String, Object> compositeSearchResult = (Map<String, Object>) compositeSearchRes.get(Constants.RESULT);
@@ -326,7 +326,7 @@ public class SearchByService {
 			reqBody.put(Constants.REQUEST, req);
 
 			Map<String, Object> orgSearchRes = outboundRequestHandlerService.fetchResultUsingPost(
-					"https://portal.igotkarmayogi.gov.in/api/org/v1/search", reqBody, headers);
+					cbExtServerProperties.getSbUrl() + cbExtServerProperties.getSbOrgSearchPath(), reqBody, headers);
 
 			Map<String, Object> orgSearchResponse = (Map<String, Object>) ((Map<String, Object>) orgSearchRes
 					.get(Constants.RESULT)).get(Constants.RESPONSE);
