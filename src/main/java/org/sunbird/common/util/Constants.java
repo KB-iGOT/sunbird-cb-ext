@@ -282,6 +282,7 @@ public class Constants {
 	public static final String PERSONAL_DETAILS = "personalDetails";
 	public static final String TRANSITION_DETAILS = "transitionDetails";
 	public static final String UNAUTHORIZED = "unauthorized";
+    public static final String TABLE_USER_EXTENDED_PROFILE = "user_extended_profile";
 	// Redis
 	public static final String API_REDIS_DELETE = "api.redis.delete";
 	public static final String API_REDIS_GET_KEYS = "api.redis.get.keys";
@@ -1469,4 +1470,5 @@ public class Constants {
     public static final String FORM_QUESTIONS = "formQuestions";
     public static final String SUBMITTED_DATE = "submittedDate";
     public static final String ACTIVE_TITLE_CASE = "Active";
+    public static final String EHRMS_USER_SYNC_TABLE = "ehrms_user_sync";
 }
