@@ -11,7 +11,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 import org.sunbird.cassandra.utils.CassandraOperation;
 import org.sunbird.common.model.SBApiResponse;
-import org.sunbird.common.util.CbExtServerProperties;
 import org.sunbird.common.util.Constants;
 import org.sunbird.common.util.ProjectUtil;
 import org.sunbird.core.producer.Producer;
@@ -38,63 +37,77 @@ public class EhrmsIgotUserSyncServiceImpl implements EhrmsIgotUserSyncService {
     private String ehrmsUserDataSyncKafkaTopic;
 
     @Override
-    public SBApiResponse userEhrmsDataUpdate(Map<String, Object> requestBody) throws Exception {
+    public SBApiResponse userEhrmsDataUpdate(Map<String, Object> requestBody) {
         SBApiResponse response = ProjectUtil.createDefaultResponse("ajdgja");
+
         try {
             Map<String, Object> request = (Map<String, Object>) requestBody.get(Constants.REQUEST);
+            if (CollectionUtils.isEmpty(request)) {
+                updateErrorDetails(response, "Request body is missing", HttpStatus.BAD_REQUEST);
+            }
+
             if (!request.containsKey("fromDate") || !request.containsKey("toDate")) {
-                throw new IllegalArgumentException("fromDate and toDate are required");
+                updateErrorDetails(response, "fromDate and toDate are required", HttpStatus.BAD_REQUEST);
             }
+
             if (!(request.get("fromDate") instanceof String) || !(request.get("toDate") instanceof String)) {
-                throw new IllegalArgumentException("fromDate and toDate must be String in format dd-MM-yy");
+                updateErrorDetails(response, "fromDate and toDate must be String in format dd-MM-yyyy", HttpStatus.BAD_REQUEST);
             }
+
             String fromDateStr = request.get("fromDate").toString().trim();
             String toDateStr = request.get("toDate").toString().trim();
-            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd-MM-yy").withResolverStyle(ResolverStyle.STRICT);
-            LocalDate from;
-            LocalDate to;
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd-MM-uuuu").withResolverStyle(ResolverStyle.STRICT);
+
+            LocalDate from = null;
+            LocalDate to = null;
 
             try {
                 from = LocalDate.parse(fromDateStr, formatter);
                 to = LocalDate.parse(toDateStr, formatter);
             } catch (DateTimeParseException e) {
-                throw new IllegalArgumentException("Invalid date format. Expected dd-MM-yy", e);
+                updateErrorDetails(response, "Invalid date format. Expected dd-MM-yyyy", HttpStatus.BAD_REQUEST);
             }
-            if (to.isBefore(from)) {
-                throw new IllegalArgumentException("toDate cannot be before fromDate");
-            }
-            LocalDate maxAllowedTo = from.plusMonths(6);
 
-            if (to.isAfter(maxAllowedTo)) {
+            if (to.isBefore(from)) {
+                updateErrorDetails(response, "toDate cannot be before fromDate", HttpStatus.BAD_REQUEST);
+            }
+
+            if (to.isAfter(from.plusMonths(6))) {
                 throw new IllegalArgumentException("Date range cannot exceed 6 months");
             }
+
             String finalFromDate = from.format(formatter);
             String finalToDate = to.format(formatter);
 
             Map<String, Object> keyMap = new HashMap<>();
-            keyMap.put("job_name", "EHRMS_SYNC");
-            keyMap.put("status", Constants.STATUS_IN_PROGRESS_UPPERCASE);
-            List<Map<String, Object>> existingReportDetails = cassandraOperation.getRecordsByProperties(Constants.KEYSPACE_SUNBIRD,
-                    Constants.EHRMS_USER_SYNC_TABLE, keyMap, null);
+            keyMap.put(Constants.JOB_NAME, "EHRMS_SYNC");
+            keyMap.put(Constants.STATUS, Constants.STATUS_IN_PROGRESS_UPPERCASE);
+            List<Map<String, Object>> existingJobs = cassandraOperation.getRecordsByProperties(Constants.KEYSPACE_SUNBIRD, Constants.EHRMS_USER_SYNC_TABLE, keyMap, null);
 
-            if (!CollectionUtils.isEmpty(existingReportDetails)) {
-                String status = (String) existingReportDetails.get(0).get(Constants.STATUS);
-                if (Constants.STATUS_IN_PROGRESS_UPPERCASE.equalsIgnoreCase(status)) {
-                    response.getParams().setStatus(Constants.SUCCESS);
-                    response.getResult().put(Constants.STATUS, Constants.STATUS_IN_PROGRESS_UPPERCASE);
-                    response.setResponseCode(HttpStatus.OK);
-                    return response;
-                } else {
-                    logger.info("Update BP report details::started");
-                    return insertSyncDetailsInDBAndTriggerKafkaEvent(finalFromDate, finalToDate);
-                }
-            } else {
-                logger.info("Insert BP report details into DB::started");
-                return insertSyncDetailsInDBAndTriggerKafkaEvent(finalFromDate, finalToDate);
+            if (!CollectionUtils.isEmpty(existingJobs)) {
+                response.getParams().setStatus(Constants.SUCCESS);
+                response.getResult().put(Constants.MESSAGE, "EHRMS sync already in progress");
+                response.getResult().put(Constants.STATUS, Constants.STATUS_IN_PROGRESS_UPPERCASE);
+                response.setResponseCode(HttpStatus.OK);
+                return response;
             }
+
+            insertSyncDetailsInDBAndTriggerKafkaEvent(finalFromDate, finalToDate);
+
+            response.getParams().setStatus(Constants.SUCCESS);
+            response.getResult().put(Constants.MESSAGE, "EHRMS data sync started");
+            response.getResult().put(Constants.STATUS, Constants.STATUS_IN_PROGRESS_UPPERCASE);
+            response.setResponseCode(HttpStatus.OK);
+            return response;
+
+        } catch (IllegalArgumentException e) {
+            logger.warn("Validation failed", e);
+            updateErrorDetails(response, e.getMessage(), HttpStatus.BAD_REQUEST);
+            return response;
+
         } catch (Exception e) {
-            logger.error("Error while processing the request", e);
-            updateErrorDetails(response, "Error while processing the request", HttpStatus.INTERNAL_SERVER_ERROR);
+            logger.error("Error while processing EHRMS sync request", e);
+            updateErrorDetails(response, "Internal server error", HttpStatus.INTERNAL_SERVER_ERROR);
             return response;
         }
     }
@@ -109,13 +122,13 @@ public class EhrmsIgotUserSyncServiceImpl implements EhrmsIgotUserSyncService {
         SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.BP_REPORT_GENERATE_API);
         try {
             Map<String, Object> dbRequest = new HashMap<>();
-            dbRequest.put("job_name", "EHRMS_SYNC");
-            dbRequest.put("job_id", UUID.randomUUID());
+            dbRequest.put(Constants.JOB_NAME, "EHRMS_SYNC");
+            dbRequest.put(Constants.JOB_ID, UUID.randomUUID());
             dbRequest.put(Constants.STATUS, Constants.STATUS_IN_PROGRESS_UPPERCASE);
-            dbRequest.put(Constants.CREATED_DATE, new Date());
-            dbRequest.put("from_date", fromDate);
-            dbRequest.put("to_date", toDate);
-            SBApiResponse dbResponse = cassandraOperation.insertRecord(Constants.SUNBIRD_KEY_SPACE_NAME, Constants.BP_ENROLMENT_REPORT_TABLE, dbRequest);
+            dbRequest.put(Constants.CREATED_DATE_COLUMN, new Date());
+            dbRequest.put(Constants.FROM_DATE, fromDate);
+            dbRequest.put(Constants.TO_DATE, toDate);
+            SBApiResponse dbResponse = cassandraOperation.insertRecord(Constants.SUNBIRD_KEY_SPACE_NAME, Constants.EHRMS_USER_SYNC_TABLE, dbRequest);
 
             if (dbResponse.get(Constants.RESPONSE).equals(Constants.SUCCESS)) {
                 kafkaProducer.push(ehrmsUserDataSyncKafkaTopic, dbRequest);
@@ -160,8 +173,7 @@ public class EhrmsIgotUserSyncServiceImpl implements EhrmsIgotUserSyncService {
             }
 
         } catch (Exception e) {
-            setErrorData(response,
-                    String.format("Failed to get bp report status. Error: ", e.getMessage()));
+            setErrorData(response, String.format("Failed to get bp report status. Error: ", e.getMessage()));
         }
         return response;
     }
@@ -175,9 +187,6 @@ public class EhrmsIgotUserSyncServiceImpl implements EhrmsIgotUserSyncService {
     private ResponseEntity<Resource> createErrorResponse(String message, HttpStatus status) {
         HttpHeaders headers = new HttpHeaders();
         headers.add(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
-
-        return ResponseEntity.status(status)
-                .headers(headers)
-                .body(new ByteArrayResource(message.getBytes()));
+        return ResponseEntity.status(status).headers(headers).body(new ByteArrayResource(message.getBytes()));
     }
 }

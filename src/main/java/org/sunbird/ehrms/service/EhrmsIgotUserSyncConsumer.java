@@ -27,7 +27,6 @@ import org.sunbird.common.model.SBApiResponse;
 import org.sunbird.common.service.OutboundRequestHandlerServiceImpl;
 import org.sunbird.common.util.CbExtServerProperties;
 import org.sunbird.common.util.Constants;
-
 import java.io.IOException;
 import java.io.StringReader;
 import java.time.LocalDate;
@@ -63,7 +62,7 @@ public class EhrmsIgotUserSyncConsumer {
     @Value("${ehrms.api.user.profile.path}")
     private String ehrmsUserProfilePath;
 
-    @Value("{ehrms.api.user.qualifications.path}")
+    @Value("${ehrms.api.user.qualifications.path}")
     private String ehrmsUserQualificationPath;
 
     @Value("${ehrms.api.key}")
@@ -76,142 +75,53 @@ public class EhrmsIgotUserSyncConsumer {
     private final AtomicInteger profileUpdateSuccessCount = new AtomicInteger(0);
     private final AtomicInteger profileUpdateFailedCount = new AtomicInteger(0);
 
-    @KafkaListener(topics = "${kafka.topic.bp.report}", groupId = "${kafka.topic.bp.report.group}")
+    @KafkaListener(topics = "${ehrms.user.data.sync.kafka.topic}", groupId = "${ehrms.user.data.sync.kafka.group}")
     private void initiateEhrmsIgotDataSync(ConsumerRecord<String, String> data) {
-        log.info("BPReportConsumer::processMessage.. started.");
+        log.info("EhrmsIgotUserSyncConsumer::processMessage.. started.");
         try {
             if (org.apache.commons.lang3.StringUtils.isNotBlank(data.value())) {
                 CompletableFuture.runAsync(() -> {
                     try {
-                        log.info("BP report generation initiated successfully for data: {}", data.value());
+                        log.info("Ehrms user sync initiated successfully for data: {}", data.value());
                         processEhrmsIgotDataSync(data.value());
                     } catch (Exception e) {
-                        log.error("Error while generating BP report for data: {}", data.value(), e);
+                        log.error("Error while Syncing ehrms user data: {}", data.value(), e);
                     }
                 });
             } else {
-                log.error("Error in BPReportConsumer: Invalid or empty Kafka message received");
+                log.error("Error in EhrmsIgotUserSyncConsumer: Invalid or empty Kafka message received");
             }
         } catch (Exception e) {
-            log.error("Error while initiating BP report generation", e);
+            log.error("Error while initiating ehrms user data sync", e);
         }
     }
 
-    public void processEhrmsIgotDataSync(String inputData) {
-        log.info("BPReportConsumer:: initiateBPReportGeneration: Started");
+    public void processEhrmsIgotDataSync(String inputData) throws IOException {
+        log.info("EhrmsIgotUserSyncConsumer:: processEhrmsIgotDataSync: Started");
         long duration = 0;
         long startTime = System.currentTimeMillis();
+        Map<String, Object> request = mapper.readValue(inputData, new TypeReference<Map<String, Object>>() {});
+        String jobId = request.get("job_id").toString();
         try {
-            Map<String, Object> request = mapper.readValue(inputData, new TypeReference<Map<String, Object>>() {});
             String from = request.get("from_date").toString();
             String to = request.get("to_date").toString();
-//        String empCsv = callEmpApi(from, to);
-//        String qualCsv = callQualificationApi(from, to);
+            String empCsv = callEmpApi(from, to);
+            String qualCsv = callQualificationApi(from, to);
 
-//        List<Map<String, String>> employees = parseCsv(empCsv);
-//        List<Map<String, String>> quals = parseCsv(qualCsv);
-            List<Map<String, Object>> employees = new ArrayList<>();
-
-            /* ================= USER 1 ================= */
-            Map<String, Object> p1 = new HashMap<>();
-
-            p1.put("EmployeeId", "424603");
-            p1.put("EmployeeCode", "UP-202");
-            p1.put("FirstName", "ARVIND");
-            p1.put("LastName", "SINGH");
-            p1.put("MiddleName", "KUMAR");
-            p1.put("EmailID1", "up202@ifs.nic.in");
-            p1.put("Mobile", "9044844295");
-            p1.put("designation", "");
-            p1.put("category", "SC");
-            p1.put("Service", "IFoS/Indian Forest Service");
-            p1.put("Gender", "");
-            p1.put("Dob", "1967-01-01");
-            p1.put("Mother Tongue", "");
-            p1.put("Joining Date", "");
-            p1.put("Batch", "1991");
-            p1.put("Central Deputation", "Central Staffing Scheme");
-            p1.put("Home State", "UTTAR PRADESH");
-            p1.put("Home District", "");
-            p1.put("Cadre", "");
-            employees.add(p1);
-
-
-            /* ================= USER 2 ================= */
-            Map<String, Object> p2 = new HashMap<>();
-
-            p2.put("EmployeeId", "13713414");
-            p2.put("EmployeeCode", "EHRM000001270");
-            p2.put("FirstName", "Rkma");
-            p2.put("LastName", "");
-            p2.put("MiddleName", "");
-            p2.put("EmailID1", "rkmalhotra61@nic.in");
-            p2.put("Mobile", "9898989698");
-            p2.put("designation", "Director (Geology)");
-            p2.put("category", "");
-            p2.put("Service", "");
-            p2.put("Gender", "");
-            p2.put("Dob", "1999-10-22");
-            p2.put("Mother Tongue", "");
-            p2.put("Joining Date", "");
-            p2.put("Batch", "");
-            p2.put("Central Deputation", "");
-            p2.put("Home State", "");
-            p2.put("Home District", "");
-            p2.put("Cadre", "");
-
-            employees.add(p2);
-
-
-            /* ================= USER 3 ================= */
-            Map<String, Object> p3 = new HashMap<>();
-
-            p3.put("EmployeeId", "13713463");
-            p3.put("EmployeeCode", "EHRM000001337");
-            p3.put("FirstName", "DemoServices");
-            p3.put("LastName", "users");
-            p3.put("MiddleName", "Test");
-            p3.put("EmailID1", "servicebook@gov.in");
-            p3.put("Mobile", "8285066484");
-            p3.put("designation", "Deputy Director General (Chemical)");
-            p3.put("category", "UR");
-            p3.put("Service", "AR/Assam Rifle");
-            p3.put("Gender", "MALE");
-            p3.put("Dob", "1990-12-12");
-            p3.put("Mother Tongue", "6");
-            p3.put("Joining Date", "2010-05-05");
-            p3.put("Batch", "");
-            p3.put("Central Deputation", "No");
-            p3.put("Home State", "UTTARAKHAND");
-            p3.put("Home District", "BAGESHWAR");
-            p3.put("Cadre", "");
-            employees.add(p3);
-
-            Map<String, String> qualification = new HashMap<>();
-            List<Map<String, String>> quals = new ArrayList<>();
-
-            qualification.put("EmployeeId", "0");
-            qualification.put("Degree", "BBA (Bachelor of Business Administration)");
-            qualification.put("Field of Study", "");
-            qualification.put("Institute Name", "");
-            qualification.put("Years Attended", "2004");
-            qualification.put("Organization", "UPTU Lucknow");
-            quals.add(qualification);
-
-
+            List<Map<String, Object>> employees = parseCsv(empCsv);
+            List<Map<String, Object>> quals = parseCsv(qualCsv);
             Map<String, Map<String, Object>> merged = join(employees, quals);
 
-            // Example usage (send to iGOT or log)
             for (String empCode : merged.keySet()) {
                 processUserEhrmsDataLine(merged.get(empCode));
             }
         } catch (Exception e) {
-            log.error(String.format("Error in the scheduler to generate the BP report %s", e.getMessage()),
-                    e);
+            log.error(String.format("Error in the scheduler to generate the BP report %s", e.getMessage()), e);
+            updateDataBase(jobId, Constants.FAILED_UPPERCASE, totalUsersCount.get(), existingUsersCount.get(), notFoundUsersCount.get(), profileUpdateSuccessCount.get(), profileUpdateFailedCount.get());
         }
         duration = System.currentTimeMillis() - startTime;
-        log.info("BPReportConsumer:: initiateBPReportGeneration: Completed. Time taken: "
-                + duration + " milli-seconds");
+        log.info("BPReportConsumer:: initiateBPReportGeneration: Completed. Time taken: " + duration + " milli-seconds");
+        updateDataBase(jobId, Constants.SUCCESS_UPPERCASE, totalUsersCount.get(), existingUsersCount.get(), notFoundUsersCount.get(), profileUpdateSuccessCount.get(), profileUpdateFailedCount.get());
     }
 
     private String callEmpApi(String from, String to) throws Exception {
@@ -226,8 +136,8 @@ public class EhrmsIgotUserSyncConsumer {
 
     private String callApi(String url, String from, String to) {
         Map<String, String> headerMap = new HashMap<>();
-        headerMap.put("Authorization", "Bearer " + ehrmsApiKey);
-        headerMap.put("Content-Type", "application/json");
+        headerMap.put(Constants.AUTH_TOKEN, "Bearer " + ehrmsApiKey);
+        headerMap.put(Constants.CONTENT_TYPE, "application/json");
         headerMap.put("Accept", "application/json");
 
         HttpHeaders headers = new HttpHeaders();
@@ -242,12 +152,12 @@ public class EhrmsIgotUserSyncConsumer {
         return response.getBody();
     }
 
-    private List<Map<String, String>> parseCsv(String csv) throws Exception {
+    private List<Map<String, Object>> parseCsv(String csv) throws Exception {
         CSVParser parser = CSVFormat.DEFAULT.withFirstRecordAsHeader().parse(new StringReader(csv));
 
-        List<Map<String, String>> rows = new ArrayList<>();
+        List<Map<String, Object>> rows = new ArrayList<>();
         for (CSVRecord record : parser) {
-            Map<String, String> map = new HashMap<>();
+            Map<String, Object> map = new HashMap<>();
             for (String h : parser.getHeaderMap().keySet()) {
                 map.put(h, record.get(h));
             }
@@ -256,43 +166,55 @@ public class EhrmsIgotUserSyncConsumer {
         return rows;
     }
 
-    private Map<String, Map<String, Object>> join(
-            List<Map<String, Object>> employees,
-            List<Map<String, String>> qualifications) {
-
+    private Map<String, Map<String, Object>> join(List<Map<String, Object>> employees, List<Map<String, Object>> qualifications) {
         Map<String, Map<String, Object>> users = new HashMap<>();
-
+        if (employees == null || employees.isEmpty()) {
+            return users;
+        }
         // Load employee master
         for (Map<String, Object> e : employees) {
-            String empId = e.get("EmployeeId").toString();
-
+            if (e == null || e.get("EmployeeId") == null) {
+                continue;
+            }
+            String empId = String.valueOf(e.get("EmployeeId")).trim();
+            if (empId.isEmpty()) {
+                continue;
+            }
             Map<String, Object> user = new HashMap<>();
             user.put("profile", e);
-            user.put("qualifications", new ArrayList<Map<String, String>>());
+            user.put("qualifications", new ArrayList<Map<String, Object>>());
 
             users.put(empId, user);
         }
 
+        if (qualifications == null || qualifications.isEmpty()) {
+            return users;
+        }
         // Attach qualifications
-        for (Map<String, String> q : qualifications) {
-            String empId = q.get("EmployeeId").toString();
-
-            if (users.containsKey(empId)) {
-                List<Map<String, String>> list =
-                        (List<Map<String, String>>) users.get(empId).get("qualifications");
-                list.add(q);
+        for (Map<String, Object> q : qualifications) {
+            if (q == null || q.get("EmployeeId") == null) {
+                continue;
+            }
+            String empId = String.valueOf(q.get("EmployeeId")).trim();
+            if (empId.isEmpty()) {
+                continue;
+            }
+            Map<String, Object> user = users.get(empId);
+            if (user == null) {
+                continue;
+            }
+            Object obj = user.get("qualifications");
+            if (obj instanceof List) {
+                ((List<Map<String, Object>>) obj).add(q);
             }
         }
-
         return users;
     }
 
+
     private void processUserEhrmsDataLine(Map<String, Object> user) {
-
         totalUsersCount.incrementAndGet();
-
         Map<String, String> headerValues = new HashMap<>();
-
         try {
             Map<String, Object> profileMap = (Map<String, Object>) user.get(Constants.PROFILE);
             if (profileMap == null) {
@@ -363,7 +285,6 @@ public class EhrmsIgotUserSyncConsumer {
                     if (!emailId.equalsIgnoreCase(phoneId)) {
                         log.warn("Email & Phone belong to different users for empId {}", empId);
                     }
-
                     updateAndWrite(emailSearch.get(0), user, headerValues, null, mobile,
                             designation, dob, gender, category, motherTongue, ehrmsId, false, empId, state, district);
                     profileUpdateSuccessCount.incrementAndGet();
@@ -401,19 +322,15 @@ public class EhrmsIgotUserSyncConsumer {
         if (profile == null) {
             profile = new HashMap<>();
         }
-
         List<Map<String, Object>> profList = (List<Map<String, Object>>) profile.get(Constants.PROFESSIONAL_DETAILS);
         if (CollectionUtils.isEmpty(profList)) {
             profList = new ArrayList<>();
             profList.add(new HashMap<>());
         }
-
         Map<String, Object> prof = profList.get(0);
-
         if (!StringUtils.isEmpty(designation)) {
             prof.put(Constants.DESIGNATION, designation);
             profile.put(Constants.PROFILE_DESIGNATION_STATUS, Constants.VERIFIED);
-
             Object group = prof.get(Constants.GROUP);
             if (group != null && !StringUtils.isEmpty(group.toString())) {
                 profile.put(Constants.PROFILE_GROUP_STATUS, Constants.VERIFIED);
@@ -504,7 +421,7 @@ public class EhrmsIgotUserSyncConsumer {
             List<Map<String, Object>> educationalQualifications = new ArrayList<>();
             for (Map<String, Object> userEducationalQualification : userEducationalQualifications) {
                 Map<String, Object> objMap = new HashMap<>();
-                objMap.put("degree", StringUtils.isEmpty(userEducationalQualification.get("degree")) || ((String) userEducationalQualification.get("degree")).equalsIgnoreCase("NOT AVAILABLE") ? "Others" : (String) userEducationalQualification.get("degree"));
+                objMap.put(Constants.DEGREE, StringUtils.isEmpty(userEducationalQualification.get(Constants.DEGREE)) || ((String) userEducationalQualification.get(Constants.DEGREE)).equalsIgnoreCase("NOT AVAILABLE") ? "Others" : (String) userEducationalQualification.get(Constants.DEGREE));
                 objMap.put("fieldOfStudy", StringUtils.isEmpty(userEducationalQualification.get("MajorSubject")) ? "Others" : (String) userEducationalQualification.get("MajorSubject"));
                 objMap.put("institutionName", StringUtils.isEmpty(userEducationalQualification.get("Institution")) ? "Others" : (String) userEducationalQualification.get("Institution"));
                 objMap.put("startYear", "NA");
@@ -522,14 +439,13 @@ public class EhrmsIgotUserSyncConsumer {
             Map<String, Object> locationDetailsMap = new HashMap<>();
             locationDetailsMap.put(Constants.STATE, state);
             if (StringUtils.isEmpty(district) || NumberUtils.isCreatable(district)) {
-                locationDetailsMap.put("district", "Others");
+                locationDetailsMap.put(Constants.DISTRICT, Constants.OTHERS);
             } else {
-                locationDetailsMap.put("district", district);
+                locationDetailsMap.put(Constants.DISTRICT, district);
             }
             locationDetailsMap.put("uuid", UUID.randomUUID().toString());
             locationDetails.add(locationDetailsMap);
             updateExtendedProfileUtils(userId, "locationDetails", locationDetails);
-
         }
 
     }
@@ -540,7 +456,7 @@ public class EhrmsIgotUserSyncConsumer {
             Map<String, Object> query = new HashMap<>();
             query.put(Constants.USER_ID_KEY, userId);
             query.put(Constants.CONTEXT_TYPE, contextType);
-            query.put("contextData", contextDataStr);
+            query.put(Constants.CONTEXT_DATA, contextDataStr);
             SBApiResponse insertResponse = cassandraOperation.insertRecord(Constants.KEYSPACE_SUNBIRD,
                     Constants.TABLE_USER_EXTENDED_PROFILE, query);
             return Constants.SUCCESS.equalsIgnoreCase((String) insertResponse.get(Constants.RESPONSE));
@@ -554,7 +470,7 @@ public class EhrmsIgotUserSyncConsumer {
 
         HashMap<String, String> headerValues = new HashMap<>();
         headerValues.put(Constants.CONTENT_TYPE, Constants.APPLICATION_JSON);
-        headerValues.put("Authorization", serverProperties.getSbApiKey());
+        headerValues.put(Constants.AUTH_TOKEN, serverProperties.getSbApiKey());
 
         Map<String, Object> filters = new HashMap<>();
         filters.put(key, value);
@@ -576,6 +492,20 @@ public class EhrmsIgotUserSyncConsumer {
             }
         }
         return null;
+    }
 
+    private Map<String, Object> updateDataBase(String jobId, String status, int totalUser, int userFound, int userNotFound, int profileUpdateSuccessCount, int profileUpdateFailedCount) {
+        Map<String, Object> compositeKey = new HashMap<>();
+        compositeKey.put(Constants.JOB_NAME, "EHRMS_SYNC");
+        compositeKey.put(Constants.JOB_ID, jobId);
+
+        Map<String, Object> updateAttributes = new HashMap<>();
+        updateAttributes.put(Constants.STATUS, status);
+        updateAttributes.put(Constants.TOTAL_USER_PROCESSED, totalUser);
+        updateAttributes.put(Constants.USER_FOUND, userFound);
+        updateAttributes.put(Constants.USER_NOT_FOUND, userNotFound);
+        updateAttributes.put(Constants.PROFILE_UPDATE_SUCCESS_COUNT, profileUpdateSuccessCount);
+        updateAttributes.put(Constants.PROFILE_UPDATE_FAILED_COUNT,profileUpdateFailedCount);
+        return cassandraOperation.updateRecord(Constants.SUNBIRD_KEY_SPACE_NAME, Constants.EHRMS_USER_SYNC_TABLE, updateAttributes, compositeKey);
     }
 }

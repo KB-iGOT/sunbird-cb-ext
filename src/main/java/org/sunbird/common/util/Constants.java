@@ -1471,4 +1471,19 @@ public class Constants {
     public static final String SUBMITTED_DATE = "submittedDate";
     public static final String ACTIVE_TITLE_CASE = "Active";
     public static final String EHRMS_USER_SYNC_TABLE = "ehrms_user_sync";
+    public static final String TOTAL_USER_PROCESSED="total_user_processed";
+    public static final String USER_FOUND = "user_found";
+    public static final String USER_NOT_FOUND = "user_not_found";
+    public static final String JOB_NAME = "job_name";
+    public static final String JOB_ID = "job_id";
+    public static final String DEGREE = "degree";
+    public static final String DISTRICT = "district";
+    public static final String state = "state";
+    public static final String OTHERS = "Others";
+    public static final String PROFILE_UPDATE_SUCCESS_COUNT = "profile_update_success_count";
+    public static final String PROFILE_UPDATE_FAILED_COUNT = "profile_update_failed_count";
+    public static final String FROM_DATE = "from_date";
+    public static final String TO_DATE = "to_date";
+    public static final String CREATED_DATE_COLUMN = "created_date";
+
 }
