@@ -38,7 +38,7 @@ public class EhrmsIgotUserSyncServiceImpl implements EhrmsIgotUserSyncService {
 
     @Override
     public SBApiResponse userEhrmsDataUpdate(Map<String, Object> requestBody) {
-        SBApiResponse response = ProjectUtil.createDefaultResponse("ajdgja");
+        SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.EHRMS_IGOT_USER_DATA_SYNC_API);
 
         try {
             Map<String, Object> request = (Map<String, Object>) requestBody.get(Constants.REQUEST);
@@ -46,16 +46,16 @@ public class EhrmsIgotUserSyncServiceImpl implements EhrmsIgotUserSyncService {
                 updateErrorDetails(response, "Request body is missing", HttpStatus.BAD_REQUEST);
             }
 
-            if (!request.containsKey("fromDate") || !request.containsKey("toDate")) {
+            if (!request.containsKey(Constants.FROM_DATE_CAMEL) || !request.containsKey(Constants.TO_DATE_CAMEL)) {
                 updateErrorDetails(response, "fromDate and toDate are required", HttpStatus.BAD_REQUEST);
             }
 
-            if (!(request.get("fromDate") instanceof String) || !(request.get("toDate") instanceof String)) {
+            if (!(request.get(Constants.FROM_DATE_CAMEL) instanceof String) || !(request.get(Constants.TO_DATE_CAMEL) instanceof String)) {
                 updateErrorDetails(response, "fromDate and toDate must be String in format dd-MM-yyyy", HttpStatus.BAD_REQUEST);
             }
 
-            String fromDateStr = request.get("fromDate").toString().trim();
-            String toDateStr = request.get("toDate").toString().trim();
+            String fromDateStr = request.get(Constants.FROM_DATE_CAMEL).toString().trim();
+            String toDateStr = request.get(Constants.TO_DATE_CAMEL).toString().trim();
             DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd-MM-uuuu").withResolverStyle(ResolverStyle.STRICT);
 
             LocalDate from = null;
@@ -158,7 +158,7 @@ public class EhrmsIgotUserSyncServiceImpl implements EhrmsIgotUserSyncService {
         try {
             Map<String, Object> request = (Map<String, Object>) requestBody.get(Constants.REQUEST);
             Map<String, Object> propertyMap = new HashMap<>();
-            propertyMap.put("job_name", "EHRMS_SYNC");
+            propertyMap.put(Constants.JOB_NAME, "EHRMS_SYNC");
             propertyMap.put(Constants.REPORT_REQUESTER, request.get(Constants.REPORT_REQUESTER));
             List<Map<String, Object>> reportList = cassandraOperation.getRecordsByProperties(Constants.SUNBIRD_KEY_SPACE_NAME,
                     Constants.EHRMS_USER_SYNC_TABLE, propertyMap, null);

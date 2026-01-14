@@ -1485,5 +1485,8 @@ public class Constants {
     public static final String FROM_DATE = "from_date";
     public static final String TO_DATE = "to_date";
     public static final String CREATED_DATE_COLUMN = "created_date";
+    public static final String FROM_DATE_CAMEL = "fromDate";
+    public static final String TO_DATE_CAMEL = "toDate";
+    public static final String EHRMS_IGOT_USER_DATA_SYNC_API = "api.ehrms-igot.user.data.sync";
 
 }
