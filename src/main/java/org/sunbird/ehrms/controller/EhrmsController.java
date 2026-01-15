@@ -38,10 +38,9 @@ public class EhrmsController {
         return new ResponseEntity<>(response, response.getResponseCode());
     }
 
-    @PostMapping("/user/ehrms-igot/data/sync/status")
-    public ResponseEntity <SBApiResponse> EhrmsIgotUserDataSyncStatus(@RequestBody Map<String, Object> requestBody) throws Exception {
-        SBApiResponse response = ehrmsIgotUserSyncService.getSyncStatus(requestBody);
+    @GetMapping("/user/ehrms-igot/data/sync/status")
+    public ResponseEntity <SBApiResponse> EhrmsIgotUserDataSyncStatus() throws Exception {
+        SBApiResponse response = ehrmsIgotUserSyncService.getSyncStatus();
         return new ResponseEntity<>(response, response.getResponseCode());
     }
-
 }

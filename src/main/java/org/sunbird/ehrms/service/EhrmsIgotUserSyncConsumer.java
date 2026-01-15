@@ -27,6 +27,7 @@ import org.sunbird.common.model.SBApiResponse;
 import org.sunbird.common.service.OutboundRequestHandlerServiceImpl;
 import org.sunbird.common.util.CbExtServerProperties;
 import org.sunbird.common.util.Constants;
+
 import java.io.IOException;
 import java.io.StringReader;
 import java.time.LocalDate;
@@ -75,6 +76,8 @@ public class EhrmsIgotUserSyncConsumer {
     private final AtomicInteger profileUpdateSuccessCount = new AtomicInteger(0);
     private final AtomicInteger profileUpdateFailedCount = new AtomicInteger(0);
 
+    List<String> statesAndUTs = Arrays.asList("Andaman And Nicobar Islands", "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chandigarh", "Chhattisgarh", "Delhi", "Goa", "Gujarat", "Haryana", "Himachal Pradesh", "Jammu And Kashmir", "Jharkhand", "Karnataka", "Kerala", "Ladakh", "Lakshadweep", "Madhya Pradesh", "Maharashtra", "Manipur", "Meghalaya", "Mizoram", "Nagaland", "Odisha", "Puducherry", "Punjab", "Rajasthan", "Sikkim", "Tamil Nadu", "Telangana", "The Dadra And Nagar Haveli And Daman And Diu", "Tripura", "Uttarakhand", "Uttar Pradesh", "West Bengal");
+
     @KafkaListener(topics = "${ehrms.user.data.sync.kafka.topic}", groupId = "${ehrms.user.data.sync.kafka.group}")
     private void initiateEhrmsIgotDataSync(ConsumerRecord<String, String> data) {
         log.info("EhrmsIgotUserSyncConsumer::processMessage.. started.");
@@ -100,11 +103,24 @@ public class EhrmsIgotUserSyncConsumer {
         log.info("EhrmsIgotUserSyncConsumer:: processEhrmsIgotDataSync: Started");
         long duration = 0;
         long startTime = System.currentTimeMillis();
-        Map<String, Object> request = mapper.readValue(inputData, new TypeReference<Map<String, Object>>() {});
-        String jobId = request.get("job_id").toString();
+        Map<String, Object> request = mapper.readValue(inputData, new TypeReference<Map<String, Object>>() {
+        });
+        String jobId = request.get(Constants.JOB_ID).toString();
+        Object jobStartDateObj = request.get(Constants.JOB_START_DATE);
+        Date jobStartDate;
+
+        if (jobStartDateObj instanceof Long) {
+            jobStartDate = new Date((Long) jobStartDateObj);
+        } else if (jobStartDateObj instanceof String) {
+            jobStartDate = javax.xml.bind.DatatypeConverter.parseDateTime((String) jobStartDateObj).getTime();
+        } else if (jobStartDateObj instanceof Date) {
+            jobStartDate = (Date) jobStartDateObj;
+        } else {
+            throw new IllegalArgumentException("Invalid type for job_start_date: " + jobStartDateObj.getClass());
+        }
         try {
-            String from = request.get("from_date").toString();
-            String to = request.get("to_date").toString();
+            String from = request.get(Constants.EHRMS_FROM_DATE).toString();
+            String to = request.get(Constants.EHRMS_TO_DATE).toString();
             String empCsv = callEmpApi(from, to);
             String qualCsv = callQualificationApi(from, to);
 
@@ -117,11 +133,11 @@ public class EhrmsIgotUserSyncConsumer {
             }
         } catch (Exception e) {
             log.error(String.format("Error in the scheduler to generate the BP report %s", e.getMessage()), e);
-            updateDataBase(jobId, Constants.FAILED_UPPERCASE, totalUsersCount.get(), existingUsersCount.get(), notFoundUsersCount.get(), profileUpdateSuccessCount.get(), profileUpdateFailedCount.get());
+            updateDataBase(jobId, jobStartDate, Constants.FAILED_UPPERCASE, totalUsersCount.get(), existingUsersCount.get(), notFoundUsersCount.get(), profileUpdateSuccessCount.get(), profileUpdateFailedCount.get());
         }
         duration = System.currentTimeMillis() - startTime;
-        log.info("BPReportConsumer:: initiateBPReportGeneration: Completed. Time taken: " + duration + " milli-seconds");
-        updateDataBase(jobId, Constants.SUCCESS_UPPERCASE, totalUsersCount.get(), existingUsersCount.get(), notFoundUsersCount.get(), profileUpdateSuccessCount.get(), profileUpdateFailedCount.get());
+        log.info("EhrmsIgotUserSyncConsumer:: processEhrmsIgotDataSync: Completed. Time taken: " + duration + " milli-seconds");
+        updateDataBase(jobId, jobStartDate, Constants.SUCCESS_UPPERCASE, totalUsersCount.get(), existingUsersCount.get(), notFoundUsersCount.get(), profileUpdateSuccessCount.get(), profileUpdateFailedCount.get());
     }
 
     private String callEmpApi(String from, String to) throws Exception {
@@ -137,31 +153,44 @@ public class EhrmsIgotUserSyncConsumer {
     private String callApi(String url, String from, String to) {
         Map<String, String> headerMap = new HashMap<>();
         headerMap.put(Constants.AUTH_TOKEN, "Bearer " + ehrmsApiKey);
-        headerMap.put(Constants.CONTENT_TYPE, "application/json");
-        headerMap.put("Accept", "application/json");
+        headerMap.put(Constants.CONTENT_TYPE, Constants.APPLICATION_JSON);
+        headerMap.put("Accept", Constants.APPLICATION_JSON);
 
         HttpHeaders headers = new HttpHeaders();
         headerMap.forEach(headers::add);
 
         Map<String, String> body = new HashMap<>();
-        body.put("from_date", from);
-        body.put("to_date", to);
+        body.put(Constants.FROM_DATE, from);
+        body.put(Constants.TO_DATE, to);
 
         HttpEntity<Map<String, String>> request = new HttpEntity<>(body, headers);
         ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.POST, request, String.class);
         return response.getBody();
     }
 
-    private List<Map<String, Object>> parseCsv(String csv) throws Exception {
-        CSVParser parser = CSVFormat.DEFAULT.withFirstRecordAsHeader().parse(new StringReader(csv));
-
+    private List<Map<String, Object>> parseCsv(String csv) throws IOException {
         List<Map<String, Object>> rows = new ArrayList<>();
-        for (CSVRecord record : parser) {
-            Map<String, Object> map = new HashMap<>();
-            for (String h : parser.getHeaderMap().keySet()) {
-                map.put(h, record.get(h));
+
+        if (csv == null || csv.trim().isEmpty()) {
+            return rows;
+        }
+
+        try (CSVParser parser = CSVFormat.DEFAULT
+                .withDelimiter('|')
+                .withFirstRecordAsHeader()
+                .withIgnoreSurroundingSpaces()
+                .withTrim()
+                .parse(new StringReader(csv))) {
+
+            Set<String> headers = parser.getHeaderMap().keySet();
+
+            for (CSVRecord record : parser) {
+                Map<String, Object> map = new HashMap<>();
+                for (String header : headers) {
+                    map.put(header, record.get(header));
+                }
+                rows.add(map);
             }
-            rows.add(map);
         }
         return rows;
     }
@@ -356,7 +385,7 @@ public class EhrmsIgotUserSyncConsumer {
 
         // Mobile (respect skip flag)
         if (!StringUtils.isEmpty(mobile)) {
-            String existingPhone = content.get(Constants.PHONE) == null ? "" : content.get(Constants.PHONE).toString();
+            String existingPhone = personal.get(Constants.MOBILE) == null ? "" : personal.get(Constants.MOBILE).toString();
 
             if (!skipIfMobileExists || StringUtils.isEmpty(existingPhone)) {
                 if (!mobile.equals(existingPhone)) {
@@ -385,7 +414,7 @@ public class EhrmsIgotUserSyncConsumer {
             if (additional == null) {
                 additional = new HashMap<>();
             }
-            additional.put(Constants.EXTERNAL_SYSTEM, "DoPT eHRMS");
+            additional.put(Constants.EXTERNAL_SYSTEM, Constants.EHRMS_EXTERNAL_SYSTEM_NAME_VALUE);
             additional.put(Constants.EXTERNAL_SYSTEM_ID, ehrmsId);
             profile.put(Constants.ADDITIONAL_PROPERTIES, additional);
         }
@@ -433,7 +462,6 @@ public class EhrmsIgotUserSyncConsumer {
         }
 
         //Update location details
-        List<String> statesAndUTs = Arrays.asList("Andaman And Nicobar Islands", "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chandigarh", "Chhattisgarh", "Delhi", "Goa", "Gujarat", "Haryana", "Himachal Pradesh", "Jammu And Kashmir", "Jharkhand", "Karnataka", "Kerala", "Ladakh", "Lakshadweep", "Madhya Pradesh", "Maharashtra", "Manipur", "Meghalaya", "Mizoram", "Nagaland", "Odisha", "Puducherry", "Punjab", "Rajasthan", "Sikkim", "Tamil Nadu", "Telangana", "The Dadra And Nagar Haveli And Daman And Diu", "Tripura", "Uttarakhand", "Uttar Pradesh", "West Bengal");
         if (!StringUtils.isEmpty(state) && statesAndUTs.contains(state)) {
             List<Map<String, Object>> locationDetails = new ArrayList<>();
             Map<String, Object> locationDetailsMap = new HashMap<>();
@@ -494,9 +522,10 @@ public class EhrmsIgotUserSyncConsumer {
         return null;
     }
 
-    private Map<String, Object> updateDataBase(String jobId, String status, int totalUser, int userFound, int userNotFound, int profileUpdateSuccessCount, int profileUpdateFailedCount) {
+    private Map<String, Object> updateDataBase(String jobId, Date jobStartDate, String status, int totalUser, int userFound, int userNotFound, int profileUpdateSuccessCount, int profileUpdateFailedCount) {
         Map<String, Object> compositeKey = new HashMap<>();
-        compositeKey.put(Constants.JOB_NAME, "EHRMS_SYNC");
+        compositeKey.put(Constants.JOB_NAME, Constants.EHRMS_SYNC);
+        compositeKey.put(Constants.JOB_START_DATE, jobStartDate);
         compositeKey.put(Constants.JOB_ID, jobId);
 
         Map<String, Object> updateAttributes = new HashMap<>();
@@ -505,7 +534,8 @@ public class EhrmsIgotUserSyncConsumer {
         updateAttributes.put(Constants.USER_FOUND, userFound);
         updateAttributes.put(Constants.USER_NOT_FOUND, userNotFound);
         updateAttributes.put(Constants.PROFILE_UPDATE_SUCCESS_COUNT, profileUpdateSuccessCount);
-        updateAttributes.put(Constants.PROFILE_UPDATE_FAILED_COUNT,profileUpdateFailedCount);
+        updateAttributes.put(Constants.PROFILE_UPDATE_FAILED_COUNT, profileUpdateFailedCount);
+        updateAttributes.put(Constants.JOB_END_DATE, new Date());
         return cassandraOperation.updateRecord(Constants.SUNBIRD_KEY_SPACE_NAME, Constants.EHRMS_USER_SYNC_TABLE, updateAttributes, compositeKey);
     }
 }

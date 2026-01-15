@@ -81,10 +81,10 @@ public class EhrmsIgotUserSyncServiceImpl implements EhrmsIgotUserSyncService {
 
             Map<String, Object> keyMap = new HashMap<>();
             keyMap.put(Constants.JOB_NAME, "EHRMS_SYNC");
-            keyMap.put(Constants.STATUS, Constants.STATUS_IN_PROGRESS_UPPERCASE);
             List<Map<String, Object>> existingJobs = cassandraOperation.getRecordsByProperties(Constants.KEYSPACE_SUNBIRD, Constants.EHRMS_USER_SYNC_TABLE, keyMap, null);
 
-            if (!CollectionUtils.isEmpty(existingJobs)) {
+            if (!CollectionUtils.isEmpty(existingJobs) && Constants.STATUS_IN_PROGRESS_UPPERCASE.equalsIgnoreCase((String) existingJobs.get(0).get(Constants.STATUS))) {
+                Map<String, Object> lastJob = existingJobs.get(0);
                 response.getParams().setStatus(Constants.SUCCESS);
                 response.getResult().put(Constants.MESSAGE, "EHRMS sync already in progress");
                 response.getResult().put(Constants.STATUS, Constants.STATUS_IN_PROGRESS_UPPERCASE);
@@ -122,12 +122,12 @@ public class EhrmsIgotUserSyncServiceImpl implements EhrmsIgotUserSyncService {
         SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.BP_REPORT_GENERATE_API);
         try {
             Map<String, Object> dbRequest = new HashMap<>();
-            dbRequest.put(Constants.JOB_NAME, "EHRMS_SYNC");
+            dbRequest.put(Constants.JOB_NAME, Constants.EHRMS_SYNC);
+            dbRequest.put(Constants.JOB_START_DATE, new Date());
             dbRequest.put(Constants.JOB_ID, UUID.randomUUID());
             dbRequest.put(Constants.STATUS, Constants.STATUS_IN_PROGRESS_UPPERCASE);
-            dbRequest.put(Constants.CREATED_DATE_COLUMN, new Date());
-            dbRequest.put(Constants.FROM_DATE, fromDate);
-            dbRequest.put(Constants.TO_DATE, toDate);
+            dbRequest.put(Constants.EHRMS_FROM_DATE, fromDate);
+            dbRequest.put(Constants.EHRMS_TO_DATE, toDate);
             SBApiResponse dbResponse = cassandraOperation.insertRecord(Constants.SUNBIRD_KEY_SPACE_NAME, Constants.EHRMS_USER_SYNC_TABLE, dbRequest);
 
             if (dbResponse.get(Constants.RESPONSE).equals(Constants.SUCCESS)) {
@@ -152,14 +152,12 @@ public class EhrmsIgotUserSyncServiceImpl implements EhrmsIgotUserSyncService {
     }
 
     @Override
-    public SBApiResponse getSyncStatus(Map<String, Object> requestBody) {
+    public SBApiResponse getSyncStatus() {
         SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.API_USER_ENROLLMENT_BP_REPORT_STATUS);
 
         try {
-            Map<String, Object> request = (Map<String, Object>) requestBody.get(Constants.REQUEST);
             Map<String, Object> propertyMap = new HashMap<>();
-            propertyMap.put(Constants.JOB_NAME, "EHRMS_SYNC");
-            propertyMap.put(Constants.REPORT_REQUESTER, request.get(Constants.REPORT_REQUESTER));
+            propertyMap.put(Constants.JOB_NAME, Constants.EHRMS_SYNC);
             List<Map<String, Object>> reportList = cassandraOperation.getRecordsByProperties(Constants.SUNBIRD_KEY_SPACE_NAME,
                     Constants.EHRMS_USER_SYNC_TABLE, propertyMap, null);
             if (CollectionUtils.isEmpty(reportList)) {
@@ -168,7 +166,7 @@ public class EhrmsIgotUserSyncServiceImpl implements EhrmsIgotUserSyncService {
             } else {
                 response.getParams().setStatus(Constants.SUCCESSFUL);
                 response.setResponseCode(HttpStatus.OK);
-                response.getResult().put(Constants.CONTENT, reportList);
+                response.getResult().put(Constants.CONTENT, reportList.get(0));
                 response.getResult().put(Constants.COUNT, reportList.size());
             }
 
