@@ -80,7 +80,7 @@ public class EhrmsIgotUserSyncServiceImpl implements EhrmsIgotUserSyncService {
             String finalToDate = to.format(formatter);
 
             Map<String, Object> keyMap = new HashMap<>();
-            keyMap.put(Constants.JOB_NAME, "EHRMS_SYNC");
+            keyMap.put(Constants.JOB_NAME, Constants.EHRMS_SYNC);
             List<Map<String, Object>> existingJobs = cassandraOperation.getRecordsByProperties(Constants.KEYSPACE_SUNBIRD, Constants.EHRMS_USER_SYNC_TABLE, keyMap, null);
 
             if (!CollectionUtils.isEmpty(existingJobs) && Constants.STATUS_IN_PROGRESS_UPPERCASE.equalsIgnoreCase((String) existingJobs.get(0).get(Constants.STATUS))) {
@@ -124,7 +124,7 @@ public class EhrmsIgotUserSyncServiceImpl implements EhrmsIgotUserSyncService {
             Map<String, Object> dbRequest = new HashMap<>();
             dbRequest.put(Constants.JOB_NAME, Constants.EHRMS_SYNC);
             dbRequest.put(Constants.JOB_START_DATE, new Date());
-            dbRequest.put(Constants.JOB_ID, UUID.randomUUID());
+            dbRequest.put(Constants.JOB_ID, UUID.randomUUID().toString());
             dbRequest.put(Constants.STATUS, Constants.STATUS_IN_PROGRESS_UPPERCASE);
             dbRequest.put(Constants.EHRMS_FROM_DATE, fromDate);
             dbRequest.put(Constants.EHRMS_TO_DATE, toDate);
@@ -161,7 +161,7 @@ public class EhrmsIgotUserSyncServiceImpl implements EhrmsIgotUserSyncService {
             List<Map<String, Object>> reportList = cassandraOperation.getRecordsByProperties(Constants.SUNBIRD_KEY_SPACE_NAME,
                     Constants.EHRMS_USER_SYNC_TABLE, propertyMap, null);
             if (CollectionUtils.isEmpty(reportList)) {
-                updateErrorDetails(response, "Report is not available. Please generate the report", HttpStatus.OK);
+                updateErrorDetails(response, "EHRMS SYNC status not available", HttpStatus.OK);
                 return response;
             } else {
                 response.getParams().setStatus(Constants.SUCCESSFUL);
@@ -171,7 +171,7 @@ public class EhrmsIgotUserSyncServiceImpl implements EhrmsIgotUserSyncService {
             }
 
         } catch (Exception e) {
-            setErrorData(response, String.format("Failed to get bp report status. Error: ", e.getMessage()));
+            setErrorData(response, String.format("Failed to get EHRMS SYNC status. Error: ", e.getMessage()));
         }
         return response;
     }

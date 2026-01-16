@@ -1493,5 +1493,8 @@ public class Constants {
     public static final String EHRMS_IGOT_USER_DATA_SYNC_API = "api.ehrms-igot.user.data.sync";
     public static final String EHRMS_SYNC = "EHRMS_SYNC";
     public static final String EHRMS_EXTERNAL_SYSTEM_NAME_VALUE = "DoPT eHRMS";
+    public static final String LOCATION_DETAILS_CAMEL = "locationDetails";
+    public static final String EDUCATIONAL_QUALIFICATIONS_CAMEL ="educationalQualifications";
+    public static final String QUALIFICATIONS = "qualifications";
 
 }

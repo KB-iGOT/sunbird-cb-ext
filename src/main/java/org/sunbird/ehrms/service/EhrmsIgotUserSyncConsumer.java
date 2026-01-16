@@ -3,6 +3,7 @@ package org.sunbird.ehrms.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.commons.collections.MapUtils;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
@@ -13,13 +14,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.*;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 import org.springframework.util.CollectionUtils;
+import org.springframework.util.ObjectUtils;
 import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestTemplate;
 import org.sunbird.cassandra.utils.CassandraOperation;
@@ -210,8 +209,8 @@ public class EhrmsIgotUserSyncConsumer {
                 continue;
             }
             Map<String, Object> user = new HashMap<>();
-            user.put("profile", e);
-            user.put("qualifications", new ArrayList<Map<String, Object>>());
+            user.put(Constants.PROFILE, e);
+            user.put(Constants.QUALIFICATIONS, new ArrayList<Map<String, Object>>());
 
             users.put(empId, user);
         }
@@ -232,7 +231,7 @@ public class EhrmsIgotUserSyncConsumer {
             if (user == null) {
                 continue;
             }
-            Object obj = user.get("qualifications");
+            Object obj = user.get(Constants.QUALIFICATIONS);
             if (obj instanceof List) {
                 ((List<Map<String, Object>>) obj).add(q);
             }
@@ -302,7 +301,7 @@ public class EhrmsIgotUserSyncConsumer {
                 //Only phone exists
                 if (!hasEmail && hasPhone) {
                     updateAndWrite(phoneSearch.get(0), user, headerValues, email, mobile,
-                            designation, dob, gender, category, motherTongue, ehrmsId, false, empId, state, district);
+                            designation, dob, gender, category, motherTongue, ehrmsId, true, empId, state, district);
                     profileUpdateSuccessCount.incrementAndGet();
                 }
 
@@ -315,14 +314,14 @@ public class EhrmsIgotUserSyncConsumer {
                         log.warn("Email & Phone belong to different users for empId {}", empId);
                     }
                     updateAndWrite(emailSearch.get(0), user, headerValues, null, mobile,
-                            designation, dob, gender, category, motherTongue, ehrmsId, false, empId, state, district);
+                            designation, dob, gender, category, motherTongue, ehrmsId, true, empId, state, district);
                     profileUpdateSuccessCount.incrementAndGet();
                 }
 
                 // Only email exists
                 else if (hasEmail) {
                     updateAndWrite(emailSearch.get(0), user, headerValues, null, mobile,
-                            designation, dob, gender, category, motherTongue, ehrmsId, true, empId, state, district);
+                            designation, dob, gender, category, motherTongue, ehrmsId, false, empId, state, district);
                     profileUpdateSuccessCount.incrementAndGet();
                 }
 
@@ -348,7 +347,7 @@ public class EhrmsIgotUserSyncConsumer {
         String firstName = content.get(Constants.FIRSTNAME) == null ? "" : content.get(Constants.FIRSTNAME).toString();
 
         Map<String, Object> profile = (Map<String, Object>) content.get(Constants.PROFILE_DETAILS);
-        if (profile == null) {
+        if (MapUtils.isEmpty(profile)) {
             profile = new HashMap<>();
         }
         List<Map<String, Object>> profList = (List<Map<String, Object>>) profile.get(Constants.PROFESSIONAL_DETAILS);
@@ -357,25 +356,25 @@ public class EhrmsIgotUserSyncConsumer {
             profList.add(new HashMap<>());
         }
         Map<String, Object> prof = profList.get(0);
-        if (!StringUtils.isEmpty(designation)) {
+        if (!StringUtils.isEmpty(designation) && validateDesignationFieldValue(designation)) {
             prof.put(Constants.DESIGNATION, designation);
             profile.put(Constants.PROFILE_DESIGNATION_STATUS, Constants.VERIFIED);
             Object group = prof.get(Constants.GROUP);
-            if (group != null && !StringUtils.isEmpty(group.toString())) {
+            if (!StringUtils.isEmpty(group.toString())) {
                 profile.put(Constants.PROFILE_GROUP_STATUS, Constants.VERIFIED);
                 profile.put(Constants.PROFILE_STATUS, Constants.VERIFIED);
             }
         }
 
         Map<String, Object> personal = (Map<String, Object>) profile.get(Constants.PERSONAL_DETAILS);
-        if (personal == null) {
+        if (MapUtils.isEmpty(personal)) {
             personal = new HashMap<>();
             personal.put(Constants.FIRSTNAME, firstName);
         }
 
         // Email
         if (!StringUtils.isEmpty(email)) {
-            String oldEmail = personal.get(Constants.PRIMARY_EMAIL) == null ? "" : personal.get(Constants.PRIMARY_EMAIL).toString();
+            String oldEmail = StringUtils.isEmpty(personal.get(Constants.PRIMARY_EMAIL)) ? "" : personal.get(Constants.PRIMARY_EMAIL).toString();
             if (!email.equalsIgnoreCase(oldEmail)) {
                 log.info("Updating email {} → {} for empId {}", oldEmail, email, empId);
                 personal.put(Constants.PRIMARY_EMAIL, email);
@@ -385,9 +384,8 @@ public class EhrmsIgotUserSyncConsumer {
 
         // Mobile (respect skip flag)
         if (!StringUtils.isEmpty(mobile)) {
-            String existingPhone = personal.get(Constants.MOBILE) == null ? "" : personal.get(Constants.MOBILE).toString();
-
-            if (!skipIfMobileExists || StringUtils.isEmpty(existingPhone)) {
+            String existingPhone = ObjectUtils.isEmpty(personal.get(Constants.MOBILE)) ? "" : String.valueOf(personal.get(Constants.MOBILE));
+            if (!skipIfMobileExists && StringUtils.isEmpty(existingPhone)) {
                 if (!mobile.equals(existingPhone)) {
                     log.info("Updating mobile {} → {} for empId {}", existingPhone, mobile, empId);
                     personal.put(Constants.MOBILE, mobile);
@@ -411,7 +409,7 @@ public class EhrmsIgotUserSyncConsumer {
 
         if (!StringUtils.isEmpty(ehrmsId)) {
             Map<String, Object> additional = (Map<String, Object>) profile.get(Constants.ADDITIONAL_PROPERTIES);
-            if (additional == null) {
+            if (MapUtils.isEmpty(additional)) {
                 additional = new HashMap<>();
             }
             additional.put(Constants.EXTERNAL_SYSTEM, Constants.EHRMS_EXTERNAL_SYSTEM_NAME_VALUE);
@@ -425,7 +423,7 @@ public class EhrmsIgotUserSyncConsumer {
         request.put(Constants.PROFILE_DETAILS, profile);
 
         Map<String, Object> response = profileUpdate(request, headerValues);
-        String responseCode = response == null ? "" : (String) response.get(Constants.RESPONSE_CODE);
+        String responseCode = MapUtils.isEmpty(response) ? "" : (String) response.get(Constants.RESPONSE_CODE);
 
         if (Constants.OK.equalsIgnoreCase(responseCode)) {
             updateExtendedProfile(user, userId, state, district);
@@ -451,14 +449,14 @@ public class EhrmsIgotUserSyncConsumer {
             for (Map<String, Object> userEducationalQualification : userEducationalQualifications) {
                 Map<String, Object> objMap = new HashMap<>();
                 objMap.put(Constants.DEGREE, StringUtils.isEmpty(userEducationalQualification.get(Constants.DEGREE)) || ((String) userEducationalQualification.get(Constants.DEGREE)).equalsIgnoreCase("NOT AVAILABLE") ? "Others" : (String) userEducationalQualification.get(Constants.DEGREE));
-                objMap.put("fieldOfStudy", StringUtils.isEmpty(userEducationalQualification.get("MajorSubject")) ? "Others" : (String) userEducationalQualification.get("MajorSubject"));
-                objMap.put("institutionName", StringUtils.isEmpty(userEducationalQualification.get("Institution")) ? "Others" : (String) userEducationalQualification.get("Institution"));
+                objMap.put("fieldOfStudy", StringUtils.isEmpty(userEducationalQualification.get("Field of Study")) ? "Others" : (String) userEducationalQualification.get("Field of Study"));
+                objMap.put("institutionName", StringUtils.isEmpty(userEducationalQualification.get("Institute Name")) ? "Others" : (String) userEducationalQualification.get("Institute Name"));
                 objMap.put("startYear", "NA");
-                objMap.put("endYear", StringUtils.isEmpty(userEducationalQualification.get("passing_year")) ? "NA" : (String) userEducationalQualification.get("passing_year"));
+                objMap.put("endYear", StringUtils.isEmpty(userEducationalQualification.get("Years Attended")) ? "NA" : (String) userEducationalQualification.get("Years Attended"));
                 objMap.put("uuid", UUID.randomUUID().toString());
                 educationalQualifications.add(objMap);
             }
-            updateExtendedProfileUtils(userId, "educationalQualifications", educationalQualifications);
+            updateExtendedProfileUtils(userId, Constants.EDUCATIONAL_QUALIFICATIONS_CAMEL, educationalQualifications);
         }
 
         //Update location details
@@ -473,7 +471,7 @@ public class EhrmsIgotUserSyncConsumer {
             }
             locationDetailsMap.put("uuid", UUID.randomUUID().toString());
             locationDetails.add(locationDetailsMap);
-            updateExtendedProfileUtils(userId, "locationDetails", locationDetails);
+            updateExtendedProfileUtils(userId, Constants.LOCATION_DETAILS_CAMEL, locationDetails);
         }
 
     }
@@ -519,7 +517,7 @@ public class EhrmsIgotUserSyncConsumer {
                 return (List<Map<String, Object>>) resultResponse.get(Constants.CONTENT);
             }
         }
-        return null;
+        return Collections.emptyList();
     }
 
     private Map<String, Object> updateDataBase(String jobId, Date jobStartDate, String status, int totalUser, int userFound, int userNotFound, int profileUpdateSuccessCount, int profileUpdateFailedCount) {
@@ -537,5 +535,37 @@ public class EhrmsIgotUserSyncConsumer {
         updateAttributes.put(Constants.PROFILE_UPDATE_FAILED_COUNT, profileUpdateFailedCount);
         updateAttributes.put(Constants.JOB_END_DATE, new Date());
         return cassandraOperation.updateRecord(Constants.SUNBIRD_KEY_SPACE_NAME, Constants.EHRMS_USER_SYNC_TABLE, updateAttributes, compositeKey);
+    }
+
+    public boolean validateDesignationFieldValue(String designation) {
+        int page = 0;
+        int pageSize = serverProperties.getSearchDesignationResultSize();
+        String url = serverProperties.getCbPoresServiceHost() + serverProperties.getCbPoresMasterDesignationEndpoint();
+        HashMap<String, String> headersValue = new HashMap<>();
+        headersValue.put(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
+        Map<String, Object> searchRequest = new HashMap<>();
+        searchRequest.put(Constants.PAGE_NUMBER, page);
+        searchRequest.put(Constants.PAGE_SIZE, pageSize);
+        searchRequest.put(Constants.REQUEST_FIELDS, new ArrayList<>());
+
+        Map<String, Object> filterCriteria = new HashMap<>();
+        filterCriteria.put(Constants.STATUS, Constants.ACTIVE_TITLE_CASE);
+        filterCriteria.put(Constants.DESIGNATION, designation);
+        searchRequest.put(Constants.FILTER_CRITERIA_MAP, filterCriteria);
+
+        Map<String, Object> response = outboundRequestHandlerService.fetchResultUsingPost(url, searchRequest, headersValue);
+        if (MapUtils.isEmpty(response)) {
+            return false;
+        }
+        Map<String, Object> outerResult = (Map<String, Object>) response.get(Constants.RESULT);
+        if (MapUtils.isEmpty(outerResult)) {
+            return false;
+        }
+        Map<String, Object> innerResult = (Map<String, Object>) outerResult.get(Constants.RESULT);
+        if (MapUtils.isEmpty(innerResult)) {
+            return false;
+        }
+        List<Map<String, Object>> data = (List<Map<String, Object>>) innerResult.get(Constants.DATA);
+        return !CollectionUtils.isEmpty(data);
     }
 }
