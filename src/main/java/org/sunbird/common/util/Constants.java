@@ -1496,5 +1496,6 @@ public class Constants {
     public static final String LOCATION_DETAILS_CAMEL = "locationDetails";
     public static final String EDUCATIONAL_QUALIFICATIONS_CAMEL ="educationalQualifications";
     public static final String QUALIFICATIONS = "qualifications";
+    public static final String EMPLOYEE_ID_TITLE = "EmployeeID";
 
 }

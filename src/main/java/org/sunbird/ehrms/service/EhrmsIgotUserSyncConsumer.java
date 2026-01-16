@@ -81,20 +81,15 @@ public class EhrmsIgotUserSyncConsumer {
     private void initiateEhrmsIgotDataSync(ConsumerRecord<String, String> data) {
         log.info("EhrmsIgotUserSyncConsumer::processMessage.. started.");
         try {
-            if (org.apache.commons.lang3.StringUtils.isNotBlank(data.value())) {
-                CompletableFuture.runAsync(() -> {
-                    try {
-                        log.info("Ehrms user sync initiated successfully for data: {}", data.value());
-                        processEhrmsIgotDataSync(data.value());
-                    } catch (Exception e) {
-                        log.error("Error while Syncing ehrms user data: {}", data.value(), e);
-                    }
-                });
-            } else {
+            if (org.apache.commons.lang3.StringUtils.isBlank(data.value())) {
                 log.error("Error in EhrmsIgotUserSyncConsumer: Invalid or empty Kafka message received");
+                return;
             }
+            log.info("Ehrms user sync initiated successfully for data: {}", data.value());
+            processEhrmsIgotDataSync(data.value());
+
         } catch (Exception e) {
-            log.error("Error while initiating ehrms user data sync", e);
+            log.error("Error while syncing ehrms user data: {}", data.value(), e);
         }
     }
 
@@ -201,10 +196,10 @@ public class EhrmsIgotUserSyncConsumer {
         }
         // Load employee master
         for (Map<String, Object> e : employees) {
-            if (e == null || e.get("EmployeeId") == null) {
+            if (e == null || e.get(Constants.EMPLOYEE_ID_TITLE) == null) {
                 continue;
             }
-            String empId = String.valueOf(e.get("EmployeeId")).trim();
+            String empId = String.valueOf(e.get(Constants.EMPLOYEE_ID_TITLE)).trim();
             if (empId.isEmpty()) {
                 continue;
             }
@@ -220,10 +215,10 @@ public class EhrmsIgotUserSyncConsumer {
         }
         // Attach qualifications
         for (Map<String, Object> q : qualifications) {
-            if (q == null || q.get("EmployeeId") == null) {
+            if (q == null || q.get(Constants.EMPLOYEE_ID_TITLE) == null) {
                 continue;
             }
-            String empId = String.valueOf(q.get("EmployeeId")).trim();
+            String empId = String.valueOf(q.get(Constants.EMPLOYEE_ID_TITLE)).trim();
             if (empId.isEmpty()) {
                 continue;
             }
@@ -250,12 +245,11 @@ public class EhrmsIgotUserSyncConsumer {
                 return;
             }
 
-            String empId = profileMap.get("EmployeeId") == null ? "" : profileMap.get("EmployeeId").toString().trim();
+            String empId = profileMap.get(Constants.EMPLOYEE_ID_TITLE) == null ? "" : profileMap.get(Constants.EMPLOYEE_ID_TITLE).toString().trim();
             String ehrmsId = profileMap.get("EmployeeCode") == null ? "" : profileMap.get("EmployeeCode").toString().trim();
             String firstName = profileMap.get("FirstName") == null ? "" : profileMap.get("FirstName").toString().trim();
             String lastName = profileMap.get("LastName") == null ? "" : profileMap.get("LastName").toString().trim();
             String empName = WordUtils.capitalizeFully((firstName + " " + lastName).trim());
-
             String email = profileMap.get("EmailID1") == null ? "" : profileMap.get("EmailID1").toString().trim();
             String mobile = profileMap.get("Mobile") == null ? "" : profileMap.get("Mobile").toString().trim();
             String designation = profileMap.get("designation") == null ? "" : profileMap.get("designation").toString().trim();
@@ -448,7 +442,7 @@ public class EhrmsIgotUserSyncConsumer {
             List<Map<String, Object>> educationalQualifications = new ArrayList<>();
             for (Map<String, Object> userEducationalQualification : userEducationalQualifications) {
                 Map<String, Object> objMap = new HashMap<>();
-                objMap.put(Constants.DEGREE, StringUtils.isEmpty(userEducationalQualification.get(Constants.DEGREE)) || ((String) userEducationalQualification.get(Constants.DEGREE)).equalsIgnoreCase("NOT AVAILABLE") ? "Others" : (String) userEducationalQualification.get(Constants.DEGREE));
+                objMap.put(Constants.DEGREE, StringUtils.isEmpty(userEducationalQualification.get("Degree")) || ((String) userEducationalQualification.get("Degree")).equalsIgnoreCase("NOT AVAILABLE") ? "Others" : (String) userEducationalQualification.get("Degree"));
                 objMap.put("fieldOfStudy", StringUtils.isEmpty(userEducationalQualification.get("Field of Study")) ? "Others" : (String) userEducationalQualification.get("Field of Study"));
                 objMap.put("institutionName", StringUtils.isEmpty(userEducationalQualification.get("Institute Name")) ? "Others" : (String) userEducationalQualification.get("Institute Name"));
                 objMap.put("startYear", "NA");
