@@ -37,11 +37,12 @@ public class EhrmsIgotUserSyncServiceImpl implements EhrmsIgotUserSyncService {
     private String ehrmsUserDataSyncKafkaTopic;
 
     @Override
-    public SBApiResponse userEhrmsDataUpdate(Map<String, Object> requestBody) {
+    public SBApiResponse userEhrmsDataUpdate(Map<String, Object> requestBody, String sync) {
         SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.EHRMS_IGOT_USER_DATA_SYNC_API);
 
         try {
             Map<String, Object> request = (Map<String, Object>) requestBody.get(Constants.REQUEST);
+            boolean isSync = Boolean.parseBoolean(Optional.ofNullable(sync).orElse("false"));
             if (CollectionUtils.isEmpty(request)) {
                 updateErrorDetails(response, "Request body is missing", HttpStatus.BAD_REQUEST);
             }
@@ -92,7 +93,7 @@ public class EhrmsIgotUserSyncServiceImpl implements EhrmsIgotUserSyncService {
                 return response;
             }
 
-            insertSyncDetailsInDBAndTriggerKafkaEvent(finalFromDate, finalToDate);
+            insertSyncDetailsInDBAndTriggerKafkaEvent(finalFromDate, finalToDate, isSync);
 
             response.getParams().setStatus(Constants.SUCCESS);
             response.getResult().put(Constants.MESSAGE, "EHRMS data sync started");
@@ -118,7 +119,7 @@ public class EhrmsIgotUserSyncServiceImpl implements EhrmsIgotUserSyncService {
         response.setResponseCode(responseCode);
     }
 
-    private SBApiResponse insertSyncDetailsInDBAndTriggerKafkaEvent(String fromDate, String toDate) {
+    private SBApiResponse insertSyncDetailsInDBAndTriggerKafkaEvent(String fromDate, String toDate, boolean isSync) {
         SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.BP_REPORT_GENERATE_API);
         try {
             Map<String, Object> dbRequest = new HashMap<>();
@@ -128,6 +129,7 @@ public class EhrmsIgotUserSyncServiceImpl implements EhrmsIgotUserSyncService {
             dbRequest.put(Constants.STATUS, Constants.STATUS_IN_PROGRESS_UPPERCASE);
             dbRequest.put(Constants.EHRMS_FROM_DATE, fromDate);
             dbRequest.put(Constants.EHRMS_TO_DATE, toDate);
+            dbRequest.put(Constants.IS_SYNC, isSync);
             SBApiResponse dbResponse = cassandraOperation.insertRecord(Constants.SUNBIRD_KEY_SPACE_NAME, Constants.EHRMS_USER_SYNC_TABLE, dbRequest);
 
             if (dbResponse.get(Constants.RESPONSE).equals(Constants.SUCCESS)) {

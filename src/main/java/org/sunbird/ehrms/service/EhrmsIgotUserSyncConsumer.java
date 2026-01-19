@@ -68,13 +68,6 @@ public class EhrmsIgotUserSyncConsumer {
     @Value("${ehrms.api.key}")
     private String ehrmsApiKey;
 
-
-    private final AtomicInteger totalUsersCount = new AtomicInteger(0);
-    private final AtomicInteger existingUsersCount = new AtomicInteger(0);
-    private final AtomicInteger notFoundUsersCount = new AtomicInteger(0);
-    private final AtomicInteger profileUpdateSuccessCount = new AtomicInteger(0);
-    private final AtomicInteger profileUpdateFailedCount = new AtomicInteger(0);
-
     List<String> statesAndUTs = Arrays.asList("Andaman And Nicobar Islands", "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chandigarh", "Chhattisgarh", "Delhi", "Goa", "Gujarat", "Haryana", "Himachal Pradesh", "Jammu And Kashmir", "Jharkhand", "Karnataka", "Kerala", "Ladakh", "Lakshadweep", "Madhya Pradesh", "Maharashtra", "Manipur", "Meghalaya", "Mizoram", "Nagaland", "Odisha", "Puducherry", "Punjab", "Rajasthan", "Sikkim", "Tamil Nadu", "Telangana", "The Dadra And Nagar Haveli And Daman And Diu", "Tripura", "Uttarakhand", "Uttar Pradesh", "West Bengal");
 
     @KafkaListener(topics = "${ehrms.user.data.sync.kafka.topic}", groupId = "${ehrms.user.data.sync.kafka.group}")
@@ -97,10 +90,17 @@ public class EhrmsIgotUserSyncConsumer {
         log.info("EhrmsIgotUserSyncConsumer:: processEhrmsIgotDataSync: Started");
         long duration = 0;
         long startTime = System.currentTimeMillis();
+        AtomicInteger totalUsersCount = new AtomicInteger(0);
+        AtomicInteger existingUsersCount = new AtomicInteger(0);
+        AtomicInteger notFoundUsersCount = new AtomicInteger(0);
+        AtomicInteger profileUpdateSuccessCount = new AtomicInteger(0);
+        AtomicInteger profileUpdateFailedCount = new AtomicInteger(0);
         Map<String, Object> request = mapper.readValue(inputData, new TypeReference<Map<String, Object>>() {
         });
         String jobId = request.get(Constants.JOB_ID).toString();
         Object jobStartDateObj = request.get(Constants.JOB_START_DATE);
+        boolean isSync = Boolean.parseBoolean(String.valueOf(request.getOrDefault(Constants.IS_SYNC, "false")));
+
         Date jobStartDate;
 
         if (jobStartDateObj instanceof Long) {
@@ -122,11 +122,19 @@ public class EhrmsIgotUserSyncConsumer {
             List<Map<String, Object>> quals = parseCsv(qualCsv);
             Map<String, Map<String, Object>> merged = join(employees, quals);
 
-            for (String empCode : merged.keySet()) {
-                processUserEhrmsDataLine(merged.get(empCode));
+            totalUsersCount.set(merged.size());
+            if (isSync) {
+                for (String empCode : merged.keySet()) {
+                    try {
+                        processUserEhrmsDataLine(merged.get(empCode), existingUsersCount, notFoundUsersCount, profileUpdateSuccessCount, profileUpdateFailedCount);
+                    } catch (Exception e) {
+                        profileUpdateFailedCount.incrementAndGet();
+                        log.error("Fatal error processing empId {}", empCode, e);
+                    }
+                }
             }
         } catch (Exception e) {
-            log.error(String.format("Error in the scheduler to generate the BP report %s", e.getMessage()), e);
+            log.error(String.format("Exception occurred while syncing the Ehrms data: %s", e.getMessage()), e);
             updateDataBase(jobId, jobStartDate, Constants.FAILED_UPPERCASE, totalUsersCount.get(), existingUsersCount.get(), notFoundUsersCount.get(), profileUpdateSuccessCount.get(), profileUpdateFailedCount.get());
         }
         duration = System.currentTimeMillis() - startTime;
@@ -191,12 +199,12 @@ public class EhrmsIgotUserSyncConsumer {
 
     private Map<String, Map<String, Object>> join(List<Map<String, Object>> employees, List<Map<String, Object>> qualifications) {
         Map<String, Map<String, Object>> users = new HashMap<>();
-        if (employees == null || employees.isEmpty()) {
+        if (CollectionUtils.isEmpty(employees)) {
             return users;
         }
         // Load employee master
         for (Map<String, Object> e : employees) {
-            if (e == null || e.get(Constants.EMPLOYEE_ID_TITLE) == null) {
+            if (MapUtils.isEmpty(e) || StringUtils.isEmpty(e.get(Constants.EMPLOYEE_ID_TITLE))) {
                 continue;
             }
             String empId = String.valueOf(e.get(Constants.EMPLOYEE_ID_TITLE)).trim();
@@ -210,12 +218,12 @@ public class EhrmsIgotUserSyncConsumer {
             users.put(empId, user);
         }
 
-        if (qualifications == null || qualifications.isEmpty()) {
+        if (CollectionUtils.isEmpty(qualifications)) {
             return users;
         }
         // Attach qualifications
         for (Map<String, Object> q : qualifications) {
-            if (q == null || q.get(Constants.EMPLOYEE_ID_TITLE) == null) {
+            if (MapUtils.isEmpty(q) || StringUtils.isEmpty(q.get(Constants.EMPLOYEE_ID_TITLE))) {
                 continue;
             }
             String empId = String.valueOf(q.get(Constants.EMPLOYEE_ID_TITLE)).trim();
@@ -223,7 +231,7 @@ public class EhrmsIgotUserSyncConsumer {
                 continue;
             }
             Map<String, Object> user = users.get(empId);
-            if (user == null) {
+            if (MapUtils.isEmpty(user)) {
                 continue;
             }
             Object obj = user.get(Constants.QUALIFICATIONS);
@@ -235,12 +243,11 @@ public class EhrmsIgotUserSyncConsumer {
     }
 
 
-    private void processUserEhrmsDataLine(Map<String, Object> user) {
-        totalUsersCount.incrementAndGet();
+    private void processUserEhrmsDataLine(Map<String, Object> user, AtomicInteger existingUserCount, AtomicInteger notFoundUsersCount, AtomicInteger profileUpdateSuccessCount, AtomicInteger profileUpdateFailedCount) {
         Map<String, String> headerValues = new HashMap<>();
         try {
             Map<String, Object> profileMap = (Map<String, Object>) user.get(Constants.PROFILE);
-            if (profileMap == null) {
+            if (MapUtils.isEmpty(profileMap)) {
                 profileUpdateFailedCount.incrementAndGet();
                 return;
             }
@@ -261,7 +268,7 @@ public class EhrmsIgotUserSyncConsumer {
             String state = WordUtils.capitalizeFully(profileMap.get("Home State") == null ? "" : profileMap.get("Home State").toString().trim());
             String district = WordUtils.capitalizeFully(profileMap.get("Home District") == null ? "" : profileMap.get("Home District").toString().trim());
 
-            if (StringUtils.isEmpty(email) || StringUtils.isEmpty(mobile)) {
+            if (StringUtils.isEmpty(email) && StringUtils.isEmpty(mobile)) {
                 profileUpdateFailedCount.incrementAndGet();
                 return;
             }
@@ -273,8 +280,7 @@ public class EhrmsIgotUserSyncConsumer {
                             .parseLenient()
                             .appendPattern("M/d/yyyy")
                             .toFormatter();
-                    dob = LocalDate.parse(inputDOB, inputFormatter)
-                            .format(DateTimeFormatter.ofPattern("dd-MM-yyyy"));
+                    dob = LocalDate.parse(inputDOB, inputFormatter).format(DateTimeFormatter.ofPattern("dd-MM-yyyy"));
                 } catch (Exception ignored) {
                 }
             }
@@ -286,7 +292,7 @@ public class EhrmsIgotUserSyncConsumer {
             boolean hasPhone = !CollectionUtils.isEmpty(phoneSearch);
 
             if (hasEmail || hasPhone) {
-                existingUsersCount.incrementAndGet();
+                existingUserCount.incrementAndGet();
             } else {
                 notFoundUsersCount.incrementAndGet();
             }
@@ -337,8 +343,8 @@ public class EhrmsIgotUserSyncConsumer {
 
         Map<String, Object> request = new HashMap<>();
 
-        String userId = content.get(Constants.USER_ID) == null ? "" : content.get(Constants.USER_ID).toString();
-        String firstName = content.get(Constants.FIRSTNAME) == null ? "" : content.get(Constants.FIRSTNAME).toString();
+        String userId = content.get(Constants.USER_ID) == null ? "" : content.get(Constants.USER_ID).toString().trim();
+        String firstName = content.get(Constants.FIRSTNAME) == null ? "" : content.get(Constants.FIRSTNAME).toString().trim();
 
         Map<String, Object> profile = (Map<String, Object>) content.get(Constants.PROFILE_DETAILS);
         if (MapUtils.isEmpty(profile)) {

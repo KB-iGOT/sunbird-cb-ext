@@ -6,6 +6,6 @@ import java.util.Map;
 
 public interface EhrmsIgotUserSyncService {
 
-    SBApiResponse userEhrmsDataUpdate(Map<String,Object> requestBody) throws Exception;
+    SBApiResponse userEhrmsDataUpdate(Map<String,Object> requestBody, String sync) throws Exception;
     SBApiResponse getSyncStatus();
 }

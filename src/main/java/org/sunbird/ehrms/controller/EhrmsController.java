@@ -33,8 +33,8 @@ public class EhrmsController {
     }
 
     @PostMapping("/user/ehrms-igot/data/sync")
-    public ResponseEntity <SBApiResponse> EhrmsIgotUserDataSync(@RequestBody Map<String, Object> requestBody) throws Exception {
-        SBApiResponse response = ehrmsIgotUserSyncService.userEhrmsDataUpdate(requestBody);
+    public ResponseEntity <SBApiResponse> EhrmsIgotUserDataSync(@RequestBody Map<String, Object> requestBody,@RequestParam("sync") String sync) throws Exception {
+        SBApiResponse response = ehrmsIgotUserSyncService.userEhrmsDataUpdate(requestBody, sync);
         return new ResponseEntity<>(response, response.getResponseCode());
     }
 
