@@ -13,6 +13,7 @@ import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -34,6 +35,7 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 
 @Component
@@ -55,6 +57,10 @@ public class EhrmsIgotUserSyncConsumer {
 
     @Autowired
     RestTemplate restTemplate;
+
+    @Autowired
+    @Qualifier("ehrmsSyncExecutor")
+    private ExecutorService ehrmsSyncExecutor;
 
     @Value("${ehrms.api.base.url}")
     private String ehrmsBaseUrl;
@@ -88,21 +94,21 @@ public class EhrmsIgotUserSyncConsumer {
 
     public void processEhrmsIgotDataSync(String inputData) throws IOException {
         log.info("EhrmsIgotUserSyncConsumer:: processEhrmsIgotDataSync: Started");
-        long duration = 0;
         long startTime = System.currentTimeMillis();
+
         AtomicInteger totalUsersCount = new AtomicInteger(0);
         AtomicInteger existingUsersCount = new AtomicInteger(0);
         AtomicInteger notFoundUsersCount = new AtomicInteger(0);
         AtomicInteger profileUpdateSuccessCount = new AtomicInteger(0);
         AtomicInteger profileUpdateFailedCount = new AtomicInteger(0);
+
         Map<String, Object> request = mapper.readValue(inputData, new TypeReference<Map<String, Object>>() {
         });
-        String jobId = request.get(Constants.JOB_ID).toString();
+        String jobId = String.valueOf(request.get(Constants.JOB_ID));
         Object jobStartDateObj = request.get(Constants.JOB_START_DATE);
         boolean isSync = Boolean.parseBoolean(String.valueOf(request.getOrDefault(Constants.IS_SYNC, "false")));
 
         Date jobStartDate;
-
         if (jobStartDateObj instanceof Long) {
             jobStartDate = new Date((Long) jobStartDateObj);
         } else if (jobStartDateObj instanceof String) {
@@ -112,9 +118,11 @@ public class EhrmsIgotUserSyncConsumer {
         } else {
             throw new IllegalArgumentException("Invalid type for job_start_date: " + jobStartDateObj.getClass());
         }
+
         try {
-            String from = request.get(Constants.EHRMS_FROM_DATE).toString();
-            String to = request.get(Constants.EHRMS_TO_DATE).toString();
+            String from = String.valueOf(request.get(Constants.EHRMS_FROM_DATE));
+            String to = String.valueOf(request.get(Constants.EHRMS_TO_DATE));
+
             String empCsv = callEmpApi(from, to);
             String qualCsv = callQualificationApi(from, to);
 
@@ -123,23 +131,44 @@ public class EhrmsIgotUserSyncConsumer {
             Map<String, Map<String, Object>> merged = join(employees, quals);
 
             totalUsersCount.set(merged.size());
-            if (isSync) {
-                for (String empCode : merged.keySet()) {
-                    try {
-                        processUserEhrmsDataLine(merged.get(empCode), existingUsersCount, notFoundUsersCount, profileUpdateSuccessCount, profileUpdateFailedCount);
-                    } catch (Exception e) {
-                        profileUpdateFailedCount.incrementAndGet();
-                        log.error("Fatal error processing empId {}", empCode, e);
-                    }
+
+            if (isSync && !merged.isEmpty()) {
+                List<CompletableFuture<Void>> futures = new ArrayList<>();
+
+                for (Map.Entry<String, Map<String, Object>> entry : merged.entrySet()) {
+                    String empCode = entry.getKey();
+                    Map<String, Object> user = entry.getValue();
+
+                    CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
+                        try {
+                            processUserEhrmsDataLine(user, existingUsersCount, notFoundUsersCount,
+                                    profileUpdateSuccessCount, profileUpdateFailedCount);
+                        } catch (Exception e) {
+                            profileUpdateFailedCount.incrementAndGet();
+                            log.error("Error processing user {}", empCode, e);
+                        }
+                    }, ehrmsSyncExecutor);
+
+                    futures.add(future);
                 }
+
+                // Wait for all tasks to complete
+                CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
             }
+
+            long duration = System.currentTimeMillis() - startTime;
+            log.info("EhrmsIgotUserSyncConsumer:: processEhrmsIgotDataSync: Completed. Time taken: {} ms", duration);
+
+            updateDataBase(jobId, jobStartDate, Constants.SUCCESS_UPPERCASE,
+                    totalUsersCount.get(), existingUsersCount.get(), notFoundUsersCount.get(),
+                    profileUpdateSuccessCount.get(), profileUpdateFailedCount.get());
+
         } catch (Exception e) {
-            log.error(String.format("Exception occurred while syncing the Ehrms data: %s", e.getMessage()), e);
-            updateDataBase(jobId, jobStartDate, Constants.FAILED_UPPERCASE, totalUsersCount.get(), existingUsersCount.get(), notFoundUsersCount.get(), profileUpdateSuccessCount.get(), profileUpdateFailedCount.get());
+            log.error("Exception occurred while syncing the Ehrms data: {}", e.getMessage(), e);
+            updateDataBase(jobId, jobStartDate, Constants.FAILED_UPPERCASE,
+                    totalUsersCount.get(), existingUsersCount.get(), notFoundUsersCount.get(),
+                    profileUpdateSuccessCount.get(), profileUpdateFailedCount.get());
         }
-        duration = System.currentTimeMillis() - startTime;
-        log.info("EhrmsIgotUserSyncConsumer:: processEhrmsIgotDataSync: Completed. Time taken: " + duration + " milli-seconds");
-        updateDataBase(jobId, jobStartDate, Constants.SUCCESS_UPPERCASE, totalUsersCount.get(), existingUsersCount.get(), notFoundUsersCount.get(), profileUpdateSuccessCount.get(), profileUpdateFailedCount.get());
     }
 
     private String callEmpApi(String from, String to) throws Exception {
