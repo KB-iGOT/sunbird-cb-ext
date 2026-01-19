@@ -1480,7 +1480,6 @@ public class Constants {
     public static final String JOB_ID = "job_id";
     public static final String DEGREE = "degree";
     public static final String DISTRICT = "district";
-    public static final String state = "state";
     public static final String OTHERS = "Others";
     public static final String PROFILE_UPDATE_SUCCESS_COUNT = "profile_update_success_count";
     public static final String PROFILE_UPDATE_FAILED_COUNT = "profile_update_failed_count";

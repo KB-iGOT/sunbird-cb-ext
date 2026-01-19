@@ -95,7 +95,6 @@ public class EhrmsIgotUserSyncConsumer {
     public void processEhrmsIgotDataSync(String inputData) throws IOException {
         log.info("EhrmsIgotUserSyncConsumer:: processEhrmsIgotDataSync: Started");
         long startTime = System.currentTimeMillis();
-
         AtomicInteger totalUsersCount = new AtomicInteger(0);
         AtomicInteger existingUsersCount = new AtomicInteger(0);
         AtomicInteger notFoundUsersCount = new AtomicInteger(0);
@@ -161,13 +160,14 @@ public class EhrmsIgotUserSyncConsumer {
 
             updateDataBase(jobId, jobStartDate, Constants.SUCCESS_UPPERCASE,
                     totalUsersCount.get(), existingUsersCount.get(), notFoundUsersCount.get(),
-                    profileUpdateSuccessCount.get(), profileUpdateFailedCount.get());
+                    profileUpdateSuccessCount.get(), profileUpdateFailedCount.get(), null);
 
         } catch (Exception e) {
+            String errMsg = "Exception occurred while syncing the Ehrms data" + e.getMessage();
             log.error("Exception occurred while syncing the Ehrms data: {}", e.getMessage(), e);
             updateDataBase(jobId, jobStartDate, Constants.FAILED_UPPERCASE,
                     totalUsersCount.get(), existingUsersCount.get(), notFoundUsersCount.get(),
-                    profileUpdateSuccessCount.get(), profileUpdateFailedCount.get());
+                    profileUpdateSuccessCount.get(), profileUpdateFailedCount.get(), errMsg);
         }
     }
 
@@ -549,7 +549,7 @@ public class EhrmsIgotUserSyncConsumer {
         return Collections.emptyList();
     }
 
-    private Map<String, Object> updateDataBase(String jobId, Date jobStartDate, String status, int totalUser, int userFound, int userNotFound, int profileUpdateSuccessCount, int profileUpdateFailedCount) {
+    private Map<String, Object> updateDataBase(String jobId, Date jobStartDate, String status, int totalUser, int userFound, int userNotFound, int profileUpdateSuccessCount, int profileUpdateFailedCount, String errMsg) {
         Map<String, Object> compositeKey = new HashMap<>();
         compositeKey.put(Constants.JOB_NAME, Constants.EHRMS_SYNC);
         compositeKey.put(Constants.JOB_START_DATE, jobStartDate);
@@ -563,6 +563,7 @@ public class EhrmsIgotUserSyncConsumer {
         updateAttributes.put(Constants.PROFILE_UPDATE_SUCCESS_COUNT, profileUpdateSuccessCount);
         updateAttributes.put(Constants.PROFILE_UPDATE_FAILED_COUNT, profileUpdateFailedCount);
         updateAttributes.put(Constants.JOB_END_DATE, new Date());
+        updateAttributes.put(Constants.ERROR_MESSAGE, errMsg);
         return cassandraOperation.updateRecord(Constants.SUNBIRD_KEY_SPACE_NAME, Constants.EHRMS_USER_SYNC_TABLE, updateAttributes, compositeKey);
     }
 
