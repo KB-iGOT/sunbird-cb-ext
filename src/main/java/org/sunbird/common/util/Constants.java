@@ -1498,5 +1498,12 @@ public class Constants {
     public static final String QUALIFICATIONS = "qualifications";
     public static final String EMPLOYEE_ID_TITLE = "EmployeeID";
     public static final String IS_SYNC = "is_sync";
+    public static final String JOB_TYPE_CAMEL = "jobType";
+    public static final String JOB_TYPE_COLUMN = "job_type";
+    public static final String DAILY = "daily";
+    public static final String WEEKLY = "weekly";
+    public static final String MONTHLY = "monthly";
+    public static final String HALF_YEARLY = "halfYearly";
+    public static final String YEARLY = "yearly";
 
 }

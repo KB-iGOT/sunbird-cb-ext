@@ -9,6 +9,7 @@ import org.springframework.core.io.Resource;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
+import org.springframework.util.ObjectUtils;
 import org.sunbird.cassandra.utils.CassandraOperation;
 import org.sunbird.common.model.SBApiResponse;
 import org.sunbird.common.util.Constants;
@@ -45,47 +46,84 @@ public class EhrmsIgotUserSyncServiceImpl implements EhrmsIgotUserSyncService {
             boolean isSync = Boolean.parseBoolean(Optional.ofNullable(sync).orElse("false"));
             if (CollectionUtils.isEmpty(request)) {
                 updateErrorDetails(response, "Request body is missing", HttpStatus.BAD_REQUEST);
+                return response;
             }
 
-            if (!request.containsKey(Constants.FROM_DATE_CAMEL) || !request.containsKey(Constants.TO_DATE_CAMEL)) {
-                updateErrorDetails(response, "fromDate and toDate are required", HttpStatus.BAD_REQUEST);
+            String fromDateStr;
+            String toDateStr;
+            String jobType = null;
+
+            DateTimeFormatter apiFormatter = DateTimeFormatter.ofPattern("dd-MM-uuuu").withResolverStyle(ResolverStyle.STRICT);
+            DateTimeFormatter internalFormatter = DateTimeFormatter.ofPattern("dd-MM-uuuu");
+            LocalDate today = LocalDate.now();
+
+            Object jobTypeObj = request.get(Constants.JOB_TYPE_CAMEL);
+
+            if (!ObjectUtils.isEmpty(jobTypeObj)) {
+                jobType = jobTypeObj.toString();
+                if (Constants.DAILY.equalsIgnoreCase(jobType)) {
+                    fromDateStr = today.minusDays(1).format(internalFormatter);
+                    toDateStr = today.format(internalFormatter);
+                } else if (Constants.WEEKLY.equalsIgnoreCase(jobType)) {
+                    fromDateStr = today.minusDays(7).format(internalFormatter);
+                    toDateStr = today.format(internalFormatter);
+                } else if (Constants.MONTHLY.equalsIgnoreCase(jobType)) {
+                    fromDateStr = today.minusDays(30).format(internalFormatter);
+                    toDateStr = today.format(internalFormatter);
+                } else if (Constants.HALF_YEARLY.equalsIgnoreCase(jobType)) {
+                    fromDateStr = today.minusDays(180).format(internalFormatter);
+                    toDateStr = today.format(internalFormatter);
+                } else {
+                    updateErrorDetails(response, "Invalid jobType. Allowed values: DAILY, WEEKLY, MONTHLY, HALFYEARLY",
+                            HttpStatus.BAD_REQUEST);
+                    return response;
+                }
+
+            } else {
+
+                Object fromObj = request.get(Constants.FROM_DATE_CAMEL);
+                Object toObj = request.get(Constants.TO_DATE_CAMEL);
+                if (ObjectUtils.isEmpty(fromObj) || ObjectUtils.isEmpty(toObj)) {
+                    updateErrorDetails(response, "Either jobType or fromDate & toDate must be provided", HttpStatus.BAD_REQUEST);
+                    return response;
+                }
+                fromDateStr = fromObj.toString();
+                toDateStr = toObj.toString();
             }
 
-            if (!(request.get(Constants.FROM_DATE_CAMEL) instanceof String) || !(request.get(Constants.TO_DATE_CAMEL) instanceof String)) {
-                updateErrorDetails(response, "fromDate and toDate must be String in format dd-MM-yyyy", HttpStatus.BAD_REQUEST);
-            }
-
-            String fromDateStr = request.get(Constants.FROM_DATE_CAMEL).toString().trim();
-            String toDateStr = request.get(Constants.TO_DATE_CAMEL).toString().trim();
-            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd-MM-uuuu").withResolverStyle(ResolverStyle.STRICT);
-
-            LocalDate from = null;
-            LocalDate to = null;
+            LocalDate from;
+            LocalDate to;
 
             try {
-                from = LocalDate.parse(fromDateStr, formatter);
-                to = LocalDate.parse(toDateStr, formatter);
+                from = LocalDate.parse(fromDateStr, apiFormatter);
+                to = LocalDate.parse(toDateStr, apiFormatter);
             } catch (DateTimeParseException e) {
                 updateErrorDetails(response, "Invalid date format. Expected dd-MM-yyyy", HttpStatus.BAD_REQUEST);
+                return response;
             }
 
-            if (to.isBefore(from)) {
-                updateErrorDetails(response, "toDate cannot be before fromDate", HttpStatus.BAD_REQUEST);
+            //6 month validation only for manual range
+            if (ObjectUtils.isEmpty(jobType)) {
+                if (to.isBefore(from)) {
+                    updateErrorDetails(response, "toDate cannot be before fromDate", HttpStatus.BAD_REQUEST);
+                    return response;
+                }
+                if (to.isAfter(from.plusMonths(6))) {
+                    updateErrorDetails(response, "Date range cannot exceed 6 months", HttpStatus.BAD_REQUEST);
+                    return response;
+                }
             }
-
-            if (to.isAfter(from.plusMonths(6))) {
-                throw new IllegalArgumentException("Date range cannot exceed 6 months");
-            }
-
-            String finalFromDate = from.format(formatter);
-            String finalToDate = to.format(formatter);
 
             Map<String, Object> keyMap = new HashMap<>();
             keyMap.put(Constants.JOB_NAME, Constants.EHRMS_SYNC);
-            List<Map<String, Object>> existingJobs = cassandraOperation.getRecordsByProperties(Constants.KEYSPACE_SUNBIRD, Constants.EHRMS_USER_SYNC_TABLE, keyMap, null);
+            List<Map<String, Object>> existingJobs =
+                    cassandraOperation.getRecordsByProperties(Constants.KEYSPACE_SUNBIRD,
+                            Constants.EHRMS_USER_SYNC_TABLE, keyMap, null);
 
-            if (!CollectionUtils.isEmpty(existingJobs) && Constants.STATUS_IN_PROGRESS_UPPERCASE.equalsIgnoreCase((String) existingJobs.get(0).get(Constants.STATUS))) {
-                Map<String, Object> lastJob = existingJobs.get(0);
+            if (!CollectionUtils.isEmpty(existingJobs)
+                    && Constants.STATUS_IN_PROGRESS_UPPERCASE.equalsIgnoreCase(
+                    (String) existingJobs.get(0).get(Constants.STATUS))) {
+
                 response.getParams().setStatus(Constants.SUCCESS);
                 response.getResult().put(Constants.MESSAGE, "EHRMS sync already in progress");
                 response.getResult().put(Constants.STATUS, Constants.STATUS_IN_PROGRESS_UPPERCASE);
@@ -93,17 +131,12 @@ public class EhrmsIgotUserSyncServiceImpl implements EhrmsIgotUserSyncService {
                 return response;
             }
 
-            insertSyncDetailsInDBAndTriggerKafkaEvent(finalFromDate, finalToDate, isSync);
+            insertSyncDetailsInDBAndTriggerKafkaEvent(fromDateStr, toDateStr, isSync, jobType);
 
             response.getParams().setStatus(Constants.SUCCESS);
             response.getResult().put(Constants.MESSAGE, "EHRMS data sync started");
             response.getResult().put(Constants.STATUS, Constants.STATUS_IN_PROGRESS_UPPERCASE);
             response.setResponseCode(HttpStatus.OK);
-            return response;
-
-        } catch (IllegalArgumentException e) {
-            logger.warn("Validation failed", e);
-            updateErrorDetails(response, e.getMessage(), HttpStatus.BAD_REQUEST);
             return response;
 
         } catch (Exception e) {
@@ -119,7 +152,7 @@ public class EhrmsIgotUserSyncServiceImpl implements EhrmsIgotUserSyncService {
         response.setResponseCode(responseCode);
     }
 
-    private SBApiResponse insertSyncDetailsInDBAndTriggerKafkaEvent(String fromDate, String toDate, boolean isSync) {
+    private SBApiResponse insertSyncDetailsInDBAndTriggerKafkaEvent(String fromDate, String toDate, boolean isSync, String jobType) {
         SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.BP_REPORT_GENERATE_API);
         try {
             Map<String, Object> dbRequest = new HashMap<>();
@@ -130,6 +163,7 @@ public class EhrmsIgotUserSyncServiceImpl implements EhrmsIgotUserSyncService {
             dbRequest.put(Constants.EHRMS_FROM_DATE, fromDate);
             dbRequest.put(Constants.EHRMS_TO_DATE, toDate);
             dbRequest.put(Constants.IS_SYNC, isSync);
+            dbRequest.put(Constants.JOB_TYPE_COLUMN, jobType);
             SBApiResponse dbResponse = cassandraOperation.insertRecord(Constants.SUNBIRD_KEY_SPACE_NAME, Constants.EHRMS_USER_SYNC_TABLE, dbRequest);
 
             if (dbResponse.get(Constants.RESPONSE).equals(Constants.SUCCESS)) {
