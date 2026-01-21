@@ -1017,6 +1017,9 @@ public class ExtendedOrgServiceImpl implements ExtendedOrgService {
 		if (MapUtils.getObject(orgRequest, Constants.LOGO) != null) {
 			request.put(Constants.LOGO, orgRequest.get(Constants.LOGO));
 		}
+		if (MapUtils.getObject(orgRequest, Constants.PARENT_PATH_ID) != null) {
+			request.put(Constants.PARENT_PATH_ID, orgRequest.get(Constants.PARENT_PATH_ID));
+		}
 		updateRequest.put(Constants.REQUEST, request);
 		return outboundService.fetchResultUsingPatch(
 				configProperties.getSbUrl() + configProperties.getUpdateOrgPath(), updateRequest, headerValues);
