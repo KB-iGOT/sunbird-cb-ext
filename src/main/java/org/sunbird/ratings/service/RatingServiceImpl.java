@@ -254,6 +254,7 @@ public class RatingServiceImpl implements RatingService {
             }
             boolean isMultiLingual = serverConfig.getMultilingualAllowedCourseCategory().contains((String) contentResponse.get(Constants.COURSE_CATEGORY));
             logger.info("is course multilingual : " + isMultiLingual + " for coursecategory: " + contentResponse.get(Constants.COURSE_CATEGORY));
+            boolean isLearningPathway = Constants.LEARNING_PATHWAY.equalsIgnoreCase((String) contentResponse.get(Constants.COURSE_CATEGORY));
 
             boolean allowedPrimaryCategoryForCheckLangContentStatus = serverConfig.getRatingAllowedLangContentStatusPrimaryCategory().contains((String) contentResponse.get(Constants.PRIMARY_CATEGORY));
 
@@ -312,7 +313,7 @@ public class RatingServiceImpl implements RatingService {
                             }
                         }
                     }
-                    if (MapUtils.isNotEmpty(langContentStatus)) {
+                    if (!isLearningPathway && MapUtils.isNotEmpty(langContentStatus)) {
                         Map<String, Object> currentLanguageContentStatus;
                         if (isMultiLingual) {
                             currentLanguageContentStatus = (Map<String, Object>) langContentStatus.get(language);
@@ -330,11 +331,46 @@ public class RatingServiceImpl implements RatingService {
                             }
                         }
                     }
-                    if ((int) userEnrolments.get(Constants.STATUS) == 0 || currentLanguageCompletionPercentage < serverConfig.getMinimumRatingContentConsumptionPercentage()) {
+                    if (!isLearningPathway && ((int) userEnrolments.get(Constants.STATUS) == 0 || currentLanguageCompletionPercentage < serverConfig.getMinimumRatingContentConsumptionPercentage())) {
                         logger.info("Not eligible for update the rating for the multilingual courseId: " + requestRating.getActivityId() +
                                 " : baseCourseId :: " + baseCourseId + " ::userId:: " + requestRating.getUserId());
                         ProjectUtil.updateErrorDetails(response, String.format("Not eligible for update the rating for this course ", requestRating.getActivityId()), HttpStatus.BAD_REQUEST);
                         return response;
+                    }
+                    if (isLearningPathway) {
+
+                        int lpCompletionPercentage =
+                                computeLearningPathwayCompletionPercentage(
+                                        contentResponse,
+                                        requestRating.getUserId()
+                                );
+
+                        if (lpCompletionPercentage
+                                < serverConfig.getMinimumRatingContentConsumptionPercentage()) {
+
+                            ProjectUtil.updateErrorDetails(
+                                    response,
+                                    "User has not completed at least 50% of the learning pathway",
+                                    HttpStatus.BAD_REQUEST
+                            );
+                            return response;
+                        }
+
+                        boolean assessmentCompleted =
+                                isEligibleForLearningPathwayRating(
+                                        contentResponse,
+                                        userEnrolments,
+                                        language
+                                );
+
+                        if (!assessmentCompleted) {
+                            ProjectUtil.updateErrorDetails(
+                                    response,
+                                    "User has not completed any valid assessment in the learning pathway",
+                                    HttpStatus.BAD_REQUEST
+                            );
+                            return response;
+                        }
                     }
                 }
             } else {
@@ -985,5 +1021,158 @@ public class RatingServiceImpl implements RatingService {
         ratingModelInfo.setCreatedOn(new Timestamp(createdTime));
 
         redisCacheMgr.putCache(cacheKey, ratingModelInfo, serverConfig.getCacheRatingsTTL());
+    }
+
+    @SuppressWarnings("unchecked")
+    private boolean isEligibleForLearningPathwayRating(
+            Map<String, Object> contentResponse,
+            Map<String, Object> userEnrolments,
+            String language) {
+
+        if (StringUtils.isBlank(language)) {
+            List<String> baseLang =
+                    (List<String>) contentResponse.get(Constants.LANGUAGE);
+            if (!CollectionUtils.isEmpty(baseLang)) {
+                language = baseLang.get(0).toLowerCase();
+            }
+        }
+
+        Set<String> assessmentIds = new HashSet<>();
+
+        String prelim =
+                (String) contentResponse.get(Constants.PRELIMINARY_ASSESSMENT);
+        if (StringUtils.isNotBlank(prelim)) {
+            assessmentIds.add(prelim);
+        }
+
+        List<Map<String, Object>> milestones =
+                (List<Map<String, Object>>) contentResponse.get(Constants.MILESTONES_V1);
+
+        if (!CollectionUtils.isEmpty(milestones)) {
+            for (Map<String, Object> milestone : milestones) {
+                Map<String, Object> assessment =
+                        (Map<String, Object>) milestone.get(Constants.ASSESSMENT_DETAILS);
+                if (assessment != null) {
+                    String id = (String) assessment.get(Constants.IDENTIFIER);
+                    if (StringUtils.isNotBlank(id)) {
+                        assessmentIds.add(id);
+                    }
+                }
+            }
+        }
+
+        if (assessmentIds.isEmpty()) {
+            return false;
+        }
+
+        Map<String, Object> langContentStatus =
+                (Map<String, Object>) userEnrolments.get(Constants.LANG_CONTENT_STATUS);
+
+        if (MapUtils.isEmpty(langContentStatus)) {
+            return false;
+        }
+
+        Map<String, Integer> assessmentStatusMap =
+                (Map<String, Integer>) langContentStatus.get(language);
+
+        if (MapUtils.isEmpty(assessmentStatusMap)) {
+            return false;
+        }
+
+        for (String assessmentId : assessmentIds) {
+            Integer status = assessmentStatusMap.get(assessmentId);
+            if (status != null && status == 2) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+
+    @SuppressWarnings("unchecked")
+    private int computeLearningPathwayCompletionPercentage(
+            Map<String, Object> contentResponse,
+            String userId) {
+
+        List<Map<String, Object>> milestones =
+                (List<Map<String, Object>>) contentResponse.get(Constants.MILESTONES_V1);
+
+        if (CollectionUtils.isEmpty(milestones)) {
+            return 0;
+        }
+
+        List<String> mandatoryCourseIds = new ArrayList<>();
+
+        for (Map<String, Object> milestone : milestones) {
+            List<Map<String, Object>> courses =
+                    (List<Map<String, Object>>) milestone.get(Constants.COURSES);
+
+            if (!CollectionUtils.isEmpty(courses)) {
+                for (Map<String, Object> course : courses) {
+                    if (Boolean.TRUE.equals(course.get(Constants.IS_MANDATORY))) {
+                        mandatoryCourseIds.add(
+                                (String) course.get(Constants.IDENTIFIER)
+                        );
+                    }
+                }
+            }
+        }
+
+        if (mandatoryCourseIds.isEmpty()) {
+            return 0;
+        }
+
+        int totalPercentage = 0;
+        int countedCourses = 0;
+
+        for (String courseId : mandatoryCourseIds) {
+
+            Map<String, Object> enrolment =
+                    getUserCourseEnrolment(userId, courseId);
+
+            if (MapUtils.isEmpty(enrolment)) {
+                continue;
+            }
+
+            Integer status = (Integer) enrolment.get(Constants.STATUS);
+            Integer completion =
+                    (Integer) enrolment.get(Constants.COMPLETION_PERCENTAGE);
+
+            int effectiveCompletion =
+                    (status != null && status == 2)
+                            ? 100
+                            : (completion != null ? completion : 0);
+
+            totalPercentage += effectiveCompletion;
+            countedCourses++;
+        }
+
+        if (countedCourses == 0) {
+            return 0;
+        }
+
+        return Math.round((float) totalPercentage / countedCourses);
+    }
+    private Map<String, Object> getUserCourseEnrolment(
+            String userId,
+            String courseId) {
+
+        Map<String, Object> propertyMap = new HashMap<>();
+        propertyMap.put(Constants.USER_ID_CONSTANT, userId);
+        propertyMap.put(Constants.COURSE_ID, courseId);
+
+        List<Map<String, Object>> enrolments =
+                cassandraOperation.getRecordsByPropertiesWithoutFiltering(
+                        Constants.KEYSPACE_SUNBIRD_COURSES,
+                        Constants.TABLE_USER_ENROLMENT_V2,
+                        propertyMap,
+                        Arrays.asList(
+                                Constants.STATUS,
+                                Constants.COMPLETION_PERCENTAGE
+                        )
+                );
+
+        return CollectionUtils.isEmpty(enrolments) ? null : enrolments.get(0);
     }
 }
