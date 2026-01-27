@@ -1470,4 +1470,9 @@ public class Constants {
     public static final String SUBMITTED_DATE = "submittedDate";
     public static final String ACTIVE_TITLE_CASE = "Active";
 	public static final String PARENT_PATH_ID = "parentPathId";
+	public static final String LEARNING_PATHWAY = "Learning Pathway";
+	public static final String IS_MANDATORY = "isMandatory";
+	public static final String MILESTONES_V1 = "milestones_v1";
+	public static final String ASSESSMENT_DETAILS = "assessmentDetail";
+	public static final String PRELIMINARY_ASSESSMENT = "preliminaryAssessment";
 }
