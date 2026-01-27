@@ -195,6 +195,9 @@ public class CbExtServerProperties {
 	@Value("${redis.port}")
 	private String redisPort;
 
+	@Value("${redis.password}")
+	private String redisPassword;
+
 	@Value("${cb-plan.update.publish.authorized.roles}")
 	private String cbPlanUpdatePublishAuthorizedRoles;
 
@@ -222,6 +225,9 @@ public class CbExtServerProperties {
 
 	@Value("${redis.data.port}")
 	private String redisDataPort;
+
+	@Value("${redis.data.password}")
+	private String redisDataPassword;
 
 	@Value("${redis.timeout}")
 	private String redisTimeout;
@@ -1593,6 +1599,22 @@ public class CbExtServerProperties {
 
 	public void setRedisHostName(String redisHostName) {
 		this.redisHostName = redisHostName;
+	}
+
+	public String getRedisPassword() {
+		return redisPassword;
+	}
+
+	public void setRedisPassword(String redisPassword) {
+		this.redisPassword = redisPassword;
+	}
+
+	public String getRedisDataPassword() {
+		return redisDataPassword;
+	}
+
+	public void setRedisDataPassword(String redisDataPassword) {
+		this.redisDataPassword = redisDataPassword;
 	}
 
 	public String getRedisTimeout() {
