@@ -19,17 +19,15 @@ public class RedisConfig {
 	@Bean
 	public JedisPool jedisPool() {
 		final JedisPoolConfig poolConfig = buildPoolConfig();
-		JedisPool jedisPool = new JedisPool(poolConfig, cbProperties.getRedisHostName(),
-				Integer.parseInt(cbProperties.getRedisPort()));
-		return jedisPool;
+		return new JedisPool(poolConfig, cbProperties.getRedisHostName(),
+				Integer.parseInt(cbProperties.getRedisPort()), 2000, cbProperties.getRedisPassword());
 	}
 
 	@Bean
 	public JedisPool jedisDataPopulationPool() {
 		final JedisPoolConfig poolConfig = buildPoolConfig();
-		JedisPool jedisPool = new JedisPool(poolConfig, cbProperties.getRedisDataHostName(),
-				Integer.parseInt(cbProperties.getRedisDataPort()));
-		return jedisPool;
+		return new JedisPool(poolConfig, cbProperties.getRedisDataHostName(),
+				Integer.parseInt(cbProperties.getRedisDataPort()), 2000, cbProperties.getRedisDataPassword());
 	}
 	private JedisPoolConfig buildPoolConfig() {
 		final JedisPoolConfig poolConfig = new JedisPoolConfig();
