@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import io.netty.util.internal.StringUtil;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.velocity.VelocityContext;
 import org.apache.velocity.app.VelocityEngine;
@@ -28,6 +29,7 @@ import org.sunbird.progress.model.UpdateContentProgressRequest;
 import java.io.IOException;
 import java.io.StringWriter;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 @Component
@@ -71,9 +73,28 @@ public class UpdateContentProgressConsumer {
 
     @KafkaListener(topics = "${kafka.topic.update.content.progress}", groupId = "${kafka.topic.update.content.progress.group}")
     public void updateContentProgressConsumer(ConsumerRecord<String, String> data) {
+        logger.info("UpdateContentProgressConsumer::updateContentProgressConsumer.. started.");
+        try {
+            if (StringUtils.isNotBlank(data.value())) {
+                CompletableFuture.runAsync(() -> {
+                    try {
+                        processUpdateContentProgressConsumer(data.value());
+                    } catch (Exception e) {
+                        logger.error("Error while updating content progress for data: " + data.value(), e);
+                    }
+                });
+            } else {
+                logger.info("Error in UpdateContentProgressConsumer: Invalid or empty Kafka message received");
+            }
+        } catch (Exception e) {
+            logger.error("Error while initiating content progress update", e);
+        }
+    }
+
+    private void processUpdateContentProgressConsumer(String data){
         try {
             HashMap<String, Object> req;
-            UpdateContentProgressRequest contentProgressRequest = mapper.readValue(data.value(), UpdateContentProgressRequest.class);
+            UpdateContentProgressRequest contentProgressRequest = mapper.readValue(data, UpdateContentProgressRequest.class);
             logger.info("Received message:: " + contentProgressRequest);
             List<Object> requestList = (List<Object>) contentProgressRequest.getRequestBody().getRequest();
             Map<String,Object> firstEntry = ((HashMap<String, Object>)requestList.get(0));
