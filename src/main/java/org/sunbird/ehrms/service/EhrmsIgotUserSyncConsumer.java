@@ -71,25 +71,44 @@ public class EhrmsIgotUserSyncConsumer {
     @Value("${ehrms.api.user.qualifications.path}")
     private String ehrmsUserQualificationPath;
 
-    @Value("${ehrms.api.key}")
+    @Value("${ehrms.api.access.token.path}")
+    private String ehrmsAccessTokenPath;
+
+    @Value("${ehrms.api.access.token.granttype}")
+    private String ehrmsAccessTokenGrantType;
+
+    @Value("${ehrms.api.access.token.clientid}")
+    private String ehrmsAccessTokenClientId;
+
+    @Value("${ehrms.api.access.token.clientsecret}")
+    private String ehrmsAccessTokenClientSecret;
+
+    @Value("${ehrms.api.access.token.expirylimit}")
+    private String ehrmsAccessTokenExpiryLimit;
+
     private String ehrmsApiKey;
 
     List<String> statesAndUTs = Arrays.asList("Andaman And Nicobar Islands", "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chandigarh", "Chhattisgarh", "Delhi", "Goa", "Gujarat", "Haryana", "Himachal Pradesh", "Jammu And Kashmir", "Jharkhand", "Karnataka", "Kerala", "Ladakh", "Lakshadweep", "Madhya Pradesh", "Maharashtra", "Manipur", "Meghalaya", "Mizoram", "Nagaland", "Odisha", "Puducherry", "Punjab", "Rajasthan", "Sikkim", "Tamil Nadu", "Telangana", "The Dadra And Nagar Haveli And Daman And Diu", "Tripura", "Uttarakhand", "Uttar Pradesh", "West Bengal");
 
     @KafkaListener(topics = "${ehrms.user.data.sync.kafka.topic}", groupId = "${ehrms.user.data.sync.kafka.group}")
-    private void initiateEhrmsIgotDataSync(ConsumerRecord<String, String> data) {
-        log.info("EhrmsIgotUserSyncConsumer::processMessage.. started.");
-        try {
-            if (org.apache.commons.lang3.StringUtils.isBlank(data.value())) {
-                log.error("Error in EhrmsIgotUserSyncConsumer: Invalid or empty Kafka message received");
-                return;
-            }
-            log.info("Ehrms user sync initiated successfully for data: {}", data.value());
-            processEhrmsIgotDataSync(data.value());
+    public void initiateEhrmsIgotDataSync(ConsumerRecord<String, String> data) {
+        log.info("EhrmsIgotUserSyncConsumer::processMessage started for offset {}", data.offset());
+        // Async processing in the same method
+        CompletableFuture.runAsync(() -> {
+            try {
+                String message = data.value();
+                if (StringUtils.isEmpty(message)) {
+                    log.error("Invalid or empty Kafka message received for offset {}", data.offset());
+                    return;
+                }
 
-        } catch (Exception e) {
-            log.error("Error while syncing ehrms user data: {}", data.value(), e);
-        }
+                log.info("Processing EHRMS user sync for data: {}", message);
+                processEhrmsIgotDataSync(message);
+
+            } catch (Exception e) {
+                log.error("Error while processing EHRMS user sync for offset {}: {}", data.offset(), e.getMessage(), e);
+            }
+        });
     }
 
     public void processEhrmsIgotDataSync(String inputData) throws IOException {
@@ -122,6 +141,7 @@ public class EhrmsIgotUserSyncConsumer {
             String from = String.valueOf(request.get(Constants.EHRMS_FROM_DATE));
             String to = String.valueOf(request.get(Constants.EHRMS_TO_DATE));
 
+            ehrmsApiKey = getEhrmsAccessToken();
             String empCsv = callEmpApi(from, to);
             String qualCsv = callQualificationApi(from, to);
 
@@ -179,6 +199,29 @@ public class EhrmsIgotUserSyncConsumer {
     private String callQualificationApi(String from, String to) throws Exception {
         String url = ehrmsBaseUrl + ehrmsUserQualificationPath;
         return callApi(url, from, to);
+    }
+
+    private String getEhrmsAccessToken() throws IOException {
+        String url = ehrmsBaseUrl + ehrmsAccessTokenPath;
+        Map<String, String> headerMap = new HashMap<>();
+        headerMap.put(Constants.CONTENT_TYPE, Constants.APPLICATION_JSON);
+        headerMap.put("Accept", Constants.APPLICATION_JSON);
+
+        HttpHeaders headers = new HttpHeaders();
+        headerMap.forEach(headers::add);
+
+        Map<String, Object> body = new HashMap<>();
+        body.put("grant_type", ehrmsAccessTokenGrantType);
+        body.put("client_id", ehrmsAccessTokenClientId);
+        body.put("client_secret", ehrmsAccessTokenClientSecret);
+        body.put("expiry_limit", Integer.parseInt(ehrmsAccessTokenExpiryLimit));
+
+        HttpEntity<Map<String, Object>> request = new HttpEntity<>(body, headers);
+        ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.POST, request, String.class);
+        Map<String, Object> mapResponse = mapper.readValue(response.getBody(), new TypeReference<Map<String, Object>>() {
+        });
+        return mapResponse.get("access_token").toString();
+
     }
 
     private String callApi(String url, String from, String to) {
