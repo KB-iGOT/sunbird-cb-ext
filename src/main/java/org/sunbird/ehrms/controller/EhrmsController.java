@@ -9,7 +9,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.sunbird.common.model.SBApiResponse;
 import org.sunbird.common.util.Constants;
+import org.sunbird.ehrms.service.EhrmsIgotUserSyncService;
 import org.sunbird.ehrms.service.EhrmsService;
+
+import java.util.Map;
 
 
 @RestController
@@ -17,6 +20,9 @@ import org.sunbird.ehrms.service.EhrmsService;
 public class EhrmsController {
     @Autowired
     private EhrmsService ehrmsService;
+
+    @Autowired
+    private EhrmsIgotUserSyncService ehrmsIgotUserSyncService;
 
     @GetMapping("/details")
     public ResponseEntity <SBApiResponse> fetchEhrmsProfileDetail
@@ -26,4 +32,15 @@ public class EhrmsController {
         return new ResponseEntity<>(response, response.getResponseCode());
     }
 
+    @PostMapping("/user/ehrms-igot/data/sync")
+    public ResponseEntity <SBApiResponse> EhrmsIgotUserDataSync(@RequestBody Map<String, Object> requestBody,@RequestParam("sync") String sync) throws Exception {
+        SBApiResponse response = ehrmsIgotUserSyncService.userEhrmsDataUpdate(requestBody, sync);
+        return new ResponseEntity<>(response, response.getResponseCode());
+    }
+
+    @GetMapping("/user/ehrms-igot/data/sync/status")
+    public ResponseEntity <SBApiResponse> EhrmsIgotUserDataSyncStatus() throws Exception {
+        SBApiResponse response = ehrmsIgotUserSyncService.getSyncStatus();
+        return new ResponseEntity<>(response, response.getResponseCode());
+    }
 }

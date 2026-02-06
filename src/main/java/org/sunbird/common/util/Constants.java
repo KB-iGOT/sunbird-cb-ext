@@ -282,6 +282,7 @@ public class Constants {
 	public static final String PERSONAL_DETAILS = "personalDetails";
 	public static final String TRANSITION_DETAILS = "transitionDetails";
 	public static final String UNAUTHORIZED = "unauthorized";
+    public static final String TABLE_USER_EXTENDED_PROFILE = "user_extended_profile";
 	// Redis
 	public static final String API_REDIS_DELETE = "api.redis.delete";
 	public static final String API_REDIS_GET_KEYS = "api.redis.get.keys";
@@ -1469,4 +1470,39 @@ public class Constants {
     public static final String FORM_QUESTIONS = "formQuestions";
     public static final String SUBMITTED_DATE = "submittedDate";
     public static final String ACTIVE_TITLE_CASE = "Active";
+    public static final String EHRMS_USER_SYNC_TABLE = "ehrms_user_sync";
+    public static final String TOTAL_USER_PROCESSED="total_user_processed";
+    public static final String USER_FOUND = "user_found";
+    public static final String USER_NOT_FOUND = "user_not_found";
+    public static final String JOB_NAME = "job_name";
+    public static final String JOB_START_DATE = "job_start_date";
+    public static final String JOB_END_DATE = "job_end_date";
+    public static final String JOB_ID = "job_id";
+    public static final String DEGREE = "degree";
+    public static final String DISTRICT = "district";
+    public static final String OTHERS = "Others";
+    public static final String PROFILE_UPDATE_SUCCESS_COUNT = "profile_update_success_count";
+    public static final String PROFILE_UPDATE_FAILED_COUNT = "profile_update_failed_count";
+    public static final String EHRMS_FROM_DATE = "ehrms_from_date";
+    public static final String EHRMS_TO_DATE = "ehrms_to_date";
+    public static final String FROM_DATE = "from_date";
+    public static final String TO_DATE = "to_date";
+    public static final String FROM_DATE_CAMEL = "fromDate";
+    public static final String TO_DATE_CAMEL = "toDate";
+    public static final String EHRMS_IGOT_USER_DATA_SYNC_API = "api.ehrms-igot.user.data.sync";
+    public static final String EHRMS_SYNC = "EHRMS_SYNC";
+    public static final String EHRMS_EXTERNAL_SYSTEM_NAME_VALUE = "DoPT eHRMS";
+    public static final String LOCATION_DETAILS_CAMEL = "locationDetails";
+    public static final String EDUCATIONAL_QUALIFICATIONS_CAMEL ="educationalQualifications";
+    public static final String QUALIFICATIONS = "qualifications";
+    public static final String EMPLOYEE_ID_TITLE = "EmployeeID";
+    public static final String IS_SYNC = "is_sync";
+    public static final String JOB_TYPE_CAMEL = "jobType";
+    public static final String JOB_TYPE_COLUMN = "job_type";
+    public static final String DAILY = "daily";
+    public static final String WEEKLY = "weekly";
+    public static final String MONTHLY = "monthly";
+    public static final String HALF_YEARLY = "halfYearly";
+    public static final String YEARLY = "yearly";
+
 }
