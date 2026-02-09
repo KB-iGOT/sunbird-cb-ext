@@ -46,4 +46,10 @@ public class InsightsController {
         SBApiResponse response = insightsService.fetchStateLearningData(request);
         return new ResponseEntity<>(response, response.getResponseCode());
     }
+
+    @GetMapping("/v1/landingpage/insights")
+    public ResponseEntity<?> landingPageMatrix() throws Exception {
+        SBApiResponse response = insightsService.landingPageMatrix();
+        return new ResponseEntity<>(response, response.getResponseCode());
+    }
 }

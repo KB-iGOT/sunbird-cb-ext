@@ -9,6 +9,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.util.ObjectUtils;
@@ -20,6 +21,7 @@ import org.sunbird.insights.entity.LearnerStatsEntity;
 import org.sunbird.insights.repository.LearnerStatsRepository;
 import org.sunbird.user.service.UserUtilityService;
 
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.DayOfWeek;
@@ -54,6 +56,9 @@ public class InsightsServiceImpl implements InsightsService {
     LearnerStatsRepository learnerStatsRepository;
 
     ObjectMapper mapper = new ObjectMapper();
+
+    @Value("${landing.page.insights.redis.key.mapping}")
+    private String landingPageInsightsRedisKeyMapping;
 
     public SBApiResponse insights(Map<String, Object> requestBody,String userId) throws Exception {
         String [] labelsCertificates = {extServerProperties.getInsightsLabelCertificatesAcross(),extServerProperties.getInsightsLabelCertificatesYourDepartment()} ;
@@ -532,6 +537,23 @@ public class InsightsServiceImpl implements InsightsService {
             return "OrgId is Missing";
         }
         return null;
+    }
+
+    public SBApiResponse landingPageMatrix() throws IOException {
+        SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.READ_REPORT_ACCESS_API);
+        Map<String, String> landingPageInsightsRedisKeyMap = mapper.readValue(landingPageInsightsRedisKeyMapping, new TypeReference<Map<String, String>>() {
+        });
+        Map<String, Object> result = new HashMap<>();
+        landingPageInsightsRedisKeyMap.forEach((label, redisKey) -> {
+            Object cacheValue = redisCacheMgr.getCacheFromDataRedish(redisKey, serverProperties.getRedisInsightIndex());
+
+            if (cacheValue == null) {
+                log.warn("Redis cache miss for key: {}", redisKey);
+            }
+            result.put(label, cacheValue);
+        });
+        response.getResult().put(DATA, result);
+        return response;
     }
 }
 
