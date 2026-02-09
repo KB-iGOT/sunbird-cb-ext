@@ -57,9 +57,6 @@ public class InsightsServiceImpl implements InsightsService {
 
     ObjectMapper mapper = new ObjectMapper();
 
-    @Value("${landing.page.insights.redis.key.mapping}")
-    private String landingPageInsightsRedisKeyMapping;
-
     public SBApiResponse insights(Map<String, Object> requestBody,String userId) throws Exception {
         String [] labelsCertificates = {extServerProperties.getInsightsLabelCertificatesAcross(),extServerProperties.getInsightsLabelCertificatesYourDepartment()} ;
         String [] labelsLearningHours = {extServerProperties.getInsightsLabelLearningHoursYourDepartment(),extServerProperties.getInsightsLabelLearningHoursAcross()} ;
@@ -541,7 +538,7 @@ public class InsightsServiceImpl implements InsightsService {
 
     public SBApiResponse landingPageMatrix() throws IOException {
         SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.READ_REPORT_ACCESS_API);
-        Map<String, String> landingPageInsightsRedisKeyMap = mapper.readValue(landingPageInsightsRedisKeyMapping, new TypeReference<Map<String, String>>() {
+        Map<String, String> landingPageInsightsRedisKeyMap = mapper.readValue(serverProperties.getLandingPageInsightsRedisKeyMapping(), new TypeReference<Map<String, String>>() {
         });
         Map<String, Object> result = new HashMap<>();
         landingPageInsightsRedisKeyMap.forEach((label, redisKey) -> {
