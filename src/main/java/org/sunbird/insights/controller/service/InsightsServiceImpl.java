@@ -9,6 +9,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.util.ObjectUtils;
@@ -20,6 +21,7 @@ import org.sunbird.insights.entity.LearnerStatsEntity;
 import org.sunbird.insights.repository.LearnerStatsRepository;
 import org.sunbird.user.service.UserUtilityService;
 
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.DayOfWeek;
@@ -532,6 +534,36 @@ public class InsightsServiceImpl implements InsightsService {
             return "OrgId is Missing";
         }
         return null;
+    }
+
+    public SBApiResponse landingPageMatrix() {
+        SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.READ_REPORT_ACCESS_API);
+        Map<String, Object> result = new HashMap<>();
+        try {
+            Map<String, String> landingPageInsightsRedisKeyMap = mapper.readValue(serverProperties.getLandingPageInsightsRedisKeyMapping(), new TypeReference<Map<String, String>>() {
+            });
+
+            landingPageInsightsRedisKeyMap.forEach((label, redisKey) -> {
+                try {
+                    Object cacheValue = redisCacheMgr.getCacheFromDataRedish(redisKey, serverProperties.getRedisInsightIndex());
+                    if (cacheValue == null) {
+                        log.warn("Redis cache miss for key: {}", redisKey);
+                    }
+                    result.put(label, cacheValue);
+                } catch (Exception e) {
+                    log.error("Error fetching Redis data for key: {}", redisKey, e);
+                    result.put(label, null);
+                }
+            });
+
+        } catch (IOException e) {
+            log.error("Error fetching landing page insights data", e);
+            response.getParams().setStatus(Constants.FAILED);
+            response.getParams().setErrmsg("Internal server error");
+            response.setResponseCode(HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+        response.getResult().put(DATA, result);
+        return response;
     }
 }
 

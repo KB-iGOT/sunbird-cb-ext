@@ -1174,6 +1174,9 @@ public class CbExtServerProperties {
 	@Value("${org.search.list.batch.size}")
 	private int orgSearchListBatchSize;
 
+	@Value("${landing.page.insights.redis.key.mapping}")
+	private String landingPageInsightsRedisKeyMapping;
+
 	public String getStateLearningInsightsRedisKeyMapping() {
 		return stateLearningInsightsRedisKeyMapping;
 	}
@@ -3952,5 +3955,13 @@ public class CbExtServerProperties {
 
 	public void setOrgSearchListBatchSize(int orgSearchListBatchSize) {
 		this.orgSearchListBatchSize = orgSearchListBatchSize;
+	}
+
+	public String getLandingPageInsightsRedisKeyMapping() {
+		return landingPageInsightsRedisKeyMapping;
+	}
+
+	public void setLandingPageInsightsRedisKeyMapping(String landingPageInsightsRedisKeyMapping) {
+		this.landingPageInsightsRedisKeyMapping = landingPageInsightsRedisKeyMapping;
 	}
 }
