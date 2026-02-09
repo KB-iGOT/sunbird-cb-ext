@@ -536,19 +536,32 @@ public class InsightsServiceImpl implements InsightsService {
         return null;
     }
 
-    public SBApiResponse landingPageMatrix() throws IOException {
+    public SBApiResponse landingPageMatrix() {
         SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.READ_REPORT_ACCESS_API);
-        Map<String, String> landingPageInsightsRedisKeyMap = mapper.readValue(serverProperties.getLandingPageInsightsRedisKeyMapping(), new TypeReference<Map<String, String>>() {
-        });
         Map<String, Object> result = new HashMap<>();
-        landingPageInsightsRedisKeyMap.forEach((label, redisKey) -> {
-            Object cacheValue = redisCacheMgr.getCacheFromDataRedish(redisKey, serverProperties.getRedisInsightIndex());
+        try {
+            Map<String, String> landingPageInsightsRedisKeyMap = mapper.readValue(serverProperties.getLandingPageInsightsRedisKeyMapping(), new TypeReference<Map<String, String>>() {
+            });
 
-            if (cacheValue == null) {
-                log.warn("Redis cache miss for key: {}", redisKey);
-            }
-            result.put(label, cacheValue);
-        });
+            landingPageInsightsRedisKeyMap.forEach((label, redisKey) -> {
+                try {
+                    Object cacheValue = redisCacheMgr.getCacheFromDataRedish(redisKey, serverProperties.getRedisInsightIndex());
+                    if (cacheValue == null) {
+                        log.warn("Redis cache miss for key: {}", redisKey);
+                    }
+                    result.put(label, cacheValue);
+                } catch (Exception e) {
+                    log.error("Error fetching Redis data for key: {}", redisKey, e);
+                    result.put(label, null);
+                }
+            });
+
+        } catch (IOException e) {
+            log.error("Error fetching landing page insights data", e);
+            response.getParams().setStatus(Constants.FAILED);
+            response.getParams().setErrmsg("Internal server error");
+            response.setResponseCode(HttpStatus.INTERNAL_SERVER_ERROR);
+        }
         response.getResult().put(DATA, result);
         return response;
     }
