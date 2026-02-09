@@ -1,5 +1,7 @@
 FROM eclipse-temurin:8-jdk-jammy
 
+RUN useradd -ms /bin/bash appuser
+
 RUN apt-get update \
     && apt-get install -y \
         curl \
@@ -22,6 +24,11 @@ RUN curl -L -o wkhtmltox.deb \
 
 
 COPY sb-cb-ext-0.0.1-SNAPSHOT.jar /opt/
+
+RUN chown -R appuser:appuser /opt
+USER appuser
+WORKDIR /opt
+
 #HEALTHCHECK --interval=30s --timeout=30s CMD curl --fail http://localhost:7001/actuator/health || exit 1
 CMD ["/bin/bash", "-c", "java -XX:+PrintFlagsFinal $JAVA_OPTIONS -XX:+UnlockExperimentalVMOptions -XX:+UseCGroupMemoryLimitForHeap -jar /opt/sb-cb-ext-0.0.1-SNAPSHOT.jar"]
 
