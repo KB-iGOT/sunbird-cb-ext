@@ -897,4 +897,164 @@ public class StorageServiceImpl implements StorageService {
         }
     }
 
+	/**
+	 * Securely uploads a file with authentication and validation.
+	 *
+	 * @param mFile           the file to upload
+	 * @param cloudFolderName the folder name in cloud storage
+	 * @param containerName   the container name in cloud storage
+	 * @return API response with upload result
+	 */
+	@Override
+	public SBApiResponse uploadProfilePhoto(MultipartFile mFile, String cloudFolderName, String containerName) {
+		SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.API_FILE_UPLOAD);
+		File file = null;
+
+		try {
+
+			if (!isValidFolderName(cloudFolderName)) {
+				logger.error("Invalid cloud folder name: {}", cloudFolderName);
+				response.getParams().setStatus(Constants.FAILED);
+				response.getParams().setErrmsg("Invalid folder name");
+				response.setResponseCode(HttpStatus.BAD_REQUEST);
+				return response;
+			}
+
+			SBApiResponse validationError = validateUploadedFile(mFile);
+			if (validationError != null) {
+				return validationError;
+			}
+
+			String uniqueFilename = System.currentTimeMillis() + "_" + UUID.randomUUID() + ".file";
+
+			file = new File(uniqueFilename);
+			file.createNewFile();
+
+			try (FileOutputStream fos = new FileOutputStream(file)) {
+				fos.write(mFile.getBytes());
+			}
+			return uploadFile(file, cloudFolderName, containerName);
+
+		} catch (Exception e) {
+			logger.error("Failed to upload file. Exception: ", e);
+			response.getParams().setStatus(Constants.FAILED);
+			response.getParams().setErrmsg("Failed to upload file");
+			response.setResponseCode(HttpStatus.INTERNAL_SERVER_ERROR);
+			return response;
+		} finally {
+			if (file != null && file.exists()) {
+				file.delete();
+			}
+		}
+	}
+
+	/**
+	 * Validates folder name to prevent path traversal attacks.
+	 *
+	 * @param folderName the folder name to validate
+	 * @return true if valid, false otherwise
+	 */
+	private boolean isValidFolderName(String folderName) {
+		if (StringUtils.isBlank(folderName)) {
+			return false;
+		}
+		// Check for path traversal characters
+		if (folderName.contains("..") || folderName.contains("/") ||
+				folderName.contains("\\") || folderName.contains("%")) {
+			return false;
+		}
+		// Validate against whitelist pattern (alphanumeric, hyphens, and underscores only)
+		return folderName.matches("^[a-zA-Z0-9\\-_]+$");
+	}
+
+	/**
+	 * Validates uploaded file for security.
+	 *
+	 * @param file the file to validate
+	 * @return error response if validation fails, null if valid
+	 */
+	private SBApiResponse validateUploadedFile(MultipartFile file) {
+		SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.API_FILE_UPLOAD);
+
+		if (null == file || file.isEmpty()) {
+			response.getParams().setStatus(Constants.FAILED);
+			response.getParams().setErrmsg("File is empty");
+			response.setResponseCode(HttpStatus.BAD_REQUEST);
+			return response;
+		}
+
+		String originalFilename = file.getOriginalFilename();
+		if (StringUtils.isBlank(originalFilename) || !originalFilename.contains(".")) {
+			response.getParams().setStatus(Constants.FAILED);
+			response.getParams().setErrmsg("Invalid filename");
+			response.setResponseCode(HttpStatus.BAD_REQUEST);
+			return response;
+		}
+
+		String fileExtension = originalFilename.substring(originalFilename.lastIndexOf('.') + 1).toLowerCase();
+
+		if (!serverProperties.getProfilePhotoAllowedExtensions().contains(fileExtension)) {
+			response.getParams().setStatus(Constants.FAILED);
+			response.getParams().setErrmsg("Invalid file type. Allowed types: " + String.join(", ", serverProperties.getProfilePhotoAllowedExtensions()));
+			response.setResponseCode(HttpStatus.BAD_REQUEST);
+			return response;
+		}
+
+		// Validate actual file content by checking magic bytes
+		try {
+			if (!isValidImageFileByMagicBytes(file, fileExtension)) {
+				response.getParams().setStatus(Constants.FAILED);
+				response.getParams().setErrmsg("File content does not match the declared file type");
+				response.setResponseCode(HttpStatus.BAD_REQUEST);
+				return response;
+			}
+		} catch (IOException e) {
+			logger.error("Failed to validate file content: {}", e.getMessage());
+			response.getParams().setStatus(Constants.FAILED);
+			response.getParams().setErrmsg("Failed to validate file");
+			response.setResponseCode(HttpStatus.INTERNAL_SERVER_ERROR);
+			return response;
+		}
+
+		return null;
+	}
+
+	/**
+	 * Validates if the file is actually an image by checking magic bytes.
+	 *
+	 * @param file      the file to validate
+	 * @param extension the declared file extension
+	 * @return true if valid image matching extension, false otherwise
+	 * @throws IOException if file cannot be read
+	 */
+	private boolean isValidImageFileByMagicBytes(MultipartFile file, String extension) throws IOException {
+		byte[] fileBytes = file.getBytes();
+		if (fileBytes.length < 4) {
+			return false;
+		}
+
+		// Validate based on declared extension and verify with magic bytes
+		switch (extension.toLowerCase()) {
+			case Constants.PNG:
+				return fileBytes.length >= 8 &&
+						fileBytes[0] == (byte) 0x89 &&
+						fileBytes[1] == (byte) 0x50 &&
+						fileBytes[2] == (byte) 0x4E &&
+						fileBytes[3] == (byte) 0x47 &&
+						fileBytes[4] == (byte) 0x0D &&
+						fileBytes[5] == (byte) 0x0A &&
+						fileBytes[6] == (byte) 0x1A &&
+						fileBytes[7] == (byte) 0x0A;
+
+			case Constants.JPG:
+			case Constants.JPEG:
+				return fileBytes[0] == (byte) 0xFF &&
+						fileBytes[1] == (byte) 0xD8 &&
+						fileBytes[2] == (byte) 0xFF;
+
+			default:
+				logger.warn("File extension '{}' is configured but not validated by magic bytes", extension);
+				return false;
+		}
+	}
 }

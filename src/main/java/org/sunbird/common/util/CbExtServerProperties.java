@@ -587,6 +587,9 @@ public class CbExtServerProperties {
 	@Value("${cloud.profile.image.container.name}")
 	private String cloudProfileImageContainerName;
 
+	@Value("${file.upload.allowed.extensions}")
+	private String fileUploadAllowedExtensions;
+
 	@Value("${sb.service.user.lookup.path}")
 	private String lmsUserLookupPath;
 
@@ -2676,6 +2679,12 @@ public class CbExtServerProperties {
 	public void setCloudProfileImageContainerName(String cloudProfileImageContainerName) {
 		this.cloudProfileImageContainerName = cloudProfileImageContainerName;
 	}
+
+	public List<String> getFileUploadAllowedExtensions() {
+		return Arrays.asList(fileUploadAllowedExtensions.split(","));
+	}
+
+	public List<String> getProfilePhotoAllowedExtensions() { return getFileUploadAllowedExtensions(); }
 
 	public List<String> getDefaultContentProperties() {
 		return Arrays.asList(defaultContentProperties.split(",", -1));
