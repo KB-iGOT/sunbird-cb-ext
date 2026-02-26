@@ -123,6 +123,133 @@ public class StorageServiceImpl implements StorageService {
 	}
 
 	@Override
+	public SBApiResponse uploadProfilePhoto(MultipartFile mFile, String cloudFolderName, String containerName, String authUserToken) {
+		// Use configured allowed extensions for profile photos
+		return uploadFileWithValidation(mFile, cloudFolderName, containerName, authUserToken);
+	}
+
+	/**
+	 * Securely uploads a file with authentication and validation.
+	 *
+	 * @param mFile the file to upload
+	 * @param cloudFolderName the folder name in cloud storage
+	 * @param containerName the container name in cloud storage
+	 * @param authUserToken the authentication token
+	 * @return API response with upload result
+	 */
+	private SBApiResponse uploadFileWithValidation(MultipartFile mFile, String cloudFolderName, String containerName,
+													String authUserToken) {
+		SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.API_FILE_UPLOAD);
+		File file = null;
+
+		try {
+			// 1. Validate authentication token
+			String userId = accessTokenValidator.fetchUserIdFromAccessToken(authUserToken);
+			if (StringUtils.isEmpty(userId)) {
+				logger.error("Unauthorized access: Invalid or missing authentication token");
+				response.getParams().setStatus(Constants.FAILED);
+				response.getParams().setErrmsg("Unauthorized access");
+				response.setResponseCode(HttpStatus.UNAUTHORIZED);
+				return response;
+			}
+
+			// 2. Validate cloud folder name (prevent path traversal)
+			if (!isValidFolderName(cloudFolderName)) {
+				logger.error("Invalid cloud folder name: {}", cloudFolderName);
+				response.getParams().setStatus(Constants.FAILED);
+				response.getParams().setErrmsg("Invalid folder name");
+				response.setResponseCode(HttpStatus.BAD_REQUEST);
+				return response;
+			}
+
+			// 3. Validate file
+			SBApiResponse validationError = validateUploadedFile(mFile);
+			if (validationError != null) {
+				return validationError;
+			}
+
+			// 4. Create unique filename
+			String uniqueFilename = System.currentTimeMillis() + "_" + UUID.randomUUID().toString() + ".file";
+
+			// 5. Create temporary file and upload
+			file = new File(uniqueFilename);
+			file.createNewFile();
+
+			try (FileOutputStream fos = new FileOutputStream(file)) {
+				fos.write(mFile.getBytes());
+			}
+			return uploadFile(file, cloudFolderName, containerName);
+
+		} catch (Exception e) {
+			logger.error("Failed to upload file. Exception: ", e);
+			response.getParams().setStatus(Constants.FAILED);
+			response.getParams().setErrmsg("Failed to upload file");
+			response.setResponseCode(HttpStatus.INTERNAL_SERVER_ERROR);
+			return response;
+		} finally {
+			if (file != null && file.exists()) {
+				file.delete();
+			}
+		}
+	}
+
+	/**
+	 * Validates folder name to prevent path traversal attacks.
+	 *
+	 * @param folderName the folder name to validate
+	 * @return true if valid, false otherwise
+	 */
+	private boolean isValidFolderName(String folderName) {
+		if (StringUtils.isBlank(folderName)) {
+			return false;
+		}
+		// Check for path traversal characters
+		if (folderName.contains("..") || folderName.contains("/") ||
+				folderName.contains("\\") || folderName.contains("%")) {
+			return false;
+		}
+		// Validate against whitelist pattern (alphanumeric, hyphens, and underscores only)
+		return folderName.matches("^[a-zA-Z0-9\\-_]+$");
+	}
+
+	/**
+	 * Validates uploaded file for security.
+	 *
+	 * @param file the file to validate
+	 * @return error response if validation fails, null if valid
+	 */
+	private SBApiResponse validateUploadedFile(MultipartFile file) {
+		SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.API_FILE_UPLOAD);
+
+		// Check if file is empty
+		if (file == null || file.isEmpty()) {
+			response.getParams().setStatus(Constants.FAILED);
+			response.getParams().setErrmsg("File is empty");
+			response.setResponseCode(HttpStatus.BAD_REQUEST);
+			return response;
+		}
+
+		// Validate file extension
+		String originalFilename = file.getOriginalFilename();
+		if (StringUtils.isEmpty(originalFilename) || !originalFilename.contains(".")) {
+			response.getParams().setStatus(Constants.FAILED);
+			response.getParams().setErrmsg("Invalid filename");
+			response.setResponseCode(HttpStatus.BAD_REQUEST);
+			return response;
+		}
+
+		String fileExtension = originalFilename.substring(originalFilename.lastIndexOf('.') + 1).toLowerCase();
+
+		if (!serverProperties.getProfilePhotoAllowedExtensions().contains(fileExtension)) {
+			response.getParams().setStatus(Constants.FAILED);
+			response.getParams().setErrmsg("Invalid file type. Allowed types: " + String.join(", ", serverProperties.getProfilePhotoAllowedExtensions()));
+			response.setResponseCode(HttpStatus.BAD_REQUEST);
+			return response;
+		}
+		return null;
+	}
+
+	@Override
 	public SBApiResponse deleteFile(String fileName, String containerName) {
 		SBApiResponse response = new SBApiResponse();
 		response.setId(Constants.API_FILE_DELETE);
@@ -606,6 +733,10 @@ public class StorageServiceImpl implements StorageService {
 			if (!StringUtils.isEmpty(errMsg)) {
 				logger.error("Invalid request body: {}", errMsg);
 				return response;
+			}
+			SBApiResponse validationError = validateUploadedFile(multipartFile);
+			if (validationError != null) {
+				return validationError;
 			}
 			File file = File.createTempFile(String.valueOf(System.currentTimeMillis()), multipartFile.getOriginalFilename());
 			try (FileOutputStream fos = new FileOutputStream(file)) {

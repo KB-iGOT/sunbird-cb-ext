@@ -56,9 +56,12 @@ public class StorageController {
 	}
 
 	@PostMapping("/profilePhotoUpload/{cloudFolderName}")
-	public ResponseEntity<?> profileUpload(@PathVariable("cloudFolderName") String cloudFolderName,@RequestParam(value = "file", required = true) MultipartFile multipartFile)
-			throws IOException {
-		SBApiResponse uploadResponse = storageService.uploadFile(multipartFile, cloudFolderName, serverConfig.getCloudProfileImageContainerName());
+	public ResponseEntity<?> profileUpload(
+			@PathVariable("cloudFolderName") String cloudFolderName,
+			@RequestParam(value = "file", required = true) MultipartFile multipartFile,
+			@RequestHeader("x-authenticated-user-token") String authUserToken) throws IOException {
+		SBApiResponse uploadResponse = storageService.uploadProfilePhoto(multipartFile, cloudFolderName,
+				serverConfig.getCloudProfileImageContainerName(), authUserToken);
 		return new ResponseEntity<>(uploadResponse, uploadResponse.getResponseCode());
 	}
 
