@@ -33,17 +33,6 @@ public interface StorageService {
 
 	SBApiResponse uploadFileForOrg(MultipartFile mFile, String userToken);
 
-	/**
-	 * Securely uploads a profile photo with validation.
-	 *
-	 * @param file          the profile photo file to be uploaded
-	 * @param cloudFolderName the folder name in cloud storage
-	 * @param containerName the container name in cloud storage
-	 * @param authUserToken the authentication token for the user
-	 * @return the response object containing the result of the upload operation
-	 */
-	SBApiResponse uploadProfilePhoto(MultipartFile file, String cloudFolderName, String containerName, String authUserToken);
-
 	SBApiResponse ciosContentIconUpload(MultipartFile file, String containerName, String cloudFolderName);
 
 	SBApiResponse ciosContentContractUpload(MultipartFile file, String containerName, String cloudFolderName);
@@ -74,5 +63,15 @@ public interface StorageService {
             String formId,
             String fileName,
             String userToken);
+
+	/**
+	 * Securely uploads a profile photo with validation.
+	 *
+	 * @param file          the profile photo file to be uploaded
+	 * @param cloudFolderName the folder name in cloud storage
+	 * @param containerName the container name in cloud storage
+	 * @return the response object containing the result of the upload operation
+	 */
+	SBApiResponse uploadProfilePhoto(MultipartFile file, String cloudFolderName, String containerName);
 
 }

@@ -122,38 +122,20 @@ public class StorageServiceImpl implements StorageService {
 		}
 	}
 
-	@Override
-	public SBApiResponse uploadProfilePhoto(MultipartFile mFile, String cloudFolderName, String containerName, String authUserToken) {
-		// Use configured allowed extensions for profile photos
-		return uploadFileWithValidation(mFile, cloudFolderName, containerName, authUserToken);
-	}
-
 	/**
 	 * Securely uploads a file with authentication and validation.
 	 *
 	 * @param mFile the file to upload
 	 * @param cloudFolderName the folder name in cloud storage
 	 * @param containerName the container name in cloud storage
-	 * @param authUserToken the authentication token
 	 * @return API response with upload result
 	 */
-	private SBApiResponse uploadFileWithValidation(MultipartFile mFile, String cloudFolderName, String containerName,
-													String authUserToken) {
+	@Override
+	public SBApiResponse uploadProfilePhoto(MultipartFile mFile, String cloudFolderName, String containerName) {
 		SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.API_FILE_UPLOAD);
 		File file = null;
 
 		try {
-			// 1. Validate authentication token
-			String userId = accessTokenValidator.fetchUserIdFromAccessToken(authUserToken);
-			if (StringUtils.isEmpty(userId)) {
-				logger.error("Unauthorized access: Invalid or missing authentication token");
-				response.getParams().setStatus(Constants.FAILED);
-				response.getParams().setErrmsg("Unauthorized access");
-				response.setResponseCode(HttpStatus.UNAUTHORIZED);
-				return response;
-			}
-
-			// 2. Validate cloud folder name (prevent path traversal)
 			if (!isValidFolderName(cloudFolderName)) {
 				logger.error("Invalid cloud folder name: {}", cloudFolderName);
 				response.getParams().setStatus(Constants.FAILED);
@@ -162,17 +144,12 @@ public class StorageServiceImpl implements StorageService {
 				return response;
 			}
 
-			// 3. Validate file
 			SBApiResponse validationError = validateUploadedFile(mFile);
 			if (validationError != null) {
 				return validationError;
 			}
 
-			// 4. Create unique filename
-			String uniqueFilename = System.currentTimeMillis() + "_" + UUID.randomUUID().toString() + ".file";
-
-			// 5. Create temporary file and upload
-			file = new File(uniqueFilename);
+			file = new File(System.currentTimeMillis() + "_" + mFile.getOriginalFilename());
 			file.createNewFile();
 
 			try (FileOutputStream fos = new FileOutputStream(file)) {
