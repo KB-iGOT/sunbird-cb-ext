@@ -64,4 +64,14 @@ public interface StorageService {
             String fileName,
             String userToken);
 
+	/**
+	 * Securely uploads a profile photo with validation.
+	 *
+	 * @param file          the profile photo file to be uploaded
+	 * @param cloudFolderName the folder name in cloud storage
+	 * @param containerName the container name in cloud storage
+	 * @return the response object containing the result of the upload operation
+	 */
+	SBApiResponse uploadProfilePhoto(MultipartFile file, String cloudFolderName, String containerName);
+
 }
