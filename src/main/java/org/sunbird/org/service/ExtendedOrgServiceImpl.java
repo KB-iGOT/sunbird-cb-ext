@@ -4,11 +4,19 @@ import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
-
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.collections.MapUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.codehaus.jackson.map.ObjectMapper;
+import org.elasticsearch.action.search.SearchResponse;
+import org.elasticsearch.index.query.BoolQueryBuilder;
+import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.search.SearchHit;
+import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,6 +32,7 @@ import org.sunbird.common.model.SBApiResponse;
 import org.sunbird.common.service.OutboundRequestHandlerServiceImpl;
 import org.sunbird.common.util.CbExtServerProperties;
 import org.sunbird.common.util.Constants;
+import org.sunbird.common.util.IndexerService;
 import org.sunbird.common.util.ProjectUtil;
 import org.sunbird.consumer.KafkaProducer;
 import org.sunbird.org.model.OrgHierarchy;
@@ -45,6 +54,12 @@ public class ExtendedOrgServiceImpl implements ExtendedOrgService {
 
     @Autowired
     KafkaProducer kafkaProducer;
+
+	@Autowired
+	IndexerService indexerService;
+
+	@Autowired
+	CbExtServerProperties serverConfig;
 
     @Value("${kafka.topics.org.hierarchy.framework.new.org.event}")
     private String kafkaTopicCreateHierarchyFramework;
@@ -1149,4 +1164,37 @@ public class ExtendedOrgServiceImpl implements ExtendedOrgService {
 		return errMsg;
 	}
 
+	@Override
+	public SBApiResponse getMdoLeaderList(String orgId, String authToken){
+		logger.info("ExtendedOrgServiceImpl:getMdoLeaderList:Fetching MDO leaders for orgId:{}", orgId);
+		SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.API_ORG_LIST);
+		if(StringUtils.isBlank(orgId)){
+			response.getParams().setStatus(Constants.FAILED);
+			response.getParams().setErrmsg("Organization ID is missing");
+			response.setResponseCode(HttpStatus.BAD_REQUEST);
+			return response;
+		}
+		try{
+			List<Map<String, Object>> leaderList = new ArrayList<>();
+			final BoolQueryBuilder finalQuery = QueryBuilders.boolQuery();
+			finalQuery.must(QueryBuilders.termQuery(Constants.ROOT_ORG_ID_RAW, orgId));
+			finalQuery.must(QueryBuilders.termQuery(Constants.USER_TYPE, Constants.MDO_LEADER));
+			finalQuery.must(QueryBuilders.termQuery(Constants.STATUS_RAW,1));
+			SearchSourceBuilder sourceBuilder = new SearchSourceBuilder().query(finalQuery);
+			SearchResponse searchResponse = indexerService.getEsResult(serverConfig.getSbEsUserProfileIndex(),
+					serverConfig.getEsProfileIndexType(), sourceBuilder, ProjectUtil.ESIndexType.USER_ES);
+			for (SearchHit hit : searchResponse.getHits()) {
+				System.out.println(hit.getSourceAsMap());
+				leaderList.add(hit.getSourceAsMap());
+			}
+
+			response.getResult().put("response", leaderList);
+			response.getParams().setStatus(Constants.SUCCESS);
+		}catch(Exception e){
+			logger.error("Error while fetching MDO Leader List", e);
+			response.getParams().setStatus(Constants.FAILED);
+			response.setResponseCode(HttpStatus.INTERNAL_SERVER_ERROR);
+		}
+		return response;
+	}
 }
