@@ -139,6 +139,10 @@ public class ProfileServiceImpl implements ProfileService {
 
 	@Override
 	public SBApiResponse profileUpdate(Map<String, Object> request, String userToken, String authToken, String rootOrgId) {
+		return profileUpdate(request, userToken, authToken, rootOrgId, true);
+	}
+
+	public SBApiResponse profileUpdate(Map<String, Object> request, String userToken, String authToken, String rootOrgId, boolean isValidateUserToken) {
 		SBApiResponse response = new SBApiResponse(Constants.API_PROFILE_UPDATE);
 		try {
 			Map<String, Object> requestData = (Map<String, Object>) request.get(Constants.REQUEST);
@@ -149,12 +153,14 @@ public class ProfileServiceImpl implements ProfileService {
 			}
 
 			String userId = (String) requestData.get(Constants.USER_ID);
-			String userIdFromToken = accessTokenValidator.fetchUserIdFromAccessToken(userToken);
-			if (!userId.equalsIgnoreCase(userIdFromToken)) {
-				response.setResponseCode(HttpStatus.BAD_REQUEST);
-				response.getParams().setStatus(Constants.FAILED);
-				response.getParams().setErrmsg("Invalid UserId in the request");
-				return response;
+			if (isValidateUserToken) {
+				String userIdFromToken = accessTokenValidator.fetchUserIdFromAccessToken(userToken);
+				if (!userId.equalsIgnoreCase(userIdFromToken)) {
+					response.setResponseCode(HttpStatus.BAD_REQUEST);
+					response.getParams().setStatus(Constants.FAILED);
+					response.getParams().setErrmsg("Invalid UserId in the request");
+					return response;
+				}
 			}
 			Map<String, Object> profileDetailsMap = (Map<String, Object>) requestData.get(Constants.PROFILE_DETAILS);
 			String validatePhoneEmailErrMsg = validateExistingPhoneEmail(profileDetailsMap);
@@ -2730,24 +2736,25 @@ public class ProfileServiceImpl implements ProfileService {
                 return response;
             }
 
-            String userId = (String) request.get(Constants.USER_ID);
-            if (!userIdFromToken.equalsIgnoreCase(userId)) {
-                ProjectUtil.returnErrorMsg("Invalid UserId in the request", HttpStatus.BAD_REQUEST, response, Constants.FAILED);
-                return response;
-            }
+			Map<String, Object> requestData = (Map<String, Object>) request.get(Constants.REQUEST);
+			if (!validateRequest(requestData)) {
+				response.setResponseCode(HttpStatus.BAD_REQUEST);
+				response.getParams().setStatus(Constants.FAILED);
+				return response;
+			}
 
-            Map<String, Object> requestData = (Map<String, Object>) request.get(Constants.REQUEST);
-            if (!validateRequest(requestData)) {
-                ProjectUtil.returnErrorMsg("Invalid request", HttpStatus.BAD_REQUEST, response, Constants.FAILED);
-                return response;
-            }
+			String userId = (String) requestData.get(Constants.USER_ID);
+			if (!userIdFromToken.equalsIgnoreCase(userId)) {
+				ProjectUtil.returnErrorMsg("Invalid UserId in the request", HttpStatus.BAD_REQUEST, response, Constants.FAILED);
+				return response;
+			}
             Map<String, Object> profileDetailsMap = (Map<String, Object>) requestData.get(Constants.PROFILE_DETAILS);
 
             if (!otpValidator.validateOTPForPersonalDetails(profileDetailsMap, requestData, response, userToken)) {
                 return response;
             }
 
-            return profileUpdate(request, userToken, authToken, rootOrgId);
+            return profileUpdate(request, userToken, authToken, rootOrgId, false);
         } catch (Exception e) {
             log.error("Failed to process profile update V3. Exception: ", e);
             ProjectUtil.returnErrorMsg(e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR, response, Constants.FAILED);
