@@ -1165,7 +1165,7 @@ public class ExtendedOrgServiceImpl implements ExtendedOrgService {
 	}
 
 	@Override
-	public SBApiResponse getMdoLeaderList(String orgId, String authToken){
+	public SBApiResponse getMdoLeaderList(String orgId){
 		logger.info("ExtendedOrgServiceImpl:getMdoLeaderList:Fetching MDO leaders for orgId:{}", orgId);
 		SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.API_ORG_LIST);
 		if(StringUtils.isBlank(orgId)){
