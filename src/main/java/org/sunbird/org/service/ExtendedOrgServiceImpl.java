@@ -1184,7 +1184,7 @@ public class ExtendedOrgServiceImpl implements ExtendedOrgService {
 			SearchResponse searchResponse = indexerService.getEsResult(serverConfig.getSbEsUserProfileIndex(),
 					serverConfig.getEsProfileIndexType(), sourceBuilder, ProjectUtil.ESIndexType.USER_ES);
 			for (SearchHit hit : searchResponse.getHits()) {
-				System.out.println(hit.getSourceAsMap());
+				logger.info("MDO Leader record fetched: {}",hit.getSourceAsMap());
 				leaderList.add(hit.getSourceAsMap());
 			}
 
