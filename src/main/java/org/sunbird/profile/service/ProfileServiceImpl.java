@@ -163,6 +163,15 @@ public class ProfileServiceImpl implements ProfileService {
 				}
 			}
 			Map<String, Object> profileDetailsMap = (Map<String, Object>) requestData.get(Constants.PROFILE_DETAILS);
+
+			String validateEmploymentDetailsError = validateEmploymentDetails(profileDetailsMap);
+			if (StringUtils.isNotBlank(validateEmploymentDetailsError)) {
+				response.setResponseCode(HttpStatus.BAD_REQUEST);
+				response.getParams().setStatus(Constants.FAILED);
+				response.getParams().setErrmsg(validateEmploymentDetailsError);
+				return response;
+			}
+
 			String validatePhoneEmailErrMsg = validateExistingPhoneEmail(profileDetailsMap);
 			if (!validatePhoneEmailErrMsg.isEmpty()) {
 				response.setResponseCode(HttpStatus.BAD_REQUEST);
@@ -2761,6 +2770,22 @@ public class ProfileServiceImpl implements ProfileService {
         }
         return response;
     }
+
+	private String validateEmploymentDetails(Map<String, Object> profileDetailsMap) {
+		if (profileDetailsMap.containsKey(Constants.EMPLOYMENTDETAILS)) {
+			Map<String, Object> employmentDetails = (Map<String, Object>) profileDetailsMap.get(Constants.EMPLOYMENTDETAILS);
+			if (employmentDetails.containsKey(Constants.ABOUT_ME)) {
+				Object aboutMeObj = employmentDetails.get(Constants.ABOUT_ME);
+				if (null != aboutMeObj && aboutMeObj instanceof String) {
+					String aboutMe = (String) aboutMeObj;
+					if (aboutMe.length() > serverConfig.getProfileAboutmeMaxLength()) {
+						return "About me field exceeds maximum allowed length of " + serverConfig.getProfileAboutmeMaxLength() + " characters";
+					}
+				}
+			}
+		}
+		return "";
+	}
 }
 
 

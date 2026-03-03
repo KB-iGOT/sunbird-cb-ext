@@ -33,6 +33,9 @@ public class CbExtServerProperties {
 	@Value("${user.enable.multidept.mapping}")
 	private boolean isUserMultiMapDeptEnabled;
 
+	@Value("${profile.aboutme.max.length}")
+	private int profileAboutmeMaxLength;
+
 	@Value("${sb.service.url}")
 	private String sbUrl;
 
@@ -3980,4 +3983,8 @@ public class CbExtServerProperties {
     public String getLmsOTPVerifyPath() { return lmsOTPVerifyPath; }
 
     public void setLmsOTPVerifyPath(String lmsOTPVerifyPath) { this.lmsOTPVerifyPath = lmsOTPVerifyPath; }
+
+	public int getProfileAboutmeMaxLength() { return profileAboutmeMaxLength; }
+
+	public void setProfileAboutmeMaxLength(int profileAboutmeMaxLength) { this.profileAboutmeMaxLength = profileAboutmeMaxLength; }
 }
