@@ -33,6 +33,9 @@ public class CbExtServerProperties {
 	@Value("${user.enable.multidept.mapping}")
 	private boolean isUserMultiMapDeptEnabled;
 
+	@Value("${profile.aboutme.max.length}")
+	private int profileAboutmeMaxLength;
+
 	@Value("${sb.service.url}")
 	private String sbUrl;
 
@@ -586,6 +589,9 @@ public class CbExtServerProperties {
 
 	@Value("${cloud.profile.image.container.name}")
 	private String cloudProfileImageContainerName;
+
+	@Value("${file.upload.allowed.extensions}")
+	private String fileUploadAllowedExtensions;
 
 	@Value("${sb.service.user.lookup.path}")
 	private String lmsUserLookupPath;
@@ -1176,6 +1182,9 @@ public class CbExtServerProperties {
 
 	@Value("${landing.page.insights.redis.key.mapping}")
 	private String landingPageInsightsRedisKeyMapping;
+
+	@Value("${lms.otp.verify.path}")
+	private String lmsOTPVerifyPath;
 
 	public String getStateLearningInsightsRedisKeyMapping() {
 		return stateLearningInsightsRedisKeyMapping;
@@ -2677,6 +2686,12 @@ public class CbExtServerProperties {
 		this.cloudProfileImageContainerName = cloudProfileImageContainerName;
 	}
 
+	public List<String> getFileUploadAllowedExtensions() {
+		return Arrays.asList(fileUploadAllowedExtensions.split(","));
+	}
+
+	public List<String> getProfilePhotoAllowedExtensions() { return getFileUploadAllowedExtensions(); }
+
 	public List<String> getDefaultContentProperties() {
 		return Arrays.asList(defaultContentProperties.split(",", -1));
 	}
@@ -3964,4 +3979,12 @@ public class CbExtServerProperties {
 	public void setLandingPageInsightsRedisKeyMapping(String landingPageInsightsRedisKeyMapping) {
 		this.landingPageInsightsRedisKeyMapping = landingPageInsightsRedisKeyMapping;
 	}
+
+    public String getLmsOTPVerifyPath() { return lmsOTPVerifyPath; }
+
+    public void setLmsOTPVerifyPath(String lmsOTPVerifyPath) { this.lmsOTPVerifyPath = lmsOTPVerifyPath; }
+
+	public int getProfileAboutmeMaxLength() { return profileAboutmeMaxLength; }
+
+	public void setProfileAboutmeMaxLength(int profileAboutmeMaxLength) { this.profileAboutmeMaxLength = profileAboutmeMaxLength; }
 }
