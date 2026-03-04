@@ -1479,4 +1479,5 @@ public class Constants {
     public static final String EMAIL_OTP = "emailOtp";
     public static final String PHONE_OTP = "phoneOtp";
 	public static final String JPEG = "jpeg";
+	public static final String ABOUT_ME = "aboutme";
 }
