@@ -1023,10 +1023,11 @@ public class StorageServiceImpl implements StorageService {
 
 	/**
 	 * Validates if the file is actually an image by checking magic bytes.
+	 * Allows files with converted extensions as long as the actual content type is in allowed types.
 	 *
 	 * @param file      the file to validate
 	 * @param extension the declared file extension
-	 * @return true if valid image matching extension, false otherwise
+	 * @return true if valid image with allowed content type, false otherwise
 	 * @throws IOException if file cannot be read
 	 */
 	private boolean isValidImageFileByMagicBytes(MultipartFile file, String extension) throws IOException {
@@ -1035,29 +1036,52 @@ public class StorageServiceImpl implements StorageService {
 			return false;
 		}
 
-		// Validate based on declared extension and verify with magic bytes
-		switch (extension.toLowerCase()) {
-			case Constants.PNG:
-				return fileBytes.length >= 8 &&
-						fileBytes[0] == (byte) 0x89 &&
-						fileBytes[1] == (byte) 0x50 &&
-						fileBytes[2] == (byte) 0x4E &&
-						fileBytes[3] == (byte) 0x47 &&
-						fileBytes[4] == (byte) 0x0D &&
-						fileBytes[5] == (byte) 0x0A &&
-						fileBytes[6] == (byte) 0x1A &&
-						fileBytes[7] == (byte) 0x0A;
+		// Detect actual file type from magic bytes
+		String actualType = detectImageTypeFromMagicBytes(fileBytes);
 
-			case Constants.JPG:
-			case Constants.JPEG:
-				return fileBytes[0] == (byte) 0xFF &&
-						fileBytes[1] == (byte) 0xD8 &&
-						fileBytes[2] == (byte) 0xFF;
-
-			default:
-				logger.warn("File extension '{}' is configured but not validated by magic bytes", extension);
-				return false;
+		if (actualType == null) {
+			logger.info("File could not be identified as a valid image type");
+			return false;
 		}
+
+		List<String> allowedExtensions = serverProperties.getProfilePhotoAllowedExtensions();
+		if (allowedExtensions.contains(actualType)) {
+			logger.info("File with extension '{}' validated as actual type '{}'", extension, actualType);
+			return true;
+		}
+
+		logger.info("Detected image type '{}' is not in allowed extensions", actualType);
+		return false;
+	}
+
+	/**
+	 * Detects the actual image type by examining magic bytes.
+	 *
+	 * @param fileBytes the file bytes to examine
+	 * @return the detected image type (png, jpg, jpeg) or null if not recognized
+	 */
+	private String detectImageTypeFromMagicBytes(byte[] fileBytes) {
+		// Check for PNG signature
+		if (fileBytes.length >= 8 &&
+				fileBytes[0] == (byte) 0x89 &&
+				fileBytes[1] == (byte) 0x50 &&
+				fileBytes[2] == (byte) 0x4E &&
+				fileBytes[3] == (byte) 0x47 &&
+				fileBytes[4] == (byte) 0x0D &&
+				fileBytes[5] == (byte) 0x0A &&
+				fileBytes[6] == (byte) 0x1A &&
+				fileBytes[7] == (byte) 0x0A) {
+			return Constants.PNG;
+		}
+
+		// Check for JPEG/JPG signature
+		if (fileBytes.length >= 3 &&
+				fileBytes[0] == (byte) 0xFF &&
+				fileBytes[1] == (byte) 0xD8 &&
+				fileBytes[2] == (byte) 0xFF) {
+			return Constants.JPEG;
+		}
+		return null;
 	}
 
 }
