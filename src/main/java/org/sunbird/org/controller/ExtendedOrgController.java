@@ -68,8 +68,15 @@ public class ExtendedOrgController {
 	}
 
 	@PostMapping("/org/mdoleader/list")
-	public ResponseEntity<SBApiResponse> getMdoLeaderList(@RequestHeader(Constants.X_AUTH_USER_ORG_ID) String orgId){
-		SBApiResponse response = orgService.getMdoLeaderList(orgId);
+	public ResponseEntity<SBApiResponse> getMdoLeaderList(
+			@RequestBody(required = false) Map<String, Object> request) {
+		String role = null;
+		Integer status = null;
+		if(request != null){
+			role = (String) request.get("role");
+			status = (Integer) request.get("status");
+		}
+		SBApiResponse response = orgService.getMdoLeaderList(role, status);
 		return new ResponseEntity<>(response, response.getResponseCode());
 	}
 }

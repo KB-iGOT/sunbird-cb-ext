@@ -1165,32 +1165,101 @@ public class ExtendedOrgServiceImpl implements ExtendedOrgService {
 	}
 
 	@Override
-	public SBApiResponse getMdoLeaderList(String orgId){
-		logger.info("ExtendedOrgServiceImpl:getMdoLeaderList:Fetching MDO leaders for orgId:{}", orgId);
+	public SBApiResponse getMdoLeaderList(String role, Integer status) {
+		logger.info("Fetching MDO Leader List");
 		SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.API_ORG_LIST);
-		if(StringUtils.isBlank(orgId)){
-			response.getParams().setStatus(Constants.FAILED);
-			response.getParams().setErrmsg("Organization ID is missing");
-			response.setResponseCode(HttpStatus.BAD_REQUEST);
-			return response;
-		}
-		try{
-			List<Map<String, Object>> leaderList = new ArrayList<>();
-			final BoolQueryBuilder finalQuery = QueryBuilders.boolQuery();
-			finalQuery.must(QueryBuilders.termQuery(Constants.ROOT_ORG_ID_RAW, orgId));
-			finalQuery.must(QueryBuilders.termQuery(Constants.USER_TYPE, Constants.MDO_LEADER));
-			finalQuery.must(QueryBuilders.termQuery(Constants.STATUS_RAW,1));
-			SearchSourceBuilder sourceBuilder = new SearchSourceBuilder().query(finalQuery);
-			SearchResponse searchResponse = indexerService.getEsResult(serverConfig.getSbEsUserProfileIndex(),
-					serverConfig.getEsProfileIndexType(), sourceBuilder, ProjectUtil.ESIndexType.USER_ES);
-			for (SearchHit hit : searchResponse.getHits()) {
-				logger.info("MDO Leader record fetched: {}",hit.getSourceAsMap());
-				leaderList.add(hit.getSourceAsMap());
+		try {
+			List<Map<String,Object>> contentList = new ArrayList<>();
+			BoolQueryBuilder finalQuery = QueryBuilders.boolQuery();
+			if(role != null){
+				finalQuery.must(QueryBuilders.matchQuery("roles.role", role));
 			}
-
-			response.getResult().put("response", leaderList);
+			if(status != null){
+				finalQuery.must(QueryBuilders.termQuery(Constants.STATUS_RAW, status));
+			}
+			SearchSourceBuilder sourceBuilder = new SearchSourceBuilder().query(finalQuery);
+			SearchResponse searchResponse = indexerService.getEsResult(serverConfig.getSbEsUserProfileIndex(), serverConfig.getEsProfileIndexType(), sourceBuilder, ProjectUtil.ESIndexType.USER_ES);
+			Map<String, Map<String,Object>> userMap = new HashMap<>();
+			List<String> rootOrgIds = new ArrayList<>();
+			/* ---------- USER LOOP ---------- */
+			for(SearchHit hit : searchResponse.getHits()){
+				Map<String,Object> source = hit.getSourceAsMap();
+				String rootOrgId = (String) source.get("rootOrgId");
+				userMap.put(rootOrgId, source);
+				rootOrgIds.add(rootOrgId);
+			}
+			/* ---------- BATCH LOGIC ---------- */
+			int batchSize = 100;
+			Map<String,String> ministryMap = new HashMap<>();
+			for(int i=0; i < rootOrgIds.size(); i += batchSize){
+				List<String> batch = rootOrgIds.subList(i, Math.min(i + batchSize, rootOrgIds.size()));
+				/* ---------- ORG SEARCH REQUEST ---------- */
+				Map<String,Object> orgSearchRequestBody = new HashMap<>();
+				Map<String,Object> request = new HashMap<>();
+				Map<String,Object> filters = new HashMap<>();
+				filters.put("id", batch);
+				request.put("filters", filters);
+				request.put("limit", batch.size());
+				orgSearchRequestBody.put("request", request);
+				/* ---------- HEADERS ---------- */
+				Map<String,String> headers = new HashMap<>();
+				headers.put(Constants.CONTENT_TYPE, Constants.APPLICATION_JSON);
+				/* ---------- URL ---------- */
+				String url = configProperties.getSbUrl() + configProperties.getSbOrgSearchPath();
+				/* ---------- MICROSERVICE CALL ---------- */
+				Map<String,Object> apiResponse =
+						(Map<String,Object>) outboundService.fetchResultUsingPost(url, orgSearchRequestBody, headers);
+				Map<String,Object> result = (Map<String,Object>) apiResponse.get("result");
+				Map<String,Object> responseMap = (Map<String,Object>) result.get("response");
+				List<Map<String,Object>> orgContent = (List<Map<String,Object>>) responseMap.get("content");
+				if(orgContent != null){
+					for(Map<String,Object> org : orgContent){
+						String identifier = (String) org.get("identifier");
+						String ministry = (String) org.get("ministryOrStateName");
+						ministryMap.put(identifier, ministry);
+					}
+				}
+			}
+			/* ---------- FINAL USER LOOP ---------- */
+			for(String orgId : rootOrgIds){
+				Map<String,Object> source = userMap.get(orgId);
+				String orgName = (String) source.get("rootOrgName");
+				String ministry = ministryMap.get(orgId);
+				String nodalName = null;
+				String email = null;
+				Map<String,Object> profileDetails = (Map<String,Object>) source.get("profileDetails");
+				Map<String,Object> personalDetails = null;
+				if(profileDetails != null) {
+					personalDetails = (Map<String, Object>) profileDetails.get("personalDetails");
+					if (personalDetails != null) {
+						nodalName = (String) personalDetails.get("firstname");
+						email = (String) personalDetails.get("primaryEmail");
+						if (email != null) {
+							email = email.replace("@", "[at]");
+							email = email.replace(".", "[dot]");
+						}
+					}
+				}
+				Map<String,Object> leaderMap = new LinkedHashMap<>();
+				leaderMap.put("Organization", orgName);
+				leaderMap.put("Ministry", ministry);
+				leaderMap.put("Nodal Name", nodalName);
+				leaderMap.put("Nodal Email", email);
+				contentList.add(leaderMap);
+			}
+			/* ---------- FINAL RESPONSE ---------- */
+			Map<String,Object> finalResponse = new HashMap<>();
+			Map<String,Object> headerInfo = new HashMap<>();
+			headerInfo.put("org_head","Organization");
+			headerInfo.put("ministry_head","Ministry");
+			headerInfo.put("admin_head","Nodal Name");
+			headerInfo.put("admin_email","Nodal Email");
+			finalResponse.put("headerInfo", headerInfo);
+			finalResponse.put("content", contentList);
+			response.getResult().put("response", finalResponse);
 			response.getParams().setStatus(Constants.SUCCESS);
-		}catch(Exception e){
+		}
+		catch(Exception e){
 			logger.error("Error while fetching MDO Leader List", e);
 			response.getParams().setStatus(Constants.FAILED);
 			response.setResponseCode(HttpStatus.INTERNAL_SERVER_ERROR);

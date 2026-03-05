@@ -24,6 +24,8 @@ public interface ExtendedOrgService {
 
 	SBApiResponse updateV2(Map<String, Object> orgRequest, String userToken);
 
-	SBApiResponse getMdoLeaderList(String orgId);
+
+	SBApiResponse getMdoLeaderList(String role, Integer status);
+
 
 }
