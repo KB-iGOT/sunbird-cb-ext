@@ -1171,10 +1171,10 @@ public class ExtendedOrgServiceImpl implements ExtendedOrgService {
 		try {
 			List<Map<String,Object>> contentList = new ArrayList<>();
 			BoolQueryBuilder finalQuery = QueryBuilders.boolQuery();
-			if(role != null){
+			if(StringUtils.isNotEmpty(role)){
 				finalQuery.must(QueryBuilders.matchQuery("roles.role", role));
 			}
-			if(status != null){
+			if(!ObjectUtils.isEmpty(status)){
 				finalQuery.must(QueryBuilders.termQuery(Constants.STATUS_RAW, status));
 			}
 			SearchSourceBuilder sourceBuilder = new SearchSourceBuilder().query(finalQuery);
