@@ -72,7 +72,8 @@ public class ExtendedOrgController {
 			@RequestBody(required = false) Map<String, Object> request) {
 
 		SBApiResponse response = orgService.getMdoLeaderList(
-				(String)request.get("role"), (Integer) request.get("status"));
+				(String)request.get(Constants.ROLE),
+				(Integer) request.get(Constants.STATUS));
 		return new ResponseEntity<>(response, response.getResponseCode());
 	}
 }

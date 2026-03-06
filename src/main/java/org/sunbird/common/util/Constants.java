@@ -794,6 +794,7 @@ public class Constants {
 
 	public static final String ROOT_ORG_ID_RAW = "rootOrgId.raw";
 
+
 	public static final String STATUS_RAW = "status.raw";
 
 	public static final String COLON =":";
@@ -1475,4 +1476,13 @@ public class Constants {
 	public static final String MILESTONES_V1 = "milestones_v1";
 	public static final String ASSESSMENT_DETAILS = "assessmentDetail";
 	public static final String PRELIMINARY_ASSESSMENT = "preliminaryAssessment";
+	public static final String NODAL_NAME = "Nodal Name";
+	public static final String NODAL_EMAIL = "Nodal Email";
+	public static final String ORG_HEAD = "org_head";
+	public static final String MINISTRY_HEAD = "ministry_head";
+	public static final String ADMIN_HEAD = "admin_head";
+	public static final String ADMIN_EMAIL = "admin_email_head";
+	public static final String HEADER_INFO = "headerInfo";
+	public static final String ROOT_ORG_NAME = "rootOrgName";
+
 }

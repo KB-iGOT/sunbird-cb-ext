@@ -1184,7 +1184,7 @@ public class ExtendedOrgServiceImpl implements ExtendedOrgService {
 			/* ---------- USER LOOP ---------- */
 			for(SearchHit hit : searchResponse.getHits()){
 				Map<String,Object> source = hit.getSourceAsMap();
-				String rootOrgId = (String) source.get("rootOrgId");
+				String rootOrgId = (String) source.get(Constants.ROOT_ORG_ID);
 				userMap.put(rootOrgId, source);
 				rootOrgIds.add(rootOrgId);
 			}
@@ -1197,10 +1197,10 @@ public class ExtendedOrgServiceImpl implements ExtendedOrgService {
 				Map<String,Object> orgSearchRequestBody = new HashMap<>();
 				Map<String,Object> request = new HashMap<>();
 				Map<String,Object> filters = new HashMap<>();
-				filters.put("id", batch);
-				request.put("filters", filters);
-				request.put("limit", batch.size());
-				orgSearchRequestBody.put("request", request);
+				filters.put(Constants.ID, batch);
+				request.put(Constants.FILTERS, filters);
+				request.put(Constants.LIMIT, batch.size());
+				orgSearchRequestBody.put(Constants.REQUEST, request);
 				/* ---------- HEADERS ---------- */
 				Map<String,String> headers = new HashMap<>();
 				headers.put(Constants.CONTENT_TYPE, Constants.APPLICATION_JSON);
@@ -1209,13 +1209,13 @@ public class ExtendedOrgServiceImpl implements ExtendedOrgService {
 				/* ---------- MICROSERVICE CALL ---------- */
 				Map<String,Object> apiResponse =
 						(Map<String,Object>) outboundService.fetchResultUsingPost(url, orgSearchRequestBody, headers);
-				Map<String,Object> result = (Map<String,Object>) apiResponse.get("result");
-				Map<String,Object> responseMap = (Map<String,Object>) result.get("response");
-				List<Map<String,Object>> orgContent = (List<Map<String,Object>>) responseMap.get("content");
+				Map<String,Object> result = (Map<String,Object>) apiResponse.get(Constants.RESULT);
+				Map<String,Object> responseMap = (Map<String,Object>) result.get(Constants.RESPONSE);
+				List<Map<String,Object>> orgContent = (List<Map<String,Object>>) responseMap.get(Constants.CONTENT);
 				if(orgContent != null){
 					for(Map<String,Object> org : orgContent){
-						String identifier = (String) org.get("identifier");
-						String ministry = (String) org.get("ministryOrStateName");
+						String identifier = (String) org.get(Constants.IDENTIFIER);
+						String ministry = (String) org.get(Constants.MINISTRY_STATE_NAME);
 						ministryMap.put(identifier, ministry);
 					}
 				}
@@ -1223,17 +1223,17 @@ public class ExtendedOrgServiceImpl implements ExtendedOrgService {
 			/* ---------- FINAL USER LOOP ---------- */
 			for(String orgId : rootOrgIds){
 				Map<String,Object> source = userMap.get(orgId);
-				String orgName = (String) source.get("rootOrgName");
+				String orgName = (String) source.get(Constants.ROOT_ORG_NAME);
 				String ministry = ministryMap.get(orgId);
 				String nodalName = null;
 				String email = null;
-				Map<String,Object> profileDetails = (Map<String,Object>) source.get("profileDetails");
+				Map<String,Object> profileDetails = (Map<String,Object>) source.get(Constants.PROFILE_DETAILS);
 				Map<String,Object> personalDetails = null;
 				if(profileDetails != null) {
-					personalDetails = (Map<String, Object>) profileDetails.get("personalDetails");
+					personalDetails = (Map<String, Object>) profileDetails.get(Constants.PERSONAL_DETAILS);
 					if (personalDetails != null) {
-						nodalName = (String) personalDetails.get("firstname");
-						email = (String) personalDetails.get("primaryEmail");
+						nodalName = (String) personalDetails.get(Constants.FIRST_NAME_LOWER_CASE);
+						email = (String) personalDetails.get(Constants.PRIMARY_EMAIL);
 						if (email != null) {
 							email = email.replace("@", "[at]");
 							email = email.replace(".", "[dot]");
@@ -1241,22 +1241,22 @@ public class ExtendedOrgServiceImpl implements ExtendedOrgService {
 					}
 				}
 				Map<String,Object> leaderMap = new LinkedHashMap<>();
-				leaderMap.put("Organization", orgName);
-				leaderMap.put("Ministry", ministry);
-				leaderMap.put("Nodal Name", nodalName);
-				leaderMap.put("Nodal Email", email);
+				leaderMap.put(Constants.ORGANISATION, orgName);
+				leaderMap.put(Constants.MINISTRY, ministry);
+				leaderMap.put(Constants.NODAL_NAME, nodalName);
+				leaderMap.put(Constants.NODAL_EMAIL, email);
 				contentList.add(leaderMap);
 			}
 			/* ---------- FINAL RESPONSE ---------- */
 			Map<String,Object> finalResponse = new HashMap<>();
 			Map<String,Object> headerInfo = new HashMap<>();
-			headerInfo.put("org_head","Organization");
-			headerInfo.put("ministry_head","Ministry");
-			headerInfo.put("admin_head","Nodal Name");
-			headerInfo.put("admin_email","Nodal Email");
-			finalResponse.put("headerInfo", headerInfo);
-			finalResponse.put("content", contentList);
-			response.getResult().put("response", finalResponse);
+			headerInfo.put(Constants.ORG_HEAD,"Organization");
+			headerInfo.put(Constants.MINISTRY_HEAD,"Ministry");
+			headerInfo.put(Constants.ADMIN_HEAD,"Nodal Name");
+			headerInfo.put(Constants.ADMIN_EMAIL,"Nodal Email");
+			finalResponse.put(Constants.HEADER_INFO, headerInfo);
+			finalResponse.put(Constants.CONTENT, contentList);
+			response.getResult().put(Constants.RESPONSE, finalResponse);
 			response.getParams().setStatus(Constants.SUCCESS);
 		}
 		catch(Exception e){
