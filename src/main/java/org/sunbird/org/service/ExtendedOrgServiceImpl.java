@@ -67,6 +67,8 @@ public class ExtendedOrgServiceImpl implements ExtendedOrgService {
 	@Value("${mdo.leader.default.limit}")
     private int defaultLimit;
 
+	@Value("${org.search.list.batch.size}")
+	private int batchsize;
 
     ObjectMapper objectMapper = new ObjectMapper();
 
@@ -1200,7 +1202,7 @@ public class ExtendedOrgServiceImpl implements ExtendedOrgService {
 				rootOrgIds.add(rootOrgId);
 			}
 			/* ---------- BATCH LOGIC ---------- */
-			int batchSize = 100;
+			int batchSize = this.batchsize;
 			Map<String,String> ministryMap = new HashMap<>();
 			for(int i=0; i < rootOrgIds.size(); i += batchSize){
 				List<String> batch = rootOrgIds.subList(i, Math.min(i + batchSize, rootOrgIds.size()));
@@ -1221,42 +1223,52 @@ public class ExtendedOrgServiceImpl implements ExtendedOrgService {
 				Map<String,Object> apiResponse =
 						(Map<String,Object>) outboundService.fetchResultUsingPost(url, orgSearchRequestBody, headers);
 				Map<String,Object> result = (Map<String,Object>) apiResponse.get(Constants.RESULT);
-				Map<String,Object> responseMap = (Map<String,Object>) result.get(Constants.RESPONSE);
-				List<Map<String,Object>> orgContent = (List<Map<String,Object>>) responseMap.get(Constants.CONTENT);
-				if(orgContent != null){
-					for(Map<String,Object> org : orgContent){
-						String identifier = (String) org.get(Constants.IDENTIFIER);
-						String ministry = (String) org.get(Constants.MINISTRY_STATE_NAME);
-						ministryMap.put(identifier, ministry);
-					}
-				}
-			}
-			/* ---------- FINAL USER LOOP ---------- */
-			for(String orgId : rootOrgIds){
-				Map<String,Object> source = userMap.get(orgId);
-				String orgName = (String) source.get(Constants.ROOT_ORG_NAME);
-				String ministry = ministryMap.get(orgId);
-				String nodalName = null;
-				String email = null;
-				Map<String,Object> profileDetails = (Map<String,Object>) source.get(Constants.PROFILE_DETAILS);
-				Map<String,Object> personalDetails = null;
-				if(profileDetails != null) {
-					personalDetails = (Map<String, Object>) profileDetails.get(Constants.PERSONAL_DETAILS);
-					if (personalDetails != null) {
-						nodalName = (String) personalDetails.get(Constants.FIRST_NAME_LOWER_CASE);
-						email = (String) personalDetails.get(Constants.PRIMARY_EMAIL);
-						if (email != null) {
-							email = email.replace("@", "[at]");
-							email = email.replace(".", "[dot]");
+
+
+				if(result!=null){
+					Map<String,Object> responseMap = (Map<String,Object>) result.get(Constants.RESPONSE);
+					if(responseMap!=null){
+						List<Map<String,Object>> orgContent = (List<Map<String,Object>>) responseMap.get(Constants.CONTENT);
+						if(CollectionUtils.isNotEmpty(orgContent)){
+							for(Map<String,Object> org : orgContent){
+								String identifier = (String) org.get(Constants.IDENTIFIER);
+								String ministry = (String) org.get(Constants.MINISTRY_STATE_NAME);
+								ministryMap.put(identifier, ministry);
+							}
 						}
 					}
 				}
-				Map<String,Object> leaderMap = new LinkedHashMap<>();
-				leaderMap.put(Constants.ORGANISATION, orgName);
-				leaderMap.put(Constants.MINISTRY, ministry);
-				leaderMap.put(Constants.NODAL_NAME, nodalName);
-				leaderMap.put(Constants.NODAL_EMAIL, email);
-				contentList.add(leaderMap);
+
+			}
+			/* ---------- FINAL USER LOOP ---------- */
+			if(CollectionUtils.isNotEmpty(rootOrgIds)) {
+				for(String orgId : rootOrgIds) {
+					Map<String,Object> source = userMap.get(orgId);
+					if(MapUtils.isNotEmpty(source)) {
+						String orgName = (String) source.get(Constants.ROOT_ORG_NAME);
+						String ministry = ministryMap.get(orgId);
+						String nodalName = null;
+						String email = null;
+						Map<String,Object> profileDetails = (Map<String,Object>) source.get(Constants.PROFILE_DETAILS);
+						if(MapUtils.isNotEmpty(profileDetails)) {
+							Map<String,Object> personalDetails = (Map<String,Object>) profileDetails.get(Constants.PERSONAL_DETAILS);
+							if(MapUtils.isNotEmpty(personalDetails)) {
+								nodalName = (String) personalDetails.get(Constants.FIRST_NAME_LOWER_CASE);
+								email = (String) personalDetails.get(Constants.PRIMARY_EMAIL);
+								if(email != null){
+									email = email.replace("@","[at]");
+									email = email.replace(".","[dot]");
+								}
+							}
+						}
+						Map<String,Object> leaderMap = new LinkedHashMap<>();
+						leaderMap.put(Constants.ORGANISATION, orgName);
+						leaderMap.put(Constants.MINISTRY, ministry);
+						leaderMap.put(Constants.NODAL_NAME, nodalName);
+						leaderMap.put(Constants.NODAL_EMAIL, email);
+						contentList.add(leaderMap);
+					}
+				}
 			}
 			/* ---------- FINAL RESPONSE ---------- */
 			Map<String,Object> finalResponse = new HashMap<>();
