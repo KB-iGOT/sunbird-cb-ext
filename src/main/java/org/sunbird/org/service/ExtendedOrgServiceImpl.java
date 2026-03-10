@@ -64,6 +64,10 @@ public class ExtendedOrgServiceImpl implements ExtendedOrgService {
     @Value("${kafka.topics.org.hierarchy.framework.new.org.event}")
     private String kafkaTopicCreateHierarchyFramework;
 
+	@Value("${mdo.leader.default.limit}")
+    private int defaultLimit;
+
+
     ObjectMapper objectMapper = new ObjectMapper();
 
 
@@ -1165,7 +1169,7 @@ public class ExtendedOrgServiceImpl implements ExtendedOrgService {
 	}
 
 	@Override
-	public SBApiResponse getMdoLeaderList(String role, Integer status) {
+	public SBApiResponse getMdoLeaderList(String role, Integer status,Integer limit,Integer offset) {
 		logger.info("Fetching MDO Leader List");
 		SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.API_ORG_LIST);
 		try {
@@ -1178,6 +1182,13 @@ public class ExtendedOrgServiceImpl implements ExtendedOrgService {
 				finalQuery.must(QueryBuilders.termQuery(Constants.STATUS_RAW, status));
 			}
 			SearchSourceBuilder sourceBuilder = new SearchSourceBuilder().query(finalQuery);
+			int pageLimit = (limit!=null && limit>0)? limit:defaultLimit;
+			int pageOffset = (offset!=null && offset>=0)? offset:0;
+			if(pageLimit>100){
+				pageLimit = 100;
+			}
+			sourceBuilder.from(pageOffset);
+			sourceBuilder.size(pageLimit);
 			SearchResponse searchResponse = indexerService.getEsResult(serverConfig.getSbEsUserProfileIndex(), serverConfig.getEsProfileIndexType(), sourceBuilder, ProjectUtil.ESIndexType.USER_ES);
 			Map<String, Map<String,Object>> userMap = new HashMap<>();
 			List<String> rootOrgIds = new ArrayList<>();
