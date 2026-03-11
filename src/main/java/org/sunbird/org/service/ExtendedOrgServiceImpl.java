@@ -1175,62 +1175,62 @@ public class ExtendedOrgServiceImpl implements ExtendedOrgService {
 		logger.info("Fetching MDO Leader List");
 		SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.API_ORG_LIST);
 		try {
-			List<Map<String,Object>> contentList = new ArrayList<>();
+			List<Map<String, Object>> contentList = new ArrayList<>();
 			BoolQueryBuilder finalQuery = QueryBuilders.boolQuery();
-			if(StringUtils.isNotEmpty(role)){
+			if (StringUtils.isNotEmpty(role)) {
 				finalQuery.must(QueryBuilders.matchQuery("roles.role", role));
 			}
-			if(!ObjectUtils.isEmpty(status)){
+			if (!ObjectUtils.isEmpty(status)) {
 				finalQuery.must(QueryBuilders.termQuery(Constants.STATUS_RAW, status));
 			}
 			SearchSourceBuilder sourceBuilder = new SearchSourceBuilder().query(finalQuery);
-			int pageLimit = (limit!=null && limit>0)? limit:defaultLimit;
-			int pageOffset = (offset!=null && offset>=0)? offset:0;
-			if(pageLimit>100){
+			int pageLimit = (limit != null && limit > 0) ? limit : defaultLimit;
+			int pageOffset = (offset != null && offset >= 0) ? offset : 0;
+			if (pageLimit > 100) {
 				pageLimit = 100;
 			}
 			sourceBuilder.from(pageOffset);
 			sourceBuilder.size(pageLimit);
 			SearchResponse searchResponse = indexerService.getEsResult(serverConfig.getSbEsUserProfileIndex(), serverConfig.getEsProfileIndexType(), sourceBuilder, ProjectUtil.ESIndexType.USER_ES);
-			Map<String, Map<String,Object>> userMap = new HashMap<>();
+			Map<String, Map<String, Object>> userMap = new HashMap<>();
 			List<String> rootOrgIds = new ArrayList<>();
 			/* ---------- USER LOOP ---------- */
-			for(SearchHit hit : searchResponse.getHits()){
-				Map<String,Object> source = hit.getSourceAsMap();
+			for (SearchHit hit : searchResponse.getHits()) {
+				Map<String, Object> source = hit.getSourceAsMap();
 				String rootOrgId = (String) source.get(Constants.ROOT_ORG_ID);
 				userMap.put(rootOrgId, source);
 				rootOrgIds.add(rootOrgId);
 			}
 			/* ---------- BATCH LOGIC ---------- */
 			int batchSize = this.batchsize;
-			Map<String,String> ministryMap = new HashMap<>();
-			for(int i=0; i < rootOrgIds.size(); i += batchSize){
+			Map<String, String> ministryMap = new HashMap<>();
+			for (int i = 0; i < rootOrgIds.size(); i += batchSize) {
 				List<String> batch = rootOrgIds.subList(i, Math.min(i + batchSize, rootOrgIds.size()));
 				/* ---------- ORG SEARCH REQUEST ---------- */
-				Map<String,Object> orgSearchRequestBody = new HashMap<>();
-				Map<String,Object> request = new HashMap<>();
-				Map<String,Object> filters = new HashMap<>();
+				Map<String, Object> orgSearchRequestBody = new HashMap<>();
+				Map<String, Object> request = new HashMap<>();
+				Map<String, Object> filters = new HashMap<>();
 				filters.put(Constants.ID, batch);
 				request.put(Constants.FILTERS, filters);
 				request.put(Constants.LIMIT, batch.size());
 				orgSearchRequestBody.put(Constants.REQUEST, request);
 				/* ---------- HEADERS ---------- */
-				Map<String,String> headers = new HashMap<>();
+				Map<String, String> headers = new HashMap<>();
 				headers.put(Constants.CONTENT_TYPE, Constants.APPLICATION_JSON);
 				/* ---------- URL ---------- */
 				String url = configProperties.getSbUrl() + configProperties.getSbOrgSearchPath();
 				/* ---------- MICROSERVICE CALL ---------- */
-				Map<String,Object> apiResponse =
-						(Map<String,Object>) outboundService.fetchResultUsingPost(url, orgSearchRequestBody, headers);
-				Map<String,Object> result = (Map<String,Object>) apiResponse.get(Constants.RESULT);
+				Map<String, Object> apiResponse =
+						(Map<String, Object>) outboundService.fetchResultUsingPost(url, orgSearchRequestBody, headers);
+				Map<String, Object> result = (Map<String, Object>) apiResponse.get(Constants.RESULT);
 
 
-				if(result!=null){
-					Map<String,Object> responseMap = (Map<String,Object>) result.get(Constants.RESPONSE);
-					if(responseMap!=null){
-						List<Map<String,Object>> orgContent = (List<Map<String,Object>>) responseMap.get(Constants.CONTENT);
-						if(CollectionUtils.isNotEmpty(orgContent)){
-							for(Map<String,Object> org : orgContent){
+				if (result != null) {
+					Map<String, Object> responseMap = (Map<String, Object>) result.get(Constants.RESPONSE);
+					if (responseMap != null) {
+						List<Map<String, Object>> orgContent = (List<Map<String, Object>>) responseMap.get(Constants.CONTENT);
+						if (CollectionUtils.isNotEmpty(orgContent)) {
+							for (Map<String, Object> org : orgContent) {
 								String identifier = (String) org.get(Constants.IDENTIFIER);
 								String ministry = (String) org.get(Constants.MINISTRY_STATE_NAME);
 								ministryMap.put(identifier, ministry);
@@ -1241,27 +1241,27 @@ public class ExtendedOrgServiceImpl implements ExtendedOrgService {
 
 			}
 			/* ---------- FINAL USER LOOP ---------- */
-			if(CollectionUtils.isNotEmpty(rootOrgIds)) {
-				for(String orgId : rootOrgIds) {
-					Map<String,Object> source = userMap.get(orgId);
-					if(MapUtils.isNotEmpty(source)) {
+			if (CollectionUtils.isNotEmpty(rootOrgIds)) {
+				for (String orgId : rootOrgIds) {
+					Map<String, Object> source = userMap.get(orgId);
+					if (MapUtils.isNotEmpty(source)) {
 						String orgName = (String) source.get(Constants.ROOT_ORG_NAME);
 						String ministry = ministryMap.get(orgId);
 						String nodalName = null;
 						String email = null;
-						Map<String,Object> profileDetails = (Map<String,Object>) source.get(Constants.PROFILE_DETAILS);
-						if(MapUtils.isNotEmpty(profileDetails)) {
-							Map<String,Object> personalDetails = (Map<String,Object>) profileDetails.get(Constants.PERSONAL_DETAILS);
-							if(MapUtils.isNotEmpty(personalDetails)) {
+						Map<String, Object> profileDetails = (Map<String, Object>) source.get(Constants.PROFILE_DETAILS);
+						if (MapUtils.isNotEmpty(profileDetails)) {
+							Map<String, Object> personalDetails = (Map<String, Object>) profileDetails.get(Constants.PERSONAL_DETAILS);
+							if (MapUtils.isNotEmpty(personalDetails)) {
 								nodalName = (String) personalDetails.get(Constants.FIRST_NAME_LOWER_CASE);
 								email = (String) personalDetails.get(Constants.PRIMARY_EMAIL);
-								if(email != null){
-									email = email.replace("@","[at]");
-									email = email.replace(".","[dot]");
+								if (email != null) {
+									email = email.replace("@", "[at]");
+									email = email.replace(".", "[dot]");
 								}
 							}
 						}
-						Map<String,Object> leaderMap = new LinkedHashMap<>();
+						Map<String, Object> leaderMap = new LinkedHashMap<>();
 						leaderMap.put(Constants.ORGANISATION, orgName);
 						leaderMap.put(Constants.MINISTRY, ministry);
 						leaderMap.put(Constants.NODAL_NAME, nodalName);
@@ -1271,18 +1271,17 @@ public class ExtendedOrgServiceImpl implements ExtendedOrgService {
 				}
 			}
 			/* ---------- FINAL RESPONSE ---------- */
-			Map<String,Object> finalResponse = new HashMap<>();
-			Map<String,Object> headerInfo = new HashMap<>();
-			headerInfo.put(Constants.ORG_HEAD,"Organization");
-			headerInfo.put(Constants.MINISTRY_HEAD,"Ministry");
-			headerInfo.put(Constants.ADMIN_HEAD,"Nodal Name");
-			headerInfo.put(Constants.ADMIN_EMAIL,"Nodal Email");
+			Map<String, Object> finalResponse = new HashMap<>();
+			Map<String, Object> headerInfo = new HashMap<>();
+			headerInfo.put(Constants.ORG_HEAD, "Organization");
+			headerInfo.put(Constants.MINISTRY_HEAD, "Ministry");
+			headerInfo.put(Constants.ADMIN_HEAD, "Nodal Name");
+			headerInfo.put(Constants.ADMIN_EMAIL, "Nodal Email");
 			finalResponse.put(Constants.HEADER_INFO, headerInfo);
 			finalResponse.put(Constants.CONTENT, contentList);
 			response.getResult().put(Constants.RESPONSE, finalResponse);
 			response.getParams().setStatus(Constants.SUCCESS);
-		}
-		catch(Exception e){
+		} catch (Exception e) {
 			logger.error("Error while fetching MDO Leader List", e);
 			response.getParams().setStatus(Constants.FAILED);
 			response.setResponseCode(HttpStatus.INTERNAL_SERVER_ERROR);
