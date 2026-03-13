@@ -4,6 +4,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -13,12 +14,14 @@ import java.util.*;
 
 import javax.annotation.PostConstruct;
 
+import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.collections4.MapUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.ByteArrayResource;
+import org.springframework.core.io.InputStreamResource;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -28,6 +31,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.ObjectUtils;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
+import org.sunbird.cassandra.utils.CassandraOperation;
 import org.sunbird.cloud.storage.BaseStorageService;
 import org.sunbird.cloud.storage.Model;
 import org.sunbird.cloud.storage.factory.StorageConfig;
@@ -58,6 +62,9 @@ public class StorageServiceImpl implements StorageService {
 
 	@Autowired
 	private UserUtilityService userUtilityService;
+
+	@Autowired
+	private CassandraOperation cassandraOperation;
 
 	@PostConstruct
 	public void init() {
@@ -1084,4 +1091,252 @@ public class StorageServiceImpl implements StorageService {
 		return null;
 	}
 
+	public ResponseEntity<Resource> downloadFileV3(String bucketName, String objectKey, String fileName) {
+
+		try {
+			logger.info("Streaming file from cloud storage: bucket={}, key={}", bucketName, objectKey);
+
+			InputStream inputStream = storageService.getObjectStream(bucketName, objectKey);
+			InputStreamResource resource = new InputStreamResource(inputStream);
+
+			// Get file metadata for content length
+			Model.Blob blobMetadata = storageService.getObject(bucketName, objectKey, Option.apply(Boolean.FALSE));
+
+			HttpHeaders headers = new HttpHeaders();
+			headers.add(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + fileName + "\"");
+			headers.add(HttpHeaders.CACHE_CONTROL, "no-cache, no-store, must-revalidate");
+
+			logger.info("Successfully started streaming CSV file: {}, size: {} bytes", fileName, blobMetadata.contentLength());
+
+			return ResponseEntity.ok()
+					.headers(headers)
+					.contentLength(blobMetadata.contentLength())
+					.contentType(MediaType.parseMediaType("text/csv; charset=UTF-8"))
+					.body(resource);
+
+		} catch (Exception e) {
+			logger.error("Failed to stream file, Exception: ", e);
+			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+		}
+	}
+
+	@Override
+	public ResponseEntity<?> downloadFileForSpvAdmin(Map<String, Object> requestBody, String userToken) {
+		try {
+
+			String userId = accessTokenValidator.fetchUserIdFromAccessToken(userToken);
+			if (StringUtils.isEmpty(userId)) {
+				logger.error("Failed to extract user ID from token");
+				return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Unauthorized: Invalid token");
+			}
+
+			String validationError = validateRequest(requestBody);
+			if (!StringUtils.isEmpty(validationError)) {
+				logger.error("Request validation failed: {}", validationError);
+				return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Bad Request: " + validationError);
+			}
+
+			List<String> userRoles = getUserRoles(userId);
+
+			if (!userRoles.contains(Constants.SPV_ADMIN)) {
+				logger.error("User {} does not have SPV ADMIN role", userId);
+				return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Forbidden: User does not have SPV ADMIN role");
+			}
+
+			logger.info("User {} attempting to download file from SPV", userId);
+
+			String fileName = (String) requestBody.get(Constants.FILE_NAME);
+			String formId = (String) requestBody.get(Constants.FORM_ID);
+
+			if (!fileName.toLowerCase().endsWith(Constants.CSV_FILE)) {
+				logger.error("Invalid file type. Only CSV files are allowed: {}", fileName);
+				return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Bad Request: Only CSV files are allowed");
+			}
+
+			// Construct object key: peervalidation/spv/formId/filename
+			String bucketName = serverProperties.getCloudPublicContainerName();
+			String objectKey = serverProperties.getPeerValidationCloudFolderName() + Constants.SEPARATOR_SLASH
+					+ Constants.SPV_LOWER_CASE + Constants.SEPARATOR_SLASH
+					+ formId + Constants.SEPARATOR_SLASH
+					+ fileName;
+
+			logger.info("SPV Admin downloading file: user={}, formId={}, fileName={}", userId, formId, fileName);
+
+			return downloadFileV3(bucketName, objectKey, fileName);
+
+		} catch (Exception e) {
+			logger.error("Failed to download file for SPV Admin, Exception: ", e);
+			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Internal Server Error: " + e.getMessage());
+		}
+	}
+
+	/**
+	 * Fetches the organization ID (rootOrgId) for a given user from Cassandra.
+	 *
+	 * @param userId the user ID to fetch organization for
+	 * @return the organization ID (rootOrgId) or null if not found
+	 */
+	private String fetchOrgIdFromUserId(String userId) {
+		try {
+			Map<String, Object> propertyMap = new HashMap<>();
+			propertyMap.put(Constants.USERID, userId);
+
+			List<String> fields = new ArrayList<>();
+			fields.add(Constants.ROOT_ORG_ID);
+
+			List<Map<String, Object>> cassandraResponse = cassandraOperation.getRecordsByPropertiesWithoutFiltering(
+					Constants.KEYSPACE_SUNBIRD, Constants.TABLE_USER, propertyMap, fields);
+
+			if (CollectionUtils.isEmpty(cassandraResponse)) {
+				logger.error("No user record found in Cassandra for userId: {}", userId);
+				return null;
+			}
+
+			Map<String, Object> userRecord = cassandraResponse.get(0);
+			String rootOrgId = (String) userRecord.get(Constants.ROOT_ORG_ID);
+
+			if (StringUtils.isEmpty(rootOrgId)) {
+				logger.error("Organization ID is empty for userId: {}", userId);
+				return null;
+			}
+
+			logger.info("Successfully fetched rootOrgId: {} for userId: {}", rootOrgId, userId);
+			return rootOrgId;
+		} catch (Exception e) {
+			logger.error("Exception while fetching orgId for userId: {}, Exception: ", userId, e);
+			return null;
+		}
+	}
+
+	/**
+	 * Fetches user's existing roles from Cassandra.
+	 *
+	 * @param userId the user ID to fetch roles for
+	 * @return list of role records for the user, or empty list if none found
+	 */
+	private List<String> getUserRoles(String userId) {
+		try {
+			Map<String, Object> compositeKeyMap = new HashMap<>();
+			compositeKeyMap.put(Constants.USER_ID_LOWER, userId);
+
+			List<Map<String, Object>> existingRecords = cassandraOperation.getRecordsByPropertiesWithoutFiltering(
+					Constants.KEYSPACE_SUNBIRD,
+					Constants.TABLE_USER_ROLES,
+					compositeKeyMap,
+					Arrays.asList(Constants.ROLE)
+			);
+
+			if (CollectionUtils.isEmpty(existingRecords)) {
+				logger.info("No role records found for userId: {}", userId);
+				return Collections.emptyList();
+			}
+			List<String> roles = extractRoleNames(existingRecords);
+
+			logger.info("Successfully fetched {} role record(s) for userId: {}", existingRecords.size(), userId);
+			return roles;
+
+		} catch (Exception e) {
+			logger.error("Exception while fetching roles for userId: {}, Exception: ", userId, e);
+			return Collections.emptyList();
+		}
+	}
+
+	/**
+	 * Extracts role names from user roles list.
+	 *
+	 * @param userRoles list of user role records from Cassandra
+	 * @return list of role names (non-blank only)
+	 */
+	private List<String> extractRoleNames(List<Map<String, Object>> userRoles) {
+		if (CollectionUtils.isEmpty(userRoles)) {
+			return Collections.emptyList();
+		}
+
+		return userRoles.stream()
+				.map(role -> (String) role.get(Constants.ROLE))
+				.filter(StringUtils::isNotBlank)
+				.collect(java.util.stream.Collectors.toList());
+	}
+
+	@Override
+	public ResponseEntity<?> downloadFileForMdoAdmin(Map<String, Object> requestBody, String userToken) {
+		try {
+			// Extract userId from token
+			String userId = accessTokenValidator.fetchUserIdFromAccessToken(userToken);
+			if (StringUtils.isEmpty(userId)) {
+				logger.error("Failed to extract user ID from token");
+				return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Unauthorized: Invalid token");
+			}
+
+			String validationError = validateRequest(requestBody);
+			if (!StringUtils.isEmpty(validationError)) {
+				logger.error("Request validation failed: {}", validationError);
+				return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Bad Request: " + validationError);
+			}
+
+			List<String> userRoles = getUserRoles(userId);
+
+			if (!userRoles.contains(Constants.MDO_ADMIN)) {
+				logger.error("User {} does not have MDO ADMIN role", userId);
+				return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Forbidden: User does not have MDO ADMIN role");
+			}
+
+			logger.info("User {} attempting to download file from MDO", userId);
+
+			String fileName = (String) requestBody.get(Constants.FILE_NAME);
+			String formId = (String) requestBody.get(Constants.FORM_ID);
+
+			// Validate file type
+			if (!fileName.toLowerCase().endsWith(Constants.CSV_FILE)) {
+				logger.error("Invalid file type. Only CSV files are allowed: {}", fileName);
+				return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Bad Request: Only CSV files are allowed");
+			}
+
+			// Fetch orgId from userId using Cassandra
+			String orgId = fetchOrgIdFromUserId(userId);
+			if (StringUtils.isEmpty(orgId)) {
+				logger.error("Failed to fetch organization ID for userId: {}", userId);
+				return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Forbidden: Unable to verify organization");
+			}
+
+			// Construct object key: peervalidation/mdo/orgId/formId/filename
+			String bucketName = serverProperties.getCloudPublicContainerName();
+			String objectKey = serverProperties.getPeerValidationCloudFolderName() + Constants.SEPARATOR_SLASH
+					+ Constants.MDO + Constants.SEPARATOR_SLASH
+					+ orgId + Constants.SEPARATOR_SLASH
+					+ formId + Constants.SEPARATOR_SLASH
+					+ fileName;
+
+			logger.info("MDO Admin downloading file: user={}, orgId={}, formId={}, fileName={}", userId, orgId, formId, fileName);
+
+			return downloadFileV3(bucketName, objectKey, fileName);
+		} catch (Exception e) {
+			logger.error("Failed to download file for MDO Admin, Exception: ", e);
+			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Internal Server Error: " + e.getMessage());
+		}
+	}
+
+	private String validateRequest(Map<String, Object> requestBody) {
+		StringBuilder errorMessage = new StringBuilder();
+		if (MapUtils.isEmpty(requestBody)) {
+			logger.error("Request body is empty");
+			return "Request body is empty";
+		}
+
+		String formId = (String) requestBody.get(Constants.FORM_ID);
+		if (StringUtils.isBlank(formId)) {
+			logger.error("Form ID is missing in request body");
+			errorMessage.append("Form ID is missing in request body. ");
+		}
+
+		String fileName = (String) requestBody.get(Constants.FILE_NAME);
+		if (StringUtils.isBlank(fileName)) {
+			errorMessage.append("File name is missing in request body. ");
+		}
+
+		if (errorMessage.length() > 0) {
+			return errorMessage.toString().trim();
+		}
+		return null;
+	}
 }

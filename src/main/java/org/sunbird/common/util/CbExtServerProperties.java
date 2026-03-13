@@ -1186,6 +1186,9 @@ public class CbExtServerProperties {
 	@Value("${lms.otp.verify.path}")
 	private String lmsOTPVerifyPath;
 
+	@Value("${peervalidation.cloud.folder.name}")
+	private String peerValidationCloudFolderName;
+
 	public String getStateLearningInsightsRedisKeyMapping() {
 		return stateLearningInsightsRedisKeyMapping;
 	}
@@ -3987,4 +3990,8 @@ public class CbExtServerProperties {
 	public int getProfileAboutmeMaxLength() { return profileAboutmeMaxLength; }
 
 	public void setProfileAboutmeMaxLength(int profileAboutmeMaxLength) { this.profileAboutmeMaxLength = profileAboutmeMaxLength; }
+
+	public String getPeerValidationCloudFolderName() { return peerValidationCloudFolderName; }
+
+	public void setPeerValidationCloudFolderName(String peerValidationCloudFolderName) { this.peerValidationCloudFolderName = peerValidationCloudFolderName; }
 }
