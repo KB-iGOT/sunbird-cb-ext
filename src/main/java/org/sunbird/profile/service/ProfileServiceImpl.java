@@ -261,25 +261,18 @@ public class ProfileServiceImpl implements ProfileService {
 					if (updateResponse != null && Constants.CLIENT_ERROR
 							.equalsIgnoreCase((String) updateResponse.get(Constants.RESPONSE_CODE))) {
 						response.setResponseCode(HttpStatus.BAD_REQUEST);
-						// TODO : Need to remove this log post testing
-						log.info("Profile Update Issue Testing at line number 265 :"  + updateResponse.toString());
 						response.getParams().setErrmsg((String) ((Map<String, Object>) updateResponse.get(Constants.PARAMS))
 							.get(Constants.ERROR_MESSAGE));
 					} else {
-						// TODO : Need to remove this log post testing
-						log.info(updateResponse.toString());
 						response.setResponseCode(HttpStatus.INTERNAL_SERVER_ERROR);
 					}
 					response.getParams().setStatus(Constants.FAILED);
 					String errMsg = (String) ((Map<String, Object>) updateResponse.get(Constants.PARAMS))
 							.get(Constants.ERROR_MESSAGE);
-					log.info("Profile update issue testing at line number 275 : Printing error message" + errMsg);
 					if (StringUtils.isNotBlank(PropertiesCache.getInstance().readCustomError(errMsg))) {
 						errMsg = PropertiesCache.getInstance().readCustomError(errMsg);
 					}
-					log.info("Profile update issue testing at line number 277 : Printing error message" + errMsg);
 					response.getParams().setErrmsg(errMsg);
-					log.info("Profile Update Issue Testing  at line number 278:"  + response);
 					log.error(errMsg, new Exception(errMsg));
 					return response;
 				}
