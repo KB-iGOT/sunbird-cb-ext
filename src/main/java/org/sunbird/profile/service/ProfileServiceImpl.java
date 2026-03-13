@@ -262,7 +262,7 @@ public class ProfileServiceImpl implements ProfileService {
 							.equalsIgnoreCase((String) updateResponse.get(Constants.RESPONSE_CODE))) {
 						response.setResponseCode(HttpStatus.BAD_REQUEST);
 						// TODO : Need to remove this log post testing
-						log.info(updateResponse.toString());
+						log.info("Profile Update Issue Testing at line number 265 :"  + updateResponse.toString());
 						response.getParams().setErrmsg((String) ((Map<String, Object>) updateResponse.get(Constants.PARAMS))
 							.get(Constants.ERROR_MESSAGE));
 					} else {
@@ -275,6 +275,7 @@ public class ProfileServiceImpl implements ProfileService {
 							.get(Constants.ERROR_MESSAGE);
 					errMsg = PropertiesCache.getInstance().readCustomError(errMsg);
 					response.getParams().setErrmsg(errMsg);
+					log.info("Profile Update Issue Testing  at line number 278:"  + response.toString());
 					log.error(errMsg, new Exception(errMsg));
 					return response;
 				}
