@@ -261,7 +261,13 @@ public class ProfileServiceImpl implements ProfileService {
 					if (updateResponse != null && Constants.CLIENT_ERROR
 							.equalsIgnoreCase((String) updateResponse.get(Constants.RESPONSE_CODE))) {
 						response.setResponseCode(HttpStatus.BAD_REQUEST);
+						// TODO : Need to remove this log post testing
+						log.info(updateResponse.toString());
+						response.getParams().setErrmsg((String) ((Map<String, Object>) updateResponse.get(Constants.PARAMS))
+							.get(Constants.ERROR_MESSAGE));
 					} else {
+						// TODO : Need to remove this log post testing
+						log.info(updateResponse.toString());
 						response.setResponseCode(HttpStatus.INTERNAL_SERVER_ERROR);
 					}
 					response.getParams().setStatus(Constants.FAILED);
