@@ -1276,9 +1276,10 @@ public class StorageServiceImpl implements StorageService {
 
 			List<String> userRoles = getUserRoles(userId);
 
-			if (!userRoles.contains(Constants.MDO_ADMIN)) {
-				logger.error("User {} does not have MDO ADMIN role", userId);
-				return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Forbidden: User does not have MDO ADMIN role");
+			// Allow access if user has either MDO ADMIN or MDO_LEADER role
+			if (!userRoles.contains(Constants.MDO_ADMIN) && !userRoles.contains(Constants.MDO_LEADER)) {
+				logger.error("User {} does not have MDO ADMIN or MDO_LEADER role", userId);
+				return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Forbidden: User does not have MDO ADMIN or MDO_LEADER role");
 			}
 
 			logger.info("User {} attempting to download file from MDO", userId);
@@ -1307,11 +1308,11 @@ public class StorageServiceImpl implements StorageService {
 					+ formId + Constants.SEPARATOR_SLASH
 					+ fileName;
 
-			logger.info("MDO Admin downloading file: user={}, orgId={}, formId={}, fileName={}", userId, orgId, formId, fileName);
+			logger.info("MDO Admin/Leader downloading file: user={}, orgId={}, formId={}, fileName={}", userId, orgId, formId, fileName);
 
 			return downloadFileV3(bucketName, objectKey, fileName);
 		} catch (Exception e) {
-			logger.error("Failed to download file for MDO Admin, Exception: ", e);
+			logger.error("Failed to download file for MDO Admin/Leader, Exception: ", e);
 			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Internal Server Error: " + e.getMessage());
 		}
 	}
