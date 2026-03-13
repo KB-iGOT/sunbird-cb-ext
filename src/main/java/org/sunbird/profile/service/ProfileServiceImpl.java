@@ -273,9 +273,11 @@ public class ProfileServiceImpl implements ProfileService {
 					response.getParams().setStatus(Constants.FAILED);
 					String errMsg = (String) ((Map<String, Object>) updateResponse.get(Constants.PARAMS))
 							.get(Constants.ERROR_MESSAGE);
+					log.info("Profile update issue testing at line number 275 : Printing error message" + errMsg);
 					errMsg = PropertiesCache.getInstance().readCustomError(errMsg);
+					log.info("Profile update issue testing at line number 277 : Printing error message" + errMsg);
 					response.getParams().setErrmsg(errMsg);
-					log.info("Profile Update Issue Testing  at line number 278:"  + response.toString());
+					log.info("Profile Update Issue Testing  at line number 278:"  + response);
 					log.error(errMsg, new Exception(errMsg));
 					return response;
 				}
