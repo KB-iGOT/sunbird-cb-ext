@@ -1102,12 +1102,12 @@ public class StorageServiceImpl implements StorageService {
 		try {
 			logger.info("Streaming file from cloud storage: bucket={}, key={}", bucketName, objectKey);
 
-//			Model.Blob blobMetadata = storageService.getObjectOrNull(bucketName, objectKey, Option.apply(Boolean.FALSE));
-//			if (null == blobMetadata) {
-//				logger.warn("File not found in storage: bucket={}, key={}", bucketName, objectKey);
-//				return ResponseEntity.status(HttpStatus.NOT_FOUND)
-//						.body("File not found: " + fileName);
-//			}
+			Model.Blob blobMetadata = storageService.getObjectOrNull(bucketName, objectKey, Option.apply(Boolean.FALSE));
+			if (null == blobMetadata) {
+				logger.warn("File not found in storage: bucket={}, key={}", bucketName, objectKey);
+				return ResponseEntity.status(HttpStatus.NOT_FOUND)
+						.body("File not found: " + fileName);
+			}
 
 			InputStream inputStream = storageService.getObjectStream(bucketName, objectKey);
 			if(null == inputStream) {
@@ -1122,11 +1122,11 @@ public class StorageServiceImpl implements StorageService {
 			headers.add(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + fileName + "\"");
 			headers.add(HttpHeaders.CACHE_CONTROL, "no-cache, no-store, must-revalidate");
 
-			//logger.info("Successfully started streaming CSV file: {}, size: {} bytes", fileName, blobMetadata.contentLength());
+			logger.info("Successfully started streaming CSV file: {}, size: {} bytes", fileName, blobMetadata.contentLength());
 
 			return ResponseEntity.ok()
 					.headers(headers)
-				//	.contentLength(blobMetadata.contentLength())
+					.contentLength(blobMetadata.contentLength())
 					.contentType(MediaType.parseMediaType("text/csv; charset=UTF-8"))
 					.body(resource);
 
