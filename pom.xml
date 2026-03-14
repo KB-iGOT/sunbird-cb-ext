@@ -141,9 +141,9 @@
             <version>2.0</version>
         </dependency>
         <dependency>
-            <groupId>org.sunbird</groupId>
+            <groupId>net.karmayogibharat</groupId>
             <artifactId>cloud-store-sdk</artifactId>
-            <version>1.4.6</version>
+            <version>1.4.6.1</version>
         </dependency>
         <!-- https://mvnrepository.com/artifact/org.keycloak/keycloak-common -->
         <dependency>
