@@ -42,7 +42,7 @@ public class BadgeService {
             dto.setBadgePerformanceRate(getBadgePerformanceRateList(Constants.DASHBOARD_BADGE_PERFORMANCE_RATE));
             dto.setCoursesWithBadges(getCoursesWithBadgesList(Constants.DASHBOARD_COURSES_WITH_BADGES));
             dto.setRecentBadgeActivity(getRecentBadgeActivityList(Constants.DASHBOARD_RECENT_BADGE_ACTIVITY));
-
+            response.getParams().setStatus(Constants.STATUS);
             response.put(Constants.BADGE_DETAILS, dto);
         } catch (Exception e) {
             logger.error("Failed to fetch dashboard badge details", e);
