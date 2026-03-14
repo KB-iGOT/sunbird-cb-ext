@@ -142,8 +142,8 @@
         </dependency>
         <dependency>
             <groupId>net.karmayogibharat</groupId>
-            <artifactId>cloud-store-sdk_2.11</artifactId>
-            <version>1.4.6</version>
+            <artifactId>cloud-store-sdk</artifactId>
+            <version>1.4.6.1</version>
         </dependency>
         <!-- https://mvnrepository.com/artifact/org.keycloak/keycloak-common -->
         <dependency>
