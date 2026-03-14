@@ -1189,6 +1189,12 @@ public class CbExtServerProperties {
 	@Value("${peervalidation.cloud.folder.name}")
 	private String peerValidationCloudFolderName;
 
+	@Value("${peer.validation.pdf.max.size}")
+	private long peerValidationPdfMaxSize;
+
+	@Value("${peer.validation.video.max.size}")
+	private long peerValidationVideoMaxSize;
+
 	public String getStateLearningInsightsRedisKeyMapping() {
 		return stateLearningInsightsRedisKeyMapping;
 	}
@@ -3994,4 +4000,12 @@ public class CbExtServerProperties {
 	public String getPeerValidationCloudFolderName() { return peerValidationCloudFolderName; }
 
 	public void setPeerValidationCloudFolderName(String peerValidationCloudFolderName) { this.peerValidationCloudFolderName = peerValidationCloudFolderName; }
+
+	public long getPeerValidationPdfMaxSize() {
+		return peerValidationPdfMaxSize;
+	}
+
+	public long getPeerValidationVideoMaxSize() {
+		return peerValidationVideoMaxSize;
+	}
 }
