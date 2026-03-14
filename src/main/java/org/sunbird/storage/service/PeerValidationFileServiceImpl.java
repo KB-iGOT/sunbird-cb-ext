@@ -68,7 +68,7 @@ public class PeerValidationFileServiceImpl implements PeerValidationFileService 
             }
 
             String cloudFolderName =
-                    serverProperties.getPeerValidationCloudFolderName()
+                    serverProperties.getPeerValidationSubmissionFolder()
                             + Constants.SLASH
                             + formId
                             + Constants.SLASH

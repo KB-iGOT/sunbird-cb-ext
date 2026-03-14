@@ -1195,6 +1195,9 @@ public class CbExtServerProperties {
 	@Value("${peer.validation.video.max.size}")
 	private long peerValidationVideoMaxSize;
 
+	@Value("${peer.validation.submission.folder}")
+	private String peerValidationSubmissionFolder;
+
 	public String getStateLearningInsightsRedisKeyMapping() {
 		return stateLearningInsightsRedisKeyMapping;
 	}
@@ -4007,5 +4010,9 @@ public class CbExtServerProperties {
 
 	public long getPeerValidationVideoMaxSize() {
 		return peerValidationVideoMaxSize;
+	}
+
+	public String getPeerValidationSubmissionFolder() {
+		return peerValidationSubmissionFolder;
 	}
 }
