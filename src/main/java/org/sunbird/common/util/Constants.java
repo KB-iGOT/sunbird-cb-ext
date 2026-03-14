@@ -1480,4 +1480,11 @@ public class Constants {
     public static final String PHONE_OTP = "phoneOtp";
 	public static final String JPEG = "jpeg";
 	public static final String ABOUT_ME = "aboutme";
+
+	public static final String DASHBOARD_LIVE_COURSE_BADGE_COUNT = "dashboard_live_course_badge_count";
+	public static final String DASHBOARD_TOTAL_BADGE_AWARDED_COUNT = "dashboard_total_badge_awarded_count";
+	public static final String DASHBOARD_BADGE_AWARD_RATE = "dashboard_badge_award_rate";
+	public static final String DASHBOARD_BADGE_PERFORMANCE_RATE = "dashboard_badge_performance_rate";
+	public static final String DASHBOARD_COURSES_WITH_BADGES = "dashboard_courses_with_badges";
+	public static final String DASHBOARD_RECENT_BADGE_ACTIVITY = "dashboard_recent_badge_activity";
 }
