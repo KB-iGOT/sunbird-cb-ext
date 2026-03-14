@@ -1091,16 +1091,41 @@ public class StorageServiceImpl implements StorageService {
 		return null;
 	}
 
-	public ResponseEntity<Resource> downloadFileV3(String bucketName, String objectKey, String fileName) {
+	public ResponseEntity<?> downloadFileV3(String bucketName, String objectKey, String fileName) {
 
 		try {
 			logger.info("Streaming file from cloud storage: bucket={}, key={}", bucketName, objectKey);
 
-			InputStream inputStream = storageService.getObjectStream(bucketName, objectKey);
-			InputStreamResource resource = new InputStreamResource(inputStream);
+			// Check if object exists first
+			Model.Blob blobMetadata = null;
+			try {
+				blobMetadata = storageService.getObject(bucketName, objectKey, Option.apply(Boolean.FALSE));
+				if (blobMetadata == null) {
+					logger.error("File not found in cloud storage: bucket={}, key={}", bucketName, objectKey);
+					return ResponseEntity.status(HttpStatus.NOT_FOUND)
+							.body("File not found in cloud storage");
+				}
+			} catch (Exception e) {
+				logger.error("File not found in cloud storage: bucket={}, key={}, Exception: ", bucketName, objectKey, e);
+				return ResponseEntity.status(HttpStatus.NOT_FOUND)
+						.body("File not found in cloud storage");
+			}
 
-			// Get file metadata for content length
-			Model.Blob blobMetadata = storageService.getObject(bucketName, objectKey, Option.apply(Boolean.FALSE));
+			InputStream inputStream = null;
+			try {
+				inputStream = storageService.getObjectStream(bucketName, objectKey);
+				if (inputStream == null) {
+					logger.error("Failed to get input stream for file: bucket={}, key={}", bucketName, objectKey);
+					return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+							.body("Failed to get input stream for file");
+				}
+			} catch (Exception e) {
+				logger.error("Failed to open stream for file: bucket={}, key={}, Exception: ", bucketName, objectKey, e);
+				return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+						.body("Failed to open file stream");
+			}
+
+			InputStreamResource resource = new InputStreamResource(inputStream);
 
 			HttpHeaders headers = new HttpHeaders();
 			headers.add(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + fileName + "\"");
@@ -1115,8 +1140,9 @@ public class StorageServiceImpl implements StorageService {
 					.body(resource);
 
 		} catch (Exception e) {
-			logger.error("Failed to stream file, Exception: ", e);
-			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+			logger.error("Unexpected error while streaming file: bucket={}, key={}, Exception: ", bucketName, objectKey, e);
+			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+					.body("Unable to download file.");
 		}
 	}
 

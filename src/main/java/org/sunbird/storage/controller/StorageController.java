@@ -153,14 +153,14 @@ public class StorageController {
                 reportType, date, formId, fileName, userToken);
     }
 
-	@PostMapping("/v1/spv/download")
+	@PostMapping("/v1/spv/peervalidation/report/download")
 	public ResponseEntity<?> downloadFileForSpvAdmin(
 			@RequestBody Map<String, Object> requestBody,
 			@RequestHeader(Constants.X_AUTH_TOKEN) String userToken) {
 		return storageService.downloadFileForSpvAdmin(requestBody, userToken);
 	}
 
-	@PostMapping("/v1/mdo/download")
+	@PostMapping("/v1/mdo/peervalidation/report/download")
 	public ResponseEntity<?> downloadFileForMdoAdmin(
 			@RequestBody Map<String, Object> requestBody,
 			@RequestHeader(Constants.X_AUTH_TOKEN) String userToken) {
