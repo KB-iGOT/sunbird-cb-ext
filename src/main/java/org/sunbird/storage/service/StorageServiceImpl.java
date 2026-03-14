@@ -11,12 +11,15 @@ import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.stream.Collectors;
 
 import javax.annotation.PostConstruct;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.collections4.MapUtils;
 import org.apache.commons.lang3.StringUtils;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -65,6 +68,9 @@ public class StorageServiceImpl implements StorageService {
 
 	@Autowired
 	private CassandraOperation cassandraOperation;
+
+	@Autowired
+	private ObjectMapper mapper;
 
 	@PostConstruct
 	public void init() {
@@ -1096,33 +1102,18 @@ public class StorageServiceImpl implements StorageService {
 		try {
 			logger.info("Streaming file from cloud storage: bucket={}, key={}", bucketName, objectKey);
 
-			// Check if object exists first
-			Model.Blob blobMetadata = null;
-			try {
-				blobMetadata = storageService.getObject(bucketName, objectKey, Option.apply(Boolean.FALSE));
-				if (blobMetadata == null) {
-					logger.error("File not found in cloud storage: bucket={}, key={}", bucketName, objectKey);
-					return ResponseEntity.status(HttpStatus.NOT_FOUND)
-							.body("File not found in cloud storage");
-				}
-			} catch (Exception e) {
-				logger.error("File not found in cloud storage: bucket={}, key={}, Exception: ", bucketName, objectKey, e);
+			Model.Blob blobMetadata = storageService.getObjectOrNull(bucketName, objectKey, Option.apply(Boolean.FALSE));
+			if (null == blobMetadata) {
+				logger.warn("File not found in storage: bucket={}, key={}", bucketName, objectKey);
 				return ResponseEntity.status(HttpStatus.NOT_FOUND)
-						.body("File not found in cloud storage");
+						.body("File not found: " + fileName);
 			}
 
-			InputStream inputStream = null;
-			try {
-				inputStream = storageService.getObjectStream(bucketName, objectKey);
-				if (inputStream == null) {
-					logger.error("Failed to get input stream for file: bucket={}, key={}", bucketName, objectKey);
-					return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-							.body("Failed to get input stream for file");
-				}
-			} catch (Exception e) {
-				logger.error("Failed to open stream for file: bucket={}, key={}, Exception: ", bucketName, objectKey, e);
-				return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-						.body("Failed to open file stream");
+			InputStream inputStream = storageService.getObjectStream(bucketName, objectKey);
+			if(null == inputStream) {
+				logger.warn("Unable to get input stream for file: bucket={}, key={}", bucketName, objectKey);
+				return ResponseEntity.status(HttpStatus.NOT_FOUND)
+						.body("Unable to stream file: " + fileName);
 			}
 
 			InputStreamResource resource = new InputStreamResource(inputStream);
@@ -1140,59 +1131,9 @@ public class StorageServiceImpl implements StorageService {
 					.body(resource);
 
 		} catch (Exception e) {
-			logger.error("Unexpected error while streaming file: bucket={}, key={}, Exception: ", bucketName, objectKey, e);
+			logger.error("Failed to stream file, Exception: ", e);
 			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-					.body("Unable to download file.");
-		}
-	}
-
-	@Override
-	public ResponseEntity<?> downloadFileForSpvAdmin(Map<String, Object> requestBody, String userToken) {
-		try {
-
-			String userId = accessTokenValidator.fetchUserIdFromAccessToken(userToken);
-			if (StringUtils.isEmpty(userId)) {
-				logger.error("Failed to extract user ID from token");
-				return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Unauthorized: Invalid token");
-			}
-
-			String validationError = validateRequest(requestBody);
-			if (!StringUtils.isEmpty(validationError)) {
-				logger.error("Request validation failed: {}", validationError);
-				return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Bad Request: " + validationError);
-			}
-
-			List<String> userRoles = getUserRoles(userId);
-
-			if (!userRoles.contains(Constants.SPV_ADMIN)) {
-				logger.error("User {} does not have SPV ADMIN role", userId);
-				return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Forbidden: User does not have SPV ADMIN role");
-			}
-
-			logger.info("User {} attempting to download file from SPV", userId);
-
-			String fileName = (String) requestBody.get(Constants.FILE_NAME);
-			String formId = (String) requestBody.get(Constants.FORM_ID);
-
-			if (!fileName.toLowerCase().endsWith(Constants.CSV_FILE)) {
-				logger.error("Invalid file type. Only CSV files are allowed: {}", fileName);
-				return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Bad Request: Only CSV files are allowed");
-			}
-
-			// Construct object key: peervalidation/spv/formId/filename
-			String bucketName = serverProperties.getCloudPublicContainerName();
-			String objectKey = serverProperties.getPeerValidationCloudFolderName() + Constants.SEPARATOR_SLASH
-					+ Constants.SPV_LOWER_CASE + Constants.SEPARATOR_SLASH
-					+ formId + Constants.SEPARATOR_SLASH
-					+ fileName;
-
-			logger.info("SPV Admin downloading file: user={}, formId={}, fileName={}", userId, formId, fileName);
-
-			return downloadFileV3(bucketName, objectKey, fileName);
-
-		} catch (Exception e) {
-			logger.error("Failed to download file for SPV Admin, Exception: ", e);
-			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Internal Server Error: " + e.getMessage());
+					.body("Failed to download file. Please try again later");
 		}
 	}
 
@@ -1240,52 +1181,52 @@ public class StorageServiceImpl implements StorageService {
 	 * @param userId the user ID to fetch roles for
 	 * @return list of role records for the user, or empty list if none found
 	 */
-	private List<String> getUserRoles(String userId) {
+	private List<String> getUserRoles(String userId, String rootOrgId){
 		try {
 			Map<String, Object> compositeKeyMap = new HashMap<>();
 			compositeKeyMap.put(Constants.USER_ID_LOWER, userId);
 
-			List<Map<String, Object>> existingRecords = cassandraOperation.getRecordsByPropertiesWithoutFiltering(
+			List<Map<String, Object>> userRoleList = cassandraOperation.getRecordsByPropertiesWithoutFiltering(
 					Constants.KEYSPACE_SUNBIRD,
 					Constants.TABLE_USER_ROLES,
 					compositeKeyMap,
-					Arrays.asList(Constants.ROLE)
+					Arrays.asList(Constants.ROLE, Constants.SCOPE)
 			);
 
-			if (CollectionUtils.isEmpty(existingRecords)) {
-				logger.info("No role records found for userId: {}", userId);
-				return Collections.emptyList();
-			}
-			List<String> roles = extractRoleNames(existingRecords);
-
-			logger.info("Successfully fetched {} role record(s) for userId: {}", existingRecords.size(), userId);
-			return roles;
-
+			return userRoleList.stream()
+					.map(userRoleObj -> {
+						Object userRoleScope = userRoleObj.get(Constants.SCOPE);
+						List<Map<String, Object>> scopes = new ArrayList<>();
+						if (userRoleScope instanceof List) {
+							scopes = (List<Map<String, Object>>) userRoleScope;
+						} else if (userRoleScope instanceof String) {
+							String scopeStr = (String) userRoleScope;
+							if (scopeStr != null && !scopeStr.trim().isEmpty()) {
+								try {
+									scopes = mapper.readValue(scopeStr, new TypeReference<List<Map<String, Object>>>() {
+									});
+								} catch (Exception e) {
+									logger.warn("Failed to parse scope JSON for userId {}: {}", userId, e.getMessage());
+									return null;
+								}
+							}
+						}
+						if (!scopes.isEmpty() && scopes.stream().allMatch(scope -> rootOrgId.equals(scope.get(Constants.ORGANISATION_ID)))) {
+							return (String) userRoleObj.get(Constants.ROLE);
+						}
+						return null;
+					})
+					.filter(Objects::nonNull)
+					.distinct()
+					.collect(Collectors.toList());
 		} catch (Exception e) {
-			logger.error("Exception while fetching roles for userId: {}, Exception: ", userId, e);
-			return Collections.emptyList();
+			logger.error("Failed to fetch user roles for userId: {}, Exception: ", userId, e);
+			return new ArrayList<>();
 		}
-	}
-
-	/**
-	 * Extracts role names from user roles list.
-	 *
-	 * @param userRoles list of user role records from Cassandra
-	 * @return list of role names (non-blank only)
-	 */
-	private List<String> extractRoleNames(List<Map<String, Object>> userRoles) {
-		if (CollectionUtils.isEmpty(userRoles)) {
-			return Collections.emptyList();
-		}
-
-		return userRoles.stream()
-				.map(role -> (String) role.get(Constants.ROLE))
-				.filter(StringUtils::isNotBlank)
-				.collect(java.util.stream.Collectors.toList());
 	}
 
 	@Override
-	public ResponseEntity<?> downloadFileForMdoAdmin(Map<String, Object> requestBody, String userToken) {
+	public ResponseEntity<?> peerValidationReportDownload(Map<String, Object> requestBody, String userToken) {
 		try {
 			// Extract userId from token
 			String userId = accessTokenValidator.fetchUserIdFromAccessToken(userToken);
@@ -1300,15 +1241,21 @@ public class StorageServiceImpl implements StorageService {
 				return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Bad Request: " + validationError);
 			}
 
-			List<String> userRoles = getUserRoles(userId);
-
-			// Allow access if user has either MDO ADMIN or MDO_LEADER role
-			if (!userRoles.contains(Constants.MDO_ADMIN) && !userRoles.contains(Constants.MDO_LEADER)) {
-				logger.error("User {} does not have MDO ADMIN or MDO_LEADER role", userId);
-				return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Forbidden: User does not have MDO ADMIN or MDO_LEADER role");
+			String orgId = fetchOrgIdFromUserId(userId);
+			if (StringUtils.isEmpty(orgId)) {
+				logger.error("Failed to fetch organization ID for userId: {}", userId);
+				return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Forbidden: Unable to verify organization");
 			}
 
-			logger.info("User {} attempting to download file from MDO", userId);
+			List<String> userRoles = getUserRoles(userId, orgId);
+
+			// Allow access if user has either SPV ADMIN or MDO ADMIN or MDO LEADER role
+			if (!userRoles.contains(Constants.MDO_ADMIN) && !userRoles.contains(Constants.MDO_LEADER) && !userRoles.contains(Constants.SPV_ADMIN)) {
+				logger.error("User {} does not have required role", userId);
+				return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Forbidden: User does not have required role");
+			}
+
+			logger.info("User {} attempting to download peer validation report", userId);
 
 			String fileName = (String) requestBody.get(Constants.FILE_NAME);
 			String formId = (String) requestBody.get(Constants.FORM_ID);
@@ -1319,27 +1266,18 @@ public class StorageServiceImpl implements StorageService {
 				return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Bad Request: Only CSV files are allowed");
 			}
 
-			// Fetch orgId from userId using Cassandra
-			String orgId = fetchOrgIdFromUserId(userId);
-			if (StringUtils.isEmpty(orgId)) {
-				logger.error("Failed to fetch organization ID for userId: {}", userId);
-				return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Forbidden: Unable to verify organization");
-			}
-
-			// Construct object key: peervalidation/mdo/orgId/formId/filename
 			String bucketName = serverProperties.getCloudPublicContainerName();
 			String objectKey = serverProperties.getPeerValidationCloudFolderName() + Constants.SEPARATOR_SLASH
-					+ Constants.MDO + Constants.SEPARATOR_SLASH
 					+ orgId + Constants.SEPARATOR_SLASH
 					+ formId + Constants.SEPARATOR_SLASH
 					+ fileName;
 
-			logger.info("MDO Admin/Leader downloading file: user={}, orgId={}, formId={}, fileName={}", userId, orgId, formId, fileName);
+			logger.info("downloading file: user={}, orgId={}, formId={}, fileName={}", userId, orgId, formId, fileName);
 
 			return downloadFileV3(bucketName, objectKey, fileName);
 		} catch (Exception e) {
-			logger.error("Failed to download file for MDO Admin/Leader, Exception: ", e);
-			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Internal Server Error: " + e.getMessage());
+			logger.error("Failed to download peer validation report, Exception: ", e);
+			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Unable to download file.");
 		}
 	}
 

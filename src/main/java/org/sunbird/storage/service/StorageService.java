@@ -74,8 +74,6 @@ public interface StorageService {
 	 */
 	SBApiResponse uploadProfilePhoto(MultipartFile file, String cloudFolderName, String containerName);
 
-	ResponseEntity<?> downloadFileForSpvAdmin(Map<String, Object> requestBody, String userToken);
-
-	ResponseEntity<?> downloadFileForMdoAdmin(Map<String, Object> requestBody, String userToken);
+	ResponseEntity<?> peerValidationReportDownload(Map<String, Object> requestBody, String userToken);
 
 }
