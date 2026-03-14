@@ -11,10 +11,6 @@ public class BadgeDashboardDto {
     private List<CourseWithBadge> coursesWithBadges;
     private List<RecentBadgeActivity> recentBadgeActivity;
 
-
-    public BadgeDashboardDto() {
-    }
-
     public String getLiveCourseWithBadgeCount() {
         return liveCourseWithBadgeCount;
     }
@@ -66,12 +62,12 @@ public class BadgeDashboardDto {
     // Inner classes for structured data
     public static class BadgeAwardRate {
         private String badge;
-        private Double awardRate;
+        private String awardRate;
 
         public BadgeAwardRate() {
         }
 
-        public BadgeAwardRate(String badge, Double awardRate) {
+        public BadgeAwardRate(String badge, String awardRate) {
             this.badge = badge;
             this.awardRate = awardRate;
         }
@@ -84,11 +80,11 @@ public class BadgeDashboardDto {
             this.badge = badge;
         }
 
-        public Double getAwardRate() {
+        public String getAwardRate() {
             return awardRate;
         }
 
-        public void setAwardRate(Double awardRate) {
+        public void setAwardRate(String awardRate) {
             this.awardRate = awardRate;
         }
     }
@@ -173,14 +169,14 @@ public class BadgeDashboardDto {
 
     public static class RecentBadgeActivity {
         private String userName;
-        private String badge;
+        private String badgeTitle;
 
         public RecentBadgeActivity() {
         }
 
-        public RecentBadgeActivity(String userName, String badge) {
+        public RecentBadgeActivity(String userName, String badgeTitle) {
             this.userName = userName;
-            this.badge = badge;
+            this.badgeTitle = badgeTitle;
         }
 
         public String getUserName() {
@@ -191,12 +187,12 @@ public class BadgeDashboardDto {
             this.userName = userName;
         }
 
-        public String getBadge() {
-            return badge;
+        public String getBadgeTitle() {
+            return badgeTitle;
         }
 
-        public void setBadge(String badge) {
-            this.badge = badge;
+        public void setBadgeTitle(String badgeTitle) {
+            this.badgeTitle = badgeTitle;
         }
     }
 }
