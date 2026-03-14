@@ -5,9 +5,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.sunbird.portal.badgedashboard.dto.BadgeDashboardDto;
 import org.sunbird.portal.badgedashboard.service.BadgeService;
-
-import java.util.Map;
 
 @RestController
 public class BadgeDashboardController {
@@ -16,7 +15,7 @@ public class BadgeDashboardController {
     BadgeService badgeService;
 
     @GetMapping("/dashboard/badgedetails/summary")
-    public ResponseEntity<Map<String, Object>> getDashboardBadgeDetails() {
+    public ResponseEntity<BadgeDashboardDto> getDashboardBadgeDetails() {
         return new ResponseEntity<>(badgeService.getDashboardBadgeDetails(), HttpStatus.OK);
     }
 }
