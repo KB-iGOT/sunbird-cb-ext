@@ -3,9 +3,10 @@ package org.sunbird.portal.badgedashboard.service;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.sunbird.cache.RedisCacheMgr;
+import org.sunbird.common.model.SBApiResponse;
 import org.sunbird.common.util.Constants;
 import org.sunbird.core.logger.CbExtLogger;
 import org.sunbird.portal.badgedashboard.dto.BadgeDashboardDto;
@@ -28,18 +29,36 @@ public class BadgeService {
 
     private final RedisCacheMgr redisCacheMgr;
 
-    public BadgeDashboardDto getDashboardBadgeDetails() {
-        BadgeDashboardDto dto = new BadgeDashboardDto();
+    public SBApiResponse getDashboardBadgeDetails() {
+        SBApiResponse response = new SBApiResponse(Constants.BADGE_SUMMARY_API);
+        response.setResponseCode(HttpStatus.OK);
 
-        dto.setLiveCourseWithBadgeCount(getStringFromRedis(Constants.DASHBOARD_LIVE_COURSE_BADGE_COUNT));
-        dto.setTotalBadgeAwardedCount(getStringFromRedis(Constants.DASHBOARD_TOTAL_BADGE_AWARDED_COUNT));
-        dto.setBadgeAwardRate(getBadgeAwardRateList(Constants.DASHBOARD_BADGE_AWARD_RATE));
-        dto.setBadgePerformanceRate(getBadgePerformanceRateList(Constants.DASHBOARD_BADGE_PERFORMANCE_RATE));
-        dto.setCoursesWithBadges(getCoursesWithBadgesList(Constants.DASHBOARD_COURSES_WITH_BADGES));
-        dto.setRecentBadgeActivity(getRecentBadgeActivityList(Constants.DASHBOARD_RECENT_BADGE_ACTIVITY));
-        return dto;
+        try {
+            BadgeDashboardDto dto = new BadgeDashboardDto();
+
+            dto.setLiveCourseWithBadgeCount(getStringFromRedis(Constants.DASHBOARD_LIVE_COURSE_BADGE_COUNT));
+            dto.setTotalBadgeAwardedCount(getStringFromRedis(Constants.DASHBOARD_TOTAL_BADGE_AWARDED_COUNT));
+            dto.setBadgeAwardRate(getBadgeAwardRateList(Constants.DASHBOARD_BADGE_AWARD_RATE));
+            dto.setBadgePerformanceRate(getBadgePerformanceRateList(Constants.DASHBOARD_BADGE_PERFORMANCE_RATE));
+            dto.setCoursesWithBadges(getCoursesWithBadgesList(Constants.DASHBOARD_COURSES_WITH_BADGES));
+            dto.setRecentBadgeActivity(getRecentBadgeActivityList(Constants.DASHBOARD_RECENT_BADGE_ACTIVITY));
+
+            response.put(Constants.BADGE_DETAILS, dto);
+        } catch (Exception e) {
+            logger.error("Failed to fetch dashboard badge details", e);
+            response.setResponseCode(HttpStatus.INTERNAL_SERVER_ERROR);
+            response.getParams().setErrmsg(Constants.BADGE_DETAILS_FETCH_ERROR);
+            response.getParams().setStatus(Constants.FAILED);
+        }
+        return response;
     }
 
+    /**
+     * Retrieves a string value from Redis.
+     * @param key Redis key to retrieve
+     * @return String value or empty string if not found
+     * Note: null argument to getCache(key, null) means use default Redis database (index 0)
+     */
     private String getStringFromRedis(String key) {
         try {
             String value = redisCacheMgr.getCache(key, null);
@@ -49,7 +68,7 @@ public class BadgeService {
         } catch (Exception e) {
             logger.error("Failed to retrieve value from Redis for key: " + key, e);
         }
-        return null;
+        return "";
     }
 
     /**
@@ -66,8 +85,8 @@ public class BadgeService {
                 List<BadgeAwardRate> result = new ArrayList<>();
                 for (Map<String, Object> item : rawList) {
                     BadgeAwardRate rate = new BadgeAwardRate();
-                    rate.setBadge(getStringValue(item.get("badge")));
-                    rate.setAwardRate(getStringValue(item.get("award_rate")));
+                    rate.setBadge(getStringValue(item.get(Constants.BADGE)));
+                    rate.setAwardRate(getStringValue(item.get(Constants.AWARD_RATE)));
                     result.add(rate);
                 }
                 return result;
@@ -92,9 +111,9 @@ public class BadgeService {
                 List<BadgePerformanceRate> result = new ArrayList<>();
                 for (Map<String, Object> item : rawList) {
                     BadgePerformanceRate rate = new BadgePerformanceRate();
-                    rate.setBadgeName(getStringValue(item.get("badge_name")));
-                    rate.setBadgeCount(getStringValue(item.get("badge_count")));
-                    rate.setAwardRate(getStringValue(item.get("award_rate")));
+                    rate.setBadgeName(getStringValue(item.get(Constants.BADGE_NAME)));
+                    rate.setBadgeCount(getStringValue(item.get(Constants.BADGE_COUNT)));
+                    rate.setAwardRate(getStringValue(item.get(Constants.AWARD_RATE)));
                     result.add(rate);
                 }
                 return result;
@@ -119,9 +138,9 @@ public class BadgeService {
                 List<CourseWithBadge> result = new ArrayList<>();
                 for (Map<String, Object> item : rawList) {
                     CourseWithBadge course = new CourseWithBadge();
-                    course.setCourseName(getStringValue(item.get("course_name")));
-                    course.setBadgesAwarded(getStringValue(item.get("badges_awarded")));
-                    course.setBadgeRate(getStringValue(item.get("badge_rate")));
+                    course.setCourseName(getStringValue(item.get(Constants.COURSE_NAME_KEY)));
+                    course.setBadgesAwarded(getStringValue(item.get(Constants.BADGES_AWARDED)));
+                    course.setBadgeRate(getStringValue(item.get(Constants.BADGE_RATE)));
                     result.add(course);
                 }
                 return result;
@@ -146,8 +165,8 @@ public class BadgeService {
                 List<RecentBadgeActivity> result = new ArrayList<>();
                 for (Map<String, Object> item : rawList) {
                     RecentBadgeActivity activity = new RecentBadgeActivity();
-                    activity.setUserName(getStringValue(item.get("userName")));
-                    activity.setBadgeTitle(getStringValue(item.get("badge")));
+                    activity.setUserName(getStringValue(item.get(Constants.USER_NAME_KEY)));
+                    activity.setBadgeTitle(getStringValue(item.get(Constants.BADGE)));
                     result.add(activity);
                 }
                 return result;
