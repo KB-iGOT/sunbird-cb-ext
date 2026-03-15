@@ -5,5 +5,5 @@ import org.sunbird.common.model.SBApiResponse;
 
 public interface PeerValidationFileService {
 
-     SBApiResponse uploadPeerValidationFile(MultipartFile mFile, String formId, String userId);
+     SBApiResponse uploadPeerValidationFile(MultipartFile mFile, String formId, String userToken);
 }

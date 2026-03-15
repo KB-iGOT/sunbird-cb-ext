@@ -1,16 +1,19 @@
 package org.sunbird.storage.service;
 
 import org.apache.commons.io.FilenameUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import org.sunbird.cloud.storage.BaseStorageService;
 import org.sunbird.cloud.storage.factory.StorageConfig;
 import org.sunbird.cloud.storage.factory.StorageServiceFactory;
 import org.sunbird.common.model.SBApiResponse;
+import org.sunbird.common.util.AccessTokenValidator;
 import org.sunbird.common.util.CbExtServerProperties;
 import org.sunbird.common.util.Constants;
 import org.sunbird.common.util.ProjectUtil;
@@ -32,6 +35,9 @@ public class PeerValidationFileServiceImpl implements PeerValidationFileService 
     @Autowired
     private StorageService storageServiceImpl;
 
+    @Autowired
+    private AccessTokenValidator accessTokenValidator;
+
     @PostConstruct
     public void init() {
         if (storageService == null) {
@@ -42,12 +48,18 @@ public class PeerValidationFileServiceImpl implements PeerValidationFileService 
     }
 
     @Override
-    public SBApiResponse uploadPeerValidationFile(MultipartFile mFile, String formId, String userId) {
+    public SBApiResponse uploadPeerValidationFile(MultipartFile mFile, String formId, String userToken) {
 
         SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.API_FILE_UPLOAD);
         File file = null;
 
         try {
+            String userId = accessTokenValidator.fetchUserIdFromAccessToken(userToken);
+            if (StringUtils.isEmpty(userId)) {
+                logger.error("Failed to extract user ID from token");
+                ProjectUtil.returnErrorMsg( "Invalid UserId in the request", HttpStatus.BAD_REQUEST, response, Constants.FAILED);
+                return response;
+            }
 
             SBApiResponse validation = validateFile(mFile, response);
 
