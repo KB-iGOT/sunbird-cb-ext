@@ -1461,7 +1461,7 @@ public class Constants {
     public static final String QUESTION_MARK = "?";
     public static final String AMPERSAND = "&";
     public static final String EQUALS = "=";
-    private Constants() {
+	private Constants() {
 		throw new IllegalStateException("Utility class");
 	}
     public static final String SUBMITTED_BY = "submittedBy";
@@ -1480,4 +1480,23 @@ public class Constants {
     public static final String PHONE_OTP = "phoneOtp";
 	public static final String JPEG = "jpeg";
 	public static final String ABOUT_ME = "aboutme";
+
+	// Badge Dashboard Redis Keys
+	public static final String DASHBOARD_LIVE_COURSE_BADGE_COUNT = "dashboard_live_course_badge_count";
+	public static final String DASHBOARD_TOTAL_BADGE_AWARDED_COUNT = "dashboard_total_badge_awarded_count";
+	public static final String DASHBOARD_BADGE_AWARD_RATE = "dashboard_badge_award_rate";
+	public static final String DASHBOARD_BADGE_PERFORMANCE_RATE = "dashboard_badge_performance_rate";
+	public static final String DASHBOARD_COURSES_WITH_BADGES = "dashboard_courses_with_badges";
+	public static final String DASHBOARD_RECENT_BADGE_ACTIVITY = "dashboard_recent_badge_activity";
+	public static final String BADGE_DETAILS = "badgeDetails";
+	public static final String BADGE_SUMMARY_API = "api.dashboard.badge.summary";
+	public static final String BADGE = "badge";
+	public static final String AWARD_RATE = "award_rate";
+	public static final String BADGE_NAME = "badge_name";
+	public static final String BADGE_COUNT = "badge_count";
+	public static final String COURSE_NAME_KEY = "course_name";
+	public static final String BADGES_AWARDED = "badges_awarded";
+	public static final String BADGE_RATE = "badge_rate";
+	public static final String USER_NAME_KEY = "user_name";
+	public static final String BADGE_DETAILS_FETCH_ERROR = "Failed to fetch badge dashboard details";
 }
