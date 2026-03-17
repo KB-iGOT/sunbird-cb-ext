@@ -201,6 +201,9 @@ public class CbExtServerProperties {
 	@Value("${kafka.topic.cbplan.content.request}")
 	private String cbplanContentRequestKafkaTopic;
 
+	@Value("${profile.preference.value}")
+	private String profilePreferenceValue;
+
 	public String getRedisDataHostName() {
 		return redisDataHostName;
 	}
@@ -3974,5 +3977,13 @@ public class CbExtServerProperties {
 
 	public void setLandingPageInsightsRedisKeyMapping(String landingPageInsightsRedisKeyMapping) {
 		this.landingPageInsightsRedisKeyMapping = landingPageInsightsRedisKeyMapping;
+	}
+
+	public String getProfilePreferenceValue() {
+		return profilePreferenceValue;
+	}
+
+	public void setProfilePreferenceValue(String profilePreferenceValue) {
+		this.profilePreferenceValue = profilePreferenceValue;
 	}
 }

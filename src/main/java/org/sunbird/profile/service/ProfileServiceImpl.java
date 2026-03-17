@@ -29,6 +29,7 @@ import org.json.JSONTokener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
@@ -2105,6 +2106,11 @@ public class ProfileServiceImpl implements ProfileService {
 						}
 					} else if (profileDetailsMap.get(changedObj) instanceof Boolean) {
 						existingProfileDetails.put(changedObj, profileDetailsMap.get(changedObj));
+					} else if (profileDetailsMap.get(changedObj) instanceof Number) {
+						if (!handleProfilePreferenceUpdate(changedObj, profileDetailsMap.get(changedObj),
+								existingProfileDetails, response)) {
+							return response;
+						}
 					} else {
 						if (existingProfileDetails.containsKey(changedObj)) {
 							Map<String, Object> existingProfileChild = (Map<String, Object>) existingProfileDetails
@@ -2265,6 +2271,41 @@ public class ProfileServiceImpl implements ProfileService {
 		}
 		return response;
 
+	}
+
+	private boolean handleProfilePreferenceUpdate(String changedObj, Object rawValue,
+			Map<String, Object> existingProfileDetails, SBApiResponse response) {
+
+		if (!Constants.PROFILE_PREFERENCE.equalsIgnoreCase(changedObj)) {
+			response.setResponseCode(HttpStatus.BAD_REQUEST);
+			response.getParams().setStatus(Constants.FAILED);
+			response.getParams().setErrmsg(Constants.INVALID_PROFILE_DETAILS_FIELD + changedObj);
+			return false;
+		}
+
+		Integer profilePreference = (Integer) rawValue;
+
+		boolean isAllowed = false;
+		if (serverProperties.getProfilePreferenceValue() != null) {
+			String pref = String.valueOf(profilePreference);
+			String[] allowedValues = serverProperties.getProfilePreferenceValue().split(",", -1);
+			for (String allowed : allowedValues) {
+				if (pref.equals(StringUtils.trimToEmpty(allowed))) {
+					isAllowed = true;
+					break;
+				}
+			}
+		}
+
+		if (isAllowed) {
+			existingProfileDetails.put(changedObj, profilePreference);
+			return true;
+		}
+
+		response.setResponseCode(HttpStatus.BAD_REQUEST);
+		response.getParams().setStatus(Constants.FAILED);
+		response.getParams().setErrmsg(Constants.INVALID_PROFILE_PREFERENCE_VALUE + serverProperties.getProfilePreferenceValue());
+		return false;
 	}
 
 	@Override
@@ -2723,7 +2764,3 @@ public class ProfileServiceImpl implements ProfileService {
     }
 
 }
-
-
-
-
