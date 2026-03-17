@@ -1198,6 +1198,15 @@ public class CbExtServerProperties {
 	@Value("${peer.validation.submission.folder}")
 	private String peerValidationSubmissionFolder;
 
+	@Value("${kafka.topics.report.download.requests}")
+	private String reportDownloadRequestsTopic;
+
+	@Value("${igot.es.form.meta.data.index}")
+	private String formMetaDataIndex;
+
+	@Value("${peer.validation.report.max.peers:3}")
+	private int peerValidationReportMaxPeers;
+
 	public String getStateLearningInsightsRedisKeyMapping() {
 		return stateLearningInsightsRedisKeyMapping;
 	}
@@ -4015,4 +4024,20 @@ public class CbExtServerProperties {
 	public String getPeerValidationSubmissionFolder() {
 		return peerValidationSubmissionFolder;
 	}
+
+	public String getReportDownloadRequestsTopic() { return reportDownloadRequestsTopic; }
+
+	public void setReportDownloadRequestsTopic(String reportDownloadRequestsTopic) { this.reportDownloadRequestsTopic = reportDownloadRequestsTopic; }
+
+	public String getFormMetaDataIndex() {
+		return formMetaDataIndex;
+	}
+
+	public void setFormMetaDataIndex(String formMetaDataIndex) {
+		this.formMetaDataIndex = formMetaDataIndex;
+	}
+
+	public int getPeerValidationReportMaxPeers() { return peerValidationReportMaxPeers; }
+
+	public void setPeerValidationReportMaxPeers(int peerValidationReportMaxPeers) { this.peerValidationReportMaxPeers = peerValidationReportMaxPeers; }
 }
