@@ -1181,7 +1181,7 @@ public class StorageServiceImpl implements StorageService {
 	 * @param userId the user ID to fetch roles for
 	 * @return list of role records for the user, or empty list if none found
 	 */
-	private List<String> getUserRoles(String userId, String rootOrgId){
+	public List<String> getUserRoles(String userId, String rootOrgId){
 		try {
 			Map<String, Object> compositeKeyMap = new HashMap<>();
 			compositeKeyMap.put(Constants.USER_ID_LOWER, userId);
