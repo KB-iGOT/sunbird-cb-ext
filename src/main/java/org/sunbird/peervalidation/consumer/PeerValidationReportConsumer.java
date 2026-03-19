@@ -68,19 +68,14 @@ public class PeerValidationReportConsumer {
     }
 
     public void initiateReportGeneration(Map<String, Object> requestMap) {
-        String rootOrgId = null;
-        String formId = null;
-        String identifier = null;
-        String requestedBy = null;
-
         try {
             logger.info("PeerValidationReportConsumer::initiateReportGeneration: Started for request: {}", requestMap);
 
-            // 1. Parse and validate payload
-            rootOrgId = (String) requestMap.get(Constants.ROOT_ORG_ID);
-            formId = (String) requestMap.get(Constants.FORM_ID);
-            identifier = (String) requestMap.get(Constants.IDENTIFIER);
-            requestedBy = (String) requestMap.get(Constants.REQUESTED_BY_CAMEL);
+            // Parse and validate payload
+            String rootOrgId = (String) requestMap.get(Constants.ROOT_ORG_ID);
+            String formId = (String) requestMap.get(Constants.FORM_ID);
+            String identifier = (String) requestMap.get(Constants.IDENTIFIER);
+            String requestedBy = (String) requestMap.get(Constants.REQUESTED_BY_CAMEL);
 
             if (StringUtils.isBlank(rootOrgId) || StringUtils.isBlank(formId) ||
                 StringUtils.isBlank(identifier) || StringUtils.isBlank(requestedBy)) {
@@ -92,14 +87,8 @@ public class PeerValidationReportConsumer {
             logger.info("Processing report generation. rootOrgId: {}, formId: {}, identifier: {}",
                     rootOrgId, formId, identifier);
 
-            // 2. Idempotency check
-            if (isAlreadyCompleted(rootOrgId, formId, identifier)) {
-                logger.info("Report already completed for identifier: {}. Skipping processing.", identifier);
-                return;
-            }
-
-            // 3. Fetch questions from ElasticSearch and sort by order
-            List<QuestionInfo> questions = fetchQuestions(formId);
+            // Fetch questions from ElasticSearch and sort by order
+            List<Map<String, Object>> questions = fetchQuestions(formId);
             if (questions.isEmpty()) {
                 String errorMsg = "No questions found for formId: " + formId;
                 logger.error(errorMsg);
@@ -110,21 +99,20 @@ public class PeerValidationReportConsumer {
 
             logger.info("Fetched {} questions for formId: {}", questions.size(), formId);
 
-            // 4. Generate CSV file
+            // Generate CSV file
             File csvFile = generateCSVReport(formId, identifier, questions);
 
-            // 5. Count total records processed
+            // Count total records processed
             int totalRecords = countLinesInFile(csvFile) - 1; // Subtract header row
 
-            String bucketName = serverProperties.getCloudPublicContainerName();
             String objectKey = serverProperties.getPeerValidationCloudFolderName() + Constants.SEPARATOR_SLASH
                     + rootOrgId + Constants.SEPARATOR_SLASH
                     + formId;
 
-            // 6. Upload CSV to storage
+            // Upload CSV to storage (using regular upload for now, TTL to be tested separately)
             SBApiResponse uploadResponse = storageService.uploadFile(csvFile,
                     objectKey,
-                    bucketName);
+                    serverProperties.getCloudPublicContainerName());
 
             if (uploadResponse == null || !Constants.SUCCESS.equalsIgnoreCase(uploadResponse.getParams().getStatus())) {
                 String errorMsg = "Failed to upload CSV file to storage";
@@ -141,60 +129,24 @@ public class PeerValidationReportConsumer {
 
             logger.info("Successfully uploaded CSV file. ArtifactUrl: {}, FileName: {}", artifactUrl, fileName);
 
-            // 7. Update Cassandra with success status
+            // Update Cassandra with success status
             updateCassandraStatus(rootOrgId, formId, identifier, Constants.COMPLETED_STATUS,
                     null, totalRecords, totalRecords, 0, fileName, null, artifactUrl, requestedBy);
 
             logger.info("Report generation completed successfully for identifier: {}", identifier);
 
         } catch (Exception e) {
-            logger.error("Error while generating report. rootOrgId: {}, formId: {}, identifier: {}",
-                    rootOrgId, formId, identifier, e);
-
-            String errorMsg = e.getMessage();
-            if (errorMsg != null && errorMsg.length() > MAX_ERROR_MESSAGE_LENGTH) {
-                errorMsg = errorMsg.substring(0, MAX_ERROR_MESSAGE_LENGTH);
-            }
-
-            if (rootOrgId != null && formId != null && identifier != null) {
-                updateCassandraStatus(rootOrgId, formId, identifier, Constants.FAILED_UPPERCASE,
-                        errorMsg, 0, 0, 0, null, null, null, requestedBy);
-            }
+            logger.error("Report generation failed for request: {}", requestMap, e);
+            updateCassandraStatus((String) requestMap.get(Constants.ROOT_ORG_ID), (String) requestMap.get(Constants.FORM_ID),
+                    (String) requestMap.get(Constants.IDENTIFIER), Constants.FAILED_UPPERCASE, e.getMessage(), 0, 0, 0, null, null, null, (String) requestMap.get(Constants.REQUESTED_BY_CAMEL));
         }
-    }
-
-    /**
-     * Check if the report is already completed (idempotency check)
-     */
-    private boolean isAlreadyCompleted(String rootOrgId, String formId, String identifier) {
-        try {
-            Map<String, Object> propertyMap = new HashMap<>();
-            propertyMap.put(Constants.ROOT_ORG_ID_LOWER, rootOrgId);
-            propertyMap.put(Constants.FORM_ID_LOWER, formId);
-            propertyMap.put(Constants.IDENTIFIER, identifier);
-
-            List<String> fields = Arrays.asList(Constants.STATUS, Constants.ARTIFACT_URL);
-            List<Map<String, Object>> records = cassandraOperation.getRecordsByProperties(
-                    Constants.KEYSPACE_SUNBIRD, Constants.USER_SURVEY_REPORT, propertyMap, fields);
-
-            if (records != null && !records.isEmpty()) {
-                Map<String, Object> record = records.get(0);
-                String status = (String) record.get(Constants.STATUS);
-                String artifactUrl = (String) record.get(Constants.ARTIFACT_URL);
-
-                return Constants.COMPLETED_STATUS.equalsIgnoreCase(status) && StringUtils.isNotBlank(artifactUrl);
-            }
-        } catch (Exception e) {
-            logger.error("Error checking idempotency for identifier: {}", identifier, e);
-        }
-        return false;
     }
 
     /**
      * Fetch questions from ElasticSearch
      */
-    private List<QuestionInfo> fetchQuestions(String formId) throws IOException {
-        List<QuestionInfo> questions = new ArrayList<>();
+    private List<Map<String, Object>> fetchQuestions(String formId) throws IOException {
+        List<Map<String, Object>> questions = new ArrayList<>();
 
         BoolQueryBuilder query = QueryBuilders.boolQuery()
                 .must(QueryBuilders.termQuery(Constants.CONTEXT_TYPE, Constants.QUESTION))
@@ -215,16 +167,17 @@ public class PeerValidationReportConsumer {
             for (SearchHit hit : searchResponse.getHits().getHits()) {
                 Map<String, Object> source = hit.getSourceAsMap();
 
-                String questionId = hit.getId(); // Use document _id as questionId
-                String name = (String) source.get(Constants.NAME);
-                int order = source.get(Constants.ORDER) != null ?
-                        ((Number) source.get(Constants.ORDER)).intValue() : 0;
+                Map<String, Object> questionInfo = new HashMap<>();
+                questionInfo.put(Constants.SUBMISSION_QUESTION_ID, hit.getId()); // Use document _id as questionId
+                questionInfo.put(Constants.NAME, source.get(Constants.NAME));
+                questionInfo.put(Constants.ORDER, source.get(Constants.ORDER) != null ?
+                        ((Number) source.get(Constants.ORDER)).intValue() : 0);
 
-                questions.add(new QuestionInfo(questionId, name, order));
+                questions.add(questionInfo);
             }
         }
         // Sort by order ascending
-        questions.sort(Comparator.comparingInt(QuestionInfo::getOrder));
+        questions.sort(Comparator.comparingInt(q -> (int) q.get(Constants.ORDER)));
 
         logger.info("Fetched {} questions for formId: {}", questions.size(), formId);
         return questions;
@@ -233,13 +186,12 @@ public class PeerValidationReportConsumer {
     /**
      * Generate CSV report with streaming
      */
-    private File generateCSVReport(String formId, String identifier, List<QuestionInfo> questions) throws IOException {
+    private File generateCSVReport(String formId, String identifier, List<Map<String, Object>> questions) throws IOException {
 
         // Generate filename with date and time
-        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyyMMdd_HHmmss");
-        String timestamp = dateFormat.format(new Date());
-        String fileName = "user_survey_report_" + formId + "_" + timestamp + ".csv";
-        File csvFile = new File(System.getProperty("java.io.tmpdir"), fileName);
+        SimpleDateFormat dateFormat = new SimpleDateFormat(Constants.DATE_FORMAT_YYYYMMDD_HHMMSS);
+        File csvFile = new File(System.getProperty("java.io.tmpdir"),
+                Constants.REPORT_FILE_PREFIX + formId + Constants.UNDERSCORE + dateFormat.format(new Date()) + Constants.CSV_FILE);
 
         logger.info("Generating CSV report at: {}", csvFile.getAbsolutePath());
 
@@ -256,12 +208,15 @@ public class PeerValidationReportConsumer {
             // Column indices: 0=FullName, 1..N=Questions, N+1..N+6=Peers
             Map<String, Integer> questionIdToColumnIndex = new HashMap<>();
             for (int i = 0; i < questions.size(); i++) {
-                questionIdToColumnIndex.put(questions.get(i).getQuestionId(), i + 1); // +1 for full name column
+                questionIdToColumnIndex.put((String) questions.get(i).get(Constants.SUBMISSION_QUESTION_ID), i + 1); // +1 for full name column
             }
 
-            // Fetch and write submissions (paginated)
-            int totalSubmissions = 0;
+            // First pass: collect all submissions and peer IDs
+            List<Map<String, Object>> allSubmissions = new ArrayList<>();
+            Set<String> allPeerIds = new HashSet<>();
             Object[] searchAfter = null;
+
+            logger.info("Starting first pass to collect submissions and peer IDs for formId: {}", formId);
 
             while (true) {
                 SearchSourceBuilder sourceBuilder = new SearchSourceBuilder();
@@ -292,17 +247,42 @@ public class PeerValidationReportConsumer {
                     break; // No more results
                 }
 
-                // Process each submission
+                // Collect submissions and extract peer IDs
                 for (SearchHit hit : hits) {
                     Map<String, Object> submission = hit.getSourceAsMap();
-                    List<String> rowValues = buildRowValues(submission, questions, questionIdToColumnIndex);
-                    csvPrinter.printRecord(rowValues);
-                    totalSubmissions++;
+                    allSubmissions.add(submission);
+
+                    // Extract peer IDs from this submission
+                    List<Map<String, Object>> peerReviews = (List<Map<String, Object>>) submission.get(Constants.PEER_REVIEWS);
+                    if (peerReviews != null) {
+                        for (Map<String, Object> peer : peerReviews) {
+                            String peerId = getStringValue(peer.get(Constants.PEER_ID));
+                            if (StringUtils.isNotBlank(peerId)) {
+                                allPeerIds.add(peerId);
+                            }
+                        }
+                    }
                 }
+
                 // Prepare for next page
                 searchAfter = hits[hits.length - 1].getSortValues();
-                logger.info("Processed {} submissions so far for formId: {}", totalSubmissions, formId);
+                logger.info("Collected {} submissions so far, total unique peer IDs: {}", allSubmissions.size(), allPeerIds.size());
             }
+
+            logger.info("First pass complete. Total submissions: {}, Total unique peer IDs: {}", allSubmissions.size(), allPeerIds.size());
+
+            // Bulk fetch user first names for all peer IDs
+            Map<String, String> peerIdToFirstName = bulkFetchUserFirstNames(allPeerIds);
+            logger.info("Bulk fetched {} user first names", peerIdToFirstName.size());
+
+            // Second pass: write CSV rows using cached data
+            int totalSubmissions = 0;
+            for (Map<String, Object> submission : allSubmissions) {
+                List<String> rowValues = buildRowValues(submission, questions, questionIdToColumnIndex, peerIdToFirstName);
+                csvPrinter.printRecord(rowValues);
+                totalSubmissions++;
+            }
+
             logger.info("Total submissions written to CSV: {}", totalSubmissions);
         }
         return csvFile;
@@ -311,21 +291,31 @@ public class PeerValidationReportConsumer {
     /**
      * Build CSV header row
      */
-    private List<String> buildHeaders(List<QuestionInfo> questions) {
+    private List<String> buildHeaders(List<Map<String, Object>> questions) {
         List<String> headers = new ArrayList<>();
 
         // Add Full Name as first column
         headers.add(Constants.CSV_HEADER_FULL_NAME);
 
+        // Add Organisation name as second column
+        headers.add(Constants.CSV_HEADER_ORGANISATION_NAME);
+
+        // Add Submitted on as third column
+        headers.add(Constants.CSV_HEADER_SUBMITTED_ON);
+
         // Add question headers (sorted by order)
-        for (QuestionInfo question : questions) {
-            headers.add(question.getName());
+        for (Map<String, Object> question : questions) {
+            headers.add((String) question.get(Constants.NAME));
         }
+
+        // Add attachment headers
+        headers.add(Constants.CSV_HEADER_ATTACHED_VIDEO);
+        headers.add(Constants.CSV_HEADER_ATTACHED_DOCUMENT);
 
         // Add peer review headers dynamically based on configuration
         int maxPeers = serverProperties.getPeerValidationReportMaxPeers();
         for (int i = 1; i <= maxPeers; i++) {
-            headers.add(Constants.CSV_HEADER_PEER_PREFIX + i + " " + Constants.CSV_HEADER_PEER_DETAILS);
+            headers.add(Constants.CSV_HEADER_PEER_PREFIX + i + Constants.PEER_NAME_DESIGNATION_SUFFIX);
             headers.add(Constants.CSV_HEADER_PEER_PREFIX + i + " " + Constants.CSV_HEADER_PEER_RESPONSE);
         }
 
@@ -336,18 +326,45 @@ public class PeerValidationReportConsumer {
      * Build CSV row values for a submission
      */
     private List<String> buildRowValues(Map<String, Object> submission,
-                                        List<QuestionInfo> questions,
-                                        Map<String, Integer> questionIdToColumnIndex) {
+                                        List<Map<String, Object>> questions,
+                                        Map<String, Integer> questionIdToColumnIndex,
+                                        Map<String, String> peerIdToFirstName) {
 
         int maxPeers = serverProperties.getPeerValidationReportMaxPeers();
-        int peerColumns = maxPeers * 2; // Each peer has 2 columns (Details and Response)
+        int peerColumns = maxPeers * 2; // Each peer has 2 columns (Name+Designation and Response)
 
-        // Initialize row with empty values (1 user column + N question columns + peer columns)
-        String[] rowArray = new String[1 + questions.size() + peerColumns];
+        // Initialize row with empty values (1 user column + 2 new columns + N question columns + 2 attachment columns + peer columns)
+        String[] rowArray = new String[3 + questions.size() + 2 + peerColumns];
         Arrays.fill(rowArray, "");
 
-        // Fill Full Name (column 0)
-        rowArray[0] = getStringValue(submission.get(Constants.USER_FULL_NAME));
+        // Fill Full Name (column 0) - fetch from user index
+        String submittedBy = getStringValue(submission.get(Constants.SUBMITTED_BY));
+        String fullName = fetchUserFullName(submittedBy);
+        rowArray[0] = StringUtils.isNotBlank(fullName) ? fullName : getStringValue(submission.get(Constants.USER_FULL_NAME));
+
+        // Fill Organisation name (column 1)
+        rowArray[1] = getStringValue(submission.get(Constants.ORG_NAME));
+
+        // Fill Submitted on (column 2) - convert timestamp to readable format
+        Object submittedDateObj = submission.get(Constants.SUBMITTED_DATE);
+        if (submittedDateObj != null) {
+            try {
+                long timestamp = 0;
+                if (submittedDateObj instanceof Number) {
+                    timestamp = ((Number) submittedDateObj).longValue();
+                } else if (submittedDateObj instanceof String) {
+                    timestamp = Long.parseLong((String) submittedDateObj);
+                }
+
+                if (timestamp > 0) {
+                    SimpleDateFormat sdf = new SimpleDateFormat(Constants.DATE_FORMAT_DD_MM_YYYY_HH_MM_SS);
+                    rowArray[2] = sdf.format(new Date(timestamp));
+                }
+            } catch (Exception e) {
+                logger.warn("Error parsing submitted date: {}", submittedDateObj, e);
+                rowArray[2] = "";
+            }
+        }
 
         // Build questionId -> answer map from submission responses
         List<Map<String, Object>> responses = (List<Map<String, Object>>) submission.get(Constants.SUBMISSION_RESPONSES);
@@ -358,26 +375,52 @@ public class PeerValidationReportConsumer {
 
                 Integer columnIndex = questionIdToColumnIndex.get(questionId);
                 if (columnIndex != null && columnIndex < rowArray.length) {
-                    rowArray[columnIndex] = answer;
+                    // Adjust column index by +2 for the new Organisation and Submitted on columns
+                    int adjustedIndex = columnIndex + 2;
+                    rowArray[adjustedIndex] = answer;
                 }
             }
         }
 
-        // Fill peer review columns (after questions, starting at index 1 + questions.size())
+        // Fill attachment columns (after questions, starting at index 3 + questions.size())
+        int attachmentStartIndex = 3 + questions.size();
+        List<Object> attachments = (List<Object>) submission.get(Constants.ATTACHMENTS);
+        if (attachments != null && !attachments.isEmpty()) {
+            for (Object attachment : attachments) {
+                String attachmentUrl = getStringValue(attachment);
+                if (StringUtils.isNotBlank(attachmentUrl)) {
+                    String lowerUrl = attachmentUrl.toLowerCase();
+                    if (lowerUrl.endsWith(Constants.FILE_EXTENSION_MP4)) {
+                        rowArray[attachmentStartIndex] = attachmentUrl; // attached video
+                    } else if (lowerUrl.endsWith(Constants.FILE_EXTENSION_PDF)) {
+                        rowArray[attachmentStartIndex + 1] = attachmentUrl; // attached document
+                    }
+                }
+            }
+        }
+
+        // Fill peer review columns (after attachments, starting at index 3 + questions.size() + 2)
         List<Map<String, Object>> peerReviews = (List<Map<String, Object>>) submission.get(Constants.PEER_REVIEWS);
         if (peerReviews != null) {
-            int peerStartIndex = 1 + questions.size();
+            int peerStartIndex = 3 + questions.size() + 2;
             for (int i = 0; i < Math.min(maxPeers, peerReviews.size()); i++) {
                 Map<String, Object> peer = peerReviews.get(i);
                 if (peer != null) {
                     int peerDetailsIndex = peerStartIndex + (i * 2);
                     int peerResponseIndex = peerStartIndex + (i * 2) + 1;
 
-                    // Fetch firstName from user_alias index instead of using peerId directly
+                    // Use cached firstName from bulk fetch
                     String peerId = getStringValue(peer.get(Constants.PEER_ID));
-                    String peerFirstName = getUserFirstName(peerId);
+                    String peerFirstName = peerIdToFirstName.getOrDefault(peerId, peerId);
+                    String designation = getStringValue(peer.get(Constants.DESIGNATION));
 
-                    rowArray[peerDetailsIndex] = StringUtils.isNotBlank(peerFirstName) ? peerFirstName : peerId;
+                    // Format: "Name, Designation"
+                    String peerDetails = StringUtils.isNotBlank(peerFirstName) ? peerFirstName : peerId;
+                    if (StringUtils.isNotBlank(designation)) {
+                        peerDetails += ", " + designation;
+                    }
+
+                    rowArray[peerDetailsIndex] = peerDetails;
                     rowArray[peerResponseIndex] = getStringValue(peer.get(Constants.STATUS));
                 }
             }
@@ -467,14 +510,71 @@ public class PeerValidationReportConsumer {
     }
 
     /**
-     * Fetch user's firstName from user_alias index
+     * Bulk fetch user first names from user_alias index for multiple user IDs
      */
-    private String getUserFirstName(String userId) {
+    private Map<String, String> bulkFetchUserFirstNames(Set<String> userIds) {
+        Map<String, String> userIdToFirstName = new HashMap<>();
+
+        if (userIds == null || userIds.isEmpty()) {
+            logger.info("No user IDs to fetch");
+            return userIdToFirstName;
+        }
+
+        try {
+            // Convert Set to List for termsQuery
+            List<String> userIdList = new ArrayList<>(userIds);
+
+            // Process in batches of 1000 to avoid query size limits
+            int batchSize = 1000;
+            for (int i = 0; i < userIdList.size(); i += batchSize) {
+                int end = Math.min(i + batchSize, userIdList.size());
+                List<String> batch = userIdList.subList(i, end);
+
+                BoolQueryBuilder query = QueryBuilders.boolQuery()
+                        .must(QueryBuilders.termsQuery(Constants.IDENTIFIER, batch));
+
+                SearchSourceBuilder sourceBuilder = new SearchSourceBuilder();
+                sourceBuilder.query(query);
+                sourceBuilder.size(batchSize);
+                sourceBuilder.fetchSource(new String[]{Constants.IDENTIFIER, Constants.USER_FIRST_NAME}, null);
+
+                SearchResponse searchResponse = indexerService.getEsResult(
+                        serverProperties.getSbEsUserProfileIndex(),
+                        serverProperties.getSbEsProfileIndexType(),
+                        sourceBuilder,
+                        ProjectUtil.ESIndexType.USER_ES
+                );
+
+                if (searchResponse != null && searchResponse.getHits().getTotalHits() > 0) {
+                    for (SearchHit hit : searchResponse.getHits().getHits()) {
+                        Map<String, Object> source = hit.getSourceAsMap();
+                        String userId = getStringValue(source.get(Constants.IDENTIFIER));
+                        String firstName = getStringValue(source.get(Constants.USER_FIRST_NAME));
+
+                        if (StringUtils.isNotBlank(userId)) {
+                            userIdToFirstName.put(userId, StringUtils.isNotBlank(firstName) ? firstName : "");
+                        }
+                    }
+                }
+
+                logger.info("Fetched {} user first names in batch {}", userIdToFirstName.size(), (i / batchSize) + 1);
+            }
+
+            logger.info("Bulk fetch complete. Total user first names fetched: {}", userIdToFirstName.size());
+        } catch (Exception e) {
+            logger.error("Error bulk fetching user first names", e);
+        }
+        return userIdToFirstName;
+    }
+
+    /**
+     * Fetch user's full name from user_alias index by user ID
+     */
+    private String fetchUserFullName(String userId) {
         if (StringUtils.isBlank(userId)) {
             return "";
         }
 
-        String firstName = "";
         try {
             BoolQueryBuilder query = QueryBuilders.boolQuery()
                     .must(QueryBuilders.termQuery(Constants.IDENTIFIER, userId));
@@ -494,39 +594,12 @@ public class PeerValidationReportConsumer {
             if (searchResponse != null && searchResponse.getHits().getTotalHits() > 0) {
                 SearchHit hit = searchResponse.getHits().getHits()[0];
                 Map<String, Object> source = hit.getSourceAsMap();
-                firstName = getStringValue(source.get(Constants.USER_FIRST_NAME));
+                String firstName = getStringValue(source.get(Constants.USER_FIRST_NAME));
+                return StringUtils.isNotBlank(firstName) ? firstName : "";
             }
         } catch (Exception e) {
-            logger.error("Error fetching user firstName for userId: {}", userId, e);
+            logger.error("Error fetching user full name for userId: {}", userId, e);
         }
-
-        return firstName;
-    }
-
-    /**
-     * Inner class to hold question information
-     */
-    private static class QuestionInfo {
-        private final String questionId;
-        private final String name;
-        private final int order;
-
-        public QuestionInfo(String questionId, String name, int order) {
-            this.questionId = questionId;
-            this.name = name;
-            this.order = order;
-        }
-
-        public String getQuestionId() {
-            return questionId;
-        }
-
-        public String getName() {
-            return name;
-        }
-
-        public int getOrder() {
-            return order;
-        }
+        return "";
     }
 }
