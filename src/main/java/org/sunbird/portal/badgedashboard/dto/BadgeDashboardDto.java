@@ -4,36 +4,16 @@ import java.util.List;
 
 public class BadgeDashboardDto {
 
-    private String liveCourseWithBadgeCount;
-    private String totalBadgeAwardedCount;
-    private List<BadgeAwardRate> badgeAwardRate;
+
+    private TrendData totalBadgeCount;
+    private TrendData liveCourseWithBadgeCount;
+    private TrendData totalBadgeAwardedCount;
+    private TrendData activeLearners;
+    private TrendData badgeEarningRate;
     private List<BadgePerformanceRate> badgePerformanceRate;
-    private List<CourseWithBadge> coursesWithBadges;
+    private List<CourseCompletionRate> contentCompletionRate;
     private List<RecentBadgeActivity> recentBadgeActivity;
 
-    public String getLiveCourseWithBadgeCount() {
-        return liveCourseWithBadgeCount;
-    }
-
-    public void setLiveCourseWithBadgeCount(String liveCourseWithBadgeCount) {
-        this.liveCourseWithBadgeCount = liveCourseWithBadgeCount;
-    }
-
-    public String getTotalBadgeAwardedCount() {
-        return totalBadgeAwardedCount;
-    }
-
-    public void setTotalBadgeAwardedCount(String totalBadgeAwardedCount) {
-        this.totalBadgeAwardedCount = totalBadgeAwardedCount;
-    }
-
-    public List<BadgeAwardRate> getBadgeAwardRate() {
-        return badgeAwardRate;
-    }
-
-    public void setBadgeAwardRate(List<BadgeAwardRate> badgeAwardRate) {
-        this.badgeAwardRate = badgeAwardRate;
-    }
 
     public List<BadgePerformanceRate> getBadgePerformanceRate() {
         return badgePerformanceRate;
@@ -43,12 +23,12 @@ public class BadgeDashboardDto {
         this.badgePerformanceRate = badgePerformanceRate;
     }
 
-    public List<CourseWithBadge> getCoursesWithBadges() {
-        return coursesWithBadges;
+    public List<CourseCompletionRate> getContentCompletionRate() {
+        return contentCompletionRate;
     }
 
-    public void setCoursesWithBadges(List<CourseWithBadge> coursesWithBadges) {
-        this.coursesWithBadges = coursesWithBadges;
+    public void setContentCompletionRate(List<CourseCompletionRate> contentCompletionRate) {
+        this.contentCompletionRate = contentCompletionRate;
     }
 
     public List<RecentBadgeActivity> getRecentBadgeActivity() {
@@ -59,48 +39,103 @@ public class BadgeDashboardDto {
         this.recentBadgeActivity = recentBadgeActivity;
     }
 
-    // Inner classes for structured data
-    public static class BadgeAwardRate {
-        private String badge;
-        private String awardRate;
+    public TrendData getLiveCourseWithBadgeCount() {
+        return liveCourseWithBadgeCount;
+    }
 
-        public BadgeAwardRate() {
+    public void setLiveCourseWithBadgeCount(TrendData liveCourseWithBadgeCount) {
+        this.liveCourseWithBadgeCount = liveCourseWithBadgeCount;
+    }
+
+    public TrendData getTotalBadgeCount() {
+        return totalBadgeCount;
+    }
+
+    public void setTotalBadgeCount(TrendData totalBadgeCount) {
+        this.totalBadgeCount = totalBadgeCount;
+    }
+
+    public TrendData getTotalBadgeAwardedCount() {
+        return totalBadgeAwardedCount;
+    }
+
+    public void setTotalBadgeAwardedCount(TrendData totalBadgeAwardedCount) {
+        this.totalBadgeAwardedCount = totalBadgeAwardedCount;
+    }
+
+    public TrendData getActiveLearners() {
+        return activeLearners;
+    }
+
+    public void setActiveLearners(TrendData activeLearners) {
+        this.activeLearners = activeLearners;
+    }
+
+    public TrendData getBadgeEarningRate() {
+        return badgeEarningRate;
+    }
+
+    public void setBadgeEarningRate(TrendData badgeEarningRate) {
+        this.badgeEarningRate = badgeEarningRate;
+    }
+
+    /**
+     * Trend data with count, rate and trend direction
+     */
+    public static class TrendData {
+        private Double totalCount;
+        private Double countRate;
+        private List<String> trend;
+
+        public TrendData() {
         }
 
-        public BadgeAwardRate(String badge, String awardRate) {
-            this.badge = badge;
-            this.awardRate = awardRate;
+        public TrendData(Double totalCount, Double countRate, List<String> trend) {
+            this.totalCount = totalCount;
+            this.countRate = countRate;
+            this.trend = trend;
         }
 
-        public String getBadge() {
-            return badge;
+        public Double getTotalCount() {
+            return totalCount;
         }
 
-        public void setBadge(String badge) {
-            this.badge = badge;
+        public void setTotalCount(Double totalCount) {
+            this.totalCount = totalCount;
         }
 
-        public String getAwardRate() {
-            return awardRate;
+        public Double getCountRate() {
+            return countRate;
         }
 
-        public void setAwardRate(String awardRate) {
-            this.awardRate = awardRate;
+        public void setCountRate(Double countRate) {
+            this.countRate = countRate;
+        }
+
+        public List<String> getTrend() {
+            return trend;
+        }
+
+        public void setTrend(List<String> trend) {
+            this.trend = trend;
         }
     }
 
+    /**
+     * Badge performance data with rank and user count
+     */
     public static class BadgePerformanceRate {
         private String badgeName;
-        private String badgeCount;
-        private String awardRate;
+        private Integer rank;
+        private Integer userCount;
 
         public BadgePerformanceRate() {
         }
 
-        public BadgePerformanceRate(String badgeName, String badgeCount, String awardRate) {
+        public BadgePerformanceRate(String badgeName, Integer rank, Integer userCount) {
             this.badgeName = badgeName;
-            this.badgeCount = badgeCount;
-            this.awardRate = awardRate;
+            this.rank = rank;
+            this.userCount = userCount;
         }
 
         public String getBadgeName() {
@@ -111,35 +146,38 @@ public class BadgeDashboardDto {
             this.badgeName = badgeName;
         }
 
-        public String getBadgeCount() {
-            return badgeCount;
+        public Integer getRank() {
+            return rank;
         }
 
-        public void setBadgeCount(String badgeCount) {
-            this.badgeCount = badgeCount;
+        public void setRank(Integer rank) {
+            this.rank = rank;
         }
 
-        public String getAwardRate() {
-            return awardRate;
+        public Integer getUserCount() {
+            return userCount;
         }
 
-        public void setAwardRate(String awardRate) {
-            this.awardRate = awardRate;
+        public void setUserCount(Integer userCount) {
+            this.userCount = userCount;
         }
     }
 
-    public static class CourseWithBadge {
+    /**
+     * Course completion rate with enrollments and completions
+     */
+    public static class CourseCompletionRate {
         private String courseName;
-        private String badgesAwarded;
-        private String badgeRate;
+        private Integer totalEnrolments;
+        private Integer totalCompletionsWithBadge;
 
-        public CourseWithBadge() {
+        public CourseCompletionRate() {
         }
 
-        public CourseWithBadge(String courseName, String badgesAwarded, String badgeRate) {
+        public CourseCompletionRate(String courseName, Integer totalEnrolments, Integer totalCompletionsWithBadge) {
             this.courseName = courseName;
-            this.badgesAwarded = badgesAwarded;
-            this.badgeRate = badgeRate;
+            this.totalEnrolments = totalEnrolments;
+            this.totalCompletionsWithBadge = totalCompletionsWithBadge;
         }
 
         public String getCourseName() {
@@ -150,33 +188,45 @@ public class BadgeDashboardDto {
             this.courseName = courseName;
         }
 
-        public String getBadgesAwarded() {
-            return badgesAwarded;
+        public Integer getTotalEnrolments() {
+            return totalEnrolments;
         }
 
-        public void setBadgesAwarded(String badgesAwarded) {
-            this.badgesAwarded = badgesAwarded;
+        public void setTotalEnrolments(Integer totalEnrolments) {
+            this.totalEnrolments = totalEnrolments;
         }
 
-        public String getBadgeRate() {
-            return badgeRate;
+        public Integer getTotalCompletionsWithBadge() {
+            return totalCompletionsWithBadge;
         }
 
-        public void setBadgeRate(String badgeRate) {
-            this.badgeRate = badgeRate;
+        public void setTotalCompletionsWithBadge(Integer totalCompletionsWithBadge) {
+            this.totalCompletionsWithBadge = totalCompletionsWithBadge;
         }
     }
 
     public static class RecentBadgeActivity {
+        private String userId;
         private String userName;
+        private String badgeId;
         private String badgeTitle;
 
         public RecentBadgeActivity() {
         }
 
-        public RecentBadgeActivity(String userName, String badgeTitle) {
+        public RecentBadgeActivity(String userId, String userName, String badgeId, String badgeTitle) {
+            this.userId = userId;
             this.userName = userName;
+            this.badgeId = badgeId;
             this.badgeTitle = badgeTitle;
+        }
+
+        public String getUserId() {
+            return userId;
+        }
+
+        public void setUserId(String userId) {
+            this.userId = userId;
         }
 
         public String getUserName() {
@@ -185,6 +235,14 @@ public class BadgeDashboardDto {
 
         public void setUserName(String userName) {
             this.userName = userName;
+        }
+
+        public String getBadgeId() {
+            return badgeId;
+        }
+
+        public void setBadgeId(String badgeId) {
+            this.badgeId = badgeId;
         }
 
         public String getBadgeTitle() {
