@@ -1480,22 +1480,38 @@ public class Constants {
     public static final String PHONE_OTP = "phoneOtp";
 	public static final String JPEG = "jpeg";
 	public static final String ABOUT_ME = "aboutme";
-	public static final String DASHBOARD_LIVE_COURSE_BADGE_COUNT = "dashboard_live_course_badge_count";
-	public static final String DASHBOARD_TOTAL_BADGE_AWARDED_COUNT = "dashboard_total_badge_awarded_count";
-	public static final String DASHBOARD_BADGE_AWARD_RATE = "dashboard_badge_award_rate";
+
+	// Badge Dashboard Redis Keys - Hash-based
+	public static final String DASHBOARD_ALL_COURSE_BADGE_COUNT_DIFF = "dashboard_all_course_badge_count_last_month_diff";
+	public static final String DASHBOARD_LIVE_COURSE_BADGE_COUNT_DIFF = "dashboard_live_course_badge_count_last_month_diff";
+	public static final String DASHBOARD_TOTAL_BADGE_AWARDED_COUNT_DIFF = "dashboard_total_badge_awarded_count_last_month_diff";
+	public static final String DASHBOARD_ACTIVE_LEARNERS_COUNT_DIFF = "dashboard_active_learners_for_badge_courses_count_last_month_diff";
+	public static final String DASHBOARD_BADGE_EARNING_RATE_DIFF = "dashboard_badge_earning_rate_last_month_diff";
 	public static final String DASHBOARD_BADGE_PERFORMANCE_RATE = "dashboard_badge_performance_rate";
-	public static final String DASHBOARD_COURSES_WITH_BADGES = "dashboard_courses_with_badges";
+	public static final String DASHBOARD_CONTENT_COMPLETION_RATE = "dashboard_content_completion_rate";
 	public static final String DASHBOARD_RECENT_BADGE_ACTIVITY = "dashboard_recent_badge_activity";
+
+	// Badge Dashboard Hash Field Names
+	public static final String FIELD_TOTAL_BADGES = "total_badges";
+	public static final String FIELD_TOTAL_LIVE_BADGES = "total_live_badges";
+	public static final String FIELD_BADGES_AWARDED = "badges_awarded";
+	public static final String FIELD_ACTIVE_LEARNERS_DIFF = "active_learners_diff";
+	public static final String FIELD_BADGE_EARNED_LEARNERS = "badge_earned_learners";
+
+	// Badge Dashboard JSON Field Names
+	public static final String FIELD_TOTAL_COUNT = "totalCount";
+	public static final String FIELD_COUNT_RATE = "countRate";
+	public static final String FIELD_TREND = "trend";
+	public static final String FIELD_RANK = "rank";
+	public static final String FIELD_USER_COUNT = "user_count";
+	public static final String FIELD_TOTAL_ENROLMENTS = "total_enrolments";
+	public static final String FIELD_TOTAL_COMPLETIONS_WITH_BADGE = "total_completions_with_badge";
+
+	// Badge Dashboard API Constants
 	public static final String BADGE_DETAILS = "badgeDetails";
 	public static final String BADGE_SUMMARY_API = "api.dashboard.badge.summary";
-	public static final String BADGE = "badge";
-	public static final String AWARD_RATE = "award_rate";
-	public static final String BADGE_NAME = "badge_name";
-	public static final String BADGE_COUNT = "badge_count";
-	public static final String COURSE_NAME_KEY = "course_name";
-	public static final String BADGES_AWARDED = "badges_awarded";
-	public static final String BADGE_RATE = "badge_rate";
-	public static final String USER_NAME_KEY = "user_name";
+	public static final String BADGE_ID = "badgeId";
+	public static final String BADGE_TITLE = "badgeTitle";
 	public static final String BADGE_DETAILS_FETCH_ERROR = "Failed to fetch badge dashboard details";
 	public static final String USER_SURVEY_REPORT = "user_survey_report";
 	public static final String REPORT_STATUS_IN_PROGRESS = "IN_PROGRESS";

@@ -7,16 +7,12 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.sunbird.cache.RedisCacheMgr;
 import org.sunbird.common.model.SBApiResponse;
+import org.sunbird.common.util.CbExtServerProperties;
 import org.sunbird.common.util.Constants;
 import org.sunbird.core.logger.CbExtLogger;
 import org.sunbird.portal.badgedashboard.dto.BadgeDashboardDto;
-import org.sunbird.portal.badgedashboard.dto.BadgeDashboardDto.BadgeAwardRate;
-import org.sunbird.portal.badgedashboard.dto.BadgeDashboardDto.BadgePerformanceRate;
-import org.sunbird.portal.badgedashboard.dto.BadgeDashboardDto.CourseWithBadge;
-import org.sunbird.portal.badgedashboard.dto.BadgeDashboardDto.RecentBadgeActivity;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -28,6 +24,7 @@ public class BadgeService {
     private final CbExtLogger logger = new CbExtLogger(getClass().getName());
 
     private final RedisCacheMgr redisCacheMgr;
+    private final CbExtServerProperties serverProperties;
 
     public SBApiResponse getDashboardBadgeDetails() {
         SBApiResponse response = new SBApiResponse(Constants.BADGE_SUMMARY_API);
@@ -36,12 +33,19 @@ public class BadgeService {
         try {
             BadgeDashboardDto dto = new BadgeDashboardDto();
 
-            dto.setLiveCourseWithBadgeCount(getStringFromRedis(Constants.DASHBOARD_LIVE_COURSE_BADGE_COUNT));
-            dto.setTotalBadgeAwardedCount(getStringFromRedis(Constants.DASHBOARD_TOTAL_BADGE_AWARDED_COUNT));
-            dto.setBadgeAwardRate(getBadgeAwardRateList(Constants.DASHBOARD_BADGE_AWARD_RATE));
-            dto.setBadgePerformanceRate(getBadgePerformanceRateList(Constants.DASHBOARD_BADGE_PERFORMANCE_RATE));
-            dto.setCoursesWithBadges(getCoursesWithBadgesList(Constants.DASHBOARD_COURSES_WITH_BADGES));
-            dto.setRecentBadgeActivity(getRecentBadgeActivityList(Constants.DASHBOARD_RECENT_BADGE_ACTIVITY));
+            dto.setTotalBadgeCount(getTrendDataFromHash(
+                Constants.DASHBOARD_ALL_COURSE_BADGE_COUNT_DIFF, Constants.FIELD_TOTAL_BADGES));
+            dto.setLiveCourseWithBadgeCount(getTrendDataFromHash(
+                Constants.DASHBOARD_LIVE_COURSE_BADGE_COUNT_DIFF, Constants.FIELD_TOTAL_LIVE_BADGES));
+            dto.setTotalBadgeAwardedCount(getTrendDataFromHash(
+                Constants.DASHBOARD_TOTAL_BADGE_AWARDED_COUNT_DIFF, Constants.FIELD_BADGES_AWARDED));
+            dto.setActiveLearners(getTrendDataFromHash(
+                Constants.DASHBOARD_ACTIVE_LEARNERS_COUNT_DIFF, Constants.FIELD_ACTIVE_LEARNERS_DIFF));
+            dto.setBadgeEarningRate(getTrendDataFromHash(
+                Constants.DASHBOARD_BADGE_EARNING_RATE_DIFF, Constants.FIELD_BADGE_EARNED_LEARNERS));
+            dto.setBadgePerformanceRate(getBadgePerformanceRates());
+            dto.setContentCompletionRate(getContentCompletionRates());
+            dto.setRecentBadgeActivity(getRecentBadgeActivityFromList());
             response.getParams().setStatus(Constants.STATUS);
             response.put(Constants.BADGE_DETAILS, dto);
         } catch (Exception e) {
@@ -53,134 +57,189 @@ public class BadgeService {
         return response;
     }
 
-    /**
-     * Retrieves a string value from Redis.
-     * @param key Redis key to retrieve
-     * @return String value or empty string if not found
-     * Note: null argument to getCache(key, null) means use default Redis database (index 0)
-     */
-    private String getStringFromRedis(String key) {
-        try {
-            String value = redisCacheMgr.getCache(key, null);
-            if (value != null && !value.isEmpty()) {
-                return value;
-            }
-        } catch (Exception e) {
-            logger.error("Failed to retrieve value from Redis for key: " + key, e);
-        }
-        return "";
-    }
 
     /**
-     * Retrieves badge award rate list from Redis.
-     * Note: null argument to getCache(key, null) means use default Redis database (index 0)
+     * Retrieves trend data from a Redis hash field
      */
-    private List<BadgeAwardRate> getBadgeAwardRateList(String key) {
+    private BadgeDashboardDto.TrendData getTrendDataFromHash(String key, String field) {
         try {
-            String value = redisCacheMgr.getCache(key, null);
-            if (value != null && !value.isEmpty()) {
-                List<Map<String, Object>> rawList = OBJECT_MAPPER.readValue(value,
-                    new TypeReference<List<Map<String, Object>>>() {});
+            Map<String, String> hashData = redisCacheMgr.getAllHashFieldsFromDataRedis(key, serverProperties.getRedisBadgeDashboardIndex());
+            if (hashData != null && hashData.containsKey(field)) {
+                String jsonValue = hashData.get(field);
+                if (jsonValue != null && !jsonValue.isEmpty()) {
+                    Map<String, Object> data = OBJECT_MAPPER.readValue(jsonValue,
+                        new TypeReference<Map<String, Object>>() {});
 
-                List<BadgeAwardRate> result = new ArrayList<>();
-                for (Map<String, Object> item : rawList) {
-                    BadgeAwardRate rate = new BadgeAwardRate();
-                    rate.setBadge(getStringValue(item.get(Constants.BADGE)));
-                    rate.setAwardRate(getStringValue(item.get(Constants.AWARD_RATE)));
-                    result.add(rate);
+                    BadgeDashboardDto.TrendData trendData = new BadgeDashboardDto.TrendData();
+
+                    Object totalCount = data.get(Constants.FIELD_TOTAL_COUNT);
+                    if (totalCount != null) {
+                        trendData.setTotalCount(((Number) totalCount).doubleValue());
+                    }
+
+                    Object countRate = data.get(Constants.FIELD_COUNT_RATE);
+                    if (countRate != null) {
+                        trendData.setCountRate(((Number) countRate).doubleValue());
+                    }
+
+                    Object trend = data.get(Constants.FIELD_TREND);
+                    if (trend instanceof List) {
+                        trendData.setTrend((List<String>) trend);
+                    }
+
+                    return trendData;
                 }
-                return result;
             }
         } catch (Exception e) {
-            logger.error("Failed to parse badge award rate list from Redis key: " + key, e);
+            logger.error("Failed to retrieve trend data from hash key: " + key + ", field: " + field, e);
         }
-        return Collections.emptyList();
+        return null;
     }
 
     /**
-     * Retrieves badge performance rate list from Redis.
-     * Note: null argument to getCache(key, null) means use default Redis database (index 0)
+     * Retrieves badge performance rates from Redis hash
      */
-    private List<BadgePerformanceRate> getBadgePerformanceRateList(String key) {
+    private List<BadgeDashboardDto.BadgePerformanceRate> getBadgePerformanceRates() {
+        List<BadgeDashboardDto.BadgePerformanceRate> result = new ArrayList<>();
         try {
-            String value = redisCacheMgr.getCache(key, null);
-            if (value != null && !value.isEmpty()) {
-                List<Map<String, Object>> rawList = OBJECT_MAPPER.readValue(value,
-                    new TypeReference<List<Map<String, Object>>>() {});
+            Map<String, String> hashData = redisCacheMgr.getAllHashFieldsFromDataRedis(
+                Constants.DASHBOARD_BADGE_PERFORMANCE_RATE, serverProperties.getRedisBadgeDashboardIndex());
 
-                List<BadgePerformanceRate> result = new ArrayList<>();
-                for (Map<String, Object> item : rawList) {
-                    BadgePerformanceRate rate = new BadgePerformanceRate();
-                    rate.setBadgeName(getStringValue(item.get(Constants.BADGE_NAME)));
-                    rate.setBadgeCount(getStringValue(item.get(Constants.BADGE_COUNT)));
-                    rate.setAwardRate(getStringValue(item.get(Constants.AWARD_RATE)));
-                    result.add(rate);
+            if (hashData != null && !hashData.isEmpty()) {
+                for (Map.Entry<String, String> entry : hashData.entrySet()) {
+                    String badgeName = entry.getKey();
+                    String jsonValue = entry.getValue();
+
+                    if (jsonValue != null && !jsonValue.isEmpty()) {
+                        Map<String, Object> data = OBJECT_MAPPER.readValue(jsonValue,
+                            new TypeReference<Map<String, Object>>() {});
+
+                        BadgeDashboardDto.BadgePerformanceRate rate =
+                            new BadgeDashboardDto.BadgePerformanceRate();
+                        rate.setBadgeName(badgeName);
+
+                        Object rank = data.get(Constants.FIELD_RANK);
+                        if (rank != null) {
+                            rate.setRank(((Number) rank).intValue());
+                        }
+
+                        Object userCount = data.get(Constants.FIELD_USER_COUNT);
+                        if (userCount != null) {
+                            rate.setUserCount(((Number) userCount).intValue());
+                        }
+
+                        result.add(rate);
+                    }
                 }
-                return result;
+
+                // Sort by rank
+                result.sort((a, b) -> {
+                    if (a.getRank() == null) return 1;
+                    if (b.getRank() == null) return -1;
+                    return a.getRank().compareTo(b.getRank());
+                });
             }
         } catch (Exception e) {
-            logger.error("Failed to parse badge performance rate list from Redis key: " + key, e);
+            logger.error("Failed to retrieve badge performance rates", e);
         }
-        return Collections.emptyList();
+        return result;
     }
 
     /**
-     * Retrieves courses with badges list from Redis.
-     * Note: null argument to getCache(key, null) means use default Redis database (index 0)
+     * Retrieves content completion rates from Redis hash
      */
-    private List<CourseWithBadge> getCoursesWithBadgesList(String key) {
+    private List<BadgeDashboardDto.CourseCompletionRate> getContentCompletionRates() {
+        List<BadgeDashboardDto.CourseCompletionRate> result = new ArrayList<>();
         try {
-            String value = redisCacheMgr.getCache(key, null);
-            if (value != null && !value.isEmpty()) {
-                List<Map<String, Object>> rawList = OBJECT_MAPPER.readValue(value,
-                    new TypeReference<List<Map<String, Object>>>() {});
+            Map<String, String> hashData = redisCacheMgr.getAllHashFieldsFromDataRedis(
+                Constants.DASHBOARD_CONTENT_COMPLETION_RATE, serverProperties.getRedisBadgeDashboardIndex());
 
-                List<CourseWithBadge> result = new ArrayList<>();
-                for (Map<String, Object> item : rawList) {
-                    CourseWithBadge course = new CourseWithBadge();
-                    course.setCourseName(getStringValue(item.get(Constants.COURSE_NAME_KEY)));
-                    course.setBadgesAwarded(getStringValue(item.get(Constants.BADGES_AWARDED)));
-                    course.setBadgeRate(getStringValue(item.get(Constants.BADGE_RATE)));
-                    result.add(course);
+            if (hashData != null && !hashData.isEmpty()) {
+                for (Map.Entry<String, String> entry : hashData.entrySet()) {
+                    String courseName = entry.getKey();
+                    String jsonValue = entry.getValue();
+
+                    if (jsonValue != null && !jsonValue.isEmpty()) {
+                        Map<String, Object> data = OBJECT_MAPPER.readValue(jsonValue,
+                            new TypeReference<Map<String, Object>>() {});
+
+                        BadgeDashboardDto.CourseCompletionRate rate =
+                            new BadgeDashboardDto.CourseCompletionRate();
+                        rate.setCourseName(courseName);
+
+                        Object totalEnrolments = data.get(Constants.FIELD_TOTAL_ENROLMENTS);
+                        if (totalEnrolments != null) {
+                            rate.setTotalEnrolments(((Number) totalEnrolments).intValue());
+                        }
+
+                        Object totalCompletions = data.get(Constants.FIELD_TOTAL_COMPLETIONS_WITH_BADGE);
+                        if (totalCompletions != null) {
+                            rate.setTotalCompletionsWithBadge(((Number) totalCompletions).intValue());
+                        }
+
+                        result.add(rate);
+                    }
                 }
-                return result;
+
+                // Sort by total enrollments descending
+                result.sort((a, b) -> {
+                    if (a.getTotalEnrolments() == null) return 1;
+                    if (b.getTotalEnrolments() == null) return -1;
+                    return b.getTotalEnrolments().compareTo(a.getTotalEnrolments());
+                });
             }
         } catch (Exception e) {
-            logger.error("Failed to parse courses with badges list from Redis key: " + key, e);
+            logger.error("Failed to retrieve content completion rates", e);
         }
-        return Collections.emptyList();
+        return result;
     }
 
     /**
-     * Retrieves recent badge activity list from Redis.
-     * Note: null argument to getCache(key, null) means use default Redis database (index 0)
+     * Retrieves recent badge activity from Redis list
      */
-    private List<RecentBadgeActivity> getRecentBadgeActivityList(String key) {
+    private List<BadgeDashboardDto.RecentBadgeActivity> getRecentBadgeActivityFromList() {
+        List<BadgeDashboardDto.RecentBadgeActivity> result = new ArrayList<>();
         try {
-            String value = redisCacheMgr.getCache(key, null);
-            if (value != null && !value.isEmpty()) {
-                List<Map<String, Object>> rawList = OBJECT_MAPPER.readValue(value,
-                    new TypeReference<List<Map<String, Object>>>() {});
+            // Fetch all items from the list (0 to -1 means all elements)
+            List<String> listItems = redisCacheMgr.getListFromDataRedis(
+                Constants.DASHBOARD_RECENT_BADGE_ACTIVITY, serverProperties.getRedisBadgeDashboardIndex(), 0, -1);
 
-                List<RecentBadgeActivity> result = new ArrayList<>();
-                for (Map<String, Object> item : rawList) {
-                    RecentBadgeActivity activity = new RecentBadgeActivity();
-                    activity.setUserName(getStringValue(item.get(Constants.USER_NAME_KEY)));
-                    activity.setBadgeTitle(getStringValue(item.get(Constants.BADGE)));
-                    result.add(activity);
+            if (listItems != null && !listItems.isEmpty()) {
+                for (String jsonValue : listItems) {
+                    if (jsonValue != null && !jsonValue.isEmpty()) {
+                        Map<String, Object> data = OBJECT_MAPPER.readValue(jsonValue,
+                            new TypeReference<Map<String, Object>>() {});
+
+                        BadgeDashboardDto.RecentBadgeActivity activity =
+                            new BadgeDashboardDto.RecentBadgeActivity();
+
+                        Object userId = data.get(Constants.USER_ID);
+                        if (userId != null) {
+                            activity.setUserId(String.valueOf(userId));
+                        }
+
+                        Object userName = data.get(Constants.USER_NAME);
+                        if (userName != null) {
+                            activity.setUserName(String.valueOf(userName));
+                        }
+
+                        Object badgeId = data.get(Constants.BADGE_ID);
+                        if (badgeId != null) {
+                            activity.setBadgeId(String.valueOf(badgeId));
+                        }
+
+                        Object badgeTitle = data.get(Constants.BADGE_TITLE);
+                        if (badgeTitle != null) {
+                            activity.setBadgeTitle(String.valueOf(badgeTitle));
+                        }
+
+                        result.add(activity);
+                    }
                 }
-                return result;
             }
         } catch (Exception e) {
-            logger.error("Failed to parse recent badge activity list from Redis key: " + key, e);
+            logger.error("Failed to retrieve recent badge activity from list", e);
         }
-        return Collections.emptyList();
-    }
-
-    private String getStringValue(Object value) {
-        if (value == null) {
-            return null;
-        }
-        return String.valueOf(value);
+        return result;
     }
 }

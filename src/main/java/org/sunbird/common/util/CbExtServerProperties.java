@@ -689,6 +689,9 @@ public class CbExtServerProperties {
 	@Value("${public.user.assessment.table.name}")
 	private String publicUserAssessmentTableName;
 
+	@Value("${redis.badge.dashboard.index}")
+	private int redisBadgeDashboardIndex;
+
 	public String getPublicUserAssessmentTableName() {
 		return publicUserAssessmentTableName;
 	}
@@ -1290,6 +1293,14 @@ public class CbExtServerProperties {
 
 	public void setRedisInsightIndex(int redisInsightIndex) {
 		this.redisInsightIndex = redisInsightIndex;
+	}
+
+	public int getRedisBadgeDashboardIndex() {
+		return redisBadgeDashboardIndex;
+	}
+
+	public void setRedisBadgeDashboardIndex(int redisBadgeDashboardIndex) {
+		this.redisBadgeDashboardIndex = redisBadgeDashboardIndex;
 	}
 
 	public String getAssessmentSubmitTopic() {
