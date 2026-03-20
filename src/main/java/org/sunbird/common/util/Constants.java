@@ -1548,4 +1548,19 @@ public class Constants {
 	public static final String CSV_HEADER_PEER_DETAILS = "Details";
 	public static final String CSV_HEADER_PEER_RESPONSE = "Response";
 	public static final String CSV_HEADER_PEER_PREFIX = "Peer ";
+	public static final String FORM_TITLE_LOWER = "formtitle";
+	public static final String THUMBNAIL_LOWER = "thumbnail";
+	public static final String ORG_NAME_LOWER = "orgname";
+	public static final String DATE_FORMAT_YYYYMMDD_HHMMSS = "yyyyMMdd_HHmmss";
+	public static final String DATE_FORMAT_DD_MM_YYYY_HH_MM_SS = "dd-MM-yyyy HH:mm:ss";
+	public static final String REPORT_FILE_PREFIX = "user_survey_report_";
+	public static final String UNDERSCORE = "_";
+	public static final String CSV_HEADER_ORGANISATION_NAME = "Organisation name";
+	public static final String CSV_HEADER_SUBMITTED_ON = "Submitted on (Date and Time stamp)";
+	public static final String CSV_HEADER_ATTACHED_VIDEO = "attached video";
+	public static final String CSV_HEADER_ATTACHED_DOCUMENT = "attached document";
+	public static final String PEER_NAME_DESIGNATION_SUFFIX = " Name, Designation";
+	public static final String FILE_EXTENSION_MP4 = ".mp4";
+	public static final String FILE_EXTENSION_PDF = ".pdf";
+	public static final String ATTACHMENTS = "attachments";
 }

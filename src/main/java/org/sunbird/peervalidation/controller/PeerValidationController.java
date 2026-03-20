@@ -22,7 +22,7 @@ public class PeerValidationController {
      * @param authUserToken - authentication token from x-authenticated-user-token header
      * @return ResponseEntity with download request details
      */
-    @GetMapping("/v1/report/init/{formId}")
+    @GetMapping("/v1/report/initiate/{formId}")
     public ResponseEntity<SBApiResponse> reportInit(
             @PathVariable("formId") String formId,
             @RequestHeader(Constants.X_AUTH_TOKEN) String authUserToken) {

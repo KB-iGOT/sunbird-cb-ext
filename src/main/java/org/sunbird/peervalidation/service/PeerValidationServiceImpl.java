@@ -1,6 +1,7 @@
 package org.sunbird.peervalidation.service;
 
 import com.datastax.driver.core.utils.UUIDs;
+import org.apache.commons.collections4.MapUtils;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
@@ -82,8 +83,26 @@ public class PeerValidationServiceImpl implements PeerValidationService {
             }
 
             // Validate formId exists in Elasticsearch with the given rootOrgId and contextType
-            if (!isValidForm(formId, rootOrgId)) {
+            Map<String, Object> formData = getFormData(formId, rootOrgId);
+            if (MapUtils.isEmpty(formData)) {
                 return setCommonResponse(response, HttpStatus.BAD_REQUEST, Constants.ERR_MSG_FORM_NOT_FOUND, Constants.FAILED);
+            }
+
+            // Extract form metadata
+            String formTitle = (String) formData.get(Constants.TITLE);
+            String thumbnail = null;
+            String orgName = null;
+
+            // Extract thumbnail from additionalProperties
+            Map<String, Object> additionalProperties = (Map<String, Object>) formData.get(Constants.ADDITIONAL_PROPERTIES);
+            if (additionalProperties != null) {
+                thumbnail = (String) additionalProperties.get(Constants.THUMBNAIL_LOWER);
+            }
+
+            // Extract orgName from createdFor array
+            List<Map<String, Object>> createdFor = (List<Map<String, Object>>) formData.get(Constants.CREATED_FOR);
+            if (createdFor != null && !createdFor.isEmpty()) {
+                orgName = (String) createdFor.get(0).get(Constants.ORG_NAME);
             }
 
             String identifier = UUIDs.timeBased().toString();
@@ -102,6 +121,9 @@ public class PeerValidationServiceImpl implements PeerValidationService {
             record.put(Constants.TOTAL_RECORDS_CASSANDRA, 0);
             record.put(Constants.SUCCESSFUL_RECORDS_COUNT, 0);
             record.put(Constants.FAILED_RECORDS_COUNT, 0);
+            record.put(Constants.FORM_TITLE_LOWER, formTitle);
+            record.put(Constants.THUMBNAIL_LOWER, thumbnail);
+            record.put(Constants.ORG_NAME_LOWER, orgName);
 
             SBApiResponse cassandraResponse = cassandraOperation.insertRecord(
                     Constants.KEYSPACE_SUNBIRD, Constants.USER_SURVEY_REPORT, record);
@@ -211,9 +233,9 @@ public class PeerValidationServiceImpl implements PeerValidationService {
     }
 
     /**
-     * Validate if formId exists in Elasticsearch with the given rootOrgId and contextType
+     * Fetch form data from Elasticsearch with the given rootOrgId and contextType
      */
-    private boolean isValidForm(String formId, String rootOrgId) {
+    private Map<String, Object> getFormData(String formId, String rootOrgId) {
         try {
             // Build the Elasticsearch query
             BoolQueryBuilder boolQuery = QueryBuilders.boolQuery();
@@ -227,7 +249,7 @@ public class PeerValidationServiceImpl implements PeerValidationService {
 
             SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
             searchSourceBuilder.query(boolQuery);
-            searchSourceBuilder.size(1); // We only need to check if at least one document exists
+            searchSourceBuilder.size(1); // We only need one document
 
             // Log the query for debugging
             logger.info("Elasticsearch query for formId validation: " + searchSourceBuilder);
@@ -239,17 +261,16 @@ public class PeerValidationServiceImpl implements PeerValidationService {
                     ProjectUtil.ESIndexType.IGOT_ES
             );
 
-            if (searchResponse != null) {
-                long totalHits = searchResponse.getHits().getTotalHits();
-                logger.info("Elasticsearch query returned " + totalHits + " hits for formId: " + formId + ", rootOrgId: " + rootOrgId);
-                return totalHits > 0;
+            if (searchResponse != null && searchResponse.getHits().getTotalHits() > 0) {
+                logger.info("Elasticsearch query returned " + searchResponse.getHits().getTotalHits() + " hits for formId: " + formId + ", rootOrgId: " + rootOrgId);
+                return searchResponse.getHits().getHits()[0].getSourceAsMap();
             } else {
-                logger.warn("Elasticsearch query returned null response for formId: " + formId + ", rootOrgId: " + rootOrgId);
-                return false;
+                logger.warn("Elasticsearch query returned null or no hits for formId: " + formId + ", rootOrgId: " + rootOrgId);
+                return null;
             }
         } catch (Exception e) {
-            logger.error("Error validating formId: " + formId + " for rootOrgId: " + rootOrgId, e);
-            return false;
+            logger.error("Error fetching form data for formId: " + formId + " and rootOrgId: " + rootOrgId, e);
+            return null;
         }
     }
 }
