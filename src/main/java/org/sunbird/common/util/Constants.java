@@ -1461,7 +1461,7 @@ public class Constants {
     public static final String QUESTION_MARK = "?";
     public static final String AMPERSAND = "&";
     public static final String EQUALS = "=";
-    private Constants() {
+	private Constants() {
 		throw new IllegalStateException("Utility class");
 	}
     public static final String SUBMITTED_BY = "submittedBy";
@@ -1480,4 +1480,87 @@ public class Constants {
     public static final String PHONE_OTP = "phoneOtp";
 	public static final String JPEG = "jpeg";
 	public static final String ABOUT_ME = "aboutme";
+
+	// Badge Dashboard Redis Keys - Hash-based
+	public static final String DASHBOARD_ALL_COURSE_BADGE_COUNT_DIFF = "dashboard_all_course_badge_count_last_month_diff";
+	public static final String DASHBOARD_LIVE_COURSE_BADGE_COUNT_DIFF = "dashboard_live_course_badge_count_last_month_diff";
+	public static final String DASHBOARD_TOTAL_BADGE_AWARDED_COUNT_DIFF = "dashboard_total_badge_awarded_count_last_month_diff";
+	public static final String DASHBOARD_ACTIVE_LEARNERS_COUNT_DIFF = "dashboard_active_learners_for_badge_courses_count_last_month_diff";
+	public static final String DASHBOARD_BADGE_EARNING_RATE_DIFF = "dashboard_badge_earning_rate_last_month_diff";
+	public static final String DASHBOARD_BADGE_PERFORMANCE_RATE = "dashboard_badge_performance_rate";
+	public static final String DASHBOARD_CONTENT_COMPLETION_RATE = "dashboard_content_completion_rate";
+	public static final String DASHBOARD_RECENT_BADGE_ACTIVITY = "dashboard_recent_badge_activity";
+
+	// Badge Dashboard Hash Field Names
+	public static final String FIELD_TOTAL_BADGES = "total_badges";
+	public static final String FIELD_TOTAL_LIVE_BADGES = "total_live_badges";
+	public static final String FIELD_BADGES_AWARDED = "badges_awarded";
+	public static final String FIELD_ACTIVE_LEARNERS_DIFF = "active_learners_diff";
+	public static final String FIELD_BADGE_EARNED_LEARNERS = "badge_earned_learners";
+
+	// Badge Dashboard JSON Field Names
+	public static final String FIELD_TOTAL_COUNT = "totalCount";
+	public static final String FIELD_COUNT_RATE = "countRate";
+	public static final String FIELD_TREND = "trend";
+	public static final String FIELD_RANK = "rank";
+	public static final String FIELD_USER_COUNT = "user_count";
+	public static final String FIELD_TOTAL_ENROLMENTS = "total_enrolments";
+	public static final String FIELD_TOTAL_COMPLETIONS_WITH_BADGE = "total_completions_with_badge";
+
+	// Badge Dashboard API Constants
+	public static final String BADGE_DETAILS = "badgeDetails";
+	public static final String BADGE_SUMMARY_API = "api.dashboard.badge.summary";
+	public static final String BADGE_ID = "badgeId";
+	public static final String BADGE_TITLE = "badgeTitle";
+	public static final String BADGE_DETAILS_FETCH_ERROR = "Failed to fetch badge dashboard details";
+	public static final String USER_SURVEY_REPORT = "user_survey_report";
+	public static final String REPORT_STATUS_IN_PROGRESS = "IN_PROGRESS";
+	public static final String FORM_ID_LOWER = "formid";
+	public static final String REQUESTED_BY = "requestedby";
+	public static final String DATE_CREATED_ON_CASSANDRA = "datecreatedon";
+	public static final String DATE_UPDATED_ON_CASSANDRA = "dateupdatedon";
+	public static final String TOTAL_RECORDS_CASSANDRA = "totalrecords";
+	public static final String REQUESTED_BY_CAMEL = "requestedBy";
+	public static final String ERR_MSG_FORM_ID_REQUIRED = "formId is required";
+	public static final String ERR_MSG_AUTH_TOKEN_REQUIRED = "x-authenticated-user-token is required";
+	public static final String ERR_MSG_INVALID_TOKEN = "Invalid or expired authentication token";
+	public static final String ERR_MSG_FETCH_ROOT_ORG_FAILED = "Unable to fetch rootOrgId for user: ";
+	public static final String ERR_MSG_CREATE_REQUEST_FAILED = "Failed to create download request";
+	public static final String ERR_MSG_INITIATE_REQUEST_FAILED = "Failed to initiate download request: ";
+	public static final String ERR_MSG_FETCH_REQUESTS_FAILED = "Failed to fetch download requests: ";
+	public static final String MSG_REQUEST_INITIATED = "Download request initiated successfully";
+	public static final String ERR_MSG_FORM_NOT_FOUND = "Form not found in user's organization";
+	public static final String CONTEXT_TYPE_PEER_VALIDATION_SURVEY = "peerValidationSurvey";
+	public static final String ARTIFACT_URL = "artifacturl";
+	public static final String ERROR_MESSAGE_LOWER = "errormessage";
+	public static final String FILE_PATH_LOWER = "filepath";
+	public static final String COMPLETED_STATUS = "COMPLETED";
+	public static final String ORDER = "order";
+	public static final String SUCCESSFUL_RECORDS_COUNT_CASSANDRA = "successfulrecordscount";
+	public static final String FAILED_RECORDS_COUNT_CASSANDRA = "failedrecordscount";
+	public static final String SUBMISSION_QUESTION_ID = "questionId";
+	public static final String PEER_REVIEWS = "peerReviews";
+	public static final String PEER_ID = "peerId";
+	public static final String SUBMISSION_RESPONSES = "responses";
+	public static final String ES_DOC_TYPE = "_doc";
+	public static final String ES_SORT_FIELD_ID = "_id";
+	public static final String CSV_HEADER_FULL_NAME = "Full Name";
+	public static final String CSV_HEADER_PEER_DETAILS = "Details";
+	public static final String CSV_HEADER_PEER_RESPONSE = "Response";
+	public static final String CSV_HEADER_PEER_PREFIX = "Peer ";
+	public static final String FORM_TITLE_LOWER = "formtitle";
+	public static final String THUMBNAIL_LOWER = "thumbnail";
+	public static final String ORG_NAME_LOWER = "orgname";
+	public static final String DATE_FORMAT_YYYYMMDD_HHMMSS = "yyyyMMdd_HHmmss";
+	public static final String DATE_FORMAT_DD_MM_YYYY_HH_MM_SS = "dd-MM-yyyy HH:mm:ss";
+	public static final String REPORT_FILE_PREFIX = "user_survey_report_";
+	public static final String UNDERSCORE = "_";
+	public static final String CSV_HEADER_ORGANISATION_NAME = "Organisation name";
+	public static final String CSV_HEADER_SUBMITTED_ON = "Submitted on (Date and Time stamp)";
+	public static final String CSV_HEADER_ATTACHED_VIDEO = "attached video";
+	public static final String CSV_HEADER_ATTACHED_DOCUMENT = "attached document";
+	public static final String PEER_NAME_DESIGNATION_SUFFIX = " Name, Designation";
+	public static final String FILE_EXTENSION_MP4 = ".mp4";
+	public static final String FILE_EXTENSION_PDF = ".pdf";
+	public static final String ATTACHMENTS = "attachments";
 }

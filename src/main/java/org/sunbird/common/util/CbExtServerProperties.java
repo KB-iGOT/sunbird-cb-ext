@@ -689,6 +689,9 @@ public class CbExtServerProperties {
 	@Value("${public.user.assessment.table.name}")
 	private String publicUserAssessmentTableName;
 
+	@Value("${redis.badge.dashboard.index}")
+	private int redisBadgeDashboardIndex;
+
 	public String getPublicUserAssessmentTableName() {
 		return publicUserAssessmentTableName;
 	}
@@ -1186,6 +1189,27 @@ public class CbExtServerProperties {
 	@Value("${lms.otp.verify.path}")
 	private String lmsOTPVerifyPath;
 
+	@Value("${peervalidation.cloud.folder.name}")
+	private String peerValidationCloudFolderName;
+
+	@Value("${peer.validation.pdf.max.size}")
+	private long peerValidationPdfMaxSize;
+
+	@Value("${peer.validation.video.max.size}")
+	private long peerValidationVideoMaxSize;
+
+	@Value("${peer.validation.submission.folder}")
+	private String peerValidationSubmissionFolder;
+
+	@Value("${kafka.topics.report.download.requests}")
+	private String reportDownloadRequestsTopic;
+
+	@Value("${igot.es.form.meta.data.index}")
+	private String formMetaDataIndex;
+
+	@Value("${peer.validation.report.max.peers:3}")
+	private int peerValidationReportMaxPeers;
+
 	public String getStateLearningInsightsRedisKeyMapping() {
 		return stateLearningInsightsRedisKeyMapping;
 	}
@@ -1269,6 +1293,14 @@ public class CbExtServerProperties {
 
 	public void setRedisInsightIndex(int redisInsightIndex) {
 		this.redisInsightIndex = redisInsightIndex;
+	}
+
+	public int getRedisBadgeDashboardIndex() {
+		return redisBadgeDashboardIndex;
+	}
+
+	public void setRedisBadgeDashboardIndex(int redisBadgeDashboardIndex) {
+		this.redisBadgeDashboardIndex = redisBadgeDashboardIndex;
 	}
 
 	public String getAssessmentSubmitTopic() {
@@ -3987,4 +4019,36 @@ public class CbExtServerProperties {
 	public int getProfileAboutmeMaxLength() { return profileAboutmeMaxLength; }
 
 	public void setProfileAboutmeMaxLength(int profileAboutmeMaxLength) { this.profileAboutmeMaxLength = profileAboutmeMaxLength; }
+
+	public String getPeerValidationCloudFolderName() { return peerValidationCloudFolderName; }
+
+	public void setPeerValidationCloudFolderName(String peerValidationCloudFolderName) { this.peerValidationCloudFolderName = peerValidationCloudFolderName; }
+
+	public long getPeerValidationPdfMaxSize() {
+		return peerValidationPdfMaxSize;
+	}
+
+	public long getPeerValidationVideoMaxSize() {
+		return peerValidationVideoMaxSize;
+	}
+
+	public String getPeerValidationSubmissionFolder() {
+		return peerValidationSubmissionFolder;
+	}
+
+	public String getReportDownloadRequestsTopic() { return reportDownloadRequestsTopic; }
+
+	public void setReportDownloadRequestsTopic(String reportDownloadRequestsTopic) { this.reportDownloadRequestsTopic = reportDownloadRequestsTopic; }
+
+	public String getFormMetaDataIndex() {
+		return formMetaDataIndex;
+	}
+
+	public void setFormMetaDataIndex(String formMetaDataIndex) {
+		this.formMetaDataIndex = formMetaDataIndex;
+	}
+
+	public int getPeerValidationReportMaxPeers() { return peerValidationReportMaxPeers; }
+
+	public void setPeerValidationReportMaxPeers(int peerValidationReportMaxPeers) { this.peerValidationReportMaxPeers = peerValidationReportMaxPeers; }
 }

@@ -4,21 +4,27 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.stream.Collectors;
 
 import javax.annotation.PostConstruct;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.collections4.MapUtils;
 import org.apache.commons.lang3.StringUtils;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.ByteArrayResource;
+import org.springframework.core.io.InputStreamResource;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -28,6 +34,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.ObjectUtils;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
+import org.sunbird.cassandra.utils.CassandraOperation;
 import org.sunbird.cloud.storage.BaseStorageService;
 import org.sunbird.cloud.storage.Model;
 import org.sunbird.cloud.storage.factory.StorageConfig;
@@ -58,6 +65,12 @@ public class StorageServiceImpl implements StorageService {
 
 	@Autowired
 	private UserUtilityService userUtilityService;
+
+	@Autowired
+	private CassandraOperation cassandraOperation;
+
+	@Autowired
+	private ObjectMapper mapper;
 
 	@PostConstruct
 	public void init() {
@@ -1084,4 +1097,211 @@ public class StorageServiceImpl implements StorageService {
 		return null;
 	}
 
+	public ResponseEntity<?> downloadFileV3(String bucketName, String objectKey, String fileName) {
+
+		try {
+			logger.info("Streaming file from cloud storage: bucket={}, key={}", bucketName, objectKey);
+
+			Model.Blob blobMetadata = storageService.getObjectOrNull(bucketName, objectKey, Option.apply(Boolean.FALSE));
+			if (null == blobMetadata) {
+				logger.warn("File not found in storage: bucket={}, key={}", bucketName, objectKey);
+				return ResponseEntity.status(HttpStatus.NOT_FOUND)
+						.body("File not found: " + fileName);
+			}
+
+			InputStream inputStream = storageService.getObjectStream(bucketName, objectKey);
+			if(null == inputStream) {
+				logger.warn("Unable to get input stream for file: bucket={}, key={}", bucketName, objectKey);
+				return ResponseEntity.status(HttpStatus.NOT_FOUND)
+						.body("Unable to stream file: " + fileName);
+			}
+
+			InputStreamResource resource = new InputStreamResource(inputStream);
+
+			HttpHeaders headers = new HttpHeaders();
+			headers.add(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + fileName + "\"");
+			headers.add(HttpHeaders.CACHE_CONTROL, "no-cache, no-store, must-revalidate");
+
+			logger.info("Successfully started streaming CSV file: {}, size: {} bytes", fileName, blobMetadata.contentLength());
+
+			return ResponseEntity.ok()
+					.headers(headers)
+					.contentLength(blobMetadata.contentLength())
+					.contentType(MediaType.parseMediaType("text/csv; charset=UTF-8"))
+					.body(resource);
+
+		} catch (Exception e) {
+			logger.error("Failed to stream file, Exception: ", e);
+			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+					.body("Failed to download file. Please try again later");
+		}
+	}
+
+	/**
+	 * Fetches the organization ID (rootOrgId) for a given user from Cassandra.
+	 *
+	 * @param userId the user ID to fetch organization for
+	 * @return the organization ID (rootOrgId) or null if not found
+	 */
+	private String fetchOrgIdFromUserId(String userId) {
+		try {
+			Map<String, Object> propertyMap = new HashMap<>();
+			propertyMap.put(Constants.USERID, userId);
+
+			List<String> fields = new ArrayList<>();
+			fields.add(Constants.ROOT_ORG_ID);
+
+			List<Map<String, Object>> cassandraResponse = cassandraOperation.getRecordsByPropertiesWithoutFiltering(
+					Constants.KEYSPACE_SUNBIRD, Constants.TABLE_USER, propertyMap, fields);
+
+			if (CollectionUtils.isEmpty(cassandraResponse)) {
+				logger.error("No user record found in Cassandra for userId: {}", userId);
+				return null;
+			}
+
+			Map<String, Object> userRecord = cassandraResponse.get(0);
+			String rootOrgId = (String) userRecord.get(Constants.ROOT_ORG_ID);
+
+			if (StringUtils.isEmpty(rootOrgId)) {
+				logger.error("Organization ID is empty for userId: {}", userId);
+				return null;
+			}
+
+			logger.info("Successfully fetched rootOrgId: {} for userId: {}", rootOrgId, userId);
+			return rootOrgId;
+		} catch (Exception e) {
+			logger.error("Exception while fetching orgId for userId: {}, Exception: ", userId, e);
+			return null;
+		}
+	}
+
+	/**
+	 * Fetches user's existing roles from Cassandra.
+	 *
+	 * @param userId the user ID to fetch roles for
+	 * @return list of role records for the user, or empty list if none found
+	 */
+	public List<String> getUserRoles(String userId, String rootOrgId){
+		try {
+			Map<String, Object> compositeKeyMap = new HashMap<>();
+			compositeKeyMap.put(Constants.USER_ID_LOWER, userId);
+
+			List<Map<String, Object>> userRoleList = cassandraOperation.getRecordsByPropertiesWithoutFiltering(
+					Constants.KEYSPACE_SUNBIRD,
+					Constants.TABLE_USER_ROLES,
+					compositeKeyMap,
+					Arrays.asList(Constants.ROLE, Constants.SCOPE)
+			);
+
+			return userRoleList.stream()
+					.map(userRoleObj -> {
+						Object userRoleScope = userRoleObj.get(Constants.SCOPE);
+						List<Map<String, Object>> scopes = new ArrayList<>();
+						if (userRoleScope instanceof List) {
+							scopes = (List<Map<String, Object>>) userRoleScope;
+						} else if (userRoleScope instanceof String) {
+							String scopeStr = (String) userRoleScope;
+							if (scopeStr != null && !scopeStr.trim().isEmpty()) {
+								try {
+									scopes = mapper.readValue(scopeStr, new TypeReference<List<Map<String, Object>>>() {
+									});
+								} catch (Exception e) {
+									logger.warn("Failed to parse scope JSON for userId {}: {}", userId, e.getMessage());
+									return null;
+								}
+							}
+						}
+						if (!scopes.isEmpty() && scopes.stream().allMatch(scope -> rootOrgId.equals(scope.get(Constants.ORGANISATION_ID)))) {
+							return (String) userRoleObj.get(Constants.ROLE);
+						}
+						return null;
+					})
+					.filter(Objects::nonNull)
+					.distinct()
+					.collect(Collectors.toList());
+		} catch (Exception e) {
+			logger.error("Failed to fetch user roles for userId: {}, Exception: ", userId, e);
+			return new ArrayList<>();
+		}
+	}
+
+	@Override
+	public ResponseEntity<?> peerValidationReportDownload(Map<String, Object> requestBody, String userToken) {
+		try {
+			// Extract userId from token
+			String userId = accessTokenValidator.fetchUserIdFromAccessToken(userToken);
+			if (StringUtils.isEmpty(userId)) {
+				logger.error("Failed to extract user ID from token");
+				return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Unauthorized: Invalid token");
+			}
+
+			String validationError = validateRequest(requestBody);
+			if (!StringUtils.isEmpty(validationError)) {
+				logger.error("Request validation failed: {}", validationError);
+				return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Bad Request: " + validationError);
+			}
+
+			String orgId = fetchOrgIdFromUserId(userId);
+			if (StringUtils.isEmpty(orgId)) {
+				logger.error("Failed to fetch organization ID for userId: {}", userId);
+				return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Forbidden: Unable to verify organization");
+			}
+
+			List<String> userRoles = getUserRoles(userId, orgId);
+
+			// Allow access if user has either SPV ADMIN or MDO ADMIN or MDO LEADER role
+			if (!userRoles.contains(Constants.MDO_ADMIN) && !userRoles.contains(Constants.MDO_LEADER) && !userRoles.contains(Constants.SPV_ADMIN)) {
+				logger.error("User {} does not have required role", userId);
+				return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Forbidden: User does not have required role");
+			}
+
+			logger.info("User {} attempting to download peer validation report", userId);
+
+			String fileName = (String) requestBody.get(Constants.FILE_NAME);
+			String formId = (String) requestBody.get(Constants.FORM_ID);
+
+			// Validate file type
+			if (!fileName.toLowerCase().endsWith(Constants.CSV_FILE)) {
+				logger.error("Invalid file type. Only CSV files are allowed: {}", fileName);
+				return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Bad Request: Only CSV files are allowed");
+			}
+
+			String bucketName = serverProperties.getCloudPublicContainerName();
+			String objectKey = serverProperties.getPeerValidationCloudFolderName() + Constants.SEPARATOR_SLASH
+					+ orgId + Constants.SEPARATOR_SLASH
+					+ formId + Constants.SEPARATOR_SLASH
+					+ fileName;
+
+			logger.info("downloading file: user={}, orgId={}, formId={}, fileName={}", userId, orgId, formId, fileName);
+
+			return downloadFileV3(bucketName, objectKey, fileName);
+		} catch (Exception e) {
+			logger.error("Failed to download peer validation report, Exception: ", e);
+			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Unable to download file.");
+		}
+	}
+
+	private String validateRequest(Map<String, Object> requestBody) {
+		StringBuilder errorMessage = new StringBuilder();
+		if (MapUtils.isEmpty(requestBody)) {
+			logger.error("Request body is empty");
+			return "Request body is empty";
+		}
+
+		String formId = (String) requestBody.get(Constants.FORM_ID);
+		if (StringUtils.isBlank(formId)) {
+			logger.error("Form ID is missing in request body");
+			errorMessage.append("Form ID is missing in request body. ");
+		}
+
+		String fileName = (String) requestBody.get(Constants.FILE_NAME);
+		if (StringUtils.isBlank(fileName)) {
+			errorMessage.append("File name is missing in request body. ");
+		}
+
+		if (errorMessage.length() > 0) {
+			return errorMessage.toString().trim();
+		}
+		return null;
+	}
 }
