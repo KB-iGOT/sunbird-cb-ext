@@ -1480,4 +1480,5 @@ public class Constants {
     public static final String PHONE_OTP = "phoneOtp";
 	public static final String JPEG = "jpeg";
 	public static final String ABOUT_ME = "aboutme";
+	public static final String ORG_CREATION_FAILED = "Org creation failed";
 }
