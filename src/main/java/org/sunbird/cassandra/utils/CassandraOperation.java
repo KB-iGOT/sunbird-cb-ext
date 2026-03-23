@@ -120,4 +120,14 @@ public interface CassandraOperation {
 
 	public Long getCountOfRecordByIdentifier(String keyspaceName, String tableName, Map<String,Object> key, String field);
 
+	/**
+	 * Insert record with TTL (Time To Live)
+	 * @param keyspaceName Keyspace name
+	 * @param tableName    Table name
+	 * @param request      Map<String,Object>(i.e map of column name and their value)
+	 * @param ttlInSeconds TTL in seconds (record will auto-expire after this time)
+	 * @return Response
+	 */
+	public SBApiResponse insertRecordWithTTL(String keyspaceName, String tableName, Map<String, Object> request, int ttlInSeconds);
+
 }

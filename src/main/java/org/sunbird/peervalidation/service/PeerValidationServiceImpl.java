@@ -82,6 +82,11 @@ public class PeerValidationServiceImpl implements PeerValidationService {
                 return setCommonResponse(response, HttpStatus.FORBIDDEN, "Forbidden: User does not have required role", Constants.FAILED);
             }
 
+            String existingReportCheck = checkExistingReportWithin24Hours(rootOrgId, formId);
+            if (!StringUtils.isEmpty(existingReportCheck)) {
+                return setCommonResponse(response, HttpStatus.CONFLICT, existingReportCheck, Constants.FAILED);
+            }
+
             // Validate formId exists in Elasticsearch with the given rootOrgId and contextType
             Map<String, Object> formData = getFormData(formId, rootOrgId);
             if (MapUtils.isEmpty(formData)) {
@@ -125,8 +130,10 @@ public class PeerValidationServiceImpl implements PeerValidationService {
             record.put(Constants.THUMBNAIL_LOWER, thumbnail);
             record.put(Constants.ORG_NAME_LOWER, orgName);
 
-            SBApiResponse cassandraResponse = cassandraOperation.insertRecord(
-                    Constants.KEYSPACE_SUNBIRD, Constants.USER_SURVEY_REPORT, record);
+            logger.info("Inserting report request into Cassandra with TTL");
+
+            SBApiResponse cassandraResponse = cassandraOperation.insertRecordWithTTL(
+                    Constants.KEYSPACE_SUNBIRD, Constants.USER_SURVEY_REPORT, record, serverProperties.getPeerValidationReportTtlSeconds());
 
             if (!Constants.SUCCESS.equalsIgnoreCase((String) cassandraResponse.getResult().get("response"))) {
                 logger.info("Failed to insert download request into Cassandra for formId: " + formId + ", userId: " + userId);
@@ -141,7 +148,7 @@ public class PeerValidationServiceImpl implements PeerValidationService {
             requestMap.put(Constants.REQUESTED_BY_CAMEL, userId);
             requestMap.put(Constants.CREATED_ON, dateFormat.format(now));
 
-            kafkaProducer.push(serverProperties.getReportDownloadRequestsTopic(), requestMap);
+            //kafkaProducer.push(serverProperties.getReportDownloadRequestsTopic(), requestMap);
             logger.info("Published Kafka message for download request. Identifier: " + identifier + ", FormId: " + formId);
 
             Map<String, Object> responseData = new HashMap<>();
@@ -270,6 +277,56 @@ public class PeerValidationServiceImpl implements PeerValidationService {
             }
         } catch (Exception e) {
             logger.error("Error fetching form data for formId: " + formId + " and rootOrgId: " + rootOrgId, e);
+            return null;
+        }
+    }
+
+    /**
+     * Check if there's already a report generated within last 24 hours for the given form
+     * Returns error message if a recent report exists, null otherwise
+     */
+    private String checkExistingReportWithin24Hours(String rootOrgId, String formId) {
+        try {
+            Map<String, Object> propertyMap = new HashMap<>();
+            propertyMap.put(Constants.ROOT_ORG_ID_LOWER, rootOrgId);
+            propertyMap.put(Constants.FORM_ID_LOWER, formId);
+
+            List<String> fields = Arrays.asList(Constants.STATUS, Constants.DATE_CREATED_ON_CASSANDRA);
+
+            List<Map<String, Object>> existingRecords = cassandraOperation.getRecordsByProperties(
+                    Constants.KEYSPACE_SUNBIRD, Constants.USER_SURVEY_REPORT, propertyMap, fields);
+
+            if (existingRecords != null && !existingRecords.isEmpty()) {
+                long twentyFourHours = 24L * 60L * 60L * 1000L;
+
+                for (Map<String, Object> record : existingRecords) {
+                    String status = (String) record.get(Constants.STATUS);
+                    Date createdOn = (Date) record.get(Constants.DATE_CREATED_ON);
+
+                    if (createdOn == null) {
+                        continue;
+                    }
+
+                    long timeSinceCreation = System.currentTimeMillis() - createdOn.getTime();
+
+                    // Check if report was completed and created within 24 hours
+                    if (Constants.REPORT_STATUS_COMPLETED.equalsIgnoreCase(status) && timeSinceCreation < twentyFourHours) {
+                        logger.info("Report already generated within 24 hours for formId: " + formId + ", rootOrgId: " + rootOrgId);
+                        return "A report for this form was already generated within the last 24 hours. Please try again later.";
+                    }
+
+                    // Check if there's an in-progress request within 1 hour
+                    if (Constants.REPORT_STATUS_IN_PROGRESS.equalsIgnoreCase(status) && timeSinceCreation < 60L * 60L * 1000L) {
+                        logger.info("Report generation already in progress for formId: " + formId + ", rootOrgId: " + rootOrgId);
+                        return "A report generation is already in progress for this form. Please wait for it to complete.";
+                    }
+                }
+            }
+
+            return null;
+
+        } catch (Exception e) {
+            logger.info("Error checking existing reports for formId: " + formId + ", rootOrgId: " + rootOrgId + ": " + e);
             return null;
         }
     }

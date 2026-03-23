@@ -1563,4 +1563,5 @@ public class Constants {
 	public static final String FILE_EXTENSION_MP4 = ".mp4";
 	public static final String FILE_EXTENSION_PDF = ".pdf";
 	public static final String ATTACHMENTS = "attachments";
+	public static final String REPORT_STATUS_COMPLETED = "COMPLETED";
 }
