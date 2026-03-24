@@ -272,7 +272,7 @@ public class ProfileServiceImpl implements ProfileService {
 					cacheData.put(Constants.PROFILE_DETAILS, existingProfileDetails);
 					cacheData.put(Constants.CHANNEL, responseMap.getOrDefault(Constants.CHANNEL, ""));
 					cacheData.put(Constants.USERNAME_LOWERCASE, responseMap.getOrDefault(Constants.USER_NAME,""));
-					redisCacheMgr.putInBasicProfileCache(userId, cacheData);
+					redisCacheMgr.putInBasicProfileCache(userId, cacheData, serverConfig.getBasicProfileCacheTtl());
 					response.setResponseCode(HttpStatus.OK);
 					response.getResult().put(Constants.RESPONSE, Constants.SUCCESS);
 					response.getParams().setStatus(Constants.SUCCESS);
@@ -2244,7 +2244,7 @@ public class ProfileServiceImpl implements ProfileService {
 						cacheData.put(Constants.PROFILE_DETAILS, existingProfileDetails);
 						cacheData.put(Constants.CHANNEL, responseMap.getOrDefault(Constants.CHANNEL, ""));
 						cacheData.put(Constants.USERNAME_LOWERCASE, responseMap.getOrDefault(Constants.USER_NAME, ""));
-						redisCacheMgr.putInBasicProfileCache(userId, cacheData);
+						redisCacheMgr.putInBasicProfileCache(userId, cacheData, serverConfig.getBasicProfileCacheTtl());
 					}
 					response.setResponseCode(HttpStatus.OK);
 					response.getResult().put(Constants.RESPONSE, Constants.SUCCESS);
