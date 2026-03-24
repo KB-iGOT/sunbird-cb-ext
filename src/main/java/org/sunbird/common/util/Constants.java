@@ -1564,4 +1564,5 @@ public class Constants {
 	public static final String FILE_EXTENSION_PDF = ".pdf";
 	public static final String ATTACHMENTS = "attachments";
 	public static final String REPORT_STATUS_COMPLETED = "COMPLETED";
+	public static final long HOURS_TO_MILLISECONDS = 60L * 60L * 1000L;
 }

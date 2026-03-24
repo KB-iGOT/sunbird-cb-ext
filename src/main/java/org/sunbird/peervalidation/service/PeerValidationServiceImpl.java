@@ -9,6 +9,7 @@ import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 import org.sunbird.cassandra.utils.CassandraOperation;
 import org.sunbird.common.model.SBApiResponse;
@@ -19,7 +20,6 @@ import org.sunbird.common.util.IndexerService;
 import org.sunbird.common.util.ProjectUtil;
 import org.sunbird.core.logger.CbExtLogger;
 import org.sunbird.core.producer.Producer;
-import org.sunbird.peervalidation.consumer.PeerValidationReportConsumer;
 import org.sunbird.storage.service.StorageServiceImpl;
 
 import java.sql.Timestamp;
@@ -148,7 +148,7 @@ public class PeerValidationServiceImpl implements PeerValidationService {
             requestMap.put(Constants.REQUESTED_BY_CAMEL, userId);
             requestMap.put(Constants.CREATED_ON, dateFormat.format(now));
 
-            //kafkaProducer.push(serverProperties.getReportDownloadRequestsTopic(), requestMap);
+            kafkaProducer.push(serverProperties.getReportDownloadRequestsTopic(), requestMap);
             logger.info("Published Kafka message for download request. Identifier: " + identifier + ", FormId: " + formId);
 
             Map<String, Object> responseData = new HashMap<>();
@@ -296,8 +296,10 @@ public class PeerValidationServiceImpl implements PeerValidationService {
             List<Map<String, Object>> existingRecords = cassandraOperation.getRecordsByProperties(
                     Constants.KEYSPACE_SUNBIRD, Constants.USER_SURVEY_REPORT, propertyMap, fields);
 
-            if (existingRecords != null && !existingRecords.isEmpty()) {
-                long twentyFourHours = 24L * 60L * 60L * 1000L;
+            if (!CollectionUtils.isEmpty(existingRecords)) {
+                long currentTime = System.currentTimeMillis();
+                long reportRestrictionMillis = serverProperties.getPeerValidationReportRestrictionHours() * Constants.HOURS_TO_MILLISECONDS;
+                long inprogressRestrictionMillis = serverProperties.getPeerValidationReportInprogressRestrictionHours() * Constants.HOURS_TO_MILLISECONDS;
 
                 for (Map<String, Object> record : existingRecords) {
                     String status = (String) record.get(Constants.STATUS);
@@ -307,24 +309,22 @@ public class PeerValidationServiceImpl implements PeerValidationService {
                         continue;
                     }
 
-                    long timeSinceCreation = System.currentTimeMillis() - createdOn.getTime();
+                    long timeSinceCreation = currentTime - createdOn.getTime();
 
-                    // Check if report was completed and created within 24 hours
-                    if (Constants.REPORT_STATUS_COMPLETED.equalsIgnoreCase(status) && timeSinceCreation < twentyFourHours) {
-                        logger.info("Report already generated within 24 hours for formId: " + formId + ", rootOrgId: " + rootOrgId);
+                    // Check if report was completed and created within configured hours
+                    if (Constants.REPORT_STATUS_COMPLETED.equalsIgnoreCase(status) && timeSinceCreation < reportRestrictionMillis) {
+                        logger.info("Report already generated within " + serverProperties.getPeerValidationReportRestrictionHours() + " hours for formId: " + formId + ", rootOrgId: " + rootOrgId);
                         return "A report for this form was already generated within the last 24 hours. Please try again later.";
                     }
 
-                    // Check if there's an in-progress request within 1 hour
-                    if (Constants.REPORT_STATUS_IN_PROGRESS.equalsIgnoreCase(status) && timeSinceCreation < 60L * 60L * 1000L) {
+                    // Check if there's an in-progress request within configured hours
+                    if (Constants.REPORT_STATUS_IN_PROGRESS.equalsIgnoreCase(status) && timeSinceCreation < inprogressRestrictionMillis) {
                         logger.info("Report generation already in progress for formId: " + formId + ", rootOrgId: " + rootOrgId);
                         return "A report generation is already in progress for this form. Please wait for it to complete.";
                     }
                 }
             }
-
             return null;
-
         } catch (Exception e) {
             logger.info("Error checking existing reports for formId: " + formId + ", rootOrgId: " + rootOrgId + ": " + e);
             return null;

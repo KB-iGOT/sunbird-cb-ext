@@ -4058,4 +4058,18 @@ public class CbExtServerProperties {
 	public int getPeerValidationReportTtlSeconds() { return peerValidationReportTtlSeconds; }
 
 	public void setPeerValidationReportTtlSeconds(int peerValidationReportTtlSeconds) { this.peerValidationReportTtlSeconds = peerValidationReportTtlSeconds; }
+
+	@Value("${peer.validation.report.restriction.hours:24}")
+	private int peerValidationReportRestrictionHours;
+
+	@Value("${peer.validation.report.progress.restriction.hours:1}")
+	private int peerValidationReportInprogressRestrictionHours;
+
+	public int getPeerValidationReportRestrictionHours() { return peerValidationReportRestrictionHours; }
+
+	public void setPeerValidationReportRestrictionHours(int peerValidationReportRestrictionHours) { this.peerValidationReportRestrictionHours = peerValidationReportRestrictionHours; }
+
+	public int getPeerValidationReportInprogressRestrictionHours() { return peerValidationReportInprogressRestrictionHours; }
+
+	public void setPeerValidationReportInprogressRestrictionHours(int peerValidationReportInprogressRestrictionHours) { this.peerValidationReportInprogressRestrictionHours = peerValidationReportInprogressRestrictionHours; }
 }
