@@ -192,6 +192,7 @@ public class WallOfFameServiceImpl implements WallOfFameService {
                 row.put(Constants.RANK, entity.getRank());
                 row.put(Constants.TOTAL_LEARNING_HOURS, entity.getTotalLearningHours());
                 row.put(Constants.TOTAL_POINTS, entity.getTotalPoints());
+                row.put(Constants.TOTAL_BADGES, entity.getTotalBadges());
 
                 userLeaderBoard.add(row); // mimic Cassandra list of maps
             }
