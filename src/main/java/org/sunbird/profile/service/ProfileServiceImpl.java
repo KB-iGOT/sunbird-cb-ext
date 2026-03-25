@@ -265,7 +265,7 @@ public class ProfileServiceImpl implements ProfileService {
 				updateResponse = outboundRequestHandlerService.fetchResultUsingPatch(
 						serverConfig.getSbUrl() + serverConfig.getLmsUserUpdatePath(), updateRequest, headerValues);
 				if (Constants.OK.equalsIgnoreCase((String) updateResponse.get(Constants.RESPONSE_CODE))) {
-					String cacheKey = Constants.USER + ":basicProfile:" + userId;
+					String cacheKey = Constants.USER_BASIC_PROFILE_REDIS_KEY_PREFIX + userId;
 					redisCacheMgr.deleteKeyByNameV2(cacheKey);
 					response.setResponseCode(HttpStatus.OK);
 					response.getResult().put(Constants.RESPONSE, Constants.SUCCESS);
@@ -716,7 +716,7 @@ public class ProfileServiceImpl implements ProfileService {
 			return response;
 		}
 
-		String cacheKey = Constants.USER + ":basicProfile:" + userId;
+		String cacheKey = Constants.USER_BASIC_PROFILE_REDIS_KEY_PREFIX + userId;
 		redisCacheMgr.deleteKeyByNameV2(cacheKey);
 		boolean assignValue = userUtilityService.assignRole((String) userData.get(Constants.ROOT_ORG_ID), userId,
 				StringUtils.EMPTY);
@@ -2231,7 +2231,7 @@ public class ProfileServiceImpl implements ProfileService {
 				Map<String, Object> updateResponse = outboundRequestHandlerService.fetchResultUsingPatch(updatedUrl, updateRequest, headerValue);
 
 				if (Constants.OK.equalsIgnoreCase((String) updateResponse.get(Constants.RESPONSE_CODE))) {
-					String cacheKey = Constants.USER + ":basicProfile:" + userId;
+					String cacheKey = Constants.USER_BASIC_PROFILE_REDIS_KEY_PREFIX + userId;
 					redisCacheMgr.deleteKeyByNameV2(cacheKey);
 					response.setResponseCode(HttpStatus.OK);
 					response.getResult().put(Constants.RESPONSE, Constants.SUCCESS);
@@ -2318,7 +2318,7 @@ public class ProfileServiceImpl implements ProfileService {
 					if (resp.get(Constants.RESPONSE).equals(Constants.SUCCESS)) {
 						String errMsg = syncUserData(userId);
 						if (StringUtils.isEmpty(errMsg)) {
-							String cacheKey = Constants.USER + ":basicProfile:" + userId;
+							String cacheKey = Constants.USER_BASIC_PROFILE_REDIS_KEY_PREFIX + userId;
 							redisCacheMgr.deleteKeyByNameV2(cacheKey);
 							response.setResponseCode(HttpStatus.OK);
 							response.getResult().put(Constants.RESPONSE, Constants.SUCCESS);

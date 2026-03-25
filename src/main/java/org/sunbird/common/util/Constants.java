@@ -1481,4 +1481,5 @@ public class Constants {
 	public static final String JPEG = "jpeg";
 	public static final String ABOUT_ME = "aboutme";
 	public static final String ORG_CREATION_FAILED = "Org creation failed";
+	public static final String USER_BASIC_PROFILE_REDIS_KEY_PREFIX="user:basicProfile:";
 }
