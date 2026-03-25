@@ -52,4 +52,7 @@ public class UserLeaderboardEntity {
     @Column(name = "total_points")
     private Long totalPoints;
 
+    @Column(name = "total_badges")
+    private Long totalBadges;
+
 }
