@@ -31,6 +31,7 @@ import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
+import javax.annotation.PreDestroy;
 
 @Component
 public class PeerValidationReportConsumer {
@@ -54,16 +55,88 @@ public class PeerValidationReportConsumer {
 
     private static final String CONSUMER_IDENTITY = "user-survey-report-consumer";
     private static final int PAGE_SIZE = 100;
-    private static final int MAX_ERROR_MESSAGE_LENGTH = 1000;
+
+    private final List<String> messageBuffer = Collections.synchronizedList(new ArrayList<>());
 
     @KafkaListener(topics = "${kafka.topics.report.download.requests}", groupId = "${kafka.topics.report.download.requests.group}")
     public void processReportDownloadRequest(ConsumerRecord<String, String> data) {
         try {
             logger.info("PeerValidationReportConsumer::processReportDownloadRequest: topic name: {} and receivedData: {}", data.topic(), data.value());
-            Map<String, Object> requestMap = mapper.readValue(data.value(), new TypeReference<Map<String, Object>>() {});
-            CompletableFuture.runAsync(() -> initiateReportGeneration(requestMap));
+            String message = data.value();
+
+            messageBuffer.add(message);
+
+            Map<String, Object> requestMap = mapper.readValue(message, new TypeReference<Map<String, Object>>() {});
+            CompletableFuture.runAsync(() -> {
+                try {
+                    initiateReportGeneration(requestMap);
+                } finally {
+                    // Remove from buffer after processing (success or failure)
+                    messageBuffer.remove(message);
+                }
+            });
         } catch (Exception e) {
-            logger.error("Error while processing the kafka event : " + data);
+            logger.error("Error while processing the kafka event : " + data, e);
+            // Remove from buffer if exception occurs before async processing
+            messageBuffer.remove(data.value());
+        }
+    }
+
+    /**
+     * Shutdown hook to handle graceful shutdown.
+     * Updates any in-progress report generations to FAILED status.
+     */
+    @PreDestroy
+    public void shutdownHook() {
+        logger.info("Shutdown hook triggered. Processing buffered messages for PeerValidationReportConsumer...");
+
+        synchronized (messageBuffer) {
+            if (messageBuffer.isEmpty()) {
+                logger.info("No buffered messages to process during shutdown.");
+                return;
+            }
+
+            logger.warn("Found {} in-progress report generation requests during shutdown. Marking as FAILED.", messageBuffer.size());
+
+            for (String message : messageBuffer) {
+                try {
+                    logger.info("Processing buffered message during shutdown: {}", message);
+                    updateDBStatusAtShutDown(message);
+                } catch (Exception e) {
+                    logger.error("Error processing buffered message during shutdown: {}", message, e);
+                }
+            }
+
+            messageBuffer.clear();
+            logger.info("Shutdown hook completed. All buffered messages processed.");
+        }
+    }
+
+    /**
+     * Update database status to FAILED for reports interrupted during shutdown
+     */
+    private void updateDBStatusAtShutDown(String message) {
+        try {
+            Map<String, Object> requestMap = mapper.readValue(message, new TypeReference<Map<String, Object>>() {});
+
+            String rootOrgId = (String) requestMap.get(Constants.ROOT_ORG_ID);
+            String formId = (String) requestMap.get(Constants.FORM_ID);
+            String identifier = (String) requestMap.get(Constants.IDENTIFIER);
+
+            if (StringUtils.isBlank(rootOrgId) || StringUtils.isBlank(formId) || StringUtils.isBlank(identifier)) {
+                logger.warn("Invalid message during shutdown. Missing required fields: {}", message);
+                return;
+            }
+
+            String errorMessage = "Report generation interrupted during application shutdown";
+
+            updateCassandraStatus(rootOrgId, formId, identifier, Constants.FAILED_UPPERCASE,
+                    errorMessage, 0, 0, 0, null, null, null,
+                    null);
+            logger.info("Updated status to FAILED for report generation interrupted during shutdown. Identifier: {}", identifier);
+
+        } catch (Exception e) {
+            logger.error("Failed to update status during shutdown for message: {}", message, e);
         }
     }
 
