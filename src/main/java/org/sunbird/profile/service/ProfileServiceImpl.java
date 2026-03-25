@@ -265,14 +265,8 @@ public class ProfileServiceImpl implements ProfileService {
 				updateResponse = outboundRequestHandlerService.fetchResultUsingPatch(
 						serverConfig.getSbUrl() + serverConfig.getLmsUserUpdatePath(), updateRequest, headerValues);
 				if (Constants.OK.equalsIgnoreCase((String) updateResponse.get(Constants.RESPONSE_CODE))) {
-					Map<String, Object> cacheData = new HashMap<>();
-					cacheData.put(Constants.ROOT_ORG_ID, responseMap.getOrDefault(Constants.ROOT_ORG_ID, ""));
-					cacheData.put(Constants.FIRSTNAME, responseMap.getOrDefault(Constants.FIRSTNAME, ""));
-					cacheData.put(Constants.ID, responseMap.getOrDefault(Constants.ID, ""));
-					cacheData.put(Constants.PROFILE_DETAILS, existingProfileDetails);
-					cacheData.put(Constants.CHANNEL, responseMap.getOrDefault(Constants.CHANNEL, ""));
-					cacheData.put(Constants.USERNAME_LOWERCASE, responseMap.getOrDefault(Constants.USER_NAME,""));
-					redisCacheMgr.putInBasicProfileCache(userId, cacheData, serverConfig.getBasicProfileCacheTtl());
+					String cacheKey = Constants.USER + ":basicProfile:" + userId;
+					redisCacheMgr.deleteKeyByNameV2(cacheKey);
 					response.setResponseCode(HttpStatus.OK);
 					response.getResult().put(Constants.RESPONSE, Constants.SUCCESS);
 					response.getParams().setStatus(Constants.SUCCESS);
@@ -722,6 +716,8 @@ public class ProfileServiceImpl implements ProfileService {
 			return response;
 		}
 
+		String cacheKey = Constants.USER + ":basicProfile:" + userId;
+		redisCacheMgr.deleteKeyByNameV2(cacheKey);
 		boolean assignValue = userUtilityService.assignRole((String) userData.get(Constants.ROOT_ORG_ID), userId,
 				StringUtils.EMPTY);
 
@@ -2236,16 +2232,7 @@ public class ProfileServiceImpl implements ProfileService {
 
 				if (Constants.OK.equalsIgnoreCase((String) updateResponse.get(Constants.RESPONSE_CODE))) {
 					String cacheKey = Constants.USER + ":basicProfile:" + userId;
-					if (redisCacheMgr.deleteKeyByNameV2(cacheKey)) {
-						Map<String, Object> cacheData = new HashMap<>();
-						cacheData.put(Constants.ROOT_ORG_ID, responseMap.getOrDefault(Constants.ROOT_ORG_ID, ""));
-						cacheData.put(Constants.FIRSTNAME, responseMap.getOrDefault(Constants.FIRSTNAME, ""));
-						cacheData.put(Constants.ID, responseMap.getOrDefault(Constants.ID, ""));
-						cacheData.put(Constants.PROFILE_DETAILS, existingProfileDetails);
-						cacheData.put(Constants.CHANNEL, responseMap.getOrDefault(Constants.CHANNEL, ""));
-						cacheData.put(Constants.USERNAME_LOWERCASE, responseMap.getOrDefault(Constants.USER_NAME, ""));
-						redisCacheMgr.putInBasicProfileCache(userId, cacheData, serverConfig.getBasicProfileCacheTtl());
-					}
+					redisCacheMgr.deleteKeyByNameV2(cacheKey);
 					response.setResponseCode(HttpStatus.OK);
 					response.getResult().put(Constants.RESPONSE, Constants.SUCCESS);
 					response.getParams().setStatus(Constants.SUCCESS);
@@ -2331,6 +2318,8 @@ public class ProfileServiceImpl implements ProfileService {
 					if (resp.get(Constants.RESPONSE).equals(Constants.SUCCESS)) {
 						String errMsg = syncUserData(userId);
 						if (StringUtils.isEmpty(errMsg)) {
+							String cacheKey = Constants.USER + ":basicProfile:" + userId;
+							redisCacheMgr.deleteKeyByNameV2(cacheKey);
 							response.setResponseCode(HttpStatus.OK);
 							response.getResult().put(Constants.RESPONSE, Constants.SUCCESS);
 							response.getParams().setStatus(Constants.SUCCESS);
