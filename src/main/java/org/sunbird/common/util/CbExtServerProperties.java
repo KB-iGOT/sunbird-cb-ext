@@ -1189,6 +1189,9 @@ public class CbExtServerProperties {
 	@Value("${lms.otp.verify.path}")
 	private String lmsOTPVerifyPath;
 
+	@Value("${user.basicProfile.cache.ttl}")
+	private int basicProfileCacheTtl;
+
 	@Value("${peervalidation.cloud.folder.name}")
 	private String peerValidationCloudFolderName;
 
@@ -4022,6 +4025,14 @@ public class CbExtServerProperties {
 	public int getProfileAboutmeMaxLength() { return profileAboutmeMaxLength; }
 
 	public void setProfileAboutmeMaxLength(int profileAboutmeMaxLength) { this.profileAboutmeMaxLength = profileAboutmeMaxLength; }
+
+	public int getBasicProfileCacheTtl() {
+		return basicProfileCacheTtl;
+	}
+
+	public void setBasicProfileCacheTtl(int basicProfileCacheTtl) {
+		this.basicProfileCacheTtl = basicProfileCacheTtl;
+	}
 
 	public String getPeerValidationCloudFolderName() { return peerValidationCloudFolderName; }
 

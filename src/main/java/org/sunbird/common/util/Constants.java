@@ -1480,6 +1480,8 @@ public class Constants {
     public static final String PHONE_OTP = "phoneOtp";
 	public static final String JPEG = "jpeg";
 	public static final String ABOUT_ME = "aboutme";
+	public static final String ORG_CREATION_FAILED = "Org creation failed";
+	public static final String USER_BASIC_PROFILE_REDIS_KEY_PREFIX="user:basicProfile:";
 
 	// Badge Dashboard Redis Keys - Hash-based
 	public static final String DASHBOARD_ALL_COURSE_BADGE_COUNT_DIFF = "dashboard_all_course_badge_count_last_month_diff";
