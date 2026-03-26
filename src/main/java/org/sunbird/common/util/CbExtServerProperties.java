@@ -894,6 +894,9 @@ public class CbExtServerProperties {
 	@Value("${redis.master.data.read.timeout}")
 	private int redisMasterDataReadTimeOut;
 
+	@Value("${designation.index.name}")
+	private String designationIndexName;
+
 	@Value("${kafka.topics.cqf.assessment.postpublish}")
 	private String cqfAssessmentPostPublishTopic;
 
@@ -3424,6 +3427,14 @@ public class CbExtServerProperties {
 
 	public void setSampleFileMasterDesignationWorkSpaceName(String sampleFileMasterDesignationWorkSpaceName) {
 		this.sampleFileMasterDesignationWorkSpaceName = sampleFileMasterDesignationWorkSpaceName;
+	}
+
+	public String getDesignationIndexName() {
+		return designationIndexName;
+	}
+
+	public void setDesignationIndexName(String designationIndexName) {
+		this.designationIndexName = designationIndexName;
 	}
 
 	public String getSampleBulkUploadCompetencyDesignationFileName() {
