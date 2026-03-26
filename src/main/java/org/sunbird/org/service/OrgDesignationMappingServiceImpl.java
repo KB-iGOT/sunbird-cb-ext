@@ -23,6 +23,16 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
+import org.elasticsearch.action.search.ClearScrollRequest;
+import org.elasticsearch.action.search.SearchRequest;
+import org.elasticsearch.action.search.SearchResponse;
+import org.elasticsearch.action.search.SearchScrollRequest;
+import org.elasticsearch.client.RequestOptions;
+import org.elasticsearch.client.RestHighLevelClient;
+import org.elasticsearch.common.unit.TimeValue;
+import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.search.SearchHit;
+import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.sunbird.cache.RedisCacheMgr;
 import org.sunbird.cassandra.utils.CassandraOperation;
 import org.sunbird.common.model.SBApiResponse;
@@ -30,6 +40,7 @@ import org.sunbird.common.service.OutboundRequestHandlerServiceImpl;
 import org.sunbird.common.util.AccessTokenValidator;
 import org.sunbird.common.util.CbExtServerProperties;
 import org.sunbird.common.util.Constants;
+import org.sunbird.common.util.IndexerService;
 import org.sunbird.common.util.ProjectUtil;
 import org.sunbird.core.producer.Producer;
 import org.sunbird.org.model.CustomResponseDTO;
@@ -83,6 +94,12 @@ public class OrgDesignationMappingServiceImpl implements OrgDesignationMappingSe
     @Autowired
     RedisCacheMgr redisCache;
 
+    @Autowired
+    private IndexerService indexerService;
+
+    @Autowired
+    private RestHighLevelClient esClient;
+
     /**
      * @param rootOrgId
      * @param userAuthToken
@@ -116,6 +133,7 @@ public class OrgDesignationMappingServiceImpl implements OrgDesignationMappingSe
 
             // Set column widths to avoid cell overlap
             setColumnWidths(designationMasterSheet);
+            logger.info("Total rows in designationMasterSheet : {}", designationMasterSheet.getLastRowNum() + 1);
 
             ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
             workbook.write(outputStream);
@@ -225,64 +243,71 @@ public class OrgDesignationMappingServiceImpl implements OrgDesignationMappingSe
             String masterData = redisCache.getCache(Constants.DESIGNATION_MASTER_DATA);
             if (StringUtils.isEmpty(masterData)) {
                 List<Map<String, Object>> allRecords = new ArrayList<>();
-                int page = 0;
-                int pageSize = serverProperties.getSearchDesignationResultSize();
-                int totalCount = Integer.MAX_VALUE;
+                String scrollId = null;
 
-                String url = serverProperties.getCbPoresServiceHost() + serverProperties.getCbPoresMasterDesignationEndpoint();
+                try {
+                    // Initialize scroll search with match_all query
+                    SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
+                    searchSourceBuilder.query(QueryBuilders.matchAllQuery());
+                    searchSourceBuilder.size(serverProperties.getSearchDesignationResultSize());
 
-                while (page * pageSize < totalCount) {
-                    Map<String, Object> searchRequest = new HashMap<>();
-                    searchRequest.put(Constants.PAGE_NUMBER, page);
-                    searchRequest.put(Constants.PAGE_SIZE, pageSize);
-                    searchRequest.put(Constants.REQUEST_FIELDS, new ArrayList<>());
+                    SearchRequest searchRequest = new SearchRequest(serverProperties.getDesignationIndexName());
+                    searchRequest.source(searchSourceBuilder);
+                    searchRequest.scroll(TimeValue.timeValueMinutes(5L)); // Keep scroll context alive for 5 minutes
 
-                    Map<String, Object> filterCriteria = new HashMap<>();
-                    filterCriteria.put(Constants.STATUS, "Active");
-                    searchRequest.put(Constants.FILTER_CRITERIA_MAP, filterCriteria);
+                    SearchResponse searchResponse = esClient.search(searchRequest, RequestOptions.DEFAULT);
+                    scrollId = searchResponse.getScrollId();
+                    SearchHit[] searchHits = searchResponse.getHits().getHits();
+                    long totalHits = searchResponse.getHits().getTotalHits();
 
-                    String jsonResponse = (String) outboundRequestHandler.fetchResultUsingPostAsString(url, searchRequest);
+                    logger.info("Total designation records found in Elasticsearch: {}", totalHits);
 
-                    if (StringUtils.isBlank(jsonResponse)) {
-                        logger.warn("Empty response received from master designation endpoint.");
-                        break;
+                    // Process first batch
+                    for (SearchHit hit : searchHits) {
+                        Map<String, Object> sourceMap = hit.getSourceAsMap();
+                        allRecords.add(sourceMap);
                     }
 
-                    JsonNode rootNode = objectMapper.readTree(jsonResponse);
-                    if (!rootNode.has(Constants.RESULT)) {
-                        logger.warn("Missing 'result' in JSON response.");
-                        break;
+                    // Continue scrolling through all results
+                    while (searchHits != null && searchHits.length > 0) {
+                        SearchScrollRequest scrollRequest = new SearchScrollRequest(scrollId);
+                        scrollRequest.scroll(TimeValue.timeValueMinutes(5L));
+
+                        searchResponse = esClient.scroll(scrollRequest, RequestOptions.DEFAULT);
+                        scrollId = searchResponse.getScrollId();
+                        searchHits = searchResponse.getHits().getHits();
+
+                        for (SearchHit hit : searchHits) {
+                            Map<String, Object> sourceMap = hit.getSourceAsMap();
+                            allRecords.add(sourceMap);
+                        }
+
+                        logger.info("Fetched {} designation records so far using scroll API", allRecords.size());
                     }
 
-                    JsonNode nestedResult = rootNode.path(Constants.RESULT).path(Constants.RESULT);
-                    if (nestedResult.isMissingNode() || nestedResult.isNull()) {
-                        logger.warn("Missing or null 'result.result' node.");
-                        break;
-                    }
+                    logger.info("Total designation records fetched from Elasticsearch: {}", allRecords.size());
 
-                    JsonNode totalCountNode = nestedResult.path(Constants.TOTAL_COUNT);
-                    if (totalCountNode.isInt()) {
-                        totalCount = totalCountNode.asInt();
-                    } else {
-                        logger.warn("Missing or invalid 'totalCount'; defaulting to one-page processing.");
-                        totalCount = pageSize;
-                    }
+                    // Filter only Active status records
+                    allRecords = allRecords.stream()
+                            .filter(record -> "Active".equals(record.get(Constants.STATUS)))
+                            .collect(Collectors.toList());
 
-                    JsonNode dataArrayNode = nestedResult.path(Constants.DATA);
-                    if (!dataArrayNode.isArray() || dataArrayNode.size() == 0) {
-                        logger.info("No more records found in data array at page {}", page);
-                        break;
-                    }
+                    logger.info("Total Active designation records after filtering: {}", allRecords.size());
 
-                    for (JsonNode item : dataArrayNode) {
-                        Map<String, Object> record = objectMapper.convertValue(item, new TypeReference<Map<String, Object>>() {});
-                        allRecords.add(record);
+                } catch (Exception e) {
+                    logger.error("Error fetching designation data from Elasticsearch using scroll API", e);
+                } finally {
+                    // Clear scroll context to free up resources
+                    if (scrollId != null) {
+                        try {
+                            ClearScrollRequest clearScrollRequest = new ClearScrollRequest();
+                            clearScrollRequest.addScrollId(scrollId);
+                            esClient.clearScroll(clearScrollRequest, RequestOptions.DEFAULT);
+                            logger.info("Scroll context cleared successfully");
+                        } catch (Exception e) {
+                            logger.error("Error clearing scroll context", e);
+                        }
                     }
-                    if (dataArrayNode.size() < pageSize) {
-                        break;
-                    }
-                    logger.info("The page size for the pores search request: " + page);
-                    page++;
                 }
 
                 if (CollectionUtils.isNotEmpty(allRecords)) {
