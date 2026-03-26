@@ -282,10 +282,11 @@ public class RedisCacheMgr {
         }
     }
 
-    public void putInBasicProfileCache(String key, Object object) {
+    public void putInBasicProfileCache(String key, Object object, int ttl) {
         try (Jedis jedis = jedisPool.getResource()) {
             String data = objectMapper.writeValueAsString(object);
             jedis.set(Constants.BASIC_PROFILE_KEY + key, data);
+            jedis.expire(Constants.BASIC_PROFILE_KEY + key, ttl);
             logger.debug("Cache_key_value " + Constants.BASIC_PROFILE_KEY + key + " is saved in redis");
         } catch (Exception e) {
             logger.error(e);

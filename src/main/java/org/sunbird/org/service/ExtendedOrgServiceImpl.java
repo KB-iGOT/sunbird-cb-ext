@@ -452,7 +452,10 @@ public class ExtendedOrgServiceImpl implements ExtendedOrgService {
 					result.get(Constants.ORGANIZATION_ID)));
 			return (String) result.get(Constants.ORGANIZATION_ID);
 		}
-		return StringUtils.EMPTY;
+		Map<String, Object> params = (Map<String, Object>) apiResponse.get(Constants.PARAMS);
+		String errMsg = params != null ? (String) params.get(Constants.ERROR_MESSAGE) : Constants.ORG_CREATION_FAILED;
+		logger.error("Org creation failed: " + errMsg);
+		throw new RuntimeException(errMsg);
 	}
 
 	public Map<String, Object> getOrgDetails(List<String> orgIds, List<String> fields) {
