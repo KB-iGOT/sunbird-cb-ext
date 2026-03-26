@@ -153,4 +153,10 @@ public class StorageController {
                 reportType, date, formId, fileName, userToken);
     }
 
+	@PostMapping("/v1/peervalidation/report/download")
+	public ResponseEntity<?> downloadFileForMdoAdmin(
+			@RequestBody Map<String, Object> requestBody,
+			@RequestHeader(Constants.X_AUTH_TOKEN) String userToken) {
+		return storageService.peerValidationReportDownload(requestBody, userToken);
+	}
 }

@@ -209,6 +209,30 @@ public class RedisCacheMgr {
         }
     }
 
+    public Map<String, String> getAllHashFieldsFromDataRedis(String key, Integer index) {
+        try (Jedis jedis = jedisDataPopulationPool.getResource()) {
+            if (index != null) {
+                jedis.select(index);
+            }
+            return jedis.hgetAll(key);
+        } catch (Exception e) {
+            logger.error(e);
+            return Collections.emptyMap();
+        }
+    }
+
+    public List<String> getListFromDataRedis(String key, Integer index, long start, long end) {
+        try (Jedis jedis = jedisDataPopulationPool.getResource()) {
+            if (index != null) {
+                jedis.select(index);
+            }
+            return jedis.lrange(key, start, end);
+        } catch (Exception e) {
+            logger.error(e);
+            return Collections.emptyList();
+        }
+    }
+
     public String getContentFromCache(String key) {
         try (Jedis jedis = jedisPool.getResource()) {
             return jedis.get(key);

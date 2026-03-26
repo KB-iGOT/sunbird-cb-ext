@@ -74,4 +74,6 @@ public interface StorageService {
 	 */
 	SBApiResponse uploadProfilePhoto(MultipartFile file, String cloudFolderName, String containerName);
 
+	ResponseEntity<?> peerValidationReportDownload(Map<String, Object> requestBody, String userToken);
+
 }

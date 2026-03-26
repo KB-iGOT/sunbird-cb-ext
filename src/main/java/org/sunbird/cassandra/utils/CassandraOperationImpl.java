@@ -554,5 +554,28 @@ public class CassandraOperationImpl implements CassandraOperation {
 								List<String> fields) {
 		return processQuery(keyspaceName, tableName, propertyMap, fields, true);
 	}
+
+	@Override
+	public SBApiResponse insertRecordWithTTL(String keyspaceName, String tableName, Map<String, Object> request, int ttlInSeconds) {
+		SBApiResponse response = new SBApiResponse();
+		try {
+			Insert insert = QueryBuilder.insertInto(keyspaceName, tableName);
+			request.entrySet().forEach(entry -> {
+				insert.value(entry.getKey(), entry.getValue());
+			});
+			insert.using(QueryBuilder.ttl(ttlInSeconds));
+
+			logger.debug("Executing Cassandra INSERT with TTL: {} seconds. Query: {}", ttlInSeconds, insert.getQueryString());
+
+			connectionManager.getSession(keyspaceName).execute(insert);
+			response.put(Constants.RESPONSE, Constants.SUCCESS);
+		} catch (Exception e) {
+			String errMsg = String.format("Exception occurred while inserting record with TTL to %s: %s", tableName, e.getMessage());
+			logger.error(errMsg, e);
+			response.put(Constants.RESPONSE, Constants.FAILED);
+			response.put(Constants.ERROR_MESSAGE, errMsg);
+		}
+		return response;
+	}
 }
 

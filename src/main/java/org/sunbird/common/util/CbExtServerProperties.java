@@ -689,6 +689,9 @@ public class CbExtServerProperties {
 	@Value("${public.user.assessment.table.name}")
 	private String publicUserAssessmentTableName;
 
+	@Value("${redis.badge.dashboard.index}")
+	private int redisBadgeDashboardIndex;
+
 	public String getPublicUserAssessmentTableName() {
 		return publicUserAssessmentTableName;
 	}
@@ -1192,6 +1195,30 @@ public class CbExtServerProperties {
 	@Value("${user.basicProfile.cache.ttl}")
 	private int basicProfileCacheTtl;
 
+	@Value("${peervalidation.cloud.folder.name}")
+	private String peerValidationCloudFolderName;
+
+	@Value("${peer.validation.pdf.max.size}")
+	private long peerValidationPdfMaxSize;
+
+	@Value("${peer.validation.video.max.size}")
+	private long peerValidationVideoMaxSize;
+
+	@Value("${peer.validation.submission.folder}")
+	private String peerValidationSubmissionFolder;
+
+	@Value("${kafka.topics.report.download.requests}")
+	private String reportDownloadRequestsTopic;
+
+	@Value("${igot.es.form.meta.data.index}")
+	private String formMetaDataIndex;
+
+	@Value("${peer.validation.report.max.peers:3}")
+	private int peerValidationReportMaxPeers;
+
+	@Value("${peer.validation.report.ttl.seconds:86400}")
+	private int peerValidationReportTtlSeconds;
+
 	public String getStateLearningInsightsRedisKeyMapping() {
 		return stateLearningInsightsRedisKeyMapping;
 	}
@@ -1275,6 +1302,14 @@ public class CbExtServerProperties {
 
 	public void setRedisInsightIndex(int redisInsightIndex) {
 		this.redisInsightIndex = redisInsightIndex;
+	}
+
+	public int getRedisBadgeDashboardIndex() {
+		return redisBadgeDashboardIndex;
+	}
+
+	public void setRedisBadgeDashboardIndex(int redisBadgeDashboardIndex) {
+		this.redisBadgeDashboardIndex = redisBadgeDashboardIndex;
 	}
 
 	public String getAssessmentSubmitTopic() {
@@ -3264,7 +3299,7 @@ public class CbExtServerProperties {
 	public List<String> getCompetencyV6SearchPrimaryCategoryFilter() {
 		return Arrays.asList(competencyV6SearchPrimaryCategoryFilter.split(",", -1));
   }
-  
+
 	public String getSpvFullReportReportFolderName() {
 		return spvFullReportReportFolderName;
 	}
@@ -3380,7 +3415,7 @@ public class CbExtServerProperties {
 	public void setCompetencySelectedVersion(String competencySelectedVersion) {
 		this.competencySelectedVersion = competencySelectedVersion;
 	}
-	
+
         public String getNationalLearningInsightsFields() {
 		return nationalLearningInsightsFields;
 	}
@@ -4010,4 +4045,53 @@ public class CbExtServerProperties {
 		this.basicProfileCacheTtl = basicProfileCacheTtl;
 	}
 
+	public String getPeerValidationCloudFolderName() { return peerValidationCloudFolderName; }
+
+	public void setPeerValidationCloudFolderName(String peerValidationCloudFolderName) { this.peerValidationCloudFolderName = peerValidationCloudFolderName; }
+
+	public long getPeerValidationPdfMaxSize() {
+		return peerValidationPdfMaxSize;
+	}
+
+	public long getPeerValidationVideoMaxSize() {
+		return peerValidationVideoMaxSize;
+	}
+
+	public String getPeerValidationSubmissionFolder() {
+		return peerValidationSubmissionFolder;
+	}
+
+	public String getReportDownloadRequestsTopic() { return reportDownloadRequestsTopic; }
+
+	public void setReportDownloadRequestsTopic(String reportDownloadRequestsTopic) { this.reportDownloadRequestsTopic = reportDownloadRequestsTopic; }
+
+	public String getFormMetaDataIndex() {
+		return formMetaDataIndex;
+	}
+
+	public void setFormMetaDataIndex(String formMetaDataIndex) {
+		this.formMetaDataIndex = formMetaDataIndex;
+	}
+
+	public int getPeerValidationReportMaxPeers() { return peerValidationReportMaxPeers; }
+
+	public void setPeerValidationReportMaxPeers(int peerValidationReportMaxPeers) { this.peerValidationReportMaxPeers = peerValidationReportMaxPeers; }
+
+	public int getPeerValidationReportTtlSeconds() { return peerValidationReportTtlSeconds; }
+
+	public void setPeerValidationReportTtlSeconds(int peerValidationReportTtlSeconds) { this.peerValidationReportTtlSeconds = peerValidationReportTtlSeconds; }
+
+	@Value("${peer.validation.report.restriction.hours:24}")
+	private int peerValidationReportRestrictionHours;
+
+	@Value("${peer.validation.report.progress.restriction.hours:1}")
+	private int peerValidationReportInprogressRestrictionHours;
+
+	public int getPeerValidationReportRestrictionHours() { return peerValidationReportRestrictionHours; }
+
+	public void setPeerValidationReportRestrictionHours(int peerValidationReportRestrictionHours) { this.peerValidationReportRestrictionHours = peerValidationReportRestrictionHours; }
+
+	public int getPeerValidationReportInprogressRestrictionHours() { return peerValidationReportInprogressRestrictionHours; }
+
+	public void setPeerValidationReportInprogressRestrictionHours(int peerValidationReportInprogressRestrictionHours) { this.peerValidationReportInprogressRestrictionHours = peerValidationReportInprogressRestrictionHours; }
 }
