@@ -210,7 +210,7 @@ public class RedisCacheMgr {
     }
 
     public Map<String, String> getAllHashFieldsFromDataRedis(String key, Integer index) {
-        try (Jedis jedis = jedisDataPopulationPool.getResource()) {
+        try (Jedis jedis = jedisPool.getResource()) {
             if (index != null) {
                 jedis.select(index);
             }
@@ -222,7 +222,7 @@ public class RedisCacheMgr {
     }
 
     public List<String> getListFromDataRedis(String key, Integer index, long start, long end) {
-        try (Jedis jedis = jedisDataPopulationPool.getResource()) {
+        try (Jedis jedis = jedisPool.getResource()) {
             if (index != null) {
                 jedis.select(index);
             }
