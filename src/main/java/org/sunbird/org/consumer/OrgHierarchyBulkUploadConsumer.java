@@ -379,12 +379,13 @@ public class OrgHierarchyBulkUploadConsumer {
             if (StringUtils.isBlank(levelName)) break;
 
             String identifier = extractIdentifier(levelName);
-            String termKey = StringUtils.isNotBlank(identifier) ? identifier : levelName;
-            if (StringUtils.isBlank(identifier)) {
-                errors.add("Missing orgId in '" + levelName + "'. Expected format: Name<orgId>");
+            String name = extractName(levelName);
+            if (StringUtils.isBlank(name) || StringUtils.isBlank(identifier)) {
+                errors.add("Invalid format '" + levelName + "'. Expected format: Name<orgId>");
                 return;
             }
 
+            String termKey = StringUtils.isNotBlank(identifier) ? identifier : levelName;
             // Multiple Parents Check.
             if (i > 0 && StringUtils.isNotBlank(levelName) && StringUtils.isNotBlank(levels.get(i - 1))) {
                 String parentKey = extractIdentifier(levels.get(i - 1));
