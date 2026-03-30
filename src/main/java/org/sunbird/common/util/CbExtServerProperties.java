@@ -1219,6 +1219,17 @@ public class CbExtServerProperties {
 	@Value("${peer.validation.report.ttl.seconds:86400}")
 	private int peerValidationReportTtlSeconds;
 
+	@Value("${profile.preference.value}")
+	private String profilePreferenceValue;
+
+	public String getProfilePreferenceValue() {
+		return profilePreferenceValue;
+	}
+
+	public void setProfilePreferenceValue(String profilePreferenceValue) {
+		this.profilePreferenceValue = profilePreferenceValue;
+	}
+
 	public String getStateLearningInsightsRedisKeyMapping() {
 		return stateLearningInsightsRedisKeyMapping;
 	}
