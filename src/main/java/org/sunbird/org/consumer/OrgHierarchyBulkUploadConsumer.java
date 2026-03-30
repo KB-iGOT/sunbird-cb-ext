@@ -380,6 +380,10 @@ public class OrgHierarchyBulkUploadConsumer {
 
             String identifier = extractIdentifier(levelName);
             String termKey = StringUtils.isNotBlank(identifier) ? identifier : levelName;
+            if (StringUtils.isBlank(identifier)) {
+                errors.add("Missing orgId in '" + levelName + "'. Expected format: Name<orgId>");
+                return;
+            }
 
             // Multiple Parents Check.
             if (i > 0 && StringUtils.isNotBlank(levelName) && StringUtils.isNotBlank(levels.get(i - 1))) {
