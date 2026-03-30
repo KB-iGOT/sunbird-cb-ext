@@ -41,7 +41,21 @@ public class FrameworkUtil {
             int[] rowIndex
     ) {
         List<String> newPath = new ArrayList<>(path);
-        newPath.add((String) node.get("name"));
+        String name = (String) node.get(Constants.NAME);
+
+        String orgId = "";
+        Map<String, Object> additionalProps =
+                (Map<String, Object>) node.get(Constants.ADDITIONAL_PROPERTIES);
+
+        if (additionalProps != null && additionalProps.get(Constants.ORG_ID) != null) {
+            orgId = additionalProps.get(Constants.ORG_ID).toString();
+        }
+
+        if (!orgId.isEmpty()) {
+            newPath.add(name + Constants.LEFT_ANGLE_BRACKET + orgId + Constants.RIGHT_ANGLE_BRACKET);
+        } else {
+            newPath.add(name);
+        }
 
         if (level == categoryList.size() - 1 || node.get("associations") == null) {
             while (newPath.size() < categoryList.size()) newPath.add("");
