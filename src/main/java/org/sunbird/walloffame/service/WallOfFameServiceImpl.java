@@ -102,13 +102,14 @@ public class WallOfFameServiceImpl implements WallOfFameService {
             }
             String cachedJson = redisCacheMgr.getCacheFromUserInsightsRedis(Constants.LEARNER_LEADERBOARD_CACHE_KEY_PREFIX + rootOrgId + "_" + userId, properties.getRedisLeaderboardIndex());
             if (StringUtils.isNotBlank(cachedJson)) {
+                logger.info("Cache hit for learner leaderboard for userId: {} and rootOrgId: {}", userId, rootOrgId);
                 List<Map<String, Object>> cached = objectMapper.readValue(cachedJson,
                         new TypeReference<List<Map<String, Object>>>() {});
                 response.put(Constants.RESULT, cached);
                 response.put(Constants.COUNT, cached.size());
                 return response;
             }
-
+            logger.info("Cache miss for learner leaderboard for userId: {} and rootOrgId: {}", userId, rootOrgId);
             Map<String, Object> propertiesMap = new HashMap<>();
             propertiesMap.put(Constants.USER_ID_LOWER, userId);
 
