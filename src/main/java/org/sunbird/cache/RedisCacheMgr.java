@@ -32,6 +32,9 @@ public class RedisCacheMgr {
     private JedisPool jedisDataPopulationPool;
 
     @Autowired
+    private JedisPool jedisUserInsightsPool;
+
+    @Autowired
     CbExtServerProperties cbExtServerProperties;
 
     private CbExtLogger logger = new CbExtLogger(getClass().getName());
@@ -303,4 +306,50 @@ public class RedisCacheMgr {
             return false;
         }
     }
+
+    /**
+     * Serializes and stores an object in the dedicated UserInsights Redis instance under the given key.
+     *
+     * <p>Uses a raw key (no {@code CB_EXT_} prefix) because this is a purpose-specific Redis instance
+     * rather than the shared primary cache. The entry is set with an explicit TTL so stale user-level
+     * stats are automatically evicted without manual intervention.</p>
+     *
+     * @param key    the raw Redis key (e.g. {@code userInsights_{userId}})
+     * @param object the object to serialize and cache; must be Jackson-serializable
+     * @param ttl    time-to-live in seconds for the cached entry
+     * @param index  the Redis database index to select before writing
+     */
+    public void putCacheToUserInsightsRedis(String key, Object object, int ttl, int index) {
+        try (Jedis jedis = jedisUserInsightsPool.getResource()) {
+            jedis.select(index);
+            String data = objectMapper.writeValueAsString(object);
+            jedis.set(key, data);
+            jedis.expire(key, ttl);
+            logger.debug("[UserInsights Redis] Saved key: " + key);
+        } catch (Exception e) {
+            logger.error(e);
+        }
+    }
+
+    /**
+     * Retrieves a raw JSON string from the dedicated UserInsights Redis instance for the given key.
+     *
+     * <p>Selects the specified database index before reading, matching the index used during the write.
+     * Returns {@code null} on a cache miss or any connectivity failure — callers are expected to handle
+     * a {@code null} return as a signal to fall back to the primary data source (Postgres).</p>
+     *
+     * @param key   the raw Redis key to look up (e.g. {@code userInsights_{userId}})
+     * @param index the Redis database index to select before reading
+     * @return the cached JSON string, or {@code null} if not found or an error occurs
+     */
+    public String getCacheFromUserInsightsRedis(String key, int index) {
+        try (Jedis jedis = jedisUserInsightsPool.getResource()) {
+            jedis.select(index);
+            return jedis.get(key);
+        } catch (Exception e) {
+            logger.error(e);
+            return null;
+        }
+    }
+
 }

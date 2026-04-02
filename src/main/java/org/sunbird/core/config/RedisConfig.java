@@ -31,6 +31,14 @@ public class RedisConfig {
 				Integer.parseInt(cbProperties.getRedisDataPort()));
 		return jedisPool;
 	}
+
+	@Bean
+	public JedisPool jedisUserInsightsPool() {
+		final JedisPoolConfig poolConfig = buildPoolConfig();
+		return new JedisPool(poolConfig, cbProperties.getRedisUserInsightsHostName(),
+				Integer.parseInt(cbProperties.getRedisUserInsightsPort()));
+	}
+
 	private JedisPoolConfig buildPoolConfig() {
 		final JedisPoolConfig poolConfig = new JedisPoolConfig();
 		poolConfig.setMaxIdle(128);

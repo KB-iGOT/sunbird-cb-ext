@@ -95,6 +95,13 @@ public class InsightsServiceImpl implements InsightsService {
         return  keys;
     }
     private Map<String, Object> populateIfClapsExist(String userId) {
+        Map<String, Object> cached = getClapsFromUserInsightsRedis(userId);
+        if (MapUtils.isNotEmpty(cached)) {
+            LocalDate[] dates = populateDate();
+            cached.put(Constants.START_DATE, dates[0]);
+            cached.put(Constants.END_DATE, dates[1]);
+            return cached;
+        }
         Optional<LearnerStatsEntity> optionalStats = learnerStatsRepository.findById(userId);
         Map<String, Object> response = new HashMap<>();
         if (optionalStats.isPresent()) {
@@ -142,6 +149,7 @@ public class InsightsServiceImpl implements InsightsService {
             response.put(W2, w2);
             response.put(W3, w3);
             response.put(W4, w4);
+            redisCacheMgr.putCacheToUserInsightsRedis(Constants.USER_INSIGHTS_CACHE_KEY_PREFIX + userId, response, serverProperties.getRedisUserInsightsTtl(), serverProperties.getRedisUserInsightsIndex());
         }
         LocalDate[]  dates = populateDate();
 
@@ -564,6 +572,34 @@ public class InsightsServiceImpl implements InsightsService {
         }
         response.getResult().put(DATA, result);
         return response;
+    }
+
+    /**
+     * Attempts to fetch the user's weekly claps/stats from the dedicated UserInsights Redis cache.
+     *
+     * <p>The cached payload contains {@code userId}, {@code totalClaps}, and weekly breakdown fields
+     * ({@code W1}–{@code W4}) but intentionally excludes date fields, as those are always derived
+     * fresh from the current date to remain accurate across the TTL window.</p>
+     *
+     * <p>Returns an empty map on cache miss or any Redis connectivity failure, allowing the caller
+     * to fall back gracefully to the Postgres read path.</p>
+     *
+     * @param userId the authenticated user's ID used to construct the Redis cache key
+     * @return a populated map of clap stats on cache hit, or {@link Collections#emptyMap()} on miss/error
+     */
+    private Map<String, Object> getClapsFromUserInsightsRedis(String userId) {
+        try {
+            String cachedData = redisCacheMgr.getCacheFromUserInsightsRedis(Constants.USER_INSIGHTS_CACHE_KEY_PREFIX + userId, serverProperties.getRedisUserInsightsIndex());
+            if (StringUtils.isNotBlank(cachedData)) {
+                Map<String, Object> cached = mapper.readValue(cachedData, new TypeReference<Map<String, Object>>() {
+                });
+                log.debug("UserInsights Redis cache hit for userId: {}", userId);
+                return cached;
+            }
+        } catch (Exception e) {
+            log.warn("UserInsights Redis cache unavailable for userId: {}, falling back to Postgres", userId, e);
+        }
+        return Collections.emptyMap();
     }
 }
 

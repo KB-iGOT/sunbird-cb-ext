@@ -1222,6 +1222,18 @@ public class CbExtServerProperties {
 	@Value("${profile.preference.value}")
 	private String profilePreferenceValue;
 
+	@Value("${redis.user.insights.host.name}")
+	private String redisUserInsightsHostName;
+
+	@Value("${redis.user.insights.port}")
+	private String redisUserInsightsPort;
+
+	@Value("${redis.user.insights.index}")
+	private int redisUserInsightsIndex;
+
+	@Value("${redis.user.insights.ttl}")
+	private int redisUserInsightsTtl;
+
 	public String getProfilePreferenceValue() {
 		return profilePreferenceValue;
 	}
@@ -4105,4 +4117,39 @@ public class CbExtServerProperties {
 	public int getPeerValidationReportInprogressRestrictionHours() { return peerValidationReportInprogressRestrictionHours; }
 
 	public void setPeerValidationReportInprogressRestrictionHours(int peerValidationReportInprogressRestrictionHours) { this.peerValidationReportInprogressRestrictionHours = peerValidationReportInprogressRestrictionHours; }
+
+
+	public String getRedisUserInsightsHostName() {
+		return redisUserInsightsHostName;
+	}
+
+	public void setRedisUserInsightsHostName(String redisUserInsightsHostName) {
+		this.redisUserInsightsHostName = redisUserInsightsHostName;
+	}
+
+	public String getRedisUserInsightsPort() {
+		return redisUserInsightsPort;
+	}
+
+	public void setRedisUserInsightsPort(String redisUserInsightsPort) {
+		this.redisUserInsightsPort = redisUserInsightsPort;
+	}
+
+
+	public int getRedisUserInsightsIndex() {
+		return redisUserInsightsIndex;
+	}
+
+	public void setRedisUserInsightsIndex(int redisUserInsightsIndex) {
+		this.redisUserInsightsIndex = redisUserInsightsIndex;
+	}
+
+
+	public int getRedisUserInsightsTtl() {
+		return redisUserInsightsTtl;
+	}
+
+	public void setRedisUserInsightsTtl(int redisUserInsightsTtl) {
+		this.redisUserInsightsTtl = redisUserInsightsTtl;
+	}
 }
