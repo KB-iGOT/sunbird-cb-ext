@@ -97,12 +97,14 @@ public class InsightsServiceImpl implements InsightsService {
     private Map<String, Object> populateIfClapsExist(String userId) {
         Map<String, Object> cached = getClapsFromUserInsightsRedis(userId);
         if (MapUtils.isNotEmpty(cached)) {
+            log.info("successfully fetching data from redis for weekly cap Insights");
             LocalDate[] dates = populateDate();
             cached.put(Constants.START_DATE, dates[0]);
             cached.put(Constants.END_DATE, dates[1]);
             return cached;
         }
         Optional<LearnerStatsEntity> optionalStats = learnerStatsRepository.findById(userId);
+        log.info("successfully fetching data from postgres db for weekly cap Insights");
         Map<String, Object> response = new HashMap<>();
         if (optionalStats.isPresent()) {
             LearnerStatsEntity stats = optionalStats.get();
