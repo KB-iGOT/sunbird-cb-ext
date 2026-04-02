@@ -1234,6 +1234,42 @@ public class CbExtServerProperties {
 	@Value("${redis.user.insights.ttl}")
 	private int redisUserInsightsTtl;
 
+	@Value("${redis.user.insights.leaderboard.ttl}")
+	private int redisLeaderboardTtl;
+
+	@Value("${redis.user.insights.leaderboard.index}")
+	private int redisLeaderboardIndex;
+
+	@Value("${redis.pool.max.total}")
+	private int redisPoolMaxTotal;
+
+	@Value("${redis.pool.max.idle}")
+	private int redisPoolMaxIdle;
+
+	@Value("${redis.pool.min.idle}")
+	private int redisPoolMinIdle;
+
+	@Value("${redis.pool.test.on.borrow}")
+	private boolean redisPoolTestOnBorrow;
+
+	@Value("${redis.pool.test.on.return}")
+	private boolean redisPoolTestOnReturn;
+
+	@Value("${redis.pool.test.while.idle}")
+	private boolean redisPoolTestWhileIdle;
+
+	@Value("${redis.pool.min.evictable.idle.time.ms}")
+	private long redisPoolMinEvictableIdleTimeMs;
+
+	@Value("${redis.pool.time.between.eviction.runs.ms}")
+	private long redisPoolTimeBetweenEvictionRunsMs;
+
+	@Value("${redis.pool.num.tests.per.eviction.run}")
+	private int redisPoolNumTestsPerEvictionRun;
+
+	@Value("${redis.pool.block.when.exhausted}")
+	private boolean redisPoolBlockWhenExhausted;
+
 	public String getProfilePreferenceValue() {
 		return profilePreferenceValue;
 	}
@@ -4151,5 +4187,102 @@ public class CbExtServerProperties {
 
 	public void setRedisUserInsightsTtl(int redisUserInsightsTtl) {
 		this.redisUserInsightsTtl = redisUserInsightsTtl;
+	}
+
+
+	public int getRedisLeaderboardTtl() {
+		return redisLeaderboardTtl;
+	}
+
+	public void setRedisLeaderboardTtl(int redisLeaderboardTtl) {
+		this.redisLeaderboardTtl = redisLeaderboardTtl;
+	}
+
+	public int getRedisLeaderboardIndex() {
+		return redisLeaderboardIndex;
+	}
+
+	public void setRedisLeaderboardIndex(int redisLeaderboardIndex) {
+		this.redisLeaderboardIndex = redisLeaderboardIndex;
+	}
+
+	public int getRedisPoolMaxTotal() {
+		return redisPoolMaxTotal;
+	}
+
+	public void setRedisPoolMaxTotal(int v) {
+		this.redisPoolMaxTotal = v;
+	}
+
+	public int getRedisPoolMaxIdle() {
+		return redisPoolMaxIdle;
+	}
+
+	public void setRedisPoolMaxIdle(int v) {
+		this.redisPoolMaxIdle = v;
+	}
+
+	public int getRedisPoolMinIdle() {
+		return redisPoolMinIdle;
+	}
+
+	public void setRedisPoolMinIdle(int v) {
+		this.redisPoolMinIdle = v;
+	}
+
+	public boolean isRedisPoolTestOnBorrow() {
+		return redisPoolTestOnBorrow;
+	}
+
+	public void setRedisPoolTestOnBorrow(boolean v) {
+		this.redisPoolTestOnBorrow = v;
+	}
+
+	public boolean isRedisPoolTestOnReturn() {
+		return redisPoolTestOnReturn;
+	}
+
+	public void setRedisPoolTestOnReturn(boolean v) {
+		this.redisPoolTestOnReturn = v;
+	}
+
+	public boolean isRedisPoolTestWhileIdle() {
+		return redisPoolTestWhileIdle;
+	}
+
+	public void setRedisPoolTestWhileIdle(boolean v) {
+		this.redisPoolTestWhileIdle = v;
+	}
+
+	public long getRedisPoolMinEvictableIdleTimeMs() {
+		return redisPoolMinEvictableIdleTimeMs;
+	}
+
+	public void setRedisPoolMinEvictableIdleTimeMs(long v) {
+		this.redisPoolMinEvictableIdleTimeMs = v;
+	}
+
+	public long getRedisPoolTimeBetweenEvictionRunsMs() {
+		return redisPoolTimeBetweenEvictionRunsMs;
+	}
+
+	public void setRedisPoolTimeBetweenEvictionRunsMs(long v) {
+		this.redisPoolTimeBetweenEvictionRunsMs = v;
+	}
+
+	public int getRedisPoolNumTestsPerEvictionRun() {
+		return redisPoolNumTestsPerEvictionRun;
+	}
+
+	public void setRedisPoolNumTestsPerEvictionRun(int v) {
+		this.redisPoolNumTestsPerEvictionRun = v;
+	}
+
+	public boolean isRedisPoolBlockWhenExhausted() {
+		return redisPoolBlockWhenExhausted;
+	}
+
+	public void setRedisPoolBlockWhenExhausted(boolean v) {
+		this.redisPoolBlockWhenExhausted = v;
 	}
 }

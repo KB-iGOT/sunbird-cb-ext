@@ -14,9 +14,12 @@ import org.sunbird.common.util.AccessTokenValidator;
 import org.sunbird.common.util.CbExtServerProperties;
 import org.sunbird.common.util.Constants;
 import org.sunbird.common.util.ProjectUtil;
+import org.sunbird.cache.RedisCacheMgr;
 import org.sunbird.walloffame.entity.*;
 import org.sunbird.walloffame.repository.*;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -36,6 +39,12 @@ public class WallOfFameServiceImpl implements WallOfFameService {
 
     @Autowired
     CbExtServerProperties properties;
+
+    @Autowired
+    private RedisCacheMgr redisCacheMgr;
+
+    @Autowired
+    private ObjectMapper objectMapper;
 
     @Autowired
     private UserLeaderboardRepository leaderboardRepository;
@@ -91,6 +100,14 @@ public class WallOfFameServiceImpl implements WallOfFameService {
                 setBadRequestResponse(response, Constants.USER_ID_DOESNT_EXIST);
                 return response;
             }
+            String cachedJson = redisCacheMgr.getCacheFromUserInsightsRedis(Constants.LEARNER_LEADERBOARD_CACHE_KEY_PREFIX + rootOrgId + "_" + userId, properties.getRedisLeaderboardIndex());
+            if (StringUtils.isNotBlank(cachedJson)) {
+                List<Map<String, Object>> cached = objectMapper.readValue(cachedJson,
+                        new TypeReference<List<Map<String, Object>>>() {});
+                response.put(Constants.RESULT, cached);
+                response.put(Constants.COUNT, cached.size());
+                return response;
+            }
 
             Map<String, Object> propertiesMap = new HashMap<>();
             propertiesMap.put(Constants.USER_ID_LOWER, userId);
@@ -123,6 +140,12 @@ public class WallOfFameServiceImpl implements WallOfFameService {
 
             response.put(Constants.RESULT, result);
             response.put(Constants.COUNT, result == null ? 0 : result.size());
+            if (!CollectionUtils.isEmpty(result)) {
+                redisCacheMgr.putCacheToUserInsightsRedis(Constants.LEARNER_LEADERBOARD_CACHE_KEY_PREFIX + rootOrgId + "_" + userId, result,
+                        properties.getRedisLeaderboardTtl(),
+                        properties.getRedisLeaderboardIndex());
+            }
+           
             return response;
 
         } catch (Exception e) {

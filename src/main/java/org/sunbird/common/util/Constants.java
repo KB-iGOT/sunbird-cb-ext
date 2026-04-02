@@ -1572,4 +1572,5 @@ public class Constants {
 	public static final String REPORT_STATUS_COMPLETED = "COMPLETED";
 	public static final long HOURS_TO_MILLISECONDS = 60L * 60L * 1000L;
 	public static final String USER_INSIGHTS_CACHE_KEY_PREFIX = "userInsights_";
+	public static final String LEARNER_LEADERBOARD_CACHE_KEY_PREFIX = "learnerLeaderboard_";
 }
