@@ -504,7 +504,9 @@ public class OperationalReportServiceImpl implements OperationalReportService {
                 throw new Exception("RequestBody is not proper.");
             }
             List<String> childIds = (List<String>) request.get(Constants.CHILD_ID);
-            List<OrgHierarchy> orgHierarchyList = orgHierarchyRepository.findAllBySbOrgId(Collections.singletonList(rootOrgId));
+            List<String> orgIds = new ArrayList<>();
+            orgIds.add(rootOrgId);
+            List<OrgHierarchy> orgHierarchyList = orgHierarchyRepository.findAllBySbOrgId(orgIds);
             String mapId = "";
             if (CollectionUtils.isNotEmpty(orgHierarchyList)) {
                 if (orgHierarchyList.get(0) != null) {
