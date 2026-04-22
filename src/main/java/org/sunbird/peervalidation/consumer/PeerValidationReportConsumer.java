@@ -560,8 +560,10 @@ public class PeerValidationReportConsumer {
                 updateRecord.put(Constants.ARTIFACT_URL, artifactUrl);
             }
 
-            cassandraOperation.updateRecord(Constants.KEYSPACE_SUNBIRD, Constants.USER_SURVEY_REPORT, updateRecord, compositeKey);
-            logger.info("Updated Cassandra status to {} for identifier: {}", status, identifier);
+            cassandraOperation.updateRecordWithTTL(Constants.KEYSPACE_SUNBIRD, Constants.USER_SURVEY_REPORT,
+                    updateRecord, compositeKey, serverProperties.getPeerValidationReportTtlSeconds());
+            logger.info("Updated Cassandra status to {} for identifier: {} with TTL: {} seconds",
+                    status, identifier, serverProperties.getPeerValidationReportTtlSeconds());
         } catch (Exception e) {
             logger.error("Failed to update Cassandra status for identifier: {}", identifier, e);
         }

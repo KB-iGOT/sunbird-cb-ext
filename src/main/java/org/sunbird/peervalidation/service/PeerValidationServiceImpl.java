@@ -88,7 +88,8 @@ public class PeerValidationServiceImpl implements PeerValidationService {
             }
 
             // Validate formId exists in Elasticsearch with the given rootOrgId and contextType
-            Map<String, Object> formData = getFormData(formId, rootOrgId);
+            // SPV_ADMIN can skip rootOrgId validation to access forms across organizations
+            Map<String, Object> formData = getFormData(formId, rootOrgId, userRoles.contains(Constants.SPV_ADMIN));
             if (MapUtils.isEmpty(formData)) {
                 return setCommonResponse(response, HttpStatus.BAD_REQUEST, Constants.ERR_MSG_FORM_NOT_FOUND, Constants.FAILED);
             }
@@ -241,25 +242,30 @@ public class PeerValidationServiceImpl implements PeerValidationService {
 
     /**
      * Fetch form data from Elasticsearch with the given rootOrgId and contextType
+     * @param formId The form ID to search for
+     * @param rootOrgId The root organization ID (used for validation unless skipped)
+     * @param skipRootOrgValidation If true, skip rootOrgId validation (for SPV_ADMIN cross-org access)
+     * @return Form data map or null if not found
      */
-    private Map<String, Object> getFormData(String formId, String rootOrgId) {
+    private Map<String, Object> getFormData(String formId, String rootOrgId, boolean skipRootOrgValidation) {
         try {
             // Build the Elasticsearch query
             BoolQueryBuilder boolQuery = QueryBuilders.boolQuery();
             boolQuery.must(QueryBuilders.termQuery(Constants.FORM_ID, formId));
             boolQuery.must(QueryBuilders.termQuery(Constants.CONTEXT_TYPE, Constants.CONTEXT_TYPE_PEER_VALIDATION_SURVEY));
 
-            // Query for nested field createdFor.orgId (without .keyword suffix)
-            BoolQueryBuilder nestedQuery = QueryBuilders.boolQuery();
-            nestedQuery.must(QueryBuilders.termQuery(Constants.CREATED_FOR + Constants.DOT_SEPARATOR + Constants.ORG_ID, rootOrgId));
-            boolQuery.must(QueryBuilders.nestedQuery(Constants.CREATED_FOR, nestedQuery, org.apache.lucene.search.join.ScoreMode.None));
+            if (!skipRootOrgValidation) {
+                BoolQueryBuilder nestedQuery = QueryBuilders.boolQuery();
+                nestedQuery.must(QueryBuilders.termQuery(Constants.CREATED_FOR + Constants.DOT_SEPARATOR + Constants.ORG_ID, rootOrgId));
+                boolQuery.must(QueryBuilders.nestedQuery(Constants.CREATED_FOR, nestedQuery, org.apache.lucene.search.join.ScoreMode.None));
+            }
 
             SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
             searchSourceBuilder.query(boolQuery);
             searchSourceBuilder.size(1); // We only need one document
 
             // Log the query for debugging
-            logger.info("Elasticsearch query for formId validation: " + searchSourceBuilder);
+            logger.info("Elasticsearch query for formId validation (skipRootOrgValidation: " + skipRootOrgValidation + "): " + searchSourceBuilder);
 
             SearchResponse searchResponse = indexerService.getEsResult(
                     serverProperties.getFormMetaDataIndex(),
@@ -269,14 +275,14 @@ public class PeerValidationServiceImpl implements PeerValidationService {
             );
 
             if (searchResponse != null && searchResponse.getHits().getTotalHits() > 0) {
-                logger.info("Elasticsearch query returned " + searchResponse.getHits().getTotalHits() + " hits for formId: " + formId + ", rootOrgId: " + rootOrgId);
+                logger.info("Elasticsearch query returned " + searchResponse.getHits().getTotalHits() + " hits for formId: " + formId + ", rootOrgId: " + rootOrgId + ", skipRootOrgValidation: " + skipRootOrgValidation);
                 return searchResponse.getHits().getHits()[0].getSourceAsMap();
             } else {
-                logger.warn("Elasticsearch query returned null or no hits for formId: " + formId + ", rootOrgId: " + rootOrgId);
+                logger.warn("Elasticsearch query returned null or no hits for formId: " + formId + ", rootOrgId: " + rootOrgId + ", skipRootOrgValidation: " + skipRootOrgValidation);
                 return null;
             }
         } catch (Exception e) {
-            logger.error("Error fetching form data for formId: " + formId + " and rootOrgId: " + rootOrgId, e);
+            logger.error("Error fetching form data for formId: " + formId + " and rootOrgId: " + rootOrgId + ", skipRootOrgValidation: " + skipRootOrgValidation, e);
             return null;
         }
     }
@@ -314,7 +320,7 @@ public class PeerValidationServiceImpl implements PeerValidationService {
                     // Check if report was completed and created within configured hours
                     if (Constants.REPORT_STATUS_COMPLETED.equalsIgnoreCase(status) && timeSinceCreation < reportRestrictionMillis) {
                         logger.info("Report already generated within " + serverProperties.getPeerValidationReportRestrictionHours() + " hours for formId: " + formId + ", rootOrgId: " + rootOrgId);
-                        return "A report for this form was already generated within the last 24 hours. Please try again later.";
+                        return "A report for this form was already generated within the last 24 hours. Please refer the Downloadable Reports tab.";
                     }
 
                     // Check if there's an in-progress request within configured hours

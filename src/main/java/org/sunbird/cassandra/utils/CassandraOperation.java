@@ -130,4 +130,16 @@ public interface CassandraOperation {
 	 */
 	public SBApiResponse insertRecordWithTTL(String keyspaceName, String tableName, Map<String, Object> request, int ttlInSeconds);
 
+	/**
+	 * Update record with TTL (Time To Live)
+	 * @param keyspaceName Keyspace name
+	 * @param tableName    Table name
+	 * @param updateAttributes Map<String,Object> columns to be updated
+	 * @param compositeKey     Column map for composite primary key
+	 * @param ttlInSeconds TTL in seconds (updated columns will auto-expire after this time)
+	 * @return Response consisting of update query status
+	 */
+	public Map<String, Object> updateRecordWithTTL(String keyspaceName, String tableName, Map<String, Object> updateAttributes,
+	                                               Map<String, Object> compositeKey, int ttlInSeconds);
+
 }
