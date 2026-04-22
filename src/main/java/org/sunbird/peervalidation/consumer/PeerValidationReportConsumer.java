@@ -28,6 +28,7 @@ import org.sunbird.storage.service.StorageService;
 import java.io.*;
 import java.sql.Timestamp;
 import java.text.SimpleDateFormat;
+import java.util.TimeZone;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
@@ -431,6 +432,7 @@ public class PeerValidationReportConsumer {
 
                 if (timestamp > 0) {
                     SimpleDateFormat sdf = new SimpleDateFormat(Constants.DATE_FORMAT_DD_MM_YYYY_HH_MM_SS);
+                    sdf.setTimeZone(TimeZone.getTimeZone("Asia/Kolkata")); // Set IST timezone
                     rowArray[2] = sdf.format(new Date(timestamp));
                 }
             } catch (Exception e) {
