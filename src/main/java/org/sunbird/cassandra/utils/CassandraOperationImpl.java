@@ -577,5 +577,40 @@ public class CassandraOperationImpl implements CassandraOperation {
 		}
 		return response;
 	}
+
+	@Override
+	public Map<String, Object> updateRecordWithTTL(String keyspaceName, String tableName, Map<String, Object> updateAttributes,
+	                                               Map<String, Object> compositeKey, int ttlInSeconds) {
+		Map<String, Object> response = new HashMap<>();
+		Statement updateQuery = null;
+		try {
+			Session session = connectionManager.getSession(keyspaceName);
+			Update update = QueryBuilder.update(keyspaceName, tableName);
+
+			// Apply TTL to the update
+			update.using(QueryBuilder.ttl(ttlInSeconds));
+
+			Assignments assignments = update.with();
+			Update.Where where = update.where();
+			updateAttributes.entrySet().stream().forEach(x -> {
+				assignments.and(QueryBuilder.set(x.getKey(), x.getValue()));
+			});
+			compositeKey.entrySet().stream().forEach(x -> {
+				where.and(QueryBuilder.eq(x.getKey(), x.getValue()));
+			});
+			updateQuery = where;
+
+			logger.debug("Executing Cassandra UPDATE with TTL: {} seconds. Query: {}", ttlInSeconds, updateQuery);
+			session.execute(updateQuery);
+			response.put(Constants.RESPONSE, Constants.SUCCESS);
+		} catch (Exception e) {
+			String errMsg = String.format("Exception occurred while updating record with TTL to %s: %s", tableName, e.getMessage());
+			logger.error(errMsg, e);
+			response.put(Constants.RESPONSE, Constants.FAILED);
+			response.put(Constants.ERROR_MESSAGE, errMsg);
+			throw e;
+		}
+		return response;
+	}
 }
 
