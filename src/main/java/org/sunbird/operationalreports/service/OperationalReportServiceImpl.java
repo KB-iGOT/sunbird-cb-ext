@@ -38,6 +38,7 @@ import scala.Option;
 import javax.annotation.PostConstruct;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
@@ -659,5 +660,93 @@ public class OperationalReportServiceImpl implements OperationalReportService {
     private String getZipProtectPassword() {
         int passwordLength = serverProperties.getZipFilePasswordLength();
         return generateAlphanumericPassword(passwordLength);
+    }
+
+    @Override
+    public ResponseEntity<?> operationalReportDownloadV3(String rootOrgId, String authToken, Map<String, Object> requestBody) {
+
+        try {
+            // Validate user
+            String userId = accessTokenValidator.fetchUserIdFromAccessToken(authToken);
+            if (StringUtils.isBlank(userId)) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body("Invalid or missing user token.");
+            }
+
+            Map<String, Map<String, String>> userInfoMap = new HashMap<>();
+            userUtilityService.getUserDetailsFromDB(
+                    Collections.singletonList(userId),
+                    Arrays.asList(Constants.ROOT_ORG_ID, Constants.USER_ID),
+                    userInfoMap
+            );
+
+            String userRootOrg = userInfoMap.get(userId).get(Constants.ROOT_ORG_ID);
+
+            if (StringUtils.isBlank(userRootOrg) || !userRootOrg.equalsIgnoreCase(rootOrgId)) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body("User does not have access to this organization.");
+            }
+
+            Map<String, Object> request = (Map<String, Object>) requestBody.get(Constants.REQUEST);
+            if (MapUtils.isEmpty(request)) {
+                return ResponseEntity.badRequest()
+                        .body("Invalid request body.");
+            }
+
+            List<String> childIds = (List<String>) request.get(Constants.CHILD_ID);
+
+            String targetId = CollectionUtils.isNotEmpty(childIds) ? childIds.get(0) : rootOrgId;
+            // Password from Redis
+            String password = redisCacheMgr.getCache(rootOrgId + Constants.UNDER_SCORE + Constants.PASSWORD);
+            if (StringUtils.isEmpty(password)) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body("Report not available.");
+            }
+
+            logger.info("Downloading report for org: {}, childId: {}", rootOrgId, targetId);
+
+            // Object key
+            String objectKey = serverProperties.getOperationalReportFolderName()
+                    + "/mdoid=" + targetId + "/"
+                    + serverProperties.getOperationReportFileName();
+
+            String container = serverProperties.getReportDownloadContainerName();
+
+            // Metadata
+            Model.Blob blobMetadata = storageService.getObjectOrNull(container, objectKey, Option.apply(false));
+            if (blobMetadata == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body("Report not found for the given organization.");
+            }
+
+            // Stream
+            InputStream inputStream = storageService.getObjectStream(container, objectKey);
+            if (inputStream == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body("Unable to fetch report stream.");
+            }
+
+            long contentLength = blobMetadata.contentLength();
+
+            // Headers
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
+            if (StringUtils.isNotBlank(password)) {
+                headers.add(Constants.PASSWORD, password);
+            }
+            headers.add(HttpHeaders.CONTENT_DISPOSITION,
+                    "attachment; filename=\"" + serverProperties.getOperationReportFileName() + "\"");
+            // Success response (file stream)
+            return ResponseEntity.ok()
+                    .headers(headers)
+                    .contentLength(contentLength)
+                    .body(new InputStreamResource(inputStream));
+
+        } catch (Exception e) {
+            logger.error("Error while streaming report", e);
+
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Something went wrong while downloading the report. Please try again later.");
+        }
     }
 }
