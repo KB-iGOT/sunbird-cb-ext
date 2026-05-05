@@ -1270,6 +1270,9 @@ public class CbExtServerProperties {
 	@Value("${redis.pool.block.when.exhausted}")
 	private boolean redisPoolBlockWhenExhausted;
 
+	@Value("${user.achievement.file.upload.allowed.extensions}")
+	private String userAchievementFileUploadAllowedExtensions;
+
 	public String getProfilePreferenceValue() {
 		return profilePreferenceValue;
 	}
@@ -4284,5 +4287,13 @@ public class CbExtServerProperties {
 
 	public void setRedisPoolBlockWhenExhausted(boolean v) {
 		this.redisPoolBlockWhenExhausted = v;
+	}
+
+	public List<String> getUserAchievementFileUploadAllowedExtensions() {
+		return Arrays.asList(userAchievementFileUploadAllowedExtensions.split(","));
+	}
+
+	public void setUserAchievementFileUploadAllowedExtensions(String userAchievementFileUploadAllowedExtensions) {
+		this.userAchievementFileUploadAllowedExtensions = userAchievementFileUploadAllowedExtensions;
 	}
 }

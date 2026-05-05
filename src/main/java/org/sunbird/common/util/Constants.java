@@ -1573,4 +1573,5 @@ public class Constants {
 	public static final long HOURS_TO_MILLISECONDS = 60L * 60L * 1000L;
 	public static final String USER_INSIGHTS_CACHE_KEY_PREFIX = "userInsights_";
 	public static final String LEARNER_LEADERBOARD_CACHE_KEY_PREFIX = "learnerLeaderboard_";
+	public static final String USER_ACHIEVEMENT_CLOUD_FOLDER_NAME = "userAchievements";
 }

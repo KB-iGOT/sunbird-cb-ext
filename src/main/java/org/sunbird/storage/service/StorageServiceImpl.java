@@ -1094,6 +1094,16 @@ public class StorageServiceImpl implements StorageService {
 				fileBytes[2] == (byte) 0xFF) {
 			return Constants.JPEG;
 		}
+
+		// Check for PDF signature
+		if (fileBytes.length >= 5 &&
+				fileBytes[0] == (byte) 0x25 && // %
+				fileBytes[1] == (byte) 0x50 && // P
+				fileBytes[2] == (byte) 0x44 && // D
+				fileBytes[3] == (byte) 0x46 && // F
+				fileBytes[4] == (byte) 0x2D) { // -
+			return Constants.PDF;
+		}
 		return null;
 	}
 
@@ -1304,4 +1314,131 @@ public class StorageServiceImpl implements StorageService {
 		}
 		return null;
 	}
+
+	@Override
+	public SBApiResponse uploadUserAchievement(MultipartFile mFile, String cloudFolderName, String containerName) {
+		SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.API_FILE_UPLOAD);
+		File file = null;
+
+		try {
+			if (!isValidFolderName(cloudFolderName)) {
+				logger.error("Invalid cloud folder name: {}", cloudFolderName);
+				response.getParams().setStatus(Constants.FAILED);
+				response.getParams().setErrmsg("Invalid folder name");
+				response.setResponseCode(HttpStatus.BAD_REQUEST);
+				return response;
+			}
+
+			SBApiResponse validationError = validateUploadedFileForUserAchievement(mFile);
+			if (validationError != null) {
+				return validationError;
+			}
+
+			file = new File(System.currentTimeMillis() + "_" + mFile.getOriginalFilename());
+			file.createNewFile();
+
+			try (FileOutputStream fos = new FileOutputStream(file)) {
+				fos.write(mFile.getBytes());
+			}
+			return uploadFile(file, cloudFolderName, containerName);
+
+		} catch (Exception e) {
+			logger.error("Failed to upload file. Exception: ", e);
+			response.getParams().setStatus(Constants.FAILED);
+			response.getParams().setErrmsg("Failed to upload file");
+			response.setResponseCode(HttpStatus.INTERNAL_SERVER_ERROR);
+			return response;
+		} finally {
+			if (file != null && file.exists()) {
+				file.delete();
+			}
+		}
+	}
+
+	/**
+	 * Validates uploaded file for security.
+	 *
+	 * @param file the file to validate
+	 * @return error response if validation fails, null if valid
+	 */
+	private SBApiResponse validateUploadedFileForUserAchievement(MultipartFile file) {
+		SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.API_FILE_UPLOAD);
+
+		// Check if file is empty
+		if (file == null || file.isEmpty()) {
+			response.getParams().setStatus(Constants.FAILED);
+			response.getParams().setErrmsg("File is empty");
+			response.setResponseCode(HttpStatus.BAD_REQUEST);
+			return response;
+		}
+
+		// Validate file extension
+		String originalFilename = file.getOriginalFilename();
+		if (StringUtils.isEmpty(originalFilename) || !originalFilename.contains(".")) {
+			response.getParams().setStatus(Constants.FAILED);
+			response.getParams().setErrmsg("Invalid filename");
+			response.setResponseCode(HttpStatus.BAD_REQUEST);
+			return response;
+		}
+
+		String fileExtension = originalFilename.substring(originalFilename.lastIndexOf('.') + 1).toLowerCase();
+
+		if (!serverProperties.getUserAchievementFileUploadAllowedExtensions().contains(fileExtension)) {
+			response.getParams().setStatus(Constants.FAILED);
+			response.getParams().setErrmsg("Invalid file type. Allowed types: " + String.join(", ", serverProperties.getUserAchievementFileUploadAllowedExtensions()));
+			response.setResponseCode(HttpStatus.BAD_REQUEST);
+			return response;
+		}
+
+		// Validate actual file content by checking magic bytes
+		try {
+			if (!isValidImageFileByMagicBytesForUserAchievement(file, fileExtension)) {
+				response.getParams().setStatus(Constants.FAILED);
+				response.getParams().setErrmsg("File content does not match the declared file type");
+				response.setResponseCode(HttpStatus.BAD_REQUEST);
+				return response;
+			}
+		} catch (IOException e) {
+			logger.error("Failed to validate file content: {}", e.getMessage());
+			response.getParams().setStatus(Constants.FAILED);
+			response.getParams().setErrmsg("Failed to validate file");
+			response.setResponseCode(HttpStatus.INTERNAL_SERVER_ERROR);
+			return response;
+		}
+		return null;
+	}
+
+	/**
+	 * Validates if the file is actually an image by checking magic bytes.
+	 * Allows files with converted extensions as long as the actual content type is in allowed types.
+	 *
+	 * @param file      the file to validate
+	 * @param extension the declared file extension
+	 * @return true if valid image with allowed content type, false otherwise
+	 * @throws IOException if file cannot be read
+	 */
+	private boolean isValidImageFileByMagicBytesForUserAchievement(MultipartFile file, String extension) throws IOException {
+		byte[] fileBytes = file.getBytes();
+		if (fileBytes.length < 4) {
+			return false;
+		}
+
+		// Detect actual file type from magic bytes
+		String actualType = detectImageTypeFromMagicBytes(fileBytes);
+
+		if (actualType == null) {
+			logger.info("File could not be identified as a valid image type");
+			return false;
+		}
+
+		List<String> allowedExtensions = serverProperties.getUserAchievementFileUploadAllowedExtensions();
+		if (allowedExtensions.contains(actualType)) {
+			logger.info("File with extension '{}' validated as actual type '{}'", extension, actualType);
+			return true;
+		}
+
+		logger.info("Detected image type '{}' is not in allowed extensions", actualType);
+		return false;
+	}
+
 }
