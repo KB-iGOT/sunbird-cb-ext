@@ -16,6 +16,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 import org.sunbird.cache.RedisCacheMgr;
 import org.sunbird.cassandra.utils.CassandraOperation;
 import org.sunbird.cloud.storage.BaseStorageService;
@@ -36,6 +37,7 @@ import org.sunbird.user.service.UserUtilityService;
 import scala.Option;
 
 import javax.annotation.PostConstruct;
+import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -740,7 +742,21 @@ public class OperationalReportServiceImpl implements OperationalReportService {
             return ResponseEntity.ok()
                     .headers(headers)
                     .contentLength(contentLength)
-                    .body(new InputStreamResource(inputStream));
+                    .body((StreamingResponseBody) outputStream -> {
+                        try (
+                                InputStream is = inputStream;
+                                BufferedInputStream bis = new BufferedInputStream(is)
+                        ) {
+                            // Default JVM/Servlet efficient buffer size
+                            byte[] buffer = new byte[8192];
+                            int bytesRead;
+                            while ((bytesRead = bis.read(buffer)) != -1) {
+                                outputStream.write(buffer, 0, bytesRead);
+                            }
+                            // Ensure remaining bytes are sent immediately
+                            outputStream.flush();
+                        }
+                    });
 
         } catch (Exception e) {
             logger.error("Error while streaming report", e);
