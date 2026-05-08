@@ -665,7 +665,7 @@ public class OperationalReportServiceImpl implements OperationalReportService {
     }
 
     @Override
-    public ResponseEntity<?> operationalReportDownloadV3(String rootOrgId, String authToken, Map<String, Object> requestBody) {
+    public ResponseEntity<Object> operationalReportDownloadV3(String rootOrgId, String authToken, Map<String, Object> requestBody) {
 
         try {
             // Validate user
@@ -729,34 +729,26 @@ public class OperationalReportServiceImpl implements OperationalReportService {
             }
 
             long contentLength = blobMetadata.contentLength();
+            InputStreamResource resource =
+                    new InputStreamResource(inputStream) {
+                        @Override
+                        public long contentLength() {
+                            return contentLength;
+                        }
+                    };
 
             // Headers
             HttpHeaders headers = new HttpHeaders();
+            headers.setConnection(Constants.CLOSE);
             headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
-            if (StringUtils.isNotBlank(password)) {
-                headers.add(Constants.PASSWORD, password);
-            }
+            headers.add(Constants.PASSWORD, password);
             headers.add(HttpHeaders.CONTENT_DISPOSITION,
                     "attachment; filename=\"" + serverProperties.getOperationReportFileName() + "\"");
             // Success response (file stream)
             return ResponseEntity.ok()
                     .headers(headers)
                     .contentLength(contentLength)
-                    .body((StreamingResponseBody) outputStream -> {
-                        try (
-                                InputStream is = inputStream;
-                                BufferedInputStream bis = new BufferedInputStream(is)
-                        ) {
-                            // Default JVM/Servlet efficient buffer size
-                            byte[] buffer = new byte[8192];
-                            int bytesRead;
-                            while ((bytesRead = bis.read(buffer)) != -1) {
-                                outputStream.write(buffer, 0, bytesRead);
-                            }
-                            // Ensure remaining bytes are sent immediately
-                            outputStream.flush();
-                        }
-                    });
+                    .body(resource);
 
         } catch (Exception e) {
             logger.error("Error while streaming report", e);
