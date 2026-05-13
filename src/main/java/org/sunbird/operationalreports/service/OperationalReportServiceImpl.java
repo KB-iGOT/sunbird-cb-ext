@@ -16,6 +16,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 import org.sunbird.cache.RedisCacheMgr;
 import org.sunbird.cassandra.utils.CassandraOperation;
 import org.sunbird.cloud.storage.BaseStorageService;
@@ -36,6 +37,7 @@ import org.sunbird.user.service.UserUtilityService;
 import scala.Option;
 
 import javax.annotation.PostConstruct;
+import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -663,7 +665,7 @@ public class OperationalReportServiceImpl implements OperationalReportService {
     }
 
     @Override
-    public ResponseEntity<?> operationalReportDownloadV3(String rootOrgId, String authToken, Map<String, Object> requestBody) {
+    public ResponseEntity<Object> operationalReportDownloadV3(String rootOrgId, String authToken, Map<String, Object> requestBody) {
 
         try {
             // Validate user
@@ -727,20 +729,26 @@ public class OperationalReportServiceImpl implements OperationalReportService {
             }
 
             long contentLength = blobMetadata.contentLength();
+            InputStreamResource resource =
+                    new InputStreamResource(inputStream) {
+                        @Override
+                        public long contentLength() {
+                            return contentLength;
+                        }
+                    };
 
             // Headers
             HttpHeaders headers = new HttpHeaders();
+            headers.setConnection(Constants.CLOSE);
             headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
-            if (StringUtils.isNotBlank(password)) {
-                headers.add(Constants.PASSWORD, password);
-            }
+            headers.add(Constants.PASSWORD, password);
             headers.add(HttpHeaders.CONTENT_DISPOSITION,
                     "attachment; filename=\"" + serverProperties.getOperationReportFileName() + "\"");
             // Success response (file stream)
             return ResponseEntity.ok()
                     .headers(headers)
                     .contentLength(contentLength)
-                    .body(new InputStreamResource(inputStream));
+                    .body(resource);
 
         } catch (Exception e) {
             logger.error("Error while streaming report", e);

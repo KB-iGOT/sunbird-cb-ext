@@ -60,7 +60,7 @@ public class OperationalReportController {
     }
 
     @PostMapping("/v3/download/{rootOrgId}")
-    public ResponseEntity<?> downloadOperationalReportV3(@PathVariable("rootOrgId") String rootOrgId,
+    public ResponseEntity<Object> downloadOperationalReportV3(@PathVariable("rootOrgId") String rootOrgId,
                                                       @RequestHeader(Constants.X_AUTH_TOKEN) String authToken, @RequestBody Map<String, Object> requestBody) throws Exception {
         return operationalReport.operationalReportDownloadV3(rootOrgId, authToken, requestBody);
     }
