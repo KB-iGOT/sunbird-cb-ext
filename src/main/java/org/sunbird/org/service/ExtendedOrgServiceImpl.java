@@ -9,6 +9,11 @@ import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.collections.MapUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.codehaus.jackson.map.ObjectMapper;
+import org.elasticsearch.action.search.SearchResponse;
+import org.elasticsearch.index.query.BoolQueryBuilder;
+import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.search.SearchHit;
+import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -29,6 +34,7 @@ import org.sunbird.consumer.KafkaProducer;
 import org.sunbird.org.model.OrgHierarchy;
 import org.sunbird.org.model.OrgHierarchyInfo;
 import org.sunbird.org.repository.OrgHierarchyRepository;
+import org.sunbird.common.util.IndexerService;
 
 @Service
 public class ExtendedOrgServiceImpl implements ExtendedOrgService {
@@ -45,6 +51,15 @@ public class ExtendedOrgServiceImpl implements ExtendedOrgService {
 
     @Autowired
     KafkaProducer kafkaProducer;
+
+
+	@Autowired
+	IndexerService indexerService;
+
+	@Autowired
+	CbExtServerProperties serverConfig;
+	@Value("${org.search.list.batch.size}")
+	private int batchsize;
 
     @Value("${kafka.topics.org.hierarchy.framework.new.org.event}")
     private String kafkaTopicCreateHierarchyFramework;
@@ -1150,6 +1165,119 @@ public class ExtendedOrgServiceImpl implements ExtendedOrgService {
 			logger.info("Updating organisation for field: {}", fieldName);
 		}
 		return errMsg;
+	}
+
+	@Override
+	public SBApiResponse getNodalOfficer(String orgId) {
+		logger.info("Fetching MDO Leader List");
+		SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.API_ORG_LIST);
+		try {
+			// VALIDATION
+			if (StringUtils.isEmpty(orgId)) {
+				response.getParams().setErrmsg("orgId is required");
+				response.getParams().setStatus(Constants.FAILED);
+				response.setResponseCode(HttpStatus.BAD_REQUEST);
+				return response;
+			}
+			List<Map<String, Object>> contentList = new ArrayList<>();
+			BoolQueryBuilder finalQuery = QueryBuilders.boolQuery();
+			// FILTER BY ORG ID
+			finalQuery.must(QueryBuilders.termQuery(Constants.ROOT_ORG_ID, orgId));
+			finalQuery.must(QueryBuilders.termQuery("roles.role", Constants.MDO_LEADER));
+			SearchSourceBuilder sourceBuilder = new SearchSourceBuilder().query(finalQuery);
+			sourceBuilder.size(100);
+			// USER PROFILE SEARCH
+			SearchResponse searchResponse = indexerService.getEsResult(serverConfig.getSbEsUserProfileIndex(), serverConfig.getEsProfileIndexType(), sourceBuilder, ProjectUtil.ESIndexType.USER_ES);
+			Map<String, Map<String, Object>> userMap = new HashMap<>();
+			List<String> rootOrgIds = new ArrayList<>();
+
+			/* ---------- USER LOOP ---------- */
+			for (SearchHit hit : searchResponse.getHits()) {
+				Map<String, Object> source = hit.getSourceAsMap();
+				String rootOrgId = (String) source.get(Constants.ROOT_ORG_ID);
+				userMap.put(rootOrgId, source);
+				rootOrgIds.add(rootOrgId);
+			}
+
+			/* ---------- BATCH LOGIC ---------- */
+			int batchSize = this.batchsize;
+			Map<String, String> ministryMap = new HashMap<>();
+			for (int i = 0; i < rootOrgIds.size(); i += batchSize) {
+				List<String> batch = rootOrgIds.subList(i, Math.min(i + batchSize, rootOrgIds.size()));
+				/* ---------- ORG SEARCH REQUEST ---------- */
+				Map<String, Object> orgSearchRequestBody = new HashMap<>();
+				Map<String, Object> request = new HashMap<>();
+				Map<String, Object> filters = new HashMap<>();
+				filters.put(Constants.ID, batch);
+				request.put(Constants.FILTERS, filters);
+				request.put(Constants.LIMIT, batch.size());
+				orgSearchRequestBody.put(Constants.REQUEST, request);
+				/* ---------- HEADERS ---------- */
+				Map<String, String> headers = new HashMap<>();
+				headers.put(Constants.CONTENT_TYPE, Constants.APPLICATION_JSON);
+				/* ---------- URL ---------- */
+				String url = configProperties.getSbUrl() + configProperties.getSbOrgSearchPath();
+				/* ---------- MICROSERVICE CALL ---------- */
+				Map<String, Object> apiResponse = (Map<String, Object>) outboundService.fetchResultUsingPost(url, orgSearchRequestBody, headers);
+				Map<String, Object> result = (Map<String, Object>) apiResponse.get(Constants.RESULT);
+				if (result != null) {
+					Map<String, Object> responseMap = (Map<String, Object>) result.get(Constants.RESPONSE);
+					if (responseMap != null) {
+						List<Map<String, Object>> orgContent = (List<Map<String, Object>>) responseMap.get(Constants.CONTENT);
+						if (CollectionUtils.isNotEmpty(orgContent)) {
+							for (Map<String, Object> org : orgContent) {
+								String identifier = (String) org.get(Constants.IDENTIFIER);
+								String ministry = (String) org.get(Constants.MINISTRY_STATE_NAME);
+								ministryMap.put(identifier, ministry);
+							}
+						}
+					}
+				}
+			}
+
+			/* ---------- FINAL USER LOOP ---------- */
+			if (CollectionUtils.isNotEmpty(rootOrgIds)) {
+				for (String rootOrgId : rootOrgIds) {
+					Map<String, Object> source = userMap.get(rootOrgId);
+					if (MapUtils.isNotEmpty(source)) {
+						String orgName = (String) source.get(Constants.ROOT_ORG_NAME);
+						String ministry = ministryMap.get(rootOrgId);
+						String nodalName = null;
+						String email = null;
+						Map<String, Object> profileDetails = (Map<String, Object>) source.get(Constants.PROFILE_DETAILS);
+						if (MapUtils.isNotEmpty(profileDetails)) {
+							Map<String, Object> personalDetails = (Map<String, Object>) profileDetails.get(Constants.PERSONAL_DETAILS);
+							if (MapUtils.isNotEmpty(personalDetails)) {
+								nodalName = (String) personalDetails.get(Constants.FIRST_NAME_LOWER_CASE);
+								email = (String) personalDetails.get(Constants.PRIMARY_EMAIL);
+								if (email != null) {
+									email = email.replace("@", "[at]");
+									email = email.replace(".", "[dot]");
+								}
+							}
+						}
+						Map<String, Object> leaderMap = new LinkedHashMap<>();
+						// DOC RESPONSE FORMAT
+						leaderMap.put("Name", nodalName);
+						leaderMap.put("OrgName", orgName);
+						leaderMap.put("StateOrMinistryName", ministry);
+						leaderMap.put("Email", email);
+						contentList.add(leaderMap);
+					}
+				}
+			}
+
+			/* ---------- FINAL RESPONSE ---------- */
+			Map<String, Object> finalResponse = new HashMap<>();
+			finalResponse.put(Constants.CONTENT, contentList);
+			response.getResult().put(Constants.RESPONSE, finalResponse);
+			response.getParams().setStatus(Constants.SUCCESS);
+		} catch (Exception e) {
+			logger.error("Error while fetching MDO Leader List", e);
+			response.getParams().setStatus(Constants.FAILED);
+			response.setResponseCode(HttpStatus.INTERNAL_SERVER_ERROR);
+		}
+		return response;
 	}
 
 }
