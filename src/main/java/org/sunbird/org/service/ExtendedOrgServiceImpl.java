@@ -1229,8 +1229,12 @@ public class ExtendedOrgServiceImpl implements ExtendedOrgService {
 						List<Map<String, Object>> orgContent = (List<Map<String, Object>>) responseMap.get(Constants.CONTENT);
 						if (CollectionUtils.isNotEmpty(orgContent)) {
 							for (Map<String, Object> org : orgContent) {
-								String identifier = (String) org.get(Constants.IDENTIFIER);
-								String ministry = (String) org.get(Constants.MINISTRY_STATE_NAME);
+								String identifier = org.get(Constants.IDENTIFIER) != null
+										? (String) org.get(Constants.IDENTIFIER)
+										: "";
+								String ministry = org.get(Constants.MINISTRY_STATE_NAME) != null
+										? (String) org.get(Constants.MINISTRY_STATE_NAME)
+										: "";
 								ministryMap.put(identifier, ministry);
 							}
 						}
