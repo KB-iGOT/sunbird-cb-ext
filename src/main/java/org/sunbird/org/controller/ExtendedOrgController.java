@@ -67,4 +67,13 @@ public class ExtendedOrgController {
 		return new ResponseEntity<>(response, response.getResponseCode());
 	}
 
+	@GetMapping("/getNodalOfficer")
+	public ResponseEntity<SBApiResponse> getNodalOfficer(
+			@RequestParam ("orgId") String orgId) {
+
+		SBApiResponse response = orgService.getNodalOfficer(orgId);
+		return new ResponseEntity<>(response, response.getResponseCode());
+	}
+
+
 }

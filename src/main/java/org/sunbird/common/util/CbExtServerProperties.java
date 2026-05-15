@@ -1273,9 +1273,33 @@ public class CbExtServerProperties {
 	@Value("${user.achievement.file.upload.allowed.extensions}")
 	private String userAchievementFileUploadAllowedExtensions;
 
+	@Value("${org.search.list.batch.size}")
+	private int batchsize;
+
+	@Value("${user.search.limit}")
+	private int userSearchLimit;
+
+	public int getUserSearchLimit() {
+		return userSearchLimit;
+	}
+
+	public void setUserSearchLimit(int userSearchLimit) {
+		this.userSearchLimit = userSearchLimit;
+	}
+
+	public int getBatchsize() {
+		return batchsize;
+	}
+
+	public void setBatchsize(int batchsize) {
+		this.batchsize = batchsize;
+	}
+
 	public String getProfilePreferenceValue() {
 		return profilePreferenceValue;
 	}
+
+
 
 	public void setProfilePreferenceValue(String profilePreferenceValue) {
 		this.profilePreferenceValue = profilePreferenceValue;
