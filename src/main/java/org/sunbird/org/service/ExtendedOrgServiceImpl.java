@@ -61,6 +61,9 @@ public class ExtendedOrgServiceImpl implements ExtendedOrgService {
 	@Value("${org.search.list.batch.size}")
 	private int batchsize;
 
+	@Value("${user.search.limit}")
+	private int userSearchLimit;
+
     @Value("${kafka.topics.org.hierarchy.framework.new.org.event}")
     private String kafkaTopicCreateHierarchyFramework;
 
@@ -1185,7 +1188,7 @@ public class ExtendedOrgServiceImpl implements ExtendedOrgService {
 			finalQuery.must(QueryBuilders.termQuery(Constants.ROOT_ORG_ID, orgId));
 			finalQuery.must(QueryBuilders.termQuery("roles.role", Constants.MDO_LEADER));
 			SearchSourceBuilder sourceBuilder = new SearchSourceBuilder().query(finalQuery);
-			sourceBuilder.size(100);
+			sourceBuilder.size(userSearchLimit);
 			// USER PROFILE SEARCH
 			SearchResponse searchResponse = indexerService.getEsResult(serverConfig.getSbEsUserProfileIndex(), serverConfig.getEsProfileIndexType(), sourceBuilder, ProjectUtil.ESIndexType.USER_ES);
 			Map<String, Map<String, Object>> userMap = new HashMap<>();
