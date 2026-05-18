@@ -699,7 +699,7 @@ public class OperationalReportServiceImpl implements OperationalReportService {
 
             String targetId = CollectionUtils.isNotEmpty(childIds) ? childIds.get(0) : rootOrgId;
             // Password from Redis
-            String password = redisCacheMgr.getCache(rootOrgId + Constants.UNDER_SCORE + Constants.PASSWORD);
+            String password = redisCacheMgr.getCache(targetId + Constants.UNDER_SCORE + Constants.PASSWORD);
             if (StringUtils.isEmpty(password)) {
                 return ResponseEntity.status(HttpStatus.FORBIDDEN)
                         .body("Report not available.");
