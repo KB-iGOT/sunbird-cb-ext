@@ -1575,4 +1575,7 @@ public class Constants {
 	public static final String LEARNER_LEADERBOARD_CACHE_KEY_PREFIX = "learnerLeaderboard_";
 	public static final String USER_ACHIEVEMENT_CLOUD_FOLDER_NAME = "userAchievements";
 	public static final String CLOSE = "close";
+	public static final String ROOT_ORG_NAME = "rootOrgName";
+	public static final String ROLE_PATH = "roles.role";
+	public static final String ERR_ORG_ID_REQUIRED = "orgId is required";
 }
