@@ -10,6 +10,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 import org.sunbird.common.model.SBApiResponse;
 import org.sunbird.common.util.Constants;
 import org.sunbird.operationalreports.service.OperationalReportService;
@@ -60,8 +61,8 @@ public class OperationalReportController {
     }
 
     @PostMapping("/v3/download/{rootOrgId}")
-    public ResponseEntity<Object> downloadOperationalReportV3(@PathVariable("rootOrgId") String rootOrgId,
-                                                      @RequestHeader(Constants.X_AUTH_TOKEN) String authToken, @RequestBody Map<String, Object> requestBody) throws Exception {
+    public ResponseEntity<StreamingResponseBody> downloadOperationalReportV3(@PathVariable("rootOrgId") String rootOrgId,
+                                                                             @RequestHeader(Constants.X_AUTH_TOKEN) String authToken, @RequestBody Map<String, Object> requestBody) throws Exception {
         return operationalReport.operationalReportDownloadV3(rootOrgId, authToken, requestBody);
     }
 }
