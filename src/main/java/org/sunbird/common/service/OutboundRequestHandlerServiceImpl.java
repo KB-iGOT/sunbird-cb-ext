@@ -234,12 +234,16 @@ public class OutboundRequestHandlerServiceImpl {
 			if (log.isDebugEnabled()) {
 				logDetails(uri, response);
 			}
-		} catch (HttpClientErrorException e) {
+		} catch (HttpStatusCodeException e) {
 			try {
 				response = (new ObjectMapper()).readValue(e.getResponseBodyAsString(),
-						new TypeReference<HashMap<String, Object>>() {
-						});
+						new TypeReference<HashMap<String, Object>>() {});
+				response.put(Constants.STATUS, e.getStatusCode().value());
+
 			} catch (Exception e1) {
+				response = new HashMap<>();
+				response.put(Constants.ERROR_MESSAGE, e.getMessage());
+				response.put(Constants.STATUS, e.getStatusCode().value());
 			}
 			log.error("Error received: " + e.getResponseBodyAsString(), e);
 		}
