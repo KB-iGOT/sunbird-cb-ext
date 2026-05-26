@@ -192,6 +192,15 @@ public class ProfileServiceImpl implements ProfileService {
 			Map<String, Object> responseMap = userUtilityService.getUsersReadData(userId, StringUtils.EMPTY,
 					StringUtils.EMPTY);
 			String deptName = (String) responseMap.get(Constants.CHANNEL);
+
+			if (StringUtils.isNotBlank(newDeptName) && StringUtils.equalsIgnoreCase(
+					StringUtils.trim(newDeptName), StringUtils.trim(deptName))) {
+				response.setResponseCode(HttpStatus.BAD_REQUEST);
+				response.getParams().setStatus(Constants.FAILED);
+				response.getParams().setErrmsg(Constants.SAME_ORGANIZATION_MSG);
+				return response;
+			}
+
 			Map<String, Object> existingProfileDetails = (Map<String, Object>) responseMap
 					.get(Constants.PROFILE_DETAILS);
 			HashMap<String, String> headerValues = new HashMap<>();

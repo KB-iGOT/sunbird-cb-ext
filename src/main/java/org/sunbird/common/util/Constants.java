@@ -1580,4 +1580,5 @@ public class Constants {
 	public static final String ROOT_ORG_NAME = "rootOrgName";
 	public static final String ROLE_PATH = "roles.role";
 	public static final String ERR_ORG_ID_REQUIRED = "orgId is required";
+	public static final String SAME_ORGANIZATION_MSG = "Profile update failed. The selected organization is already associated with your account.";
 }
