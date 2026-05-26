@@ -28,4 +28,13 @@ public class UserUtilityController {
 		SBApiResponse response = userUtilService.recommendContent(authUserToken, request);
 		return new ResponseEntity<>(response, response.getResponseCode());
 	}
+
+	@PostMapping("/user/v1/chatbot/search")
+	public ResponseEntity<SBApiResponse> searchChatbotUser(
+			@RequestBody Map<String, Object> request) {
+		SBApiResponse response =
+				userUtilService.searchChatbotUser(request);
+		return new ResponseEntity<>(response,
+				response.getResponseCode());
+	}
 }
