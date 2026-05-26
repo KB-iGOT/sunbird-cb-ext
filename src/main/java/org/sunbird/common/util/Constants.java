@@ -506,6 +506,8 @@ public class Constants {
 	public static final String MAP_ID = "mapId";
 	public static final String SB_ROOT_ORG_ID = "sbRootOrgId";
 	public static final String ERROR_MESSAGE = "errmsg";
+	public static final String ERRORCODE = "err";
+	public static final String FAILED_TO_MIGRATE_USER = "Failed to migrate User";
 
 	public static final String API_USER_BASIC_INFO = "api.user.basic.info";
 	public static final String API_USER_BASIC_PROFILE_UPDATE = "api.user.basic.profile.update";
@@ -1578,4 +1580,5 @@ public class Constants {
 	public static final String ROOT_ORG_NAME = "rootOrgName";
 	public static final String ROLE_PATH = "roles.role";
 	public static final String ERR_ORG_ID_REQUIRED = "orgId is required";
+	public static final String SAME_ORGANIZATION_MSG = "Profile update failed. The selected organization is already associated with your account.";
 }
