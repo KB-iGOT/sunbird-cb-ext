@@ -720,6 +720,8 @@ public class OperationalReportServiceImpl implements OperationalReportService {
                 "attachment; filename=\"" + serverProperties.getOperationReportFileName() + "\"");
         headers.add(Constants.PASSWORD, password);
         headers.setCacheControl("no-cache, no-store, must-revalidate");
+        headers.set(HttpHeaders.TRANSFER_ENCODING, "chunked");
+        headers.set("X-Accel-Buffering", "no");
 
         StreamingResponseBody stream = outputStream -> {
             try (InputStream inputStream = storageService.getObjectStream(container, objectKey)) {
