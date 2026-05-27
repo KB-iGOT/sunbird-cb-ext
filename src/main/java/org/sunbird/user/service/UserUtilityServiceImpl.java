@@ -22,6 +22,7 @@ import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -87,6 +88,8 @@ public class UserUtilityServiceImpl implements UserUtilityService {
 
     @Autowired
     ContentService contentService;
+
+
 
 	private Logger logger = LoggerFactory.getLogger(UserUtilityServiceImpl.class);
 
@@ -1388,5 +1391,61 @@ public class UserUtilityServiceImpl implements UserUtilityService {
 		sdf.setTimeZone(TimeZone.getTimeZone(Constants.IST_TIMEZONE));
 		String timeStamp = sdf.format(new java.util.Date());
 		profileDetails.put(Constants.PROFILE_STATUS_UPDATED_ON, timeStamp);
+	}
+
+	@Override
+	public SBApiResponse searchChatbotUser(
+			Map<String, Object> request) {
+		SBApiResponse response = new SBApiResponse();
+		try {
+			String phone = (String) request.get(Constants.MOBILE);
+			String email = (String) request.get(Constants.PROFILE_DETAILS_PRIMARY_EMAIL);
+			if(StringUtils.isBlank(phone)&& StringUtils.isBlank(email)){
+				response.setResponseCode(HttpStatus.BAD_REQUEST);
+				response.getParams().setErrmsg(Constants.PHONE_OR_EMAIL_REQUIRED);
+				return response;
+			}
+			BoolQueryBuilder finalQuery = QueryBuilders.boolQuery();
+			if (StringUtils.isNotBlank(phone)) {
+				finalQuery.must(QueryBuilders.termQuery(Constants.PROFILE_DETAILS_PHONE, phone)
+				);
+			} else if (StringUtils.isNotBlank(email)) {
+				finalQuery.must(QueryBuilders.termQuery(Constants.PROFILE_DETAILS_PRIMARY_EMAIL, email)
+				);
+			}
+			SearchSourceBuilder sourceBuilder = new SearchSourceBuilder().query(finalQuery).size(serverConfig.getChatbotSearchSize());
+			SearchResponse searchResponse = indexerService.getEsResult(serverConfig.getSbEsUserProfileIndex(), serverConfig.getSbEsProfileIndexType(), sourceBuilder, ProjectUtil.ESIndexType.USER_ES);
+			Map<String, Object> user = new HashMap<>();
+			Map<String, Object> result = new HashMap<>();
+			if (searchResponse == null || searchResponse.getHits() == null || searchResponse.getHits().getHits() == null || searchResponse.getHits().getHits().length == 0) {
+				response.setResponseCode(HttpStatus.NOT_FOUND);
+				response.getParams().setErrmsg(Constants.USER_NOT_FOUND);
+				return response;
+			}
+			user = searchResponse.getHits().getHits()[0].getSourceAsMap();
+			Integer status = (Integer) user.get(Constants.STATUS);
+
+			boolean isUserActive = Objects.equals(status,1);
+			String maskedPhone = (String) user.get(Constants.MASKED_PHONE);
+			String maskedEmail = (String) user.get(Constants.MASKED_EMAIL);
+			List<String> roles = new ArrayList<>();
+			Object roleObj = user.get(Constants.ROLES);
+			if (roleObj instanceof List<?>) {
+				List<Map<String, Object>> roleList = (List<Map<String, Object>>) roleObj;
+				roles = roleList.stream().map(roleMap ->(String) roleMap.get(Constants.ROLE)).filter(Objects::nonNull).collect(Collectors.toList());
+			}
+			boolean isPublicRoleAvailable = roles.contains(Constants.PUBLIC);
+			result.put(Constants.USER_ACTIVE, isUserActive);
+			result.put(Constants.ROLE_AVAILABLE, isPublicRoleAvailable);
+			result.put(Constants.MASKED_PHONE, maskedPhone);
+			result.put(Constants.MASKED_EMAIL, maskedEmail);
+			response.put(Constants.RESPONSE, result);
+			response.setResponseCode(HttpStatus.OK);
+		} catch (Exception e) {
+			logger.error(Constants.CHATBOT_SEARCH_ERROR, e);
+			response.setResponseCode(HttpStatus.INTERNAL_SERVER_ERROR);
+			response.getParams().setErrmsg(Constants.CHATBOT_SEARCH_ERROR);
+		}
+		return response;
 	}
 }

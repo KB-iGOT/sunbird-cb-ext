@@ -65,4 +65,7 @@ public interface UserUtilityService {
 	String emailValidation(String email, boolean isDomainValidation);
 
 	boolean isApprovedDomains(String emailDomain, String domainType);
+
+	SBApiResponse searchChatbotUser(Map<String, Object> request);
+
 }
