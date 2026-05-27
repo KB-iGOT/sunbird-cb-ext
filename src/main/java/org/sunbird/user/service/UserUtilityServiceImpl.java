@@ -1425,7 +1425,7 @@ public class UserUtilityServiceImpl implements UserUtilityService {
 			user = searchResponse.getHits().getHits()[0].getSourceAsMap();
 			Integer status = (Integer) user.get(Constants.STATUS);
 
-			boolean isUserActive = Integer.valueOf(1).equals(status);
+			boolean isUserActive = Objects.equals(status,1);
 			String maskedPhone = (String) user.get(Constants.MASKED_PHONE);
 			String maskedEmail = (String) user.get(Constants.MASKED_EMAIL);
 			List<String> roles = new ArrayList<>();
@@ -1444,7 +1444,7 @@ public class UserUtilityServiceImpl implements UserUtilityService {
 		} catch (Exception e) {
 			logger.error(Constants.CHATBOT_SEARCH_ERROR, e);
 			response.setResponseCode(HttpStatus.INTERNAL_SERVER_ERROR);
-			response.getParams().setErrmsg(e.getMessage());
+			response.getParams().setErrmsg(Constants.CHATBOT_SEARCH_ERROR);
 		}
 		return response;
 	}
