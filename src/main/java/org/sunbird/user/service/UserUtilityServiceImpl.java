@@ -22,6 +22,7 @@ import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -87,6 +88,8 @@ public class UserUtilityServiceImpl implements UserUtilityService {
 
     @Autowired
     ContentService contentService;
+
+
 
 	private Logger logger = LoggerFactory.getLogger(UserUtilityServiceImpl.class);
 
@@ -1410,11 +1413,11 @@ public class UserUtilityServiceImpl implements UserUtilityService {
 				finalQuery.must(QueryBuilders.termQuery(Constants.PROFILE_DETAILS_PRIMARY_EMAIL, email)
 				);
 			}
-			SearchSourceBuilder sourceBuilder = new SearchSourceBuilder().query(finalQuery).size(1);
+			SearchSourceBuilder sourceBuilder = new SearchSourceBuilder().query(finalQuery).size(serverConfig.getChatbotSearchSize());
 			SearchResponse searchResponse = indexerService.getEsResult(serverConfig.getSbEsUserProfileIndex(), serverConfig.getSbEsProfileIndexType(), sourceBuilder, ProjectUtil.ESIndexType.USER_ES);
 			Map<String, Object> user = new HashMap<>();
 			Map<String, Object> result = new HashMap<>();
-			if(searchResponse.getHits().getHits().length==0){
+			if (searchResponse == null || searchResponse.getHits() == null || searchResponse.getHits().getHits() == null || searchResponse.getHits().getHits().length == 0) {
 				response.setResponseCode(HttpStatus.NOT_FOUND);
 				response.getParams().setErrmsg(Constants.USER_NOT_FOUND);
 				return response;
@@ -1422,20 +1425,14 @@ public class UserUtilityServiceImpl implements UserUtilityService {
 			user = searchResponse.getHits().getHits()[0].getSourceAsMap();
 			Integer status = (Integer) user.get(Constants.STATUS);
 
-			boolean isUserActive = status != null && status == 1;
+			boolean isUserActive = Integer.valueOf(1).equals(status);
 			String maskedPhone = (String) user.get(Constants.MASKED_PHONE);
 			String maskedEmail = (String) user.get(Constants.MASKED_EMAIL);
-//			List<Map<String, Object>> organisations = (List<Map<String, Object>>) user.get(Constants.ORGANISATIONS);
 			List<String> roles = new ArrayList<>();
 			Object roleObj = user.get(Constants.ROLES);
 			if (roleObj instanceof List<?>) {
 				List<Map<String, Object>> roleList = (List<Map<String, Object>>) roleObj;
-				for (Map<String, Object> roleMap : roleList) {
-					String role = (String) roleMap.get(Constants.ROLE);
-					if (role != null) {
-						roles.add(role);
-					}
-				}
+				roles = roleList.stream().map(roleMap ->(String) roleMap.get(Constants.ROLE)).filter(Objects::nonNull).collect(Collectors.toList());
 			}
 			boolean isPublicRoleAvailable = roles.contains(Constants.PUBLIC);
 			result.put(Constants.USER_ACTIVE, isUserActive);
