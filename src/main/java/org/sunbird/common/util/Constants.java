@@ -1575,4 +1575,14 @@ public class Constants {
 	public static final String LEARNER_LEADERBOARD_CACHE_KEY_PREFIX = "learnerLeaderboard_";
 	public static final String USER_ACHIEVEMENT_CLOUD_FOLDER_NAME = "userAchievements";
 	public static final String CLOSE = "close";
+	public static final String ROOT_ORG_NAME = "rootOrgName";
+	public static final String ROLE_PATH = "roles.role";
+	public static final String ERR_ORG_ID_REQUIRED = "orgId is required";
+	public static final String MASKED_PHONE ="maskedPhone";
+	public static final String MASKED_EMAIL="maskedEmail";
+	public static final String USER_ACTIVE="isUserActive";
+	public static final String ROLE_AVAILABLE="isPublicRoleAvailable";
+	public static final String PHONE_OR_EMAIL_REQUIRED = "Phone or email is required";
+	public static final String USER_NOT_FOUND = "User not found";
+	public static final String CHATBOT_SEARCH_ERROR = "Error while searching chatbot user";
 }
