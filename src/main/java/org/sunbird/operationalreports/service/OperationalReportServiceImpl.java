@@ -16,6 +16,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.web.context.request.async.WebAsyncTask;
 import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 import org.sunbird.cache.RedisCacheMgr;
 import org.sunbird.cassandra.utils.CassandraOperation;
@@ -38,6 +39,7 @@ import scala.Option;
 
 import javax.annotation.PostConstruct;
 import java.io.*;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
@@ -48,6 +50,7 @@ import java.text.SimpleDateFormat;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.concurrent.Callable;
 import java.util.stream.Stream;
 
 /**
@@ -662,84 +665,108 @@ public class OperationalReportServiceImpl implements OperationalReportService {
     }
 
     @Override
-    public ResponseEntity<StreamingResponseBody> operationalReportDownloadV3(String rootOrgId, String authToken, Map<String, Object> requestBody) {
-        // Validate user
-        String userId = accessTokenValidator.fetchUserIdFromAccessToken(authToken);
-        if (StringUtils.isBlank(userId)) {
-            throw new RuntimeException("Invalid or missing user token.");
-        }
-
-        Map<String, Map<String, String>> userInfoMap = new HashMap<>();
-        userUtilityService.getUserDetailsFromDB(
-                Collections.singletonList(userId),
-                Arrays.asList(Constants.ROOT_ORG_ID, Constants.USER_ID),
-                userInfoMap
-        );
-
-        String userRootOrg = userInfoMap.get(userId).get(Constants.ROOT_ORG_ID);
-
-        if (StringUtils.isBlank(userRootOrg) || !userRootOrg.equalsIgnoreCase(rootOrgId)) {
-            throw new RuntimeException("User does not have access to this organization.");
-        }
-
-        Map<String, Object> request = (Map<String, Object>) requestBody.get(Constants.REQUEST);
-        if (MapUtils.isEmpty(request)) {
-            throw new RuntimeException("Invalid request body.");
-        }
-
-        List<String> childIds = (List<String>) request.get(Constants.CHILD_ID);
-
-        String targetId = CollectionUtils.isNotEmpty(childIds) ? childIds.get(0) : rootOrgId;
-        // Password from Redis
-        String password = redisCacheMgr.getCache(targetId + Constants.UNDER_SCORE + Constants.PASSWORD);
-        if (StringUtils.isEmpty(password)) {
-            throw new RuntimeException("Report not available.");
-        }
-
-        logger.info("Downloading report for org: {}, childId: {}", rootOrgId, targetId);
-
-        // Object key
-        String objectKey = serverProperties.getOperationalReportFolderName()
-                + "/mdoid=" + targetId + "/"
-                + serverProperties.getOperationReportFileName();
-
-        String container = serverProperties.getReportDownloadContainerName();
-
-        // Metadata
-        Model.Blob blobMetadata = storageService.getObjectOrNull(container, objectKey, Option.apply(false));
-        if (blobMetadata == null) {
-            throw new RuntimeException("Report not found for the given organization.");
-        }
-
-        long contentLength = blobMetadata.contentLength();
-
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
-        headers.setContentLength(contentLength);
-        headers.set(HttpHeaders.CONTENT_DISPOSITION,
-                "attachment; filename=\"" + serverProperties.getOperationReportFileName() + "\"");
-        headers.add(Constants.PASSWORD, password);
-        headers.setCacheControl("no-cache, no-store, must-revalidate");
-        headers.set("X-Accel-Buffering", "no");
-
-        StreamingResponseBody stream = outputStream -> {
-            try (InputStream inputStream = storageService.getObjectStream(container, objectKey)) {
-                if (inputStream == null) {
-                    throw new FileNotFoundException("Unable to fetch report stream from GCS.");
-                }
-                byte[] buffer = new byte[64 * 1024];
-                int bytesRead;
-
-                while ((bytesRead = inputStream.read(buffer)) != -1) {
-                    outputStream.write(buffer, 0, bytesRead);
-                }
-                outputStream.flush();
-                logger.info("File streaming completed successfully for object: {}", objectKey);
-            } catch (Exception ex) {
-                logger.error("Error while streaming file: {}", objectKey, ex);
-                throw ex;
+    public WebAsyncTask<ResponseEntity<StreamingResponseBody>> operationalReportDownloadV3(String rootOrgId, String authToken, Map<String, Object> requestBody) {
+        Callable<ResponseEntity<StreamingResponseBody>> callable = () -> {
+            // Validate user
+            String userId = accessTokenValidator.fetchUserIdFromAccessToken(authToken);
+            if (StringUtils.isBlank(userId)) {
+                throw new RuntimeException("Invalid or missing user token.");
             }
+
+            Map<String, Map<String, String>> userInfoMap = new HashMap<>();
+            userUtilityService.getUserDetailsFromDB(
+                    Collections.singletonList(userId),
+                    Arrays.asList(Constants.ROOT_ORG_ID, Constants.USER_ID),
+                    userInfoMap
+            );
+
+            String userRootOrg = userInfoMap.get(userId).get(Constants.ROOT_ORG_ID);
+
+            if (StringUtils.isBlank(userRootOrg) || !userRootOrg.equalsIgnoreCase(rootOrgId)) {
+                throw new RuntimeException("User does not have access to this organization.");
+            }
+
+            Map<String, Object> request = (Map<String, Object>) requestBody.get(Constants.REQUEST);
+            if (MapUtils.isEmpty(request)) {
+                throw new RuntimeException("Invalid request body.");
+            }
+
+            List<String> childIds = (List<String>) request.get(Constants.CHILD_ID);
+
+            String targetId = CollectionUtils.isNotEmpty(childIds) ? childIds.get(0) : rootOrgId;
+            // Password from Redis
+            String password = redisCacheMgr.getCache(targetId + Constants.UNDER_SCORE + Constants.PASSWORD);
+            if (StringUtils.isEmpty(password)) {
+                throw new RuntimeException("Report not available.");
+            }
+
+            logger.info("Downloading report for org: {}, childId: {}", rootOrgId, targetId);
+
+            // Object key
+            String objectKey = serverProperties.getOperationalReportFolderName()
+                    + "/mdoid=" + targetId + "/"
+                    + serverProperties.getOperationReportFileName();
+
+            String container = serverProperties.getReportDownloadContainerName();
+
+            // Metadata
+            Model.Blob blobMetadata = storageService.getObjectOrNull(container, objectKey, Option.apply(false));
+            if (blobMetadata == null) {
+                throw new RuntimeException("Report not found for the given organization.");
+            }
+
+            long contentLength = blobMetadata.contentLength();
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
+            headers.setContentLength(contentLength);
+            headers.set(HttpHeaders.CONTENT_DISPOSITION,
+                    "attachment; filename=\"" + serverProperties.getOperationReportFileName() + "\"");
+            headers.add(Constants.PASSWORD, password);
+            headers.setCacheControl("no-cache, no-store, must-revalidate");
+            headers.set("X-Accel-Buffering", "no");
+
+            StreamingResponseBody stream = outputStream -> {
+                try (InputStream inputStream = storageService.getObjectStream(container, objectKey)) {
+                    if (inputStream == null) {
+                        throw new FileNotFoundException("Unable to fetch report stream from GCS.");
+                    }
+                    byte[] buffer = new byte[256 * 1024];
+                    int bytesRead;
+
+                    while ((bytesRead = inputStream.read(buffer)) != -1) {
+                        outputStream.write(buffer, 0, bytesRead);
+                        outputStream.flush();
+                    }
+                    logger.info("File streaming completed successfully for object: {}", objectKey);
+                } catch (IOException ex) {
+                    String message = ex.getMessage();
+                    if (message != null && (message.contains("Broken pipe") || message.contains("Connection reset by peer"))) {
+                        logger.warn("Client disconnected during download: {}", objectKey);
+                        return;
+                    } else {
+                        logger.error("Error while streaming file: {}", objectKey, ex);
+                        throw ex;
+                    }
+                }
+            };
+            return ResponseEntity.ok().headers(headers).body(stream);
         };
-        return ResponseEntity.ok().headers(headers).body(stream);
+        WebAsyncTask<ResponseEntity<StreamingResponseBody>> task =
+                new WebAsyncTask<>(
+                        serverProperties.getReportDownloadAsyncTimeout(),
+                        callable
+                );
+
+        task.onTimeout(() -> {
+            logger.error("Operational report download timed out.");
+            StreamingResponseBody emptyBody = outputStream ->
+                    outputStream.write("Download timed out.".getBytes(StandardCharsets.UTF_8));
+            return ResponseEntity.status(HttpStatus.REQUEST_TIMEOUT).body(emptyBody);
+        });
+        task.onCompletion(() ->
+                logger.info("Operational report download request completed.")
+        );
+        return task;
     }
 }

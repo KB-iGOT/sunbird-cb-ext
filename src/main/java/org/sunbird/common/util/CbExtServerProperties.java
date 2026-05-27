@@ -1279,6 +1279,9 @@ public class CbExtServerProperties {
 	@Value("${user.search.limit}")
 	private int userSearchLimit;
 
+	@Value("${report.download.async.timeout}")
+	private long reportDownloadAsyncTimeout;
+
 	public int getUserSearchLimit() {
 		return userSearchLimit;
 	}
@@ -4319,5 +4322,13 @@ public class CbExtServerProperties {
 
 	public void setUserAchievementFileUploadAllowedExtensions(String userAchievementFileUploadAllowedExtensions) {
 		this.userAchievementFileUploadAllowedExtensions = userAchievementFileUploadAllowedExtensions;
+	}
+
+	public long getReportDownloadAsyncTimeout() {
+		return reportDownloadAsyncTimeout;
+	}
+
+	public void setReportDownloadAsyncTimeout(long reportDownloadAsyncTimeout) {
+		this.reportDownloadAsyncTimeout = reportDownloadAsyncTimeout;
 	}
 }
