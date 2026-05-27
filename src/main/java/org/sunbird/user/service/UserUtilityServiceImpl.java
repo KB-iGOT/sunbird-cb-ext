@@ -1410,7 +1410,7 @@ public class UserUtilityServiceImpl implements UserUtilityService {
 				finalQuery.must(QueryBuilders.termQuery(Constants.PROFILE_DETAILS_PHONE, phone)
 				);
 			} else if (StringUtils.isNotBlank(email)) {
-				finalQuery.must(QueryBuilders.termQuery(Constants.PROFILE_DETAILS_PRIMARY_EMAIL, email)
+				finalQuery.must(QueryBuilders.matchQuery(Constants.PROFILE_DETAILS_PRIMARY_EMAIL, email)
 				);
 			}
 			SearchSourceBuilder sourceBuilder = new SearchSourceBuilder().query(finalQuery).size(serverConfig.getChatbotSearchSize());
