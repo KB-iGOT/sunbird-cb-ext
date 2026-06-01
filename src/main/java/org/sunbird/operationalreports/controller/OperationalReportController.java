@@ -10,11 +10,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.context.request.async.WebAsyncTask;
-import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 import org.sunbird.common.model.SBApiResponse;
 import org.sunbird.common.util.Constants;
 import org.sunbird.operationalreports.service.OperationalReportService;
+
+import javax.servlet.http.HttpServletRequest;
 
 @RestController
 @RequestMapping("/operational/reports")
@@ -62,8 +62,12 @@ public class OperationalReportController {
     }
 
     @PostMapping("/v3/download/{rootOrgId}")
-    public WebAsyncTask<ResponseEntity<StreamingResponseBody>> downloadOperationalReportV3(@PathVariable("rootOrgId") String rootOrgId,
-                                                                                          @RequestHeader(Constants.X_AUTH_TOKEN) String authToken, @RequestBody Map<String, Object> requestBody) throws Exception {
-        return operationalReport.operationalReportDownloadV3(rootOrgId, authToken, requestBody);
+    public ResponseEntity<Map<String, Object>>  downloadOperationalReportV3(@PathVariable("rootOrgId") String rootOrgId,
+                                                                                          @RequestHeader(Constants.X_AUTH_TOKEN) String authToken, @RequestBody Map<String, Object> requestBody, HttpServletRequest servletRequest) {
+        return operationalReport.operationalReportDownloadV3(rootOrgId, authToken, requestBody, servletRequest);
+    }
+
+    @GetMapping("/v3/download/signedUrl") public ResponseEntity<Map<String, Object>> download( @RequestParam("t") String ticket, HttpServletRequest request) {
+        return operationalReport.processSecureDownload( ticket, request );
     }
 }

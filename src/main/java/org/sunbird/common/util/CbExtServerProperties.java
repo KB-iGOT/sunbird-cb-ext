@@ -1279,8 +1279,20 @@ public class CbExtServerProperties {
 	@Value("${user.search.limit}")
 	private int userSearchLimit;
 
-	@Value("${report.download.async.timeout}")
-	private long reportDownloadAsyncTimeout;
+	@Value("${operationalreport.signedurl.ttl}")
+	private int operationalReportSignedUrlTTL;
+
+	@Value("${gcp.key.path}")
+	private String gcpKeyPath;
+
+	@Value("${jwt.public.key.path}")
+	private String jwtPublicKeyPath;
+
+	@Value("${jwt.private.key.path}")
+	private String jwtPrivateKeyPath;
+
+	@Value("${edge.download.base.url}")
+	private String edgeDownloadBaseUrl;
 
 	public int getUserSearchLimit() {
 		return userSearchLimit;
@@ -4324,11 +4336,43 @@ public class CbExtServerProperties {
 		this.userAchievementFileUploadAllowedExtensions = userAchievementFileUploadAllowedExtensions;
 	}
 
-	public long getReportDownloadAsyncTimeout() {
-		return reportDownloadAsyncTimeout;
+	public int getOperationalReportSignedUrlTTL() {
+		return operationalReportSignedUrlTTL;
 	}
 
-	public void setReportDownloadAsyncTimeout(long reportDownloadAsyncTimeout) {
-		this.reportDownloadAsyncTimeout = reportDownloadAsyncTimeout;
+	public void setOperationalReportSignedUrlTTL(int operationalReportSignedUrlTTL) {
+		this.operationalReportSignedUrlTTL = operationalReportSignedUrlTTL;
+	}
+
+	public String getGcpKeyPath() {
+		return gcpKeyPath;
+	}
+
+	public void setGcpKeyPath(String gcpKeyPath) {
+		this.gcpKeyPath = gcpKeyPath;
+	}
+
+	public String getJwtPublicKeyPath() {
+		return jwtPublicKeyPath;
+	}
+
+	public void setJwtPublicKeyPath(String jwtPublicKeyPath) {
+		this.jwtPublicKeyPath = jwtPublicKeyPath;
+	}
+
+	public String getJwtPrivateKeyPath() {
+		return jwtPrivateKeyPath;
+	}
+
+	public void setJwtPrivateKeyPath(String jwtPrivateKeyPath) {
+		this.jwtPrivateKeyPath = jwtPrivateKeyPath;
+	}
+
+	public String getEdgeDownloadBaseUrl() {
+		return edgeDownloadBaseUrl;
+	}
+
+	public void setEdgeDownloadBaseUrl(String edgeDownloadBaseUrl) {
+		this.edgeDownloadBaseUrl = edgeDownloadBaseUrl;
 	}
 }

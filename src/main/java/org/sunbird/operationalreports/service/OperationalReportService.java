@@ -8,9 +8,9 @@ import java.util.Map;
 
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.context.request.async.WebAsyncTask;
-import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 import org.sunbird.common.model.SBApiResponse;
+
+import javax.servlet.http.HttpServletRequest;
 
 public interface OperationalReportService {
     public SBApiResponse grantReportAccessToMDOAdmin(Map<String, Object> request, String authToken);
@@ -22,5 +22,6 @@ public interface OperationalReportService {
     public SBApiResponse readGrantAccess(String authToken, boolean isAdminAPI);
 
     ResponseEntity<InputStreamResource> downloadIndividualReport(String rootOrgId, String authToken, Map<String, Object> requestBody);
-    public WebAsyncTask<ResponseEntity<StreamingResponseBody>> operationalReportDownloadV3(String rootOrgId, String authToken, Map<String, Object> requestBody);
+    public ResponseEntity<Map<String, Object>>  operationalReportDownloadV3(String rootOrgId, String authToken, Map<String, Object> requestBody, HttpServletRequest servletRequest);
+    public ResponseEntity<Map<String, Object>>processSecureDownload(String ticket, HttpServletRequest request);
 }

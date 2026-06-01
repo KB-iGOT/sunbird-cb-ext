@@ -1581,4 +1581,7 @@ public class Constants {
 	public static final String ROLE_PATH = "roles.role";
 	public static final String ERR_ORG_ID_REQUIRED = "orgId is required";
 	public static final String SAME_ORGANIZATION_MSG = "Profile update failed. The selected organization is already associated with your account.";
+	public static final String DOWNLOAD_URL = "downloadUrl";
+	public static final String SIGNED_URL = "signedUrl";
+	public static final String CONTENT_LENGTH = "contentLength";
 }
