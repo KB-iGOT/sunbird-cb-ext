@@ -204,6 +204,17 @@ public class CbExtServerProperties {
 	@Value("${kafka.topic.cbplan.content.request}")
 	private String cbplanContentRequestKafkaTopic;
 
+	@Value("${chatbot.search.size}")
+	private Integer ChatbotSearchSize;
+
+	public void setChatbotSearchSize(Integer chatbotSearchSize) {
+		ChatbotSearchSize = chatbotSearchSize;
+	}
+
+	public Integer getChatbotSearchSize() {
+		return ChatbotSearchSize;
+	}
+
 	public String getRedisDataHostName() {
 		return redisDataHostName;
 	}
