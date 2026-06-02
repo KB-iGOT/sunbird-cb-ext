@@ -197,11 +197,11 @@ public class OperationalReportServiceImpl implements OperationalReportService {
 
         try {
             privateKey = loadPrivateKey(serverProperties.getJwtPrivateKeyPath());
-            logger.info("GCS client and JWT private key initialized.");
+            logger.info("JWT private key initialized.");
 
         } catch (Exception e) {
-            logger.error("Failed to initialize service.", e);
-            throw new RuntimeException(e);
+            logger.error("Failed to initialize JWT private key: {}", e.getMessage(), e);
+            throw new RuntimeException("Service initialization failed", e);
         }
     }
 
@@ -805,8 +805,8 @@ public class OperationalReportServiceImpl implements OperationalReportService {
             return keyFactory.generatePrivate(spec);
 
         } catch (Exception e) {
-            logger.error("Failed to load private key.", e);
-            throw new RuntimeException(e);
+            logger.error("Failed to load private key from path {}. Error: {}", privateKeyPath, e.getMessage(), e);
+            throw new RuntimeException("Failed to load private key from " + privateKeyPath, e);
         }
     }
 
