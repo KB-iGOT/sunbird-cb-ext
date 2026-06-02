@@ -1158,33 +1158,35 @@ public class ExtendedOrgServiceImpl implements ExtendedOrgService {
             sourceBuilder.size(serverConfig.getUserSearchLimit());
             // USER PROFILE SEARCH
             SearchResponse searchResponse = indexerService.getEsResult(serverConfig.getSbEsUserProfileIndex(), serverConfig.getEsProfileIndexType(), sourceBuilder, ProjectUtil.ESIndexType.USER_ES);
-            /* ---------- FINAL USER LOOP ---------- */
-            for (SearchHit hit : searchResponse.getHits()) {
-                Map<String, Object> source = hit.getSourceAsMap();
-                String orgName = (String) source.get(Constants.ROOT_ORG_NAME);
-                String nodalName = null;
-                String email = null;
-                String ministryName = "";
-                Map<String, Object> profileDetails = (Map<String, Object>) source.get(Constants.PROFILE_DETAILS);
-                if (MapUtils.isNotEmpty(profileDetails)) {
-                    Map<String, Object> personalDetails = (Map<String, Object>) profileDetails.get(Constants.PERSONAL_DETAILS);
-                    if (MapUtils.isNotEmpty(personalDetails)) {
-                        nodalName = (String) personalDetails.get(Constants.FIRST_NAME_LOWER_CASE);
-                        email = (String) personalDetails.get(Constants.PRIMARY_EMAIL);
-                        if (email != null) {
-                            email = email.replace("@", "[at]");
-                            email = email.replace(".", "[dot]");
+           if (searchResponse != null && searchResponse.getHits() != null && searchResponse.getHits().getHits().length > 0){
+                /* ---------- FINAL USER LOOP ---------- */
+                for (SearchHit hit : searchResponse.getHits()) {
+                    Map<String, Object> source = hit.getSourceAsMap();
+                    String orgName = (String) source.get(Constants.ROOT_ORG_NAME);
+                    String nodalName = null;
+                    String email = null;
+                    String ministryName = "";
+                    Map<String, Object> profileDetails = (Map<String, Object>) source.get(Constants.PROFILE_DETAILS);
+                    if (MapUtils.isNotEmpty(profileDetails)) {
+                        Map<String, Object> personalDetails = (Map<String, Object>) profileDetails.get(Constants.PERSONAL_DETAILS);
+                        if (MapUtils.isNotEmpty(personalDetails)) {
+                            nodalName = (String) personalDetails.get(Constants.FIRST_NAME_LOWER_CASE);
+                            email = (String) personalDetails.get(Constants.PRIMARY_EMAIL);
+                            if (email != null) {
+                                email = email.replace("@", "[at]");
+                                email = email.replace(".", "[dot]");
+                            }
                         }
+                        ministryName = profileDetails.get(Constants.MINISTRY_OR_STATE_ORG_NAME) != null ? (String) profileDetails.get(Constants.MINISTRY_OR_STATE_ORG_NAME) : "";
                     }
-                    ministryName = profileDetails.get(Constants.MINISTRY_OR_STATE_ORG_NAME) != null ? (String) profileDetails.get(Constants.MINISTRY_OR_STATE_ORG_NAME) : "";
+                    Map<String, Object> leaderMap = new LinkedHashMap<>();
+                    leaderMap.put("name", nodalName);
+                    leaderMap.put("orgName", orgName);
+                    leaderMap.put("stateOrMinistryName", ministryName);
+                    leaderMap.put("email", email);
+                    contentList.add(leaderMap);
                 }
-                Map<String, Object> leaderMap = new LinkedHashMap<>();
-                leaderMap.put("name", nodalName);
-                leaderMap.put("orgName", orgName);
-                leaderMap.put("stateOrMinistryName", ministryName);
-                leaderMap.put("email", email);
-                contentList.add(leaderMap);
-            }
+        }
             redisCacheMgr.putCache(cacheKey, contentList);
             /* ---------- FINAL RESPONSE ---------- */
             Map<String, Object> finalResponse = new HashMap<>();
