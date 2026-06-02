@@ -1290,6 +1290,15 @@ public class CbExtServerProperties {
 	@Value("${user.search.limit}")
 	private int userSearchLimit;
 
+	@Value("${operational.report.jwt.ttl}")
+	private int operationalReportJwtTTL;
+
+	@Value("${jwt.private.key.path}")
+	private String jwtPrivateKeyPath;
+
+	@Value("${cb.download.proxy.base.url}")
+	private String cbDownloadProxyBaseUrl;
+
 	public int getUserSearchLimit() {
 		return userSearchLimit;
 	}
@@ -4330,5 +4339,29 @@ public class CbExtServerProperties {
 
 	public void setUserAchievementFileUploadAllowedExtensions(String userAchievementFileUploadAllowedExtensions) {
 		this.userAchievementFileUploadAllowedExtensions = userAchievementFileUploadAllowedExtensions;
+	}
+
+	public int getOperationalReportJwtTTL() {
+		return operationalReportJwtTTL;
+	}
+
+	public void setOperationalReportJwtTTL(int operationalReportJwtTTL) {
+		this.operationalReportJwtTTL = operationalReportJwtTTL;
+	}
+
+	public String getJwtPrivateKeyPath() {
+		return jwtPrivateKeyPath;
+	}
+
+	public void setJwtPrivateKeyPath(String jwtPrivateKeyPath) {
+		this.jwtPrivateKeyPath = jwtPrivateKeyPath;
+	}
+
+	public String getCbDownloadProxyBaseUrl() {
+		return cbDownloadProxyBaseUrl;
+	}
+
+	public void setCbDownloadProxyBaseUrl(String cbDownloadProxyBaseUrl) {
+		this.cbDownloadProxyBaseUrl = cbDownloadProxyBaseUrl;
 	}
 }

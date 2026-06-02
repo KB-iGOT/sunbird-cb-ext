@@ -1,6 +1,16 @@
 package org.sunbird.operationalreports.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.auth.oauth2.GoogleCredentials;
+import com.google.auth.oauth2.ServiceAccountCredentials;
+import com.google.cloud.storage.BlobInfo;
+import com.google.cloud.storage.HttpMethod;
+import com.google.cloud.storage.Storage;
+import com.google.cloud.storage.StorageOptions;
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.ExpiredJwtException;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.SignatureAlgorithm;
 import net.lingala.zip4j.ZipFile;
 import net.lingala.zip4j.model.ZipParameters;
 import net.lingala.zip4j.model.enums.EncryptionMethod;
@@ -16,7 +26,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
-import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
+import org.springframework.util.ObjectUtils;
 import org.sunbird.cache.RedisCacheMgr;
 import org.sunbird.cassandra.utils.CassandraOperation;
 import org.sunbird.cloud.storage.BaseStorageService;
@@ -37,17 +47,25 @@ import org.sunbird.user.service.UserUtilityService;
 import scala.Option;
 
 import javax.annotation.PostConstruct;
+import javax.servlet.http.HttpServletRequest;
 import java.io.*;
+import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.security.KeyFactory;
+import java.security.PrivateKey;
+import java.security.PublicKey;
 import java.security.SecureRandom;
+import java.security.spec.PKCS8EncodedKeySpec;
+import java.security.spec.X509EncodedKeySpec;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
 /**
@@ -90,6 +108,8 @@ public class OperationalReportServiceImpl implements OperationalReportService {
 
     @Autowired
     private RedisCacheMgr redisCacheMgr;
+    private Storage storage;
+    private PrivateKey privateKey;
 
     @Override
     public SBApiResponse grantReportAccessToMDOAdmin(Map<String, Object> requestBody, String authToken) {
@@ -173,6 +193,15 @@ public class OperationalReportServiceImpl implements OperationalReportService {
                     serverProperties.getCloudStorageTypeName(), serverProperties.getCloudStorageKey(),
                     serverProperties.getCloudStorageSecret().replace("\\n", "\n"),
                     Option.apply(serverProperties.getCloudStorageEndpoint()), Option.empty()));
+        }
+
+        try {
+            privateKey = loadPrivateKey(serverProperties.getJwtPrivateKeyPath());
+            logger.info("JWT private key initialized.");
+
+        } catch (Exception e) {
+            logger.error("Failed to initialize JWT private key: {}", e.getMessage(), e);
+            throw new RuntimeException("Service initialization failed", e);
         }
     }
 
@@ -662,84 +691,138 @@ public class OperationalReportServiceImpl implements OperationalReportService {
     }
 
     @Override
-    public ResponseEntity<StreamingResponseBody> operationalReportDownloadV3(String rootOrgId, String authToken, Map<String, Object> requestBody) {
-        // Validate user
-        String userId = accessTokenValidator.fetchUserIdFromAccessToken(authToken);
-        if (StringUtils.isBlank(userId)) {
-            throw new RuntimeException("Invalid or missing user token.");
-        }
+    public ResponseEntity<Map<String, Object>> operationalReportDownloadV3(String rootOrgId, String authToken, Map<String, Object> requestBody, HttpServletRequest servletRequest) {
 
-        Map<String, Map<String, String>> userInfoMap = new HashMap<>();
-        userUtilityService.getUserDetailsFromDB(
-                Collections.singletonList(userId),
-                Arrays.asList(Constants.ROOT_ORG_ID, Constants.USER_ID),
-                userInfoMap
-        );
-
-        String userRootOrg = userInfoMap.get(userId).get(Constants.ROOT_ORG_ID);
-
-        if (StringUtils.isBlank(userRootOrg) || !userRootOrg.equalsIgnoreCase(rootOrgId)) {
-            throw new RuntimeException("User does not have access to this organization.");
-        }
-
-        Map<String, Object> request = (Map<String, Object>) requestBody.get(Constants.REQUEST);
-        if (MapUtils.isEmpty(request)) {
-            throw new RuntimeException("Invalid request body.");
-        }
-
-        List<String> childIds = (List<String>) request.get(Constants.CHILD_ID);
-
-        String targetId = CollectionUtils.isNotEmpty(childIds) ? childIds.get(0) : rootOrgId;
-        // Password from Redis
-        String password = redisCacheMgr.getCache(targetId + Constants.UNDER_SCORE + Constants.PASSWORD);
-        if (StringUtils.isEmpty(password)) {
-            throw new RuntimeException("Report not available.");
-        }
-
-        logger.info("Downloading report for org: {}, childId: {}", rootOrgId, targetId);
-
-        // Object key
-        String objectKey = serverProperties.getOperationalReportFolderName()
-                + "/mdoid=" + targetId + "/"
-                + serverProperties.getOperationReportFileName();
-
-        String container = serverProperties.getReportDownloadContainerName();
-
-        // Metadata
-        Model.Blob blobMetadata = storageService.getObjectOrNull(container, objectKey, Option.apply(false));
-        if (blobMetadata == null) {
-            throw new RuntimeException("Report not found for the given organization.");
-        }
-
-        long contentLength = blobMetadata.contentLength();
-
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
-        headers.setContentLength(contentLength);
-        headers.set(HttpHeaders.CONTENT_DISPOSITION,
-                "attachment; filename=\"" + serverProperties.getOperationReportFileName() + "\"");
-        headers.add(Constants.PASSWORD, password);
-        headers.setCacheControl("no-cache, no-store, must-revalidate");
-        headers.set("X-Accel-Buffering", "no");
-
-        StreamingResponseBody stream = outputStream -> {
-            try (InputStream inputStream = storageService.getObjectStream(container, objectKey)) {
-                if (inputStream == null) {
-                    throw new FileNotFoundException("Unable to fetch report stream from GCS.");
-                }
-                byte[] buffer = new byte[64 * 1024];
-                int bytesRead;
-
-                while ((bytesRead = inputStream.read(buffer)) != -1) {
-                    outputStream.write(buffer, 0, bytesRead);
-                }
-                outputStream.flush();
-                logger.info("File streaming completed successfully for object: {}", objectKey);
-            } catch (Exception ex) {
-                logger.error("Error while streaming file: {}", objectKey, ex);
-                throw ex;
+        Map<String, Object> response = new HashMap<>();
+        try {
+            String userId = accessTokenValidator.fetchUserIdFromAccessToken(authToken);
+            if (StringUtils.isBlank(userId)) {
+                return buildErrorResponse("Invalid or missing user token", HttpStatus.UNAUTHORIZED);
             }
-        };
-        return ResponseEntity.ok().headers(headers).body(stream);
+
+            Map<String, Map<String, String>> userInfoMap = new HashMap<>();
+            userUtilityService.getUserDetailsFromDB(
+                    Collections.singletonList(userId),
+                    Arrays.asList(Constants.ROOT_ORG_ID, Constants.USER_ID),
+                    userInfoMap
+            );
+
+            Map<String, String> userInfo = userInfoMap.get(userId);
+            if (MapUtils.isEmpty(userInfo)) {
+                return buildErrorResponse("User details not found", HttpStatus.NOT_FOUND);
+            }
+
+            String userRootOrg = userInfo.get(Constants.ROOT_ORG_ID);
+            if (StringUtils.isBlank(userRootOrg) || !userRootOrg.equalsIgnoreCase(rootOrgId)) {
+                return buildErrorResponse("User does not have access to this organization",
+                        HttpStatus.FORBIDDEN);
+            }
+
+            Map<String, Object> request = (Map<String, Object>) requestBody.get(Constants.REQUEST);
+            if (MapUtils.isEmpty(request)) {
+                return buildErrorResponse("Invalid request body", HttpStatus.BAD_REQUEST);
+            }
+
+            List<String> childIds = (List<String>) request.get(Constants.CHILD_ID);
+            String targetId = CollectionUtils.isNotEmpty(childIds) ? childIds.get(0) : rootOrgId;
+            String password = redisCacheMgr.getCache(targetId + Constants.UNDER_SCORE + Constants.PASSWORD);
+
+            if (StringUtils.isBlank(password)) {
+                return buildErrorResponse("Report not available", HttpStatus.NOT_FOUND);
+            }
+
+            String objectKey =
+                    serverProperties.getOperationalReportFolderName()
+                            + "/mdoid="
+                            + targetId
+                            + "/"
+                            + serverProperties.getOperationReportFileName();
+
+            String container = serverProperties.getReportDownloadContainerName();
+
+            Model.Blob blobMetadata = storageService.getObjectOrNull(container, objectKey, Option.apply(false));
+
+            if (ObjectUtils.isEmpty(blobMetadata)) {
+                return buildErrorResponse("Report not found", HttpStatus.NOT_FOUND);
+            }
+            String clientIp = getClientIp(servletRequest);
+
+            String ticket = generateDownloadTicket(userId, container, objectKey, clientIp, targetId);
+            String edgeDownloadUrl = serverProperties.getCbDownloadProxyBaseUrl() + "/download/v3/operational/report/" + targetId + "?t=" + ticket;
+            response.put(Constants.STATUS, Constants.SUCCESS);
+            response.put(Constants.DOWNLOAD_URL, edgeDownloadUrl);
+            response.put(Constants.PASSWORD, password);
+            response.put(Constants.FILE_NAME, serverProperties.getOperationReportFileName());
+            response.put(Constants.CONTENT_LENGTH, blobMetadata.contentLength());
+            response.put("ticketExpiresInMinutes", serverProperties.getOperationalReportJwtTTL()/60);
+
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            logger.error("Failed to generate download URL.", e);
+            return buildErrorResponse("Internal server error", HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    private String generateDownloadTicket(String userId, String bucketName, String objectKey, String clientIp, String targetId) {
+
+        long now = System.currentTimeMillis();
+        String jti = UUID.randomUUID().toString();
+        String sid = UUID.randomUUID().toString().replace("-", "");
+        int jwtTtlSeconds = serverProperties.getOperationalReportJwtTTL();
+        String token = Jwts.builder()
+                .setId(jti)
+                .setAudience("igot-edge")
+                .claim("uid", userId)
+                .claim("bkt", bucketName)
+                .claim("obj", objectKey)
+                .claim("ip", clientIp)
+                .claim("sid", sid)
+                .claim("fid", targetId)
+                .setSubject(userId)
+                .setIssuedAt(new Date(now))
+                .setNotBefore(new Date(now - 5000))
+                .setIssuer("igot-backend")
+                .setHeaderParam("kid", "report-download-key")
+                .setExpiration(new Date(now + (jwtTtlSeconds * 1000L)))
+                .signWith(SignatureAlgorithm.RS256, privateKey)
+                .compact();
+        redisCacheMgr.putCache("dl:session:" + userId, sid, jwtTtlSeconds + 30);
+        redisCacheMgr.putCache("dl:ticket:" + jti, "1", jwtTtlSeconds);
+        return token;
+    }
+
+    private PrivateKey loadPrivateKey(String privateKeyPath) {
+        try {
+            String key = new String(Files.readAllBytes(Paths.get(privateKeyPath)));
+            key = key.replace("-----BEGIN PRIVATE KEY-----", "")
+                    .replace("-----END PRIVATE KEY-----", "")
+                    .replaceAll("\\s+", "");
+
+            byte[] decoded = Base64.getDecoder().decode(key);
+            PKCS8EncodedKeySpec spec = new PKCS8EncodedKeySpec(decoded);
+            KeyFactory keyFactory = KeyFactory.getInstance("RSA");
+            return keyFactory.generatePrivate(spec);
+
+        } catch (Exception e) {
+            logger.error("Failed to load private key from path {}. Error: {}", privateKeyPath, e.getMessage(), e);
+            throw new RuntimeException("Failed to load private key from " + privateKeyPath, e);
+        }
+    }
+
+    private ResponseEntity<Map<String, Object>> buildErrorResponse(String message, HttpStatus status) {
+        Map<String, Object> response = new HashMap<>();
+        response.put(Constants.STATUS, Constants.FAILED);
+        response.put(Constants.RESPONSE_CODE, status.value());
+        response.put(Constants.MESSAGE, message);
+        return ResponseEntity.status(status).body(response);
+    }
+
+    private String getClientIp(HttpServletRequest request) {
+        String xForwardedFor = request.getHeader("X-Forwarded-For");
+        if (StringUtils.isNotBlank(xForwardedFor)) {
+            return xForwardedFor.split(",")[0].trim();
+        }
+        return request.getRemoteAddr();
     }
 }
