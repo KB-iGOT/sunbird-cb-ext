@@ -1290,20 +1290,14 @@ public class CbExtServerProperties {
 	@Value("${user.search.limit}")
 	private int userSearchLimit;
 
-	@Value("${operationalreport.signedurl.ttl}")
-	private int operationalReportSignedUrlTTL;
-
-	@Value("${gcp.key.path}")
-	private String gcpKeyPath;
-
-	@Value("${jwt.public.key.path}")
-	private String jwtPublicKeyPath;
+	@Value("${operational.report.jwt.ttl}")
+	private int operationalReportJwtTTL;
 
 	@Value("${jwt.private.key.path}")
 	private String jwtPrivateKeyPath;
 
-	@Value("${edge.download.base.url}")
-	private String edgeDownloadBaseUrl;
+	@Value("${cb.download.proxy.base.url}")
+	private String cbDownloadProxyBaseUrl;
 
 	public int getUserSearchLimit() {
 		return userSearchLimit;
@@ -4347,28 +4341,12 @@ public class CbExtServerProperties {
 		this.userAchievementFileUploadAllowedExtensions = userAchievementFileUploadAllowedExtensions;
 	}
 
-	public int getOperationalReportSignedUrlTTL() {
-		return operationalReportSignedUrlTTL;
+	public int getOperationalReportJwtTTL() {
+		return operationalReportJwtTTL;
 	}
 
-	public void setOperationalReportSignedUrlTTL(int operationalReportSignedUrlTTL) {
-		this.operationalReportSignedUrlTTL = operationalReportSignedUrlTTL;
-	}
-
-	public String getGcpKeyPath() {
-		return gcpKeyPath;
-	}
-
-	public void setGcpKeyPath(String gcpKeyPath) {
-		this.gcpKeyPath = gcpKeyPath;
-	}
-
-	public String getJwtPublicKeyPath() {
-		return jwtPublicKeyPath;
-	}
-
-	public void setJwtPublicKeyPath(String jwtPublicKeyPath) {
-		this.jwtPublicKeyPath = jwtPublicKeyPath;
+	public void setOperationalReportJwtTTL(int operationalReportJwtTTL) {
+		this.operationalReportJwtTTL = operationalReportJwtTTL;
 	}
 
 	public String getJwtPrivateKeyPath() {
@@ -4379,11 +4357,11 @@ public class CbExtServerProperties {
 		this.jwtPrivateKeyPath = jwtPrivateKeyPath;
 	}
 
-	public String getEdgeDownloadBaseUrl() {
-		return edgeDownloadBaseUrl;
+	public String getCbDownloadProxyBaseUrl() {
+		return cbDownloadProxyBaseUrl;
 	}
 
-	public void setEdgeDownloadBaseUrl(String edgeDownloadBaseUrl) {
-		this.edgeDownloadBaseUrl = edgeDownloadBaseUrl;
+	public void setCbDownloadProxyBaseUrl(String cbDownloadProxyBaseUrl) {
+		this.cbDownloadProxyBaseUrl = cbDownloadProxyBaseUrl;
 	}
 }

@@ -66,8 +66,4 @@ public class OperationalReportController {
                                                                                           @RequestHeader(Constants.X_AUTH_TOKEN) String authToken, @RequestBody Map<String, Object> requestBody, HttpServletRequest servletRequest) {
         return operationalReport.operationalReportDownloadV3(rootOrgId, authToken, requestBody, servletRequest);
     }
-
-    @GetMapping("/v3/download/signedUrl") public ResponseEntity<Map<String, Object>> download( @RequestParam("t") String ticket, HttpServletRequest request) {
-        return operationalReport.processSecureDownload( ticket, request );
-    }
 }

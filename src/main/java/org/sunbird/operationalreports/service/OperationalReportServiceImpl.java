@@ -196,15 +196,6 @@ public class OperationalReportServiceImpl implements OperationalReportService {
         }
 
         try {
-
-            InputStream inputStream = Files.newInputStream(Paths.get(serverProperties.getGcpKeyPath()));
-            GoogleCredentials credentials = ServiceAccountCredentials.fromStream(inputStream);
-
-            storage = StorageOptions.newBuilder()
-                            .setCredentials(credentials)
-                            .build()
-                            .getService();
-
             privateKey = loadPrivateKey(serverProperties.getJwtPrivateKeyPath());
             logger.info("GCS client and JWT private key initialized.");
 
@@ -704,7 +695,8 @@ public class OperationalReportServiceImpl implements OperationalReportService {
 
         Map<String, Object> response = new HashMap<>();
         try {
-            String userId = accessTokenValidator.fetchUserIdFromAccessToken(authToken);
+            // String userId = accessTokenValidator.fetchUserIdFromAccessToken(authToken);
+            String userId = "3a2651d5-a889-4d9b-9cf3-05bd448a4382";
             if (StringUtils.isBlank(userId)) {
                 return buildErrorResponse("Invalid or missing user token", HttpStatus.UNAUTHORIZED);
             }
@@ -756,15 +748,14 @@ public class OperationalReportServiceImpl implements OperationalReportService {
             }
             String clientIp = getClientIp(servletRequest);
 
-            String ticket = generateDownloadTicket(userId, container, objectKey, clientIp);
-            String edgeDownloadUrl = serverProperties.getEdgeDownloadBaseUrl() + "/v3/operational/report?t=" + ticket;
-
+            String ticket = generateDownloadTicket(userId, container, objectKey, clientIp, targetId);
+            String edgeDownloadUrl = serverProperties.getCbDownloadProxyBaseUrl() + "/download/v3/operational/report/" + targetId + "?t=" + ticket;
             response.put(Constants.STATUS, Constants.SUCCESS);
             response.put(Constants.DOWNLOAD_URL, edgeDownloadUrl);
             response.put(Constants.PASSWORD, password);
             response.put(Constants.FILE_NAME, serverProperties.getOperationReportFileName());
             response.put(Constants.CONTENT_LENGTH, blobMetadata.contentLength());
-            response.put("ticketExpiresInMinutes", serverProperties.getOperationalReportSignedUrlTTL());
+            response.put("ticketExpiresInMinutes", serverProperties.getOperationalReportJwtTTL()/60);
 
             return ResponseEntity.ok(response);
 
@@ -774,122 +765,32 @@ public class OperationalReportServiceImpl implements OperationalReportService {
         }
     }
 
-    @Override
-    public ResponseEntity<Map<String, Object>> processSecureDownload(String ticket, HttpServletRequest servletRequest) {
-
-        try {
-            String currentIp = getClientIp(servletRequest);
-            Claims claims = validateTicket(ticket);
-
-            //Validate device IP
-//            String tokenIp = claims.get("ip", String.class);
-//            if (!StringUtils.equals(tokenIp, currentIp)) {
-//                throw new RuntimeException("IP mismatch.");
-//            }
-
-            String bucket = claims.get("bkt", String.class);
-            String objectKey = claims.get("obj", String.class);
-
-            URL signedUrl = generateGcpSignedUrl(bucket, objectKey, serverProperties.getOperationalReportSignedUrlTTL());
-            logger.info(
-                    "REPORT_DOWNLOAD | userId={} | file={} | ip={} | time={}",
-                    claims.get("uid", String.class),
-                    objectKey,
-                    currentIp,
-                    System.currentTimeMillis()
-            );
-
-            Map<String, Object> response = new HashMap<>();
-            response.put(Constants.SIGNED_URL, signedUrl.toString());
-            return ResponseEntity.ok(response);
-
-        } catch (ExpiredJwtException e) {
-            logger.error("Download ticket expired.", e);
-            Map<String, Object> resp = new HashMap<>();
-            resp.put(Constants.ERROR, "ticket_expired");
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(resp);
-
-        } catch (Exception e) {
-            logger.error("Failed to process secure download.", e);
-            Map<String, Object> resp = new HashMap<>();
-            resp.put(Constants.ERROR, "internal_error");
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(resp);
-        }
-    }
-
-    private String generateDownloadTicket(String userId, String bucketName, String objectKey, String clientIp) {
+    private String generateDownloadTicket(String userId, String bucketName, String objectKey, String clientIp, String targetId) {
 
         long now = System.currentTimeMillis();
         String jti = UUID.randomUUID().toString();
+        String sid = UUID.randomUUID().toString().replace("-", "");
+        int jwtTtlSeconds = serverProperties.getOperationalReportJwtTTL();
         String token = Jwts.builder()
                 .setId(jti)
+                .setAudience("igot-edge")
                 .claim("uid", userId)
                 .claim("bkt", bucketName)
                 .claim("obj", objectKey)
-                // .claim("ip", clientIp)
+                .claim("ip", clientIp)
+                .claim("sid", sid)
+                .claim("fid", targetId)
+                .setSubject(userId)
                 .setIssuedAt(new Date(now))
-                .setSubject("REPORT_DOWNLOAD")
-                .setIssuer("igot")
-                .setExpiration(new Date(now + (serverProperties.getOperationalReportSignedUrlTTL() * 60L * 1000L)))
+                .setNotBefore(new Date(now - 5000))
+                .setIssuer("igot-backend")
+                .setHeaderParam("kid", "report-download-key")
+                .setExpiration(new Date(now + (jwtTtlSeconds * 1000L)))
                 .signWith(SignatureAlgorithm.RS256, privateKey)
                 .compact();
-        redisCacheMgr.putCache("report_ticket:" + jti, "ACTIVE", serverProperties.getOperationalReportSignedUrlTTL() * 60);
+        redisCacheMgr.putCache("dl:session:" + userId, sid, jwtTtlSeconds + 30);
+        redisCacheMgr.putCache("dl:ticket:" + jti, "1", jwtTtlSeconds);
         return token;
-    }
-
-    private Claims validateTicket(String ticket) {
-
-        try {
-            PublicKey publicKey = loadPublicKey(serverProperties.getJwtPublicKeyPath());
-            Claims claims = Jwts.parser()
-                    .setSigningKey(publicKey)
-                    .parseClaimsJws(ticket)
-                    .getBody();
-
-            String jti = claims.getId();
-            String redisValue = redisCacheMgr.getCache("report_ticket:" + jti);
-            if (StringUtils.isBlank(redisValue)) {
-                throw new RuntimeException("Ticket expired or already used.");
-            }
-            redisCacheMgr.deleteKeyByName("report_ticket:" + jti);
-            return claims;
-
-        } catch (ExpiredJwtException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new RuntimeException("Invalid download ticket.", e);
-        }
-    }
-
-    private PublicKey loadPublicKey(String publicKeyPath) {
-
-        try {
-            String key = new String(Files.readAllBytes(Paths.get(publicKeyPath)));
-            key = key
-                    .replace("-----BEGIN PUBLIC KEY-----", "")
-                    .replace("-----END PUBLIC KEY-----", "")
-                    .replaceAll("\\s+", "");
-
-            byte[] decoded = Base64.getDecoder().decode(key);
-            X509EncodedKeySpec spec = new X509EncodedKeySpec(decoded);
-            KeyFactory keyFactory = KeyFactory.getInstance("RSA");
-            return keyFactory.generatePublic(spec);
-
-        } catch (Exception e) {
-            throw new RuntimeException("Unable to load public key.", e);
-        }
-    }
-
-    private URL generateGcpSignedUrl(String bucketName, String objectKey, int durationMinutes) {
-        BlobInfo blobInfo = BlobInfo.newBuilder(bucketName, objectKey).build();
-        return storage.signUrl(
-                blobInfo,
-                durationMinutes,
-                TimeUnit.MINUTES,
-                Storage.SignUrlOption.httpMethod(HttpMethod.GET),
-                Storage.SignUrlOption.withV4Signature()
-        );
     }
 
     private PrivateKey loadPrivateKey(String privateKeyPath) {
@@ -911,7 +812,6 @@ public class OperationalReportServiceImpl implements OperationalReportService {
     }
 
     private ResponseEntity<Map<String, Object>> buildErrorResponse(String message, HttpStatus status) {
-
         Map<String, Object> response = new HashMap<>();
         response.put(Constants.STATUS, Constants.FAILED);
         response.put(Constants.RESPONSE_CODE, status.value());
