@@ -695,8 +695,7 @@ public class OperationalReportServiceImpl implements OperationalReportService {
 
         Map<String, Object> response = new HashMap<>();
         try {
-            // String userId = accessTokenValidator.fetchUserIdFromAccessToken(authToken);
-            String userId = "3a2651d5-a889-4d9b-9cf3-05bd448a4382";
+            String userId = accessTokenValidator.fetchUserIdFromAccessToken(authToken);
             if (StringUtils.isBlank(userId)) {
                 return buildErrorResponse("Invalid or missing user token", HttpStatus.UNAUTHORIZED);
             }
