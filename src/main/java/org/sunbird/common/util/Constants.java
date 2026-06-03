@@ -1588,4 +1588,7 @@ public class Constants {
 	public static final String USER_NOT_FOUND = "User not found";
 	public static final String CHATBOT_SEARCH_ERROR = "Error while searching chatbot user";
 	public static final String SAME_ORGANIZATION_MSG = "Profile update failed. The selected organization is already associated with your account.";
+	public static final String MINISTRY_OR_STATE_ORG_NAME = "ministryOrStateOrgName";
+	public static final String NODAL_OFFICER_PREFIX= "nodalofficer_";
 }
+
