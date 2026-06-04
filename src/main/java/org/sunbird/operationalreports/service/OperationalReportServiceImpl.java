@@ -787,8 +787,8 @@ public class OperationalReportServiceImpl implements OperationalReportService {
                 .setExpiration(new Date(now + (jwtTtlSeconds * 1000L)))
                 .signWith(SignatureAlgorithm.RS256, privateKey)
                 .compact();
-        redisCacheMgr.putCache("dl:session:" + userId, sid, jwtTtlSeconds + 30);
-        redisCacheMgr.putCache("dl:ticket:" + jti, "1", jwtTtlSeconds);
+        redisCacheMgr.putStringInCache("dl:session:" + userId, sid, jwtTtlSeconds + 30);
+        redisCacheMgr.putStringInCache("dl:ticket:" + jti, "1", jwtTtlSeconds);
         return token;
     }
 
