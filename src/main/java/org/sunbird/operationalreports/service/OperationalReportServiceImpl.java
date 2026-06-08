@@ -11,6 +11,7 @@ import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
+import lombok.RequiredArgsConstructor;
 import net.lingala.zip4j.ZipFile;
 import net.lingala.zip4j.model.ZipParameters;
 import net.lingala.zip4j.model.enums.EncryptionMethod;
@@ -73,49 +74,25 @@ import java.util.stream.Stream;
  * @author Deepak kumar Thakur & Mahesh R V
  */
 @Service
+@RequiredArgsConstructor
 public class OperationalReportServiceImpl implements OperationalReportService {
     private static final Logger logger = LoggerFactory.getLogger(OperationalReportServiceImpl.class);
 
     private static final String ALPHANUMERIC_CHARACTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
 
-    @Autowired
-    CbExtServerProperties serverProperties;
+    private final CbExtServerProperties serverProperties;
+    private final PropertiesConfig configuration;
+    private final OutboundRequestHandlerServiceImpl outboundRequestHandlerService;
+    private final AccessTokenValidator accessTokenValidator;
+    private final CassandraOperation cassandraOperation;
+    private final UserUtilityService userUtilityService;
+    private final OrgHierarchyRepository orgHierarchyRepository;
+    private final RedisCacheMgr redisCacheMgr;
+    private final ExtendedOrgService extendedOrgService;
 
-    @Autowired
-    PropertiesConfig configuration;
-
-    @Autowired
-    private OutboundRequestHandlerServiceImpl outboundReqService;
-
-    @Autowired
-    OutboundRequestHandlerServiceImpl outboundRequestHandlerService;
-
-    @Autowired
-    AccessTokenValidator accessTokenValidator;
-
-    @Autowired
-    private CassandraOperation cassandraOperation;
-
-    @Autowired
-    private CbExtServerProperties serverConfig;
-
-    @Autowired
-    private UserUtilityService userUtilityService;
-
-    private BaseStorageService storageService = null;
-
-    @Autowired
-    OrgHierarchyRepository orgHierarchyRepository;
-
-    @Autowired
-    private RedisCacheMgr redisCacheMgr;
-
+    private BaseStorageService storageService;
     private Storage storage;
-
     private PrivateKey privateKey;
-
-    @Autowired
-    private ExtendedOrgService extendedOrgService;
 
     @Override
     public SBApiResponse grantReportAccessToMDOAdmin(Map<String, Object> requestBody, String authToken) {
@@ -161,7 +138,7 @@ public class OperationalReportServiceImpl implements OperationalReportService {
                 assignRoleReq.put(Constants.REQUEST, roleRequestBody);
 
                 Map<String, Object> assignRoleResp = outboundRequestHandlerService.fetchResultUsingPost(
-                        serverConfig.getSbUrl() + serverConfig.getSbAssignRolePath(), assignRoleReq,
+                        serverProperties.getSbUrl() + serverProperties.getSbAssignRolePath(), assignRoleReq,
                         null);
                 if (!Constants.OK.equalsIgnoreCase((String) assignRoleResp.get(Constants.RESPONSE_CODE))) {
                     logger.error("Failed to assign MDO_REPORT_ACCESSOR role for user. Response : %s",
@@ -677,7 +654,7 @@ public class OperationalReportServiceImpl implements OperationalReportService {
             } else {
                 password = getZipProtectPassword();
                 headers.add(Constants.PASSWORD, password);
-                redisCacheMgr.putStringInCache(rootOrgId + Constants.UNDER_SCORE + Constants.PASSWORD, password, (int)serverConfig.getCacheMaxTTL());
+                redisCacheMgr.putStringInCache(rootOrgId + Constants.UNDER_SCORE + Constants.PASSWORD, password, (int)serverProperties.getCacheMaxTTL());
             }
 
             // Encrypt the unzipped files and create a new zip file
@@ -731,11 +708,11 @@ public class OperationalReportServiceImpl implements OperationalReportService {
 
             List<String> childIds = (List<String>) request.get(Constants.CHILD_ID);
             String targetId = CollectionUtils.isNotEmpty(childIds) ? childIds.get(0) : rootOrgId;
-            Map<String, Object> cassandraResponse = extendedOrgService.getOrgDetailsFromDB(targetId);
-            if (MapUtils.isEmpty(cassandraResponse)) {
+            Map<String, Object> orgDetails = extendedOrgService.getOrgDetailsFromDB(targetId);
+            if (MapUtils.isEmpty(orgDetails)) {
                 return buildErrorResponse("Invalid orgId", HttpStatus.BAD_REQUEST);
             }
-            String targetOrgName = (String) cassandraResponse.get(Constants.ORG_NAME_LOWERCASE);
+            String targetOrgName = (String) orgDetails.get(Constants.ORG_NAME_LOWERCASE);
             if (StringUtils.isBlank(targetOrgName)) {
                 return buildErrorResponse("Invalid orgId", HttpStatus.BAD_REQUEST);
             }
@@ -787,18 +764,18 @@ public class OperationalReportServiceImpl implements OperationalReportService {
         String token = Jwts.builder()
                 .setId(jti)
                 .setAudience("igot-edge")
-                .claim("uid", userId)
-                .claim("bkt", bucketName)
-                .claim("obj", objectKey)
-                .claim("ip", clientIp)
-                .claim("sid", sid)
-                .claim("fid", targetId)
-                .claim("fname",targetOrgName)
+                .claim(Constants.UID, userId)
+                .claim(Constants.BKT, bucketName)
+                .claim(Constants.OBJ, objectKey)
+                .claim(Constants.IP, clientIp)
+                .claim(Constants.SID, sid)
+                .claim(Constants.FID, targetId)
+                .claim(Constants.FNAME,targetOrgName)
                 .setSubject(userId)
                 .setIssuedAt(new Date(now))
                 .setNotBefore(new Date(now - 5000))
                 .setIssuer("igot-backend")
-                .setHeaderParam("kid", "report-download-key")
+                .setHeaderParam(Constants.KID, serverProperties.getReportDownloadJwtKeyId())
                 .setExpiration(new Date(now + (jwtTtlSeconds * 1000L)))
                 .signWith(SignatureAlgorithm.RS256, privateKey)
                 .compact();
