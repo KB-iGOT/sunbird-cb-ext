@@ -1588,10 +1588,10 @@ public class Constants {
 	public static final String USER_NOT_FOUND = "User not found";
 	public static final String CHATBOT_SEARCH_ERROR = "Error while searching chatbot user";
 	public static final String SAME_ORGANIZATION_MSG = "Profile update failed. The selected organization is already associated with your account.";
-	public static final String DOWNLOAD_URL = "downloadUrl";
-	public static final String SIGNED_URL = "signedUrl";
-	public static final String CONTENT_LENGTH = "contentLength";
 	public static final String MINISTRY_OR_STATE_ORG_NAME = "ministryOrStateOrgName";
 	public static final String NODAL_OFFICER_PREFIX= "nodalofficer_";
+  public static final String DOWNLOAD_URL = "downloadUrl";
+	public static final String SIGNED_URL = "signedUrl";
+	public static final String CONTENT_LENGTH = "contentLength";
 }
 
