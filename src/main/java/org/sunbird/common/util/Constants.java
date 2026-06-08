@@ -1591,4 +1591,7 @@ public class Constants {
 	public static final String DOWNLOAD_URL = "downloadUrl";
 	public static final String SIGNED_URL = "signedUrl";
 	public static final String CONTENT_LENGTH = "contentLength";
+	public static final String MINISTRY_OR_STATE_ORG_NAME = "ministryOrStateOrgName";
+	public static final String NODAL_OFFICER_PREFIX= "nodalofficer_";
 }
+
