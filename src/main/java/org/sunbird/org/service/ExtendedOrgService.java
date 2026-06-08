@@ -26,4 +26,6 @@ public interface ExtendedOrgService {
 
 	SBApiResponse getNodalOfficer(String orgId);
 
+	public Map<String, Object> getOrgDetailsFromDB(String orgId);
+
 }

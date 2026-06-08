@@ -20,6 +20,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.util.ObjectUtils;
+import org.sunbird.cassandra.utils.CassandraOperation;
 import org.sunbird.common.model.SBApiOrgSearchRequest;
 import org.sunbird.common.model.SBApiResponse;
 import org.sunbird.common.service.OutboundRequestHandlerServiceImpl;
@@ -59,6 +60,9 @@ public class ExtendedOrgServiceImpl implements ExtendedOrgService {
     private final Logger logger = LoggerFactory.getLogger(getClass().getName());
     @Value("${kafka.topics.org.hierarchy.framework.new.org.event}")
     private String kafkaTopicCreateHierarchyFramework;
+
+    @Autowired
+    CassandraOperation cassandraOperation;
 
     @SuppressWarnings("unchecked")
     @Override
@@ -1201,4 +1205,22 @@ public class ExtendedOrgServiceImpl implements ExtendedOrgService {
         return response;
     }
 
+    @Override
+    public Map<String, Object> getOrgDetailsFromDB(String orgId) {
+        Map<String, Object> propertyMap = new HashMap<>();
+        propertyMap.put(Constants.ID, orgId);
+        List<Map<String, Object>> orgDetails = cassandraOperation.getRecordsByPropertiesWithoutFiltering(
+                Constants.KEYSPACE_SUNBIRD,
+                Constants.TABLE_ORGANIZATION,
+                propertyMap,
+                null,
+                1
+        );
+
+        if (CollectionUtils.isNotEmpty(orgDetails)) {
+            return orgDetails.get(0);
+        } else {
+            return null;
+        }
+    }
 }

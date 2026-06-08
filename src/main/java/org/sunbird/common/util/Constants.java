@@ -1590,8 +1590,14 @@ public class Constants {
 	public static final String SAME_ORGANIZATION_MSG = "Profile update failed. The selected organization is already associated with your account.";
 	public static final String MINISTRY_OR_STATE_ORG_NAME = "ministryOrStateOrgName";
 	public static final String NODAL_OFFICER_PREFIX= "nodalofficer_";
-  public static final String DOWNLOAD_URL = "downloadUrl";
+    public static final String DOWNLOAD_URL = "downloadUrl";
 	public static final String SIGNED_URL = "signedUrl";
 	public static final String CONTENT_LENGTH = "contentLength";
+	public static final String UID = "uid";
+	public static final String BKT = "bkt";
+	public static final String OBJ = "obj";
+	public static final String IP = "ip";
+	public static final String SID = "sid";
+	public static final String FID = "fid";
+	public static final String FNAME = "fname";
 }
-

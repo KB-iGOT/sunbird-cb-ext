@@ -1299,6 +1299,9 @@ public class CbExtServerProperties {
 	@Value("${cb.download.proxy.base.url}")
 	private String cbDownloadProxyBaseUrl;
 
+	@Value("${report.download.jwt.key.id}")
+	private String reportDownloadJwtKeyId;
+
 	public int getUserSearchLimit() {
 		return userSearchLimit;
 	}
@@ -4363,5 +4366,13 @@ public class CbExtServerProperties {
 
 	public void setCbDownloadProxyBaseUrl(String cbDownloadProxyBaseUrl) {
 		this.cbDownloadProxyBaseUrl = cbDownloadProxyBaseUrl;
+	}
+
+	public String getReportDownloadJwtKeyId() {
+		return reportDownloadJwtKeyId;
+	}
+
+	public void setReportDownloadJwtKeyId(String reportDownloadJwtKeyId) {
+		this.reportDownloadJwtKeyId = reportDownloadJwtKeyId;
 	}
 }
