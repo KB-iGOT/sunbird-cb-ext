@@ -654,7 +654,7 @@ public class OperationalReportServiceImpl implements OperationalReportService {
             } else {
                 password = getZipProtectPassword();
                 headers.add(Constants.PASSWORD, password);
-                redisCacheMgr.putStringInCache(rootOrgId + Constants.UNDER_SCORE + Constants.PASSWORD, password, (int)serverProperties.getCacheMaxTTL());
+                redisCacheMgr.putStringInCache(rootOrgId + Constants.UNDER_SCORE + Constants.PASSWORD, password, (int) serverProperties.getCacheMaxTTL());
             }
 
             // Encrypt the unzipped files and create a new zip file
