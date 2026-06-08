@@ -43,6 +43,7 @@ import org.sunbird.core.config.PropertiesConfig;
 import org.sunbird.operationalreports.exception.ZipProcessingException;
 import org.sunbird.org.model.OrgHierarchy;
 import org.sunbird.org.repository.OrgHierarchyRepository;
+import org.sunbird.org.service.ExtendedOrgService;
 import org.sunbird.user.service.UserUtilityService;
 import scala.Option;
 
@@ -108,8 +109,13 @@ public class OperationalReportServiceImpl implements OperationalReportService {
 
     @Autowired
     private RedisCacheMgr redisCacheMgr;
+
     private Storage storage;
+
     private PrivateKey privateKey;
+
+    @Autowired
+    private ExtendedOrgService extendedOrgService;
 
     @Override
     public SBApiResponse grantReportAccessToMDOAdmin(Map<String, Object> requestBody, String authToken) {
@@ -725,6 +731,14 @@ public class OperationalReportServiceImpl implements OperationalReportService {
 
             List<String> childIds = (List<String>) request.get(Constants.CHILD_ID);
             String targetId = CollectionUtils.isNotEmpty(childIds) ? childIds.get(0) : rootOrgId;
+            Map<String, Object> cassandraResponse = extendedOrgService.getOrgDetailsFromDB(targetId);
+            if (MapUtils.isEmpty(cassandraResponse)) {
+                return buildErrorResponse("Invalid orgId", HttpStatus.BAD_REQUEST);
+            }
+            String targetOrgName = (String) cassandraResponse.get(Constants.ORG_NAME_LOWERCASE);
+            if (StringUtils.isBlank(targetOrgName)) {
+                return buildErrorResponse("Invalid orgId", HttpStatus.BAD_REQUEST);
+            }
             String password = redisCacheMgr.getCache(targetId + Constants.UNDER_SCORE + Constants.PASSWORD);
 
             if (StringUtils.isBlank(password)) {
@@ -747,14 +761,14 @@ public class OperationalReportServiceImpl implements OperationalReportService {
             }
             String clientIp = getClientIp(servletRequest);
 
-            String ticket = generateDownloadTicket(userId, container, objectKey, clientIp, targetId);
+            String ticket = generateDownloadTicket(userId, container, objectKey, clientIp, targetId, targetOrgName);
             String edgeDownloadUrl = serverProperties.getCbDownloadProxyBaseUrl() + "/download/v3/operational/report/" + targetId + "?t=" + ticket;
             response.put(Constants.STATUS, Constants.SUCCESS);
             response.put(Constants.DOWNLOAD_URL, edgeDownloadUrl);
             response.put(Constants.PASSWORD, password);
             response.put(Constants.FILE_NAME, serverProperties.getOperationReportFileName());
             response.put(Constants.CONTENT_LENGTH, blobMetadata.contentLength());
-            response.put("ticketExpiresInMinutes", serverProperties.getOperationalReportJwtTTL()/60);
+            response.put("ticketExpiresInMinutes", serverProperties.getOperationalReportJwtTTL() / 60);
 
             return ResponseEntity.ok(response);
 
@@ -764,7 +778,7 @@ public class OperationalReportServiceImpl implements OperationalReportService {
         }
     }
 
-    private String generateDownloadTicket(String userId, String bucketName, String objectKey, String clientIp, String targetId) {
+    private String generateDownloadTicket(String userId, String bucketName, String objectKey, String clientIp, String targetId, String targetOrgName) {
 
         long now = System.currentTimeMillis();
         String jti = UUID.randomUUID().toString();
@@ -779,6 +793,7 @@ public class OperationalReportServiceImpl implements OperationalReportService {
                 .claim("ip", clientIp)
                 .claim("sid", sid)
                 .claim("fid", targetId)
+                .claim("fname",targetOrgName)
                 .setSubject(userId)
                 .setIssuedAt(new Date(now))
                 .setNotBefore(new Date(now - 5000))
