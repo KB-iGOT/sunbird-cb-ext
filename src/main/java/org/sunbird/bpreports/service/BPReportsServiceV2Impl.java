@@ -70,7 +70,7 @@ public class BPReportsServiceV2Impl implements BPReportsServiceV2 {
      */
     @Override
     public SBApiResponse generateBPReportV2(Map<String, Object> requestBody, String authToken) {
-        SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.BP_REPORT_GENERATE_API);
+        SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.BP_REPORT_GENERATE_API_V2);
         try {
             String userId = validateUserToken(authToken, response);
             if (StringUtils.isBlank(userId)) {
