@@ -17,9 +17,9 @@ import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.elasticsearch.search.sort.SortOrder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import lombok.RequiredArgsConstructor;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 import org.springframework.util.CollectionUtils;
@@ -44,31 +44,20 @@ import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
+@RequiredArgsConstructor
 @Component
 public class BPReportConsumer {
 
     private static final Logger logger = LoggerFactory.getLogger(BPReportConsumer.class);
 
-    @Autowired
-    ObjectMapper mapper;
-
-    @Autowired
-    WfStatusEntityRepository wfStatusEntityRepository;
-
-    @Autowired
-    CassandraOperation cassandraOperation;
-
-    @Autowired
-    IndexerService indexerService;
-
-    @Autowired
-    CbExtServerProperties serverProperties;
-
-    @Autowired
-    StorageService storageService;
-
-    @Autowired
-    OutboundRequestHandlerServiceImpl outboundRequestHandlerService;
+    private final ObjectMapper mapper;
+    private final WfStatusEntityRepository wfStatusEntityRepository;
+    private final CassandraOperation cassandraOperation;
+    private final IndexerService indexerService;
+    private final CbExtServerProperties serverProperties;
+    private final StorageService storageService;
+    private final OutboundRequestHandlerServiceImpl outboundRequestHandlerService;
+    private final BPReportsServiceV2 bpReportsServiceV2;
 
 
     @KafkaListener(topics = "${kafka.topic.bp.report}", groupId = "${kafka.topic.bp.report.group}")
@@ -100,10 +89,20 @@ public class BPReportConsumer {
             Map<String, Object> request = mapper.readValue(inputData, new TypeReference<Map<String, Object>>() {
             });
             List<String> errList = validateReceivedKafkaMessage(request);
-            if (errList.isEmpty()) {
-                generateBPReport(request);
-            } else {
-                logger.error(String.format("Error in the Kafka Message Received for BP Report Generation: %s", errList));
+            if (!errList.isEmpty()) {
+                logger.error("Error in the Kafka Message Received for BP Report Generation: {}", errList);
+                return;
+            }
+            String version = (String) request.getOrDefault(Constants.BP_REPORT_VERSION, Constants.BP_REPORT_VERSION_V1);
+            switch (version) {
+                case Constants.BP_REPORT_VERSION_V1:
+                    generateBPReport(request);
+                    break;
+                case Constants.BP_REPORT_VERSION_V2:
+                    generateBPReportV2(request);
+                    break;
+                default:
+                    logger.error("BPReportConsumer: Unknown report version '{}', skipping event", version);
             }
         } catch (Exception e) {
             logger.error(String.format("Error in the scheduler to generate the BP report %s", e.getMessage()),
@@ -834,5 +833,16 @@ public class BPReportConsumer {
 
         logger.info("Total {} records found for batch surveyId: {}", resultMap.size(), surveyId);
         return resultMap;
+    }
+
+    /**
+     * Delegates V2 report generation to {@link BPReportsServiceV2#processBPReportV2(Map)}.
+     * Called when the Kafka message carries version="v2".
+     *
+     * @param request deserialized Kafka message payload containing courseId, batchId,
+     *                orgId, reportRequester, and optional surveyId
+     */
+    private void generateBPReportV2(Map<String, Object> request) {
+        bpReportsServiceV2.processBPReportV2(request);
     }
 }
