@@ -853,6 +853,11 @@ public class Constants {
 	public static final String LEARNER_STATUS_USER_ID="userid";
 
 	public static final String VERSION_KEY = "versionKey";
+	public static final String CONSENT_ID = "consentId";
+	public static final String VERSION_KEY_MISSING = "versionKey is missing in the request";
+	public static final String VERSION_KEY_EMPTY = "versionKey cannot be null or empty";
+	public static final String CONSENT_ID_MISSING = "consentId is missing in the request";
+	public static final String CONSENT_ID_EMPTY = "consentId cannot be null or empty";
 	public static final String AVG_RATING = "avgRating";
 	public static final String TOTAL_NO_OF_RATING = "totalNoOfRating";
 	public static final String COUNT_ONE_STAR_RATING = "countOf1StarRating";
