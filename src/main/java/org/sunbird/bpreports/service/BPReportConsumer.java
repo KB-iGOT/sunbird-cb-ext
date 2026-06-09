@@ -19,6 +19,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import lombok.RequiredArgsConstructor;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 import org.springframework.util.CollectionUtils;
@@ -43,6 +44,7 @@ import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
+@RequiredArgsConstructor
 @Component
 public class BPReportConsumer {
 
@@ -56,24 +58,6 @@ public class BPReportConsumer {
     private final StorageService storageService;
     private final OutboundRequestHandlerServiceImpl outboundRequestHandlerService;
     private final BPReportsServiceV2 bpReportsServiceV2;
-
-    public BPReportConsumer(ObjectMapper mapper,
-                            WfStatusEntityRepository wfStatusEntityRepository,
-                            CassandraOperation cassandraOperation,
-                            IndexerService indexerService,
-                            CbExtServerProperties serverProperties,
-                            StorageService storageService,
-                            OutboundRequestHandlerServiceImpl outboundRequestHandlerService,
-                            BPReportsServiceV2 bpReportsServiceV2) {
-        this.mapper = mapper;
-        this.wfStatusEntityRepository = wfStatusEntityRepository;
-        this.cassandraOperation = cassandraOperation;
-        this.indexerService = indexerService;
-        this.serverProperties = serverProperties;
-        this.storageService = storageService;
-        this.outboundRequestHandlerService = outboundRequestHandlerService;
-        this.bpReportsServiceV2 = bpReportsServiceV2;
-    }
 
 
     @KafkaListener(topics = "${kafka.topic.bp.report}", groupId = "${kafka.topic.bp.report.group}")

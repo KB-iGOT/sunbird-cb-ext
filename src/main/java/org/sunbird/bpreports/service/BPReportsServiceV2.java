@@ -19,7 +19,7 @@ public interface BPReportsServiceV2 {
      * @return {@link SBApiResponse} with status IN-PROGRESS if already running,
      *         SUCCESS if the event was published, or an error response on validation failure
      */
-    SBApiResponse generateBPReport(Map<String, Object> requestBody, String authToken);
+    SBApiResponse generateBPReportV2(Map<String, Object> requestBody, String authToken);
 
     /**
      * Kafka consumer entry point for V2 report generation. Fetches batch metadata,

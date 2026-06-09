@@ -2,6 +2,7 @@ package org.sunbird.bpreports.service;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.RequiredArgsConstructor;
 import org.apache.commons.collections.MapUtils;
 import org.apache.commons.lang.StringUtils;
 import org.apache.poi.ss.usermodel.*;
@@ -46,6 +47,7 @@ import java.util.stream.Collectors;
  * Shares the same Cassandra table and Kafka topic as BPReportsServiceImpl (v1).
  * The version field in the Kafka event is the only differentiator downstream.
  */
+@RequiredArgsConstructor
 @Service
 public class BPReportsServiceV2Impl implements BPReportsServiceV2 {
 
@@ -61,33 +63,13 @@ public class BPReportsServiceV2Impl implements BPReportsServiceV2 {
     private final ObjectMapper objectMapper;
     private final StorageService storageService;
 
-    public BPReportsServiceV2Impl(AccessTokenValidator accessTokenValidator,
-                                  UserUtilityService userUtilityService,
-                                  CassandraOperationImpl cassandraOperation,
-                                  Producer kafkaProducer,
-                                  CbExtServerProperties serverProperties,
-                                  WfStatusEntityRepository wfStatusEntityRepository,
-                                  OutboundRequestHandlerServiceImpl outboundRequestHandlerService,
-                                  ObjectMapper objectMapper,
-                                  StorageService storageService) {
-        this.accessTokenValidator = accessTokenValidator;
-        this.userUtilityService = userUtilityService;
-        this.cassandraOperation = cassandraOperation;
-        this.kafkaProducer = kafkaProducer;
-        this.serverProperties = serverProperties;
-        this.wfStatusEntityRepository = wfStatusEntityRepository;
-        this.outboundRequestHandlerService = outboundRequestHandlerService;
-        this.objectMapper = objectMapper;
-        this.storageService = storageService;
-    }
-
     /**
      * Entry point for /bp/v2/generate/report. Returns 200 immediately —
      * actual report generation is async via Kafka consumer.
      * Returns null on success; non-null means validation failed.
      */
     @Override
-    public SBApiResponse generateBPReport(Map<String, Object> requestBody, String authToken) {
+    public SBApiResponse generateBPReportV2(Map<String, Object> requestBody, String authToken) {
         SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.BP_REPORT_GENERATE_API);
         try {
             String userId = validateUserToken(authToken, response);
