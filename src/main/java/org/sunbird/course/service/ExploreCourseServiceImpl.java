@@ -17,6 +17,7 @@ import org.sunbird.cache.RedisCacheMgr;
 import org.sunbird.cassandra.utils.CassandraOperation;
 import org.sunbird.common.model.SBApiResponse;
 import org.sunbird.common.service.OutboundRequestHandlerServiceImpl;
+import org.sunbird.common.util.AccessTokenValidator;
 import org.sunbird.common.util.CbExtServerProperties;
 import org.sunbird.common.util.Constants;
 import org.sunbird.common.util.ProjectUtil;
@@ -47,6 +48,24 @@ public class ExploreCourseServiceImpl implements ExploreCourseService {
 
 	@Autowired
 	OutboundRequestHandlerServiceImpl outboundRequestHandlerService;
+
+	@Autowired
+	AccessTokenValidator accessTokenValidator;
+
+	@Override
+	public SBApiResponse getExploreCourseListWithToken(String authToken) {
+		SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.API_GET_EXPLORE_COURSE_DETAIL);
+		String userId = accessTokenValidator.fetchUserIdFromAccessToken(authToken, response);
+		if (StringUtils.isBlank(userId)) {
+			if (response.getResponseCode() == null || response.getResponseCode().is2xxSuccessful()) {
+				response.getParams().setStatus(Constants.FAILED);
+				response.getParams().setErrmsg(Constants.USER_ID_DOESNT_EXIST);
+				response.setResponseCode(HttpStatus.UNAUTHORIZED);
+			}
+			return response;
+		}
+		return getExploreCourseList();
+	}
 
 	@Override
 	public SBApiResponse getExploreCourseList() {

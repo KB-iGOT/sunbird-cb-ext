@@ -19,6 +19,8 @@ public interface ExploreCourseService {
 	 */
 	public SBApiResponse getExploreCourseList();
 
+	public SBApiResponse getExploreCourseListWithToken(String authToken);
+
 	/**
 	 * Refreshes the cache by re-reading the details from DB.
 	 * 
