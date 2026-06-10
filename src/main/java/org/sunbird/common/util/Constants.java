@@ -1603,4 +1603,5 @@ public class Constants {
 	public static final String CERTIFICATE_ISSUED = "certificateIssued";
 	public static final String CERTIFICATE_ISSUED_DATE = "certificateIssuedDate";
 	public static final String BP_REPORT_GENERATE_API_V2 ="api.generate.bp.report.v2";
+	public static final String ENROLMENT_END_DATE_COLUMN = "enrollment_enddate";
 }

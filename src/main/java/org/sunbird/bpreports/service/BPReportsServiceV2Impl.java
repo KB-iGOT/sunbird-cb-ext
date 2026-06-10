@@ -116,7 +116,7 @@ public class BPReportsServiceV2Impl implements BPReportsServiceV2 {
         Map<String, Map<String, String>> userInfoMap = new HashMap<>();
         userUtilityService.getUserDetailsFromDB(
                 Collections.singletonList(userId),
-                Collections.singletonList(Constants.ROOT_ORG_ID),
+                Arrays.asList(Constants.USER_ID,Constants.ROOT_ORG_ID),
                 userInfoMap);
         String userOrgId = userInfoMap.get(userId).get(Constants.ROOT_ORG_ID);
         if (StringUtils.isBlank(userOrgId) || !userOrgId.equals(orgId)) {
@@ -998,17 +998,17 @@ public class BPReportsServiceV2Impl implements BPReportsServiceV2 {
         int col = 0;
         // Batch-level columns (16)
         setCellValue(row, col++, batchDetails.get(Constants.BATCH_ID));
-        setCellValue(row, col++, batchDetails.get(Constants.BATCH_NAME));
+        setCellValue(row, col++, batchDetails.get(Constants.NAME));
         setCellValue(row, col++, batchDetails.get(Constants.COURSE_ID));
         setCellValue(row, col++, referenceData.get(Constants.PROGRAM_NAME));
         setCellValue(row, col++, referenceData.get(Constants.PRIMARY_CATEGORY));
         setCellValue(row, col++, referenceData.get(Constants.MDO_NAME));
         setCellValue(row, col++, referenceData.get(Constants.PROGRAM_COORDINATOR_NAME));
         setCellValue(row, col++, batchDetails.get(Constants.STATUS));
-        setCellValue(row, col++, batchDetails.get(Constants.START_DATE));
-        setCellValue(row, col++, batchDetails.get(Constants.END_DATE));
-        setCellValue(row, col++, batchDetails.get(Constants.REGISTRATION_START_DATE));
-        setCellValue(row, col++, batchDetails.get(Constants.REGISTRATION_END_DATE));
+        setCellValue(row, col++, batchDetails.get(Constants.START_DATE_COLUMN));
+        setCellValue(row, col++, batchDetails.get(Constants.END_DATE_COLUMN));
+        setCellValue(row, col++, batchDetails.get(Constants.START_DATE_COLUMN));
+        setCellValue(row, col++, batchDetails.get(Constants.ENROLMENT_END_DATE_COLUMN));
         setCellValue(row, col++, computeBatchDuration(batchDetails));
         setCellValue(row, col++, totalEnrolled);
         setCellValue(row, col++, batchDetails.get(Constants.CREATED_DATE));
@@ -1080,8 +1080,8 @@ public class BPReportsServiceV2Impl implements BPReportsServiceV2 {
      * or an empty string if either date is missing or unparseable.
      */
     private String computeBatchDuration(Map<String, Object> batchDetails) {
-        LocalDate start = parseToLocalDate(batchDetails.get(Constants.START_DATE));
-        LocalDate end = parseToLocalDate(batchDetails.get(Constants.END_DATE));
+        LocalDate start = parseToLocalDate(batchDetails.get(Constants.START_DATE_COLUMN));
+        LocalDate end = parseToLocalDate(batchDetails.get(Constants.END_DATE_COLUMN));
         if (Objects.nonNull(start) && Objects.nonNull(end)) {
             return String.valueOf(ChronoUnit.DAYS.between(start, end));
         }
