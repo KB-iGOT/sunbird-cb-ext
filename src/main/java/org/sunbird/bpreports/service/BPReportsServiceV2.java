@@ -1,6 +1,8 @@
 package org.sunbird.bpreports.service;
 
 import org.sunbird.common.model.SBApiResponse;
+import org.springframework.core.io.Resource;
+import org.springframework.http.ResponseEntity;
 
 import java.util.Map;
 
@@ -20,6 +22,8 @@ public interface BPReportsServiceV2 {
      *         SUCCESS if the event was published, or an error response on validation failure
      */
     SBApiResponse generateBPReportV2(Map<String, Object> requestBody, String authToken);
+
+    ResponseEntity<Resource> downloadBPReportV2(String authToken, String orgId, String courseId, String batchId, String fileName);
 
     /**
      * Kafka consumer entry point for V2 report generation. Fetches batch metadata,
