@@ -50,6 +50,6 @@ public class BPReportsController {
                                             @PathVariable("courseId") String courseId,
                                             @PathVariable("batchId") String batchId,
                                             @PathVariable("fileName") String fileName) {
-        return bpReportsService.downloadBPReport(authToken, orgId, courseId, batchId, fileName);
+        return bpReportsServiceV2.downloadBPReportV2(authToken, orgId, courseId, batchId, fileName);
     }
 }

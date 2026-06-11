@@ -9,9 +9,14 @@ import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.streaming.SXSSFWorkbook;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.core.io.Resource;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.ObjectUtils;
@@ -32,6 +37,8 @@ import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
@@ -92,6 +99,55 @@ public class BPReportsServiceV2Impl implements BPReportsServiceV2 {
             logger.error(Constants.ERROR_PROCESSING_BP_REQUEST, e);
             updateErrorDetails(response, Constants.ERROR_PROCESSING_BP_REQUEST, HttpStatus.INTERNAL_SERVER_ERROR);
             return response;
+        }
+    }
+
+    @Override
+    public ResponseEntity<Resource> downloadBPReportV2(String authToken, String orgId, String courseId,
+                                                       String batchId, String fileName) {
+        try {
+            String userId = accessTokenValidator.fetchUserIdFromAccessToken(authToken);
+            if (StringUtils.isBlank(userId)) {
+                return createDownloadErrorResponse("Invalid user ID from auth token.", HttpStatus.UNAUTHORIZED);
+            }
+
+            try {
+                String cloudBaseFolder = serverProperties.getBpEnrolmentReportContainerName();
+                String cloudFilePath = String.join("/", cloudBaseFolder, Constants.BP_REPORT_VERSION_V2,
+                        orgId, courseId, batchId);
+                storageService.downloadFile(fileName, cloudFilePath);
+                Path tmpPath = Paths.get(Constants.LOCAL_BASE_PATH + fileName);
+
+                ByteArrayResource resource = new ByteArrayResource(Files.readAllBytes(tmpPath));
+                String contentType;
+                if (fileName.endsWith(".xlsx")) {
+                    contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+                } else if (fileName.endsWith(".csv")) {
+                    contentType = "text/csv";
+                } else {
+                    contentType = MediaType.APPLICATION_OCTET_STREAM_VALUE;
+                }
+
+                HttpHeaders headers = new HttpHeaders();
+                headers.add(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + fileName + "\"");
+
+                return ResponseEntity.ok()
+                        .headers(headers)
+                        .contentLength(Files.size(tmpPath))
+                        .contentType(MediaType.parseMediaType(contentType))
+                        .body(resource);
+            } catch (IOException e) {
+                logger.error("BPReportsServiceV2Impl:: Failed to download the file: {}", fileName, e);
+                return createDownloadErrorResponse("Failed to download the requested file. Please try again later.",
+                        HttpStatus.INTERNAL_SERVER_ERROR);
+            } finally {
+                cleanupDownloadedFile(Constants.LOCAL_BASE_PATH + fileName);
+            }
+        } catch (Exception e) {
+            logger.error("BPReportsServiceV2Impl:: Unexpected error while processing download for file: {}", fileName, e);
+            return createDownloadErrorResponse(
+                    "An unexpected error occurred while processing your request. Please contact support.",
+                    HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
 
@@ -304,6 +360,7 @@ public class BPReportsServiceV2Impl implements BPReportsServiceV2 {
         dbRequest.put(Constants.REPORT_REQUESTER, reportRequester);
         dbRequest.put(Constants.STATUS, Constants.STATUS_IN_PROGRESS_UPPERCASE);
         dbRequest.put(Constants.CREATED_BY, userId);
+        dbRequest.put(Constants.BP_REPORT_VERSION, Constants.BP_REPORT_VERSION_V2);
         String surveyId = (String) requestBody.get(Constants.SURVEY_ID);
         if (StringUtils.isNotEmpty(surveyId)) {
             dbRequest.put(Constants.SURVEY_ID, surveyId);
@@ -345,6 +402,7 @@ public class BPReportsServiceV2Impl implements BPReportsServiceV2 {
         Map<String, Object> compositeKey = buildCompositeKey(orgId, courseId, batchId, reportRequester);
         Map<String, Object> updateAttributes = new HashMap<>();
         updateAttributes.put(Constants.STATUS, status);
+        updateAttributes.put(Constants.BP_REPORT_VERSION, Constants.BP_REPORT_VERSION_V2);
         updateAttributes.put(Constants.DOWNLOAD_LINK, null);
         updateAttributes.put(Constants.FILE_NAME, null);
         updateAttributes.put(Constants.PENDING_USER, 0);
@@ -891,7 +949,8 @@ public class BPReportsServiceV2Impl implements BPReportsServiceV2 {
             return;
         }
         logger.info("BPReportsServiceV2Impl:: uploadReportAndUpdateDatabase: Excel written locally: {}", file.getAbsolutePath());
-        String cloudPath = String.join("/", serverProperties.getBpEnrolmentReportContainerName(), orgId, courseId, batchId);
+        String cloudPath = String.join("/", serverProperties.getBpEnrolmentReportContainerName(),
+                Constants.BP_REPORT_VERSION_V2, orgId, courseId, batchId);
         SBApiResponse uploadResponse = storageService.uploadFile(file, cloudPath, serverProperties.getCloudContainerName());
         String downloadUrl = (String) uploadResponse.getResult().get(Constants.URL);
         if (StringUtils.isBlank(downloadUrl)) {
@@ -947,6 +1006,7 @@ public class BPReportsServiceV2Impl implements BPReportsServiceV2 {
         updateAttributes.put(Constants.APPROVED_USER, counts[1]);
         updateAttributes.put(Constants.REJECTED_USER, counts[2]);
         updateAttributes.put(Constants.LAST_REPORT_GENERATED_ON, new Date());
+        updateAttributes.put(Constants.BP_REPORT_VERSION, Constants.BP_REPORT_VERSION_V2);
         updateAttributes.put(Constants.DOWNLOAD_LINK, downloadUrl);
         updateAttributes.put(Constants.FILE_NAME, fileName);
         cassandraOperation.updateRecord(Constants.SUNBIRD_KEY_SPACE_NAME, Constants.BP_ENROLMENT_REPORT_TABLE,
@@ -1112,6 +1172,25 @@ public class BPReportsServiceV2Impl implements BPReportsServiceV2 {
             }
         }
         return null;
+    }
+
+    private ResponseEntity<Resource> createDownloadErrorResponse(String message, HttpStatus status) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.add(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
+        return ResponseEntity.status(status)
+                .headers(headers)
+                .body(new ByteArrayResource(message.getBytes()));
+    }
+
+    private void cleanupDownloadedFile(String filePath) {
+        try {
+            File file = new File(filePath);
+            if (file.exists()) {
+                file.delete();
+            }
+        } catch (Exception e) {
+            logger.warn("BPReportsServiceV2Impl:: Failed to delete temporary file: {}", filePath, e);
+        }
     }
 
     /**
