@@ -43,4 +43,13 @@ public class BPReportsController {
         SBApiResponse response = bpReportsServiceV2.generateBPReportV2(requestBody, authToken);
         return new ResponseEntity<>(response, response.getResponseCode());
     }
+
+    @GetMapping("/v2/bpreport/download/{orgId}/{courseId}/{batchId}/{fileName}")
+    public ResponseEntity<?> downloadFileV2(@RequestHeader(Constants.X_AUTH_TOKEN) String authToken,
+                                            @PathVariable("orgId") String orgId,
+                                            @PathVariable("courseId") String courseId,
+                                            @PathVariable("batchId") String batchId,
+                                            @PathVariable("fileName") String fileName) {
+        return bpReportsService.downloadBPReport(authToken, orgId, courseId, batchId, fileName);
+    }
 }

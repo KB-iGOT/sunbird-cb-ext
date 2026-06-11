@@ -61,7 +61,7 @@ public class BPReportConsumer {
 
 
     @KafkaListener(topics = "${kafka.topic.bp.report}", groupId = "${kafka.topic.bp.report.group}")
-    private void processBPReportGenerationMessage(ConsumerRecord<String, String> data) {
+    public void processBPReportGenerationMessage(ConsumerRecord<String, String> data) {
         logger.info("BPReportConsumer::processMessage.. started.");
         try {
             if (StringUtils.isNotBlank(data.value())) {
