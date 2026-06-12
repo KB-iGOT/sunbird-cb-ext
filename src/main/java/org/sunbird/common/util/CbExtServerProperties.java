@@ -1270,6 +1270,15 @@ public class CbExtServerProperties {
 	@Value("${redis.pool.block.when.exhausted}")
 	private boolean redisPoolBlockWhenExhausted;
 
+	@Value("#{${insights.week.range}}")
+	private Map<String, String> insightsWeekRange;
+
+	@Value("#{${insights.week.range.cache.prefix}}")
+	private Map<String, String> insightsWeekRangeCachePrefix;
+
+	@Value("#{${insights.week.range.count}}")
+	private Map<String, String> insightsWeekRangeCount;
+
 	public String getProfilePreferenceValue() {
 		return profilePreferenceValue;
 	}
@@ -4284,5 +4293,27 @@ public class CbExtServerProperties {
 
 	public void setRedisPoolBlockWhenExhausted(boolean v) {
 		this.redisPoolBlockWhenExhausted = v;
+	}
+
+	public Map<String, String> getInsightsWeekRange() {
+		return insightsWeekRange;
+	}
+
+	public void setInsightsWeekRange(Map<String, String> insightsWeekRange) {
+		this.insightsWeekRange = insightsWeekRange;
+	}
+
+	public Map<String, String> getInsightsWeekRangeCachePrefix() {
+		return insightsWeekRangeCachePrefix;
+	}
+	public void setInsightsWeekRangeCachePrefix(Map<String, String> insightsWeekRangeCachePrefix) {
+		this.insightsWeekRangeCachePrefix = insightsWeekRangeCachePrefix;
+	}
+
+	public Map<String, String> getInsightsWeekRangeCount() {
+		return insightsWeekRangeCount;
+	}
+	public void setInsightsWeekRangeCount(Map<String, String> insightsWeekRangeCount) {
+		this.insightsWeekRangeCount = insightsWeekRangeCount;
 	}
 }
