@@ -7,7 +7,7 @@ import java.util.Map;
 
 public interface InsightsService {
 
-    public SBApiResponse insights(Map<String, Object> requestBody,String userId) throws Exception;
+    public SBApiResponse insights(Map<String, Object> requestBody,String userId, String weekRange) throws Exception;
 
     public SBApiResponse readInsightsForOrganisation(Map<String, Object> requestBody, String userId);
 
