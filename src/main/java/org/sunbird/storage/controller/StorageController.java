@@ -4,6 +4,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.Map;
 
+import org.apache.commons.lang.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -58,7 +59,12 @@ public class StorageController {
 	@PostMapping("/profilePhotoUpload/{cloudFolderName}")
 	public ResponseEntity<?> profileUpload(@PathVariable("cloudFolderName") String cloudFolderName,@RequestParam(value = "file", required = true) MultipartFile multipartFile)
 			throws IOException {
-		SBApiResponse uploadResponse = storageService.uploadProfilePhoto(multipartFile, cloudFolderName, serverConfig.getCloudProfileImageContainerName());
+		SBApiResponse uploadResponse = null;
+		if (StringUtils.isNotBlank(cloudFolderName) && Constants.USER_ACHIEVEMENT_CLOUD_FOLDER_NAME.equalsIgnoreCase(cloudFolderName)) {
+			uploadResponse = storageService.uploadUserAchievement(multipartFile, cloudFolderName, serverConfig.getCloudProfileImageContainerName());
+		} else {
+			uploadResponse = storageService.uploadProfilePhoto(multipartFile, cloudFolderName, serverConfig.getCloudProfileImageContainerName());
+		}
 		return new ResponseEntity<>(uploadResponse, uploadResponse.getResponseCode());
 	}
 

@@ -76,4 +76,5 @@ public interface StorageService {
 
 	ResponseEntity<?> peerValidationReportDownload(Map<String, Object> requestBody, String userToken);
 
+	SBApiResponse uploadUserAchievement(MultipartFile mFile, String cloudFolderName, String containerName);
 }

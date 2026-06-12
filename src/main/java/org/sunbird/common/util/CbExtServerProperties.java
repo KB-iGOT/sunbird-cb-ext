@@ -1270,6 +1270,30 @@ public class CbExtServerProperties {
 	@Value("${redis.pool.block.when.exhausted}")
 	private boolean redisPoolBlockWhenExhausted;
 
+	@Value("${user.achievement.file.upload.allowed.extensions}")
+	private String userAchievementFileUploadAllowedExtensions;
+
+	@Value("${org.search.list.batch.size}")
+	private int batchsize;
+
+	@Value("${user.search.limit}")
+	private int userSearchLimit;
+
+	@Value("${operational.report.jwt.ttl}")
+	private int operationalReportJwtTTL;
+
+	@Value("${jwt.private.key.path}")
+	private String jwtPrivateKeyPath;
+
+	@Value("${cb.download.proxy.base.url}")
+	private String cbDownloadProxyBaseUrl;
+
+	@Value("${report.download.jwt.key.id}")
+	private String reportDownloadJwtKeyId;
+
+	@Value("${chatbot.search.size}")
+	private int chatbotSearchSize;
+
 	@Value("#{${insights.week.range}}")
 	private Map<String, String> insightsWeekRange;
 
@@ -1278,6 +1302,22 @@ public class CbExtServerProperties {
 
 	@Value("#{${insights.week.range.count}}")
 	private Map<String, String> insightsWeekRangeCount;
+
+	public int getUserSearchLimit() {
+		return userSearchLimit;
+	}
+
+	public void setUserSearchLimit(int userSearchLimit) {
+		this.userSearchLimit = userSearchLimit;
+	}
+
+	public int getBatchsize() {
+		return batchsize;
+	}
+
+	public void setBatchsize(int batchsize) {
+		this.batchsize = batchsize;
+	}
 
 	public String getProfilePreferenceValue() {
 		return profilePreferenceValue;
@@ -4293,6 +4333,54 @@ public class CbExtServerProperties {
 
 	public void setRedisPoolBlockWhenExhausted(boolean v) {
 		this.redisPoolBlockWhenExhausted = v;
+	}
+
+	public List<String> getUserAchievementFileUploadAllowedExtensions() {
+		return Arrays.asList(userAchievementFileUploadAllowedExtensions.split(","));
+	}
+
+	public void setUserAchievementFileUploadAllowedExtensions(String userAchievementFileUploadAllowedExtensions) {
+		this.userAchievementFileUploadAllowedExtensions = userAchievementFileUploadAllowedExtensions;
+	}
+
+	public int getOperationalReportJwtTTL() {
+		return operationalReportJwtTTL;
+	}
+
+	public void setOperationalReportJwtTTL(int operationalReportJwtTTL) {
+		this.operationalReportJwtTTL = operationalReportJwtTTL;
+	}
+
+	public String getJwtPrivateKeyPath() {
+		return jwtPrivateKeyPath;
+	}
+
+	public void setJwtPrivateKeyPath(String jwtPrivateKeyPath) {
+		this.jwtPrivateKeyPath = jwtPrivateKeyPath;
+	}
+
+	public String getCbDownloadProxyBaseUrl() {
+		return cbDownloadProxyBaseUrl;
+	}
+
+	public void setCbDownloadProxyBaseUrl(String cbDownloadProxyBaseUrl) {
+		this.cbDownloadProxyBaseUrl = cbDownloadProxyBaseUrl;
+	}
+
+	public String getReportDownloadJwtKeyId() {
+		return reportDownloadJwtKeyId;
+	}
+
+	public void setReportDownloadJwtKeyId(String reportDownloadJwtKeyId) {
+		this.reportDownloadJwtKeyId = reportDownloadJwtKeyId;
+	}
+
+	public int getChatbotSearchSize() {
+		return chatbotSearchSize;
+	}
+
+	public void setChatbotSearchSize(int chatbotSearchSize) {
+		this.chatbotSearchSize = chatbotSearchSize;
 	}
 
 	public Map<String, String> getInsightsWeekRange() {

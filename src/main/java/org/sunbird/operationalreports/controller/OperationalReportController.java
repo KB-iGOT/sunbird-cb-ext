@@ -14,6 +14,8 @@ import org.sunbird.common.model.SBApiResponse;
 import org.sunbird.common.util.Constants;
 import org.sunbird.operationalreports.service.OperationalReportService;
 
+import javax.servlet.http.HttpServletRequest;
+
 @RestController
 @RequestMapping("/operational/reports")
 public class OperationalReportController {
@@ -57,5 +59,11 @@ public class OperationalReportController {
     public ResponseEntity<?> downloadIndividualReport(@PathVariable("rootOrgId") String rootOrgId,
             @RequestHeader(Constants.X_AUTH_TOKEN) String authToken, @RequestBody Map<String, Object> requestBody) throws Exception {
         return operationalReport.downloadIndividualReport(rootOrgId, authToken, requestBody);
+    }
+
+    @PostMapping("/v3/download/{rootOrgId}")
+    public ResponseEntity<Map<String, Object>>  downloadOperationalReportV3(@PathVariable("rootOrgId") String rootOrgId,
+                                                                                          @RequestHeader(Constants.X_AUTH_TOKEN) String authToken, @RequestBody Map<String, Object> requestBody, HttpServletRequest servletRequest) {
+        return operationalReport.operationalReportDownloadV3(rootOrgId, authToken, requestBody, servletRequest);
     }
 }

@@ -506,6 +506,8 @@ public class Constants {
 	public static final String MAP_ID = "mapId";
 	public static final String SB_ROOT_ORG_ID = "sbRootOrgId";
 	public static final String ERROR_MESSAGE = "errmsg";
+	public static final String ERRORCODE = "err";
+	public static final String FAILED_TO_MIGRATE_USER = "Failed to migrate User";
 
 	public static final String API_USER_BASIC_INFO = "api.user.basic.info";
 	public static final String API_USER_BASIC_PROFILE_UPDATE = "api.user.basic.profile.update";
@@ -1584,5 +1586,30 @@ public class Constants {
 	public static final long HOURS_TO_MILLISECONDS = 60L * 60L * 1000L;
 	public static final String USER_INSIGHTS_CACHE_KEY_PREFIX = "userInsights_";
 	public static final String LEARNER_LEADERBOARD_CACHE_KEY_PREFIX = "learnerLeaderboard_";
+	public static final String USER_ACHIEVEMENT_CLOUD_FOLDER_NAME = "userAchievements";
+	public static final String CLOSE = "close";
+	public static final String ROOT_ORG_NAME = "rootOrgName";
+	public static final String ROLE_PATH = "roles.role";
+	public static final String ERR_ORG_ID_REQUIRED = "orgId is required";
+	public static final String MASKED_PHONE ="maskedPhone";
+	public static final String MASKED_EMAIL="maskedEmail";
+	public static final String USER_ACTIVE="isUserActive";
+	public static final String ROLE_AVAILABLE="isPublicRoleAvailable";
+	public static final String PHONE_OR_EMAIL_REQUIRED = "Phone or email is required";
+	public static final String USER_NOT_FOUND = "User not found";
+	public static final String CHATBOT_SEARCH_ERROR = "Error while searching chatbot user";
+	public static final String SAME_ORGANIZATION_MSG = "Profile update failed. The selected organization is already associated with your account.";
+	public static final String MINISTRY_OR_STATE_ORG_NAME = "ministryOrStateOrgName";
+	public static final String NODAL_OFFICER_PREFIX= "nodalofficer_";
+    public static final String DOWNLOAD_URL = "downloadUrl";
+	public static final String SIGNED_URL = "signedUrl";
+	public static final String CONTENT_LENGTH = "contentLength";
+	public static final String UID = "uid";
+	public static final String BKT = "bkt";
+	public static final String OBJ = "obj";
+	public static final String IP = "ip";
+	public static final String SID = "sid";
+	public static final String FID = "fid";
+	public static final String FNAME = "fname";
 	public static final int WEEK_RANGE_COUNT = 4;
 }

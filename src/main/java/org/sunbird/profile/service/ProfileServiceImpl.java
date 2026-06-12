@@ -192,6 +192,15 @@ public class ProfileServiceImpl implements ProfileService {
 			Map<String, Object> responseMap = userUtilityService.getUsersReadData(userId, StringUtils.EMPTY,
 					StringUtils.EMPTY);
 			String deptName = (String) responseMap.get(Constants.CHANNEL);
+
+			if (StringUtils.isNotBlank(newDeptName) && StringUtils.equalsIgnoreCase(
+					StringUtils.trim(newDeptName), StringUtils.trim(deptName))) {
+				response.setResponseCode(HttpStatus.BAD_REQUEST);
+				response.getParams().setStatus(Constants.FAILED);
+				response.getParams().setErrmsg(Constants.SAME_ORGANIZATION_MSG);
+				return response;
+			}
+
 			Map<String, Object> existingProfileDetails = (Map<String, Object>) responseMap
 					.get(Constants.PROFILE_DETAILS);
 			HashMap<String, String> headerValues = new HashMap<>();
@@ -651,9 +660,12 @@ public class ProfileServiceImpl implements ProfileService {
 		Map<String, Object> requestBody = (Map<String, Object>) request.get(Constants.REQUEST);
 		String userId = (String) requestBody.get(Constants.USER_ID);
 		String orgName = (String) requestBody.get(Constants.CHANNEL);
-		errMsg = executeMigrateUser(getUserMigrateRequest(userId, orgName, false), headerValues);
-		if (StringUtils.isNotEmpty(errMsg)) {
-			setErrorData(response, errMsg);
+
+		Map<String, Object> migrateErrorResponse =
+				executeMigrateUser(getUserMigrateRequest(userId, orgName, false), headerValues);
+
+		if (!migrateErrorResponse.isEmpty()) {
+			setErrorDataWithStatus(response, migrateErrorResponse);
 			return response;
 		}
 		log.info(String.format("Successfully migrated user. UserId: %s, Channel: %s", userId, orgName));
@@ -1453,17 +1465,39 @@ public class ProfileServiceImpl implements ProfileService {
 		response.setResponseCode(HttpStatus.INTERNAL_SERVER_ERROR);
 	}
 
-	private String executeMigrateUser(Map<String, Object> request, Map<String, String> headers) {
-		String errMsg = StringUtils.EMPTY;
-		Map<String, Object> migrateResponse = (Map<String, Object>) outboundRequestHandlerService.fetchResultUsingPatch(
-				serverConfig.getSbUrl() + serverConfig.getLmsUserMigratePath(), request, headers);
-		if (migrateResponse == null
-				|| !Constants.OK.equalsIgnoreCase((String) migrateResponse.get(Constants.RESPONSE_CODE))) {
-			errMsg = migrateResponse == null ? "Failed to migrate User."
-					: (String) ((Map<String, Object>) migrateResponse.get(Constants.PARAMS))
-							.get(Constants.ERROR_MESSAGE);
+	private Map<String, Object> executeMigrateUser(Map<String, Object> request,
+	                                               Map<String, String> headers) {
+
+		Map<String, Object> migrateResponse = Optional.ofNullable(
+						(Map<String, Object>) outboundRequestHandlerService.fetchResultUsingPatch(
+								serverConfig.getSbUrl() + serverConfig.getLmsUserMigratePath(),
+								request, headers)).orElse(Collections.emptyMap());
+
+		if (!Constants.OK.equalsIgnoreCase((String) migrateResponse.get(Constants.RESPONSE_CODE))) {
+			return migrateResponse;
 		}
-		return errMsg;
+		return Collections.emptyMap();
+	}
+
+	private void setErrorDataWithStatus(SBApiResponse response, Map<String, Object> errorResponse) {
+
+		String errMsg = Constants.FAILED_TO_MIGRATE_USER;
+
+		Map<String, Object> params = (Map<String, Object>) errorResponse.get(Constants.PARAMS);
+
+		if (MapUtils.isNotEmpty(params)) {
+			errMsg = (String) params.get(Constants.ERROR_MESSAGE);
+
+			response.getParams().setErr((String) params.get(Constants.ERRORCODE));
+		}
+
+		Integer statusCode = (Integer) errorResponse.getOrDefault(Constants.STATUS, HttpStatus.INTERNAL_SERVER_ERROR.value());
+
+		response.getParams().setStatus(Constants.FAILED);
+		response.getParams().setErrmsg(errMsg);
+
+		response.setResponseCode(HttpStatus.resolve(statusCode) != null
+				? HttpStatus.resolve(statusCode) : HttpStatus.INTERNAL_SERVER_ERROR);
 	}
 
 	private Map<String, Object> getUserDetailsForId(String userId) {
