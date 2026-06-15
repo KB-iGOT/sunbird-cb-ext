@@ -30,4 +30,17 @@ public interface BPReportsServiceV2 {
      *                orgId, reportRequester, and optional surveyId
      */
     void processBPReportV2(Map<String, Object> request);
+
+    /**
+     * Returns the current status of a V2 BP report for a given batch and requester.
+     * Queries bp_enrolment_report_v2 using orgId, courseId, batchId, reportRequester,
+     * and contextType as composite key — ensuring V2 records are never mixed with V1.
+     *
+     * @param requestBody the API request body containing a nested {@code request} map
+     *                    with orgId, courseId, batchId, and reportRequester
+     * @param authToken   bearer token used to resolve and validate the calling user
+     * @return {@link SBApiResponse} with report status, downloadLink, and enrolment counts
+     *         if found, or an informational error if no report exists for the given key
+     */
+    SBApiResponse getBPReportStatusV2(Map<String, Object> requestBody, String authToken);
 }

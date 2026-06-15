@@ -163,9 +163,10 @@ public class BPReportsServiceV2Impl implements BPReportsServiceV2 {
         searchCriteria.put(Constants.COURSE_ID, courseId);
         searchCriteria.put(Constants.BATCH_ID, batchId);
         searchCriteria.put(Constants.REPORT_REQUESTER, request.get(Constants.REPORT_REQUESTER));
+        searchCriteria.put(Constants.CONTEXT_TYPE, Constants.BP_REPORT_V2_CONTEXT_TYPE);
         return cassandraOperation.getRecordsByProperties(
                 Constants.KEYSPACE_SUNBIRD,
-                Constants.BP_ENROLMENT_REPORT_TABLE,
+                Constants.BP_ENROLMENT_REPORT_TABLE_V2,
                 searchCriteria,
                 Collections.singletonList(Constants.STATUS));
     }
@@ -232,13 +233,13 @@ public class BPReportsServiceV2Impl implements BPReportsServiceV2 {
             Map<String, Object> dbRequest = buildReportRequest(orgId, courseId, batchId, reportRequester, userId, requestBody);
             SBApiResponse dbResponse = cassandraOperation.insertRecord(
                     Constants.SUNBIRD_KEY_SPACE_NAME,
-                    Constants.BP_ENROLMENT_REPORT_TABLE,
+                    Constants.BP_ENROLMENT_REPORT_TABLE_V2,
                     dbRequest);
             if (!dbResponse.get(Constants.RESPONSE).equals(Constants.SUCCESS)) {
                 logger.error(Constants.ERROR_INSERTING_BP_RECORD);
                 updateErrorDetails(response, Constants.ERROR_PROCESSING_BP_REQUEST, HttpStatus.INTERNAL_SERVER_ERROR);
                 // Mark FAILED so the client can re-trigger rather than being stuck with no visible record
-                updateReportStatus(orgId, courseId, batchId, reportRequester, Constants.FAILED_UPPERCASE);
+                updateReportStatus(orgId, courseId, batchId, reportRequester, Constants.FAILED_UPPERCASE, Constants.BP_REPORT_V2_CONTEXT_TYPE);
                 return response;
             }
             publishKafkaEvent(orgId, courseId, batchId, reportRequester, userId, requestBody);
@@ -248,7 +249,7 @@ public class BPReportsServiceV2Impl implements BPReportsServiceV2 {
         } catch (Exception e) {
             logger.error(Constants.ERROR_INSERTING_BP_RECORD, e);
             updateErrorDetails(response, Constants.ERROR_PROCESSING_BP_REQUEST, HttpStatus.INTERNAL_SERVER_ERROR);
-            updateReportStatus(orgId, courseId, batchId, reportRequester, Constants.FAILED_UPPERCASE);
+            updateReportStatus(orgId, courseId, batchId, reportRequester, Constants.FAILED_UPPERCASE, Constants.BP_REPORT_V2_CONTEXT_TYPE);
             return response;
         }
         logger.info("Insert BP report details into DB::completed");
@@ -269,7 +270,7 @@ public class BPReportsServiceV2Impl implements BPReportsServiceV2 {
         String reportRequester = String.valueOf(requestBody.get(Constants.REPORT_REQUESTER));
         try {
             boolean updateSuccess = updateReportStatus(orgId, courseId, batchId, reportRequester,
-                    Constants.STATUS_IN_PROGRESS_UPPERCASE);
+                    Constants.STATUS_IN_PROGRESS_UPPERCASE, Constants.BP_REPORT_V2_CONTEXT_TYPE);
             if (!updateSuccess) {
                 logger.error(Constants.ERROR_UPDATING_BP_RECORD);
                 updateErrorDetails(response, Constants.ERROR_PROCESSING_BP_REQUEST, HttpStatus.INTERNAL_SERVER_ERROR);
@@ -282,7 +283,7 @@ public class BPReportsServiceV2Impl implements BPReportsServiceV2 {
         } catch (Exception e) {
             logger.error(Constants.ERROR_UPDATING_BP_RECORD, e);
             updateErrorDetails(response, Constants.ERROR_PROCESSING_BP_REQUEST, HttpStatus.INTERNAL_SERVER_ERROR);
-            updateReportStatus(orgId, courseId, batchId, reportRequester, Constants.FAILED_UPPERCASE);
+            updateReportStatus(orgId, courseId, batchId, reportRequester, Constants.FAILED_UPPERCASE, Constants.BP_REPORT_V2_CONTEXT_TYPE);
             return response;
         }
         logger.info("Updating BP report details::completed");
@@ -302,6 +303,7 @@ public class BPReportsServiceV2Impl implements BPReportsServiceV2 {
         dbRequest.put(Constants.COURSE_ID, courseId);
         dbRequest.put(Constants.BATCH_ID, batchId);
         dbRequest.put(Constants.REPORT_REQUESTER, reportRequester);
+        dbRequest.put(Constants.CONTEXT_TYPE, Constants.BP_REPORT_V2_CONTEXT_TYPE);
         dbRequest.put(Constants.STATUS, Constants.STATUS_IN_PROGRESS_UPPERCASE);
         dbRequest.put(Constants.CREATED_BY, userId);
         String surveyId = (String) requestBody.get(Constants.SURVEY_ID);
@@ -324,6 +326,7 @@ public class BPReportsServiceV2Impl implements BPReportsServiceV2 {
         kafkaRequest.put(Constants.COURSE_ID, courseId);
         kafkaRequest.put(Constants.BATCH_ID, batchId);
         kafkaRequest.put(Constants.REPORT_REQUESTER, reportRequester);
+        kafkaRequest.put(Constants.CONTEXT_TYPE, Constants.BP_REPORT_V2_CONTEXT_TYPE);
         kafkaRequest.put(Constants.STATUS, Constants.STATUS_IN_PROGRESS_UPPERCASE);
         kafkaRequest.put(Constants.CREATED_BY, userId);
         kafkaRequest.put(Constants.BP_REPORT_VERSION, Constants.BP_REPORT_VERSION_V2);
@@ -341,8 +344,8 @@ public class BPReportsServiceV2Impl implements BPReportsServiceV2 {
      * cleared and set by the consumer once the report is successfully uploaded.
      */
     private boolean updateReportStatus(String orgId, String courseId, String batchId,
-                                       String reportRequester, String status) {
-        Map<String, Object> compositeKey = buildCompositeKey(orgId, courseId, batchId, reportRequester);
+                                       String reportRequester, String status, String contextType) {
+        Map<String, Object> compositeKey = buildCompositeKey(orgId, courseId, batchId, reportRequester, contextType);
         Map<String, Object> updateAttributes = new HashMap<>();
         updateAttributes.put(Constants.STATUS, status);
         updateAttributes.put(Constants.DOWNLOAD_LINK, null);
@@ -354,7 +357,7 @@ public class BPReportsServiceV2Impl implements BPReportsServiceV2 {
                 status.equals(Constants.FAILED_UPPERCASE) ? new Date() : null);
         Map<String, Object> response = cassandraOperation.updateRecord(
                 Constants.SUNBIRD_KEY_SPACE_NAME,
-                Constants.BP_ENROLMENT_REPORT_TABLE,
+                Constants.BP_ENROLMENT_REPORT_TABLE_V2,
                 updateAttributes,
                 compositeKey);
         return response.get(Constants.RESPONSE).equals(Constants.SUCCESS);
@@ -365,12 +368,14 @@ public class BPReportsServiceV2Impl implements BPReportsServiceV2 {
      * bp_enrolment_report and must be present in every CQL read/write operation.
      */
     private Map<String, Object> buildCompositeKey(String orgId, String courseId,
-                                                  String batchId, String reportRequester) {
+                                                  String batchId, String reportRequester,
+                                                  String contextType) {
         Map<String, Object> compositeKey = new HashMap<>();
         compositeKey.put(Constants.ORG_ID, orgId);
         compositeKey.put(Constants.COURSE_ID, courseId);
         compositeKey.put(Constants.BATCH_ID, batchId);
         compositeKey.put(Constants.REPORT_REQUESTER, reportRequester);
+        compositeKey.put(Constants.CONTEXT_TYPE, contextType);
         return compositeKey;
     }
 
@@ -386,11 +391,12 @@ public class BPReportsServiceV2Impl implements BPReportsServiceV2 {
         String batchId = (String) request.get(Constants.BATCH_ID);
         String orgId = (String) request.get(Constants.ORG_ID);
         String reportRequester = (String) request.get(Constants.REPORT_REQUESTER);
+        String contextType = (String) request.getOrDefault(Constants.CONTEXT_TYPE, Constants.BP_REPORT_V2_CONTEXT_TYPE);
         logger.info("BPReportsServiceV2Impl:: processBPReportV2: Started for courseId: {}, batchId: {}", courseId, batchId);
         Map<String, Object> batchDetails = fetchBatchDetails(courseId, batchId);
         if (batchDetails.isEmpty()) {
             logger.error("BPReportsServiceV2Impl:: processBPReportV2: No batch details found for courseId: {}, batchId: {}", courseId, batchId);
-            updateReportStatus(orgId, courseId, batchId, reportRequester, Constants.FAILED_UPPERCASE);
+            updateReportStatus(orgId, courseId, batchId, reportRequester, Constants.FAILED_UPPERCASE, contextType);
             return;
         }
         logger.debug("BPReportsServiceV2Impl:: processBPReportV2: Batch details fetched for batchId: {}", batchId);
@@ -434,10 +440,10 @@ public class BPReportsServiceV2Impl implements BPReportsServiceV2 {
         try {
             buildExcelSheet(workbook, batchDetails, referenceData, filteredUsers.size(), userDataList);
             logger.debug("BPReportsServiceV2Impl:: processBPReportV2: Excel sheet built with {} data rows for batchId: {}", userDataList.size(), batchId);
-            uploadReportAndUpdateDatabase(workbook, orgId, courseId, batchId, reportRequester, counts);
+            uploadReportAndUpdateDatabase(workbook, orgId, courseId, batchId, reportRequester, counts, contextType);
         } catch (Exception e) {
             logger.error("BPReportsServiceV2Impl:: processBPReportV2: Report generation failed for batchId: {}", batchId, e);
-            updateReportStatus(orgId, courseId, batchId, reportRequester, Constants.FAILED_UPPERCASE);
+            updateReportStatus(orgId, courseId, batchId, reportRequester, Constants.FAILED_UPPERCASE, contextType);
         } finally {
             workbook.dispose();
             try {
@@ -872,13 +878,14 @@ public class BPReportsServiceV2Impl implements BPReportsServiceV2 {
      * Any I/O or upload failure marks the report FAILED so the requester can re-trigger.
      */
     private void uploadReportAndUpdateDatabase(Workbook workbook, String orgId, String courseId,
-                                               String batchId, String reportRequester, int[] counts) {
-        String fileName = System.currentTimeMillis() + "_" + batchId + ".xlsx";
+                                               String batchId, String reportRequester,
+                                               int[] counts, String contextType) {
+        String fileName = serverProperties.getBpReportV2FileNamePrefix() + System.currentTimeMillis() + "_" + batchId + ".xlsx";
         String localDir = Constants.LOCAL_BASE_PATH + Constants.BP_REPORT_LOCAL_SUBDIR + orgId + "/" + courseId + "/";
         File directory = new File(localDir);
         if (!directory.exists() && !directory.mkdirs()) {
             logger.error("BPReportsServiceV2Impl:: Failed to create local directory: {}", localDir);
-            updateReportStatus(orgId, courseId, batchId, reportRequester, Constants.FAILED_UPPERCASE);
+            updateReportStatus(orgId, courseId, batchId, reportRequester, Constants.FAILED_UPPERCASE, contextType);
             return;
         }
         File file = new File(directory, fileName);
@@ -886,7 +893,7 @@ public class BPReportsServiceV2Impl implements BPReportsServiceV2 {
             workbook.write(fileOut);
         } catch (IOException e) {
             logger.error("BPReportsServiceV2Impl:: Failed to write Excel file: {}", fileName, e);
-            updateReportStatus(orgId, courseId, batchId, reportRequester, Constants.FAILED_UPPERCASE);
+            updateReportStatus(orgId, courseId, batchId, reportRequester, Constants.FAILED_UPPERCASE, contextType);
             deleteLocalFile(file);
             return;
         }
@@ -896,13 +903,13 @@ public class BPReportsServiceV2Impl implements BPReportsServiceV2 {
         String downloadUrl = (String) uploadResponse.getResult().get(Constants.URL);
         if (StringUtils.isBlank(downloadUrl)) {
             logger.error("BPReportsServiceV2Impl:: Cloud upload returned no URL for batchId: {}", batchId);
-            updateReportStatus(orgId, courseId, batchId, reportRequester, Constants.FAILED_UPPERCASE);
+            updateReportStatus(orgId, courseId, batchId, reportRequester, Constants.FAILED_UPPERCASE, contextType);
             deleteLocalFile(file);
             return;
         }
         logger.info("BPReportsServiceV2Impl:: uploadReportAndUpdateDatabase: Report uploaded to cloud for batchId: {}, url: {}", batchId, downloadUrl);
         deleteLocalFile(file);
-        Map<String, Object> compositeKey = buildCompositeKey(orgId, courseId, batchId, reportRequester);
+        Map<String, Object> compositeKey = buildCompositeKey(orgId, courseId, batchId, reportRequester, contextType);
         updateFinalReportStatus(compositeKey, downloadUrl, fileName, counts);
     }
 
@@ -949,7 +956,7 @@ public class BPReportsServiceV2Impl implements BPReportsServiceV2 {
         updateAttributes.put(Constants.LAST_REPORT_GENERATED_ON, new Date());
         updateAttributes.put(Constants.DOWNLOAD_LINK, downloadUrl);
         updateAttributes.put(Constants.FILE_NAME, fileName);
-        cassandraOperation.updateRecord(Constants.SUNBIRD_KEY_SPACE_NAME, Constants.BP_ENROLMENT_REPORT_TABLE,
+        cassandraOperation.updateRecord(Constants.SUNBIRD_KEY_SPACE_NAME, Constants.BP_ENROLMENT_REPORT_TABLE_V2,
                 updateAttributes, compositeKey);
     }
 
@@ -1129,5 +1136,59 @@ public class BPReportsServiceV2Impl implements BPReportsServiceV2 {
                 propertyMap,
                 serverProperties.getBpReportBatchDetailFields());
         return CollectionUtils.isEmpty(results) ? Collections.emptyMap() : results.get(0);
+    }
+
+    /**
+     * Returns the current status of a V2 BP report for a given batch and requester.
+     * Queries bp_enrolment_report_v2 using orgId, courseId, batchId, reportRequester,
+     * and contextType as composite key — ensuring V2 records are never mixed with V1.
+     * Returns the report record (status, downloadLink, enrolment counts) if found,
+     * or an informational error asking the caller to trigger generation first.
+     */
+    @Override
+    public SBApiResponse getBPReportStatusV2(Map<String, Object> requestBody, String authToken) {
+        SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.API_BP_REPORT_STATUS_V2);
+        try {
+            String userId = validateUserToken(authToken, response);
+            if (StringUtils.isBlank(userId)) {
+                logger.warn("BPReportsServiceV2Impl:: getBPReportStatusV2: Invalid or missing auth token");
+                return response;
+            }
+            logger.info("BPReportsServiceV2Impl:: getBPReportStatusV2: Started for userId: {}", userId);
+            Map<String, Object> request = (Map<String, Object>) requestBody.get(Constants.REQUEST);
+            String orgId = (String) request.get(Constants.ORG_ID);
+            String courseId = (String) request.get(Constants.COURSE_ID);
+            String batchId = (String) request.get(Constants.BATCH_ID);
+            String reportRequester = (String) request.get(Constants.REPORT_REQUESTER);
+            logger.debug("BPReportsServiceV2Impl:: getBPReportStatusV2: Fetching status for courseId: {}, batchId: {}, reportRequester: {}", courseId, batchId, reportRequester);
+            if (!validateUserOrganization(userId, orgId, response)) {
+                logger.warn("BPReportsServiceV2Impl:: getBPReportStatusV2: User {} does not belong to orgId: {}", userId, orgId);
+                return response;
+            }
+            Map<String, Object> propertyMap = new HashMap<>();
+            propertyMap.put(Constants.ORG_ID, orgId);
+            propertyMap.put(Constants.COURSE_ID, courseId);
+            propertyMap.put(Constants.BATCH_ID, batchId);
+            propertyMap.put(Constants.REPORT_REQUESTER, reportRequester);
+            propertyMap.put(Constants.CONTEXT_TYPE, Constants.BP_REPORT_V2_CONTEXT_TYPE);
+            List<Map<String, Object>> reportList = cassandraOperation.getRecordsByProperties(
+                    Constants.SUNBIRD_KEY_SPACE_NAME,
+                    Constants.BP_ENROLMENT_REPORT_TABLE_V2,
+                    propertyMap, null);
+            if (CollectionUtils.isEmpty(reportList)) {
+                logger.info("BPReportsServiceV2Impl:: getBPReportStatusV2: No report found for batchId: {}, reportRequester: {}", batchId, reportRequester);
+                updateErrorDetails(response, "Report is not available. Please generate the report.", HttpStatus.OK);
+                return response;
+            }
+            logger.info("BPReportsServiceV2Impl:: getBPReportStatusV2: Report status fetched successfully for batchId: {}, count: {}", batchId, reportList.size());
+            response.getParams().setStatus(Constants.SUCCESSFUL);
+            response.setResponseCode(HttpStatus.OK);
+            response.getResult().put(Constants.CONTENT, reportList);
+            response.getResult().put(Constants.COUNT, reportList.size());
+        } catch (Exception e) {
+            logger.error("BPReportsServiceV2Impl:: getBPReportStatusV2: Failed to fetch report status", e);
+            updateErrorDetails(response, "Failed to get BP report status. Error: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+        return response;
     }
 }
