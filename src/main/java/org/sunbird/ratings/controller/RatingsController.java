@@ -71,5 +71,13 @@ public class RatingsController {
         SBApiResponse response = ratingService.getTopReviewsForUserByOrgID(userOrgId);
         return new ResponseEntity<>(response, response.getResponseCode());
     }
+
+
+    @GetMapping("volunteer/ratings/v1/read")
+    public ResponseEntity<?> getRatingForVolunteer(@RequestHeader(value = Constants.X_AUTH_TOKEN, required = true) String userToken,
+                                                   @RequestBody RequestRating requestRating) {
+        SBApiResponse response = ratingService.getRatingsForVolunteer(requestRating,userToken);
+        return new ResponseEntity<>(response, response.getResponseCode());
+    }
 }
 

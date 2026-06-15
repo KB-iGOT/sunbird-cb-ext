@@ -22,4 +22,6 @@ public interface RatingService {
     public SBApiResponse updateAdditionalTag(String tag);
 
     SBApiResponse getTopReviewsForUserByOrgID(String userOrgId);
+
+    public SBApiResponse getRatingsForVolunteer(RequestRating requestRating,String userToken);
 }
