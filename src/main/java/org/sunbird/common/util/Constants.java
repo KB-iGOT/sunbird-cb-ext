@@ -833,6 +833,8 @@ public class Constants {
 
 	public static final String API_USER_INSIGHTS="api.user.insights";
 
+	public static final String API_CHATBOT_INSIGHTS="api.chatbot.insights";
+
 	public static final String API_TRENDING_SEARCH="api.trending.search";
 
 	public static final String COURSES="courses";
@@ -848,6 +850,15 @@ public class Constants {
 	public static final String W2 ="w2";
 	public static final String W3= "w3";
 	public static final String W4 ="w4";
+	public static final String W0 ="w0";
+	public static final String WN1 ="wn1";
+	public static final String WN2 ="wn2";
+	public static final String WN3 ="wn3";
+	public static final String WN4 ="wn4";
+	public static final String WN5 ="wn5";
+	public static final String WN6 ="wn6";
+	public static final String WN7 ="wn7";
+	public static final String W12 ="w12";
 
 	public static final String LEARNER_STATS = "learner_stats";
 	public static final String LEARNER_STATUS_USER_ID="userid";
@@ -1600,4 +1611,5 @@ public class Constants {
 	public static final String SID = "sid";
 	public static final String FID = "fid";
 	public static final String FNAME = "fname";
+	public static final int WEEK_RANGE_COUNT = 4;
 }

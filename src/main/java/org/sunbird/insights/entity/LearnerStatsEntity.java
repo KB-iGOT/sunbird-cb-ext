@@ -46,4 +46,28 @@ public class LearnerStatsEntity {
     @Column(name = "w4")
     private String w4;
 
+    @Column(name = "w0")
+    private String w0;
+
+    @Column(name = "wn1")
+    private String wn1;
+
+    @Column(name = "wn2")
+    private String wn2;
+
+    @Column(name = "wn3")
+    private String wn3;
+
+    @Column(name = "wn4")
+    private String wn4;
+
+    @Column(name = "wn5")
+    private String wn5;
+
+    @Column(name = "wn6")
+    private String wn6;
+
+    @Column(name = "wn7")
+    private String wn7;
+
 }
