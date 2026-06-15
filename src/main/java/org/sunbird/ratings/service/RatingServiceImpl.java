@@ -920,7 +920,7 @@ public class RatingServiceImpl implements RatingService {
 
     @Override
     public SBApiResponse getRatingsForVolunteer(RequestRating requestRating, String userToken) {
-        SBApiResponse response = new SBApiResponse();
+        SBApiResponse response = new SBApiResponse(Constants.API_RATINGS_READ);
         String userId = accessTokenValidator.fetchUserIdFromAccessToken(userToken);
         if (StringUtils.isBlank(userId)) {
             updateErrorDetails(response, Constants.USER_ID_DOESNT_EXIST, HttpStatus.INTERNAL_SERVER_ERROR);
