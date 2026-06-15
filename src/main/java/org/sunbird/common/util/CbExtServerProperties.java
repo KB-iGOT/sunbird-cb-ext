@@ -1308,6 +1308,9 @@ public class CbExtServerProperties {
 	@Value("${bp.report.excel.row.window.size:100}")
 	private int bpReportExcelRowWindowSize;
 
+	@Value("${bp.report.v2.file.name.prefix:BlendedProgramConsumptionReport_}")
+	private String bpReportV2FileNamePrefix;
+
 
 	public int getUserSearchLimit() {
 		return userSearchLimit;
@@ -4397,6 +4400,14 @@ public class CbExtServerProperties {
 
 	public void setBpReportExcelRowWindowSize(int bpReportExcelRowWindowSize) {
 		this.bpReportExcelRowWindowSize = bpReportExcelRowWindowSize;
+	}
+
+	public String getBpReportV2FileNamePrefix() {
+		return bpReportV2FileNamePrefix;
+	}
+
+	public void setBpReportV2FileNamePrefix(String bpReportV2FileNamePrefix) {
+		this.bpReportV2FileNamePrefix = bpReportV2FileNamePrefix;
 	}
 
 }
