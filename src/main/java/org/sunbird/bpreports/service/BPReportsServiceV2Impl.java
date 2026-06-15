@@ -1156,6 +1156,11 @@ public class BPReportsServiceV2Impl implements BPReportsServiceV2 {
             }
             logger.info("BPReportsServiceV2Impl:: getBPReportStatusV2: Started for userId: {}", userId);
             Map<String, Object> request = (Map<String, Object>) requestBody.get(Constants.REQUEST);
+            if (MapUtils.isEmpty(request)) {
+                logger.error("BPReportsServiceV2Impl:: getBPReportStatusV2: Request body is missing or empty");
+                updateErrorDetails(response, "Request body is missing or empty.", HttpStatus.BAD_REQUEST);
+                return response;
+            }
             String orgId = (String) request.get(Constants.ORG_ID);
             String courseId = (String) request.get(Constants.COURSE_ID);
             String batchId = (String) request.get(Constants.BATCH_ID);
