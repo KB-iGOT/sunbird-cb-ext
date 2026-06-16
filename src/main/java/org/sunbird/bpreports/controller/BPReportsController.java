@@ -49,4 +49,10 @@ public class BPReportsController {
         SBApiResponse response = bpReportsServiceV2.getBPReportStatusV2(requestBody, authToken);
         return new ResponseEntity<>(response, response.getResponseCode());
     }
+
+    @PostMapping("/v2/bpreport/list")
+    public ResponseEntity<SBApiResponse> getBPReportList(@RequestHeader(Constants.X_AUTH_TOKEN) String authToken, @RequestBody Map<String, Object> requestBody) {
+        SBApiResponse response = bpReportsServiceV2.getBPReportList(requestBody, authToken);
+        return new ResponseEntity<>(response, response.getResponseCode());
+    }
 }
