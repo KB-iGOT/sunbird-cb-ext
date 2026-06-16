@@ -57,11 +57,9 @@ public class ExploreCourseServiceImpl implements ExploreCourseService {
 		SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.API_GET_EXPLORE_COURSE_DETAIL);
 		String userId = accessTokenValidator.fetchUserIdFromAccessToken(authToken, response);
 		if (StringUtils.isBlank(userId)) {
-			if (response.getResponseCode() == null || response.getResponseCode().is2xxSuccessful()) {
-				response.getParams().setStatus(Constants.FAILED);
-				response.getParams().setErrmsg(Constants.USER_ID_DOESNT_EXIST);
-				response.setResponseCode(HttpStatus.UNAUTHORIZED);
-			}
+			response.getParams().setStatus(Constants.FAILED);
+			response.getParams().setErrmsg(Constants.USER_ID_DOESNT_EXIST);
+			response.setResponseCode(HttpStatus.UNAUTHORIZED);
 			return response;
 		}
 		return getExploreCourseList();
