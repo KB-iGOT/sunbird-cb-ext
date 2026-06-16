@@ -1196,4 +1196,73 @@ public class BPReportsServiceV2Impl implements BPReportsServiceV2 {
         }
         return response;
     }
+
+    /**
+     * Aggregates BP report records from both V1 (bp_enrolment_report) and
+     * V2 (bp_enrolment_report_v2) tables for the given composite key and returns
+     * them in a single unified response. V1 and V2 records share the same response
+     * structure so the client can render them without version-specific handling.
+     */
+    @Override
+    public SBApiResponse getBPReportList(Map<String, Object> requestBody, String authToken) {
+        SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.API_BP_REPORT_LIST);
+        try {
+            String userId = validateUserToken(authToken, response);
+            if (StringUtils.isBlank(userId)) {
+                logger.warn("BPReportsServiceV2Impl:: getBPReportList: Invalid or missing auth token");
+                return response;
+            }
+            logger.info("BPReportsServiceV2Impl:: getBPReportList: Started for userId: {}", userId);
+            Map<String, Object> request = (Map<String, Object>) requestBody.get(Constants.REQUEST);
+            if (MapUtils.isEmpty(request)) {
+                logger.error("BPReportsServiceV2Impl:: getBPReportList: Request body is missing or empty");
+                updateErrorDetails(response, "Request body is missing or empty.", HttpStatus.BAD_REQUEST);
+                return response;
+            }
+            String orgId = (String) request.get(Constants.ORG_ID);
+            String courseId = (String) request.get(Constants.COURSE_ID);
+            String batchId = (String) request.get(Constants.BATCH_ID);
+            String reportRequester = (String) request.get(Constants.REPORT_REQUESTER);
+            logger.debug("BPReportsServiceV2Impl:: getBPReportList: Fetching reports for courseId: {}, batchId: {}, reportRequester: {}", courseId, batchId, reportRequester);
+            if (!validateUserOrganization(userId, orgId, response)) {
+                logger.warn("BPReportsServiceV2Impl:: getBPReportList: User {} does not belong to orgId: {}", userId, orgId);
+                return response;
+            }
+            List<Map<String, Object>> combined = fetchCombinedReports(orgId, courseId, batchId, reportRequester);
+            if (combined.isEmpty()) {
+                logger.info("BPReportsServiceV2Impl:: getBPReportList: No reports found for batchId: {}, reportRequester: {}", batchId, reportRequester);
+                updateErrorDetails(response, "No reports available. Please generate the report.", HttpStatus.OK);
+                return response;
+            }
+            logger.info("BPReportsServiceV2Impl:: getBPReportList: Total records fetched: {} for batchId: {}", combined.size(), batchId);
+            response.getParams().setStatus(Constants.SUCCESSFUL);
+            response.setResponseCode(HttpStatus.OK);
+            response.getResult().put(Constants.CONTENT, combined);
+            response.getResult().put(Constants.COUNT, combined.size());
+        } catch (Exception e) {
+            logger.error("BPReportsServiceV2Impl:: getBPReportList: Failed to fetch report list", e);
+            updateErrorDetails(response, "Failed to get BP report list. Error: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+        return response;
+    }
+
+    private List<Map<String, Object>> fetchCombinedReports(String orgId, String courseId,
+                                                            String batchId, String reportRequester) {
+        Map<String, Object> propertyMap = new HashMap<>();
+        propertyMap.put(Constants.ORG_ID, orgId);
+        propertyMap.put(Constants.COURSE_ID, courseId);
+        propertyMap.put(Constants.BATCH_ID, batchId);
+        propertyMap.put(Constants.REPORT_REQUESTER, reportRequester);
+        List<Map<String, Object>> v1Reports = cassandraOperation.getRecordsByProperties(
+                Constants.SUNBIRD_KEY_SPACE_NAME, Constants.BP_ENROLMENT_REPORT_TABLE, propertyMap, null);
+        logger.debug("BPReportsServiceV2Impl:: fetchCombinedReports: V1 records found: {}", v1Reports == null ? 0 : v1Reports.size());
+        propertyMap.put(Constants.CONTEXT_TYPE, Constants.BP_REPORT_V2_CONTEXT_TYPE);
+        List<Map<String, Object>> v2Reports = cassandraOperation.getRecordsByProperties(
+                Constants.SUNBIRD_KEY_SPACE_NAME, Constants.BP_ENROLMENT_REPORT_TABLE_V2, propertyMap, null);
+        logger.debug("BPReportsServiceV2Impl:: fetchCombinedReports: V2 records found: {}", v2Reports == null ? 0 : v2Reports.size());
+        List<Map<String, Object>> combined = new ArrayList<>();
+        if (!CollectionUtils.isEmpty(v1Reports)) combined.addAll(v1Reports);
+        if (!CollectionUtils.isEmpty(v2Reports)) combined.addAll(v2Reports);
+        return combined;
+    }
 }
