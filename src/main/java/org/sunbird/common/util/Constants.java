@@ -1607,4 +1607,5 @@ public class Constants {
 	public static final String BP_ENROLMENT_REPORT_TABLE_V2= "bp_enrolment_report_v2";
 	public static final String BP_REPORT_V2_CONTEXT_TYPE = "Blended Program Consumption Report";
 	public static final String API_BP_REPORT_STATUS_V2 = "api.bp.report.status.v2";
+	public static final String API_BP_REPORT_LIST = "api.bp.report.list";
 }

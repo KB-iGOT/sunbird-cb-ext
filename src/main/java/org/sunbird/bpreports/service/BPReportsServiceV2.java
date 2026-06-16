@@ -43,4 +43,16 @@ public interface BPReportsServiceV2 {
      *         if found, or an informational error if no report exists for the given key
      */
     SBApiResponse getBPReportStatusV2(Map<String, Object> requestBody, String authToken);
+
+    /**
+     * Returns a combined list of BP reports from both V1 (bp_enrolment_report) and
+     * V2 (bp_enrolment_report_v2) tables for the given orgId, courseId, batchId,
+     * and reportRequester. Response structure is identical to the individual status APIs.
+     *
+     * @param requestBody the API request body containing a nested {@code request} map
+     *                    with orgId, courseId, batchId, and reportRequester
+     * @param authToken   bearer token used to resolve and validate the calling user
+     * @return {@link SBApiResponse} with combined content list and total count
+     */
+    SBApiResponse getBPReportList(Map<String, Object> requestBody, String authToken);
 }
