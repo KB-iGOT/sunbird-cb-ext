@@ -918,18 +918,6 @@ public class RatingServiceImpl implements RatingService {
         return response;
     }
 
-    @Override
-    public SBApiResponse getRatingsForVolunteer(RequestRating requestRating, String userToken) {
-        SBApiResponse response = new SBApiResponse(Constants.API_RATINGS_READ);
-        String userId = accessTokenValidator.fetchUserIdFromAccessToken(userToken);
-        if (StringUtils.isBlank(userId)) {
-            updateErrorDetails(response, Constants.USER_ID_DOESNT_EXIST, HttpStatus.INTERNAL_SERVER_ERROR);
-            return response;
-        }
-        response = getRatings(requestRating.getActivityId(),requestRating.getActivityType(),userId);
-        return response;
-    }
-
     private boolean updateAdditionalTag(Map<String, Object> contentResponse, String tag, boolean isRemove) {
         try {
             String versionKey = (String) contentResponse.get(Constants.VERSION_KEY);
