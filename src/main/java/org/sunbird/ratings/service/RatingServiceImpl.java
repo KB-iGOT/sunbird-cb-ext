@@ -22,6 +22,7 @@ import org.sunbird.cassandra.utils.CassandraOperation;
 import org.sunbird.common.model.SBApiResponse;
 import org.sunbird.common.service.ContentService;
 import org.sunbird.common.service.OutboundRequestHandlerServiceImpl;
+import org.sunbird.common.util.AccessTokenValidator;
 import org.sunbird.common.util.CbExtServerProperties;
 import org.sunbird.common.util.Constants;
 import org.sunbird.common.util.ProjectUtil;
@@ -77,6 +78,9 @@ public class RatingServiceImpl implements RatingService {
 
     @Autowired
     UserUtilityService userUtilityService;
+
+    @Autowired
+    AccessTokenValidator accessTokenValidator;
 
     @Override
     public SBApiResponse getRatings(String activityId, String activityType, String userId) {
