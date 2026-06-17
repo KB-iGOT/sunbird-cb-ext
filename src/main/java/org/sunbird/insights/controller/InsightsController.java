@@ -70,7 +70,7 @@ public class InsightsController {
         String userId = accessTokenValidator.fetchUserIdFromAccessToken(authToken);
 
         if (StringUtils.isNotBlank(userId)){
-            response = insightsService.insights(requestBody,authToken);
+            response = insightsService.insights(requestBody,userId);
         }else{
             updateErrorDetails(response, UNAUTHORIZED, HttpStatus.UNAUTHORIZED);
         }
