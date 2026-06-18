@@ -22,6 +22,7 @@ import org.sunbird.cassandra.utils.CassandraOperation;
 import org.sunbird.common.model.SBApiResponse;
 import org.sunbird.common.service.ContentService;
 import org.sunbird.common.service.OutboundRequestHandlerServiceImpl;
+import org.sunbird.common.util.AccessTokenValidator;
 import org.sunbird.common.util.CbExtServerProperties;
 import org.sunbird.common.util.Constants;
 import org.sunbird.common.util.ProjectUtil;
@@ -78,10 +79,18 @@ public class RatingServiceImpl implements RatingService {
     @Autowired
     UserUtilityService userUtilityService;
 
+    @Autowired
+    AccessTokenValidator accessTokenValidator;
+
     @Override
-    public SBApiResponse getRatings(String activityId, String activityType, String userId) {
+    public SBApiResponse getRatings(String activityId, String activityType, String userId,String authToken) {
         SBApiResponse response = new SBApiResponse(Constants.API_RATINGS_READ);
         UUID timeBasedUuid;
+        String userIdFromToken = accessTokenValidator.fetchUserIdFromAccessToken(authToken,response);
+        if(StringUtils.isBlank(userIdFromToken)){
+            return  response;
+        }
+        userId = userIdFromToken;
         try {
             validationBody = new ValidationBody();
             validationBody.setActivityId(activityId);
