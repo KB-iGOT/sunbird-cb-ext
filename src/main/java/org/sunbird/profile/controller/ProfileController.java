@@ -46,7 +46,7 @@ public class ProfileController {
 	}
 
 	@PostMapping("/user/patch/ngo")
-	public ResponseEntity<?> profileUpdateWrapper(
+	public ResponseEntity<SBApiResponse> profileUpdateWrapper(
 			@RequestHeader(value = Constants.X_AUTH_TOKEN, required = true) String userToken,
 			@RequestHeader(value = Constants.AUTH_TOKEN, required = false) String authToken,
 			@RequestHeader(value = Constants.X_AUTH_USER_ORG_ID, required = false) String rootOrgId,
