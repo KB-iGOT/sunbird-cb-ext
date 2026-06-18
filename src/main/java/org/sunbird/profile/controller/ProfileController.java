@@ -45,6 +45,16 @@ public class ProfileController {
 		return new ResponseEntity<>(response, response.getResponseCode());
 	}
 
+	@PostMapping("/user/patch/ngo")
+	public ResponseEntity<?> profileUpdateWrapper(
+			@RequestHeader(value = Constants.X_AUTH_TOKEN, required = true) String userToken,
+			@RequestHeader(value = Constants.AUTH_TOKEN, required = false) String authToken,
+			@RequestHeader(value = Constants.X_AUTH_USER_ORG_ID, required = false) String rootOrgId,
+			@RequestBody Map<String, Object> request)  {
+		SBApiResponse response = profileService.profileUpdate(request, userToken, authToken, rootOrgId);
+		return new ResponseEntity<>(response, response.getResponseCode());
+	}
+
 	@PatchMapping("/org/v1/profile/patch")
 	public ResponseEntity<?> orgProfileUpdate(@RequestBody Map<String, Object> request) throws Exception {
 		SBApiResponse response = profileService.orgProfileUpdate(request);
