@@ -1191,7 +1191,9 @@ public class ExtendedOrgServiceImpl implements ExtendedOrgService {
                     contentList.add(leaderMap);
                 }
         }
-            redisCacheMgr.putCache(cacheKey, contentList);
+            if(CollectionUtils.isNotEmpty(contentList)) {
+                redisCacheMgr.putCache(cacheKey, contentList);
+            }
             /* ---------- FINAL RESPONSE ---------- */
             Map<String, Object> finalResponse = new HashMap<>();
             finalResponse.put(Constants.CONTENT, contentList);
