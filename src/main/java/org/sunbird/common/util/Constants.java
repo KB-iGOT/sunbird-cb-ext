@@ -1588,4 +1588,24 @@ public class Constants {
 	public static final String USER_NOT_FOUND = "User not found";
 	public static final String CHATBOT_SEARCH_ERROR = "Error while searching chatbot user";
 	public static final String SAME_ORGANIZATION_MSG = "Profile update failed. The selected organization is already associated with your account.";
+	public static final String ERROR_PROCESSING_BP_REQUEST = "Error while processing batch program report request";
+	public static final String ERROR_INSERTING_BP_RECORD = "Error while inserting batch program report record in database";
+	public static final String ERROR_UPDATING_BP_RECORD = "Error while updating batch program report record in database";
+	public static final String BP_REPORT_VERSION = "version";
+	public static final String BP_REPORT_VERSION_V1 = "v1";
+	public static final String BP_REPORT_VERSION_V2 = "v2";
+	public static final String BP_REPORT_LOCAL_SUBDIR = "bpreports/";
+	public static final String PROGRAM_COORDINATOR_NAME = "programCoordinatorName";
+	public static final String BATCH_CREATED_BY_NAME = "batchCreatedByName";
+	public static final String INSTRUCTOR_ID = "instructorId";
+	public static final String INSTRUCTOR_NAME = "instructorName";
+	public static final String PROFILE_DETAILS_GROUP = "profileDetails.professionalDetails.group";
+	public static final String CERTIFICATE_ISSUED = "certificateIssued";
+	public static final String CERTIFICATE_ISSUED_DATE = "certificateIssuedDate";
+	public static final String BP_REPORT_GENERATE_API_V2 ="api.generate.bp.report.v2";
+	public static final String ENROLMENT_END_DATE_COLUMN = "enrollment_enddate";
+	public static final String BP_ENROLMENT_REPORT_TABLE_V2= "bp_enrolment_report_v2";
+	public static final String BP_REPORT_V2_CONTEXT_TYPE = "Blended Program Consumption Report";
+	public static final String API_BP_REPORT_STATUS_V2 = "api.bp.report.status.v2";
+	public static final String API_BP_REPORT_LIST = "api.bp.report.list";
 }
