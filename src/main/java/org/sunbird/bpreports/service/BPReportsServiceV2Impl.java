@@ -72,8 +72,7 @@ public class BPReportsServiceV2Impl implements BPReportsServiceV2 {
     public SBApiResponse generateBPReportV2(Map<String, Object> requestBody, String authToken) {
         SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.BP_REPORT_GENERATE_API_V2);
         try {
-//            String userId = validateUserToken(authToken, response);
-            String userId = "74219ae7-9e50-42be-b87c-83c2076b30e0";
+            String userId = validateUserToken(authToken, response);
             if (StringUtils.isBlank(userId)) {
                 return response;
             }
