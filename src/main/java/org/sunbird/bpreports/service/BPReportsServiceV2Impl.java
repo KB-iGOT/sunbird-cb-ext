@@ -729,12 +729,14 @@ public class BPReportsServiceV2Impl implements BPReportsServiceV2 {
             if (!CollectionUtils.isEmpty(rows)) {
                 for (Map<String, Object> row : rows) {
                     String uid = (String) row.get(Constants.USER_ID);
+                    logger.info("BPReportsServiceV2Impl:: batchFetchCertificateStatuses: Fetched certificates for userId: {}", uid);
                     Object certs = row.get(Constants.ISSUED_CERTIFICATES);
                     combined.put(uid, certs instanceof List
                             ? (List<Map<String, Object>>) certs : Collections.emptyList());
                 }
             }
         }
+        logger.debug("BPReportsServiceV2Impl:: batchFetchCertificateStatuses: result :combined {}", combined);
         return combined;
     }
 
@@ -869,8 +871,9 @@ public class BPReportsServiceV2Impl implements BPReportsServiceV2 {
     private void applyCertificateStatus(String userId,
                                         Map<String, List<Map<String, Object>>> allCertStatuses,
                                         Map<String, Object> userData) {
+        logger.info("applyCertificateStatus :: allCertStatuses {}",allCertStatuses);
         List<Map<String, Object>> certs = allCertStatuses.get(userId);
-        logger.info("applyCertificateStatus :: certs {}",certs.toString());
+        logger.info("applyCertificateStatus :: certs {}",certs);
         if (CollectionUtils.isEmpty(certs)) {
             userData.put(Constants.CERTIFICATE_ISSUED, Constants.NO);
         } else {
@@ -1215,6 +1218,7 @@ public class BPReportsServiceV2Impl implements BPReportsServiceV2 {
         SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.API_BP_REPORT_LIST);
         try {
             String userId = validateUserToken(authToken, response);
+
             if (StringUtils.isBlank(userId)) {
                 logger.warn("BPReportsServiceV2Impl:: getBPReportList: Invalid or missing auth token");
                 return response;
