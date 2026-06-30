@@ -492,6 +492,7 @@ public class BPReportsServiceV2Impl implements BPReportsServiceV2 {
         if (!CollectionUtils.isEmpty(createdFor)) {
             fetchMdoName(createdFor.get(0), referenceData);
         }
+        logger.info("BPReportsServiceV2Impl:: fetchBatchReferenceData:: test log createdBy {}", createdBy);
         if (StringUtils.isNotBlank(createdBy)) {
             fetchCoordinatorName(createdBy, referenceData);
         }
@@ -562,12 +563,14 @@ public class BPReportsServiceV2Impl implements BPReportsServiceV2 {
                 propertyMap,
                 Collections.singletonList(Constants.FIRSTNAME),
                 Constants.ID);
+        logger.info("BPReportsServiceV2Impl:: fetchCoordinatorName:: Fetched user details for userId: {}, userDetails: {}", userId, userDetails);
         if (MapUtils.isNotEmpty(userDetails)) {
             Map<String, Object> user = (Map<String, Object>) userDetails.get(userId);
             if (MapUtils.isNotEmpty(user)) {
                 String name = (String) user.get(Constants.FIRSTNAME);
                 referenceData.put(Constants.PROGRAM_COORDINATOR_NAME, name);
                 referenceData.put(Constants.BATCH_CREATED_BY_NAME, name);
+                logger.info("BPReportsServiceV2Impl:: fetchCoordinatorName:: test log referenceData {}", referenceData.toString());
             }
         }
     }
