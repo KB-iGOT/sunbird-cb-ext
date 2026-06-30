@@ -403,6 +403,7 @@ public class BPReportsServiceV2Impl implements BPReportsServiceV2 {
         logger.debug("BPReportsServiceV2Impl:: processBPReportV2: Batch details fetched for batchId: {}", batchId);
 
         List<WfStatusEntity> enrolledUsers = fetchEnrolledUsers(batchId);
+        logger.info("BPReportsServiceV2Impl:: test log enrolledUsers {}", enrolledUsers.toString());
         if (enrolledUsers.isEmpty()) {
             logger.warn("BPReportsServiceV2Impl:: processBPReportV2: No active enrolled users found for batchId: {}", batchId);
         }
@@ -418,7 +419,7 @@ public class BPReportsServiceV2Impl implements BPReportsServiceV2 {
         Map<String, Object> allUserProfiles = batchFetchUserProfiles(userIds);
         Map<String, List<Map<String, Object>>> allCertStatuses = batchFetchCertificateStatuses(userIds, courseId, batchId);
         logger.debug("BPReportsServiceV2Impl:: processBPReportV2: User profiles and certificate statuses fetched for batchId: {}", batchId);
-
+        logger.debug("BPReportsServiceV2Impl:: processBPReportV2: User profiles and certificate allCertStatuses: {}", allCertStatuses);
         List<String> createdFor = (List<String>) batchDetails.get(Constants.CREATED_FOR);
         String contentOrgId = CollectionUtils.isEmpty(createdFor) ? null : createdFor.get(0);
 
@@ -561,7 +562,7 @@ public class BPReportsServiceV2Impl implements BPReportsServiceV2 {
                 Constants.SUNBIRD_KEY_SPACE_NAME,
                 Constants.TABLE_USER,
                 propertyMap,
-                Collections.singletonList(Constants.FIRSTNAME),
+                Arrays.asList(Constants.ID, Constants.FIRSTNAME),
                 Constants.ID);
         logger.info("BPReportsServiceV2Impl:: fetchCoordinatorName:: Fetched user details for userId: {}, userDetails: {}", userId, userDetails);
         if (MapUtils.isNotEmpty(userDetails)) {
@@ -869,6 +870,7 @@ public class BPReportsServiceV2Impl implements BPReportsServiceV2 {
                                         Map<String, List<Map<String, Object>>> allCertStatuses,
                                         Map<String, Object> userData) {
         List<Map<String, Object>> certs = allCertStatuses.get(userId);
+        logger.info("applyCertificateStatus :: certs {}",certs.toString());
         if (CollectionUtils.isEmpty(certs)) {
             userData.put(Constants.CERTIFICATE_ISSUED, Constants.NO);
         } else {
@@ -1095,7 +1097,7 @@ public class BPReportsServiceV2Impl implements BPReportsServiceV2 {
         LocalDate start = parseToLocalDate(batchDetails.get(Constants.START_DATE_COLUMN));
         LocalDate end = parseToLocalDate(batchDetails.get(Constants.END_DATE_COLUMN));
         if (Objects.nonNull(start) && Objects.nonNull(end)) {
-            return String.valueOf(ChronoUnit.DAYS.between(start, end));
+            return String.valueOf(ChronoUnit.DAYS.between(start, end) + 1);
         }
         return "";
     }
