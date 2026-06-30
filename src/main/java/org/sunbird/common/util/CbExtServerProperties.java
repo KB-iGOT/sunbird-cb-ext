@@ -1303,7 +1303,10 @@ public class CbExtServerProperties {
 	private int bpReportWfPageSize;
 
 	@Value("${bp.report.sheet.name:Enrollment Report}")
-	private String bpReportSheetName;
+	private String bpReportEnrollmentSheetName;
+
+	@Value("${bp.report.consumption.sheet.name:Consumption Report}")
+	private String bpReportConsumptionSheetName;
 
 	@Value("${bp.report.excel.row.window.size:100}")
 	private int bpReportExcelRowWindowSize;
@@ -4386,12 +4389,18 @@ public class CbExtServerProperties {
 		this.bpReportWfPageSize = bpReportWfPageSize;
 	}
 
-	public String getBpReportSheetName() {
-		return bpReportSheetName;
+	public String getBpReportEnrollmentSheetName() { return bpReportEnrollmentSheetName; }
+
+	public void setBpReportEnrollmentSheetName(String bpReportEnrollmentSheetName) {
+		this.bpReportEnrollmentSheetName = bpReportEnrollmentSheetName;
 	}
 
-	public void setBpReportSheetName(String bpReportSheetName) {
-		this.bpReportSheetName = bpReportSheetName;
+	public String getBpReportConsumptionSheetName() {
+		return bpReportConsumptionSheetName;
+	}
+
+	public void setBpReportConsumptionSheetName(String bpReportConsumptionSheetName) {
+		this.bpReportConsumptionSheetName = bpReportConsumptionSheetName;
 	}
 
 	public int getBpReportExcelRowWindowSize() {

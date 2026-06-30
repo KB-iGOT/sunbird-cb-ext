@@ -416,7 +416,6 @@ public class BPReportsServiceV2Impl implements BPReportsServiceV2 {
         Map<String, Object> allUserProfiles = batchFetchUserProfiles(userIds);
         Map<String, List<Map<String, Object>>> allCertStatuses = batchFetchCertificateStatuses(userIds, courseId, batchId);
         logger.debug("BPReportsServiceV2Impl:: processBPReportV2: User profiles and certificate statuses fetched for batchId: {}", batchId);
-
         List<String> createdFor = (List<String>) batchDetails.get(Constants.CREATED_FOR);
         String contentOrgId = CollectionUtils.isEmpty(createdFor) ? null : createdFor.get(0);
 
@@ -490,6 +489,7 @@ public class BPReportsServiceV2Impl implements BPReportsServiceV2 {
         if (!CollectionUtils.isEmpty(createdFor)) {
             fetchMdoName(createdFor.get(0), referenceData);
         }
+        logger.info("BPReportsServiceV2Impl:: fetchBatchReferenceData:: test log createdBy {}", createdBy);
         if (StringUtils.isNotBlank(createdBy)) {
             fetchCoordinatorName(createdBy, referenceData);
         }
@@ -558,7 +558,7 @@ public class BPReportsServiceV2Impl implements BPReportsServiceV2 {
                 Constants.SUNBIRD_KEY_SPACE_NAME,
                 Constants.TABLE_USER,
                 propertyMap,
-                Collections.singletonList(Constants.FIRSTNAME),
+                Arrays.asList(Constants.ID, Constants.FIRSTNAME),
                 Constants.ID);
         if (MapUtils.isNotEmpty(userDetails)) {
             Map<String, Object> user = (Map<String, Object>) userDetails.get(userId);
@@ -723,12 +723,14 @@ public class BPReportsServiceV2Impl implements BPReportsServiceV2 {
             if (!CollectionUtils.isEmpty(rows)) {
                 for (Map<String, Object> row : rows) {
                     String uid = (String) row.get(Constants.USER_ID);
+                    logger.info("BPReportsServiceV2Impl:: batchFetchCertificateStatuses: Fetched certificates for userId: {}", uid);
                     Object certs = row.get(Constants.ISSUED_CERTIFICATES);
                     combined.put(uid, certs instanceof List
                             ? (List<Map<String, Object>>) certs : Collections.emptyList());
                 }
             }
         }
+        logger.debug("BPReportsServiceV2Impl:: batchFetchCertificateStatuses: result :combined {}", combined);
         return combined;
     }
 
@@ -863,7 +865,9 @@ public class BPReportsServiceV2Impl implements BPReportsServiceV2 {
     private void applyCertificateStatus(String userId,
                                         Map<String, List<Map<String, Object>>> allCertStatuses,
                                         Map<String, Object> userData) {
+        logger.info("applyCertificateStatus :: allCertStatuses {}",allCertStatuses);
         List<Map<String, Object>> certs = allCertStatuses.get(userId);
+        logger.info("applyCertificateStatus :: certs {}",certs);
         if (CollectionUtils.isEmpty(certs)) {
             userData.put(Constants.CERTIFICATE_ISSUED, Constants.NO);
         } else {
@@ -967,7 +971,7 @@ public class BPReportsServiceV2Impl implements BPReportsServiceV2 {
     private void buildExcelSheet(Workbook workbook, Map<String, Object> batchDetails,
                                  Map<String, Object> referenceData, int totalEnrolled,
                                  List<Map<String, Object>> userDataList) {
-        Sheet sheet = workbook.createSheet(serverProperties.getBpReportSheetName());
+        Sheet sheet = workbook.createSheet(serverProperties.getBpReportConsumptionSheetName());
         createHeaderRow(workbook, sheet);
         int rowNum = 1;
         for (Map<String, Object> userData : userDataList) {
@@ -1005,7 +1009,6 @@ public class BPReportsServiceV2Impl implements BPReportsServiceV2 {
         int col = 0;
         // Batch-level columns (16)
         setCellValue(row, col++, batchDetails.get(Constants.BATCH_ID));
-        setCellValue(row, col++, batchDetails.get(Constants.NAME));
         setCellValue(row, col++, batchDetails.get(Constants.COURSE_ID));
         setCellValue(row, col++, referenceData.get(Constants.PROGRAM_NAME));
         setCellValue(row, col++, referenceData.get(Constants.PRIMARY_CATEGORY));
@@ -1026,7 +1029,6 @@ public class BPReportsServiceV2Impl implements BPReportsServiceV2 {
         setCellValue(row, col++, userData.get(Constants.GROUP));
         setCellValue(row, col++, userData.get(Constants.DESIGNATION));
         setCellValue(row, col++, userData.get(Constants.EMPLOYEE_CODE));
-        setCellValue(row, col++, userData.get(Constants.PRIMARY_EMAIL));
         setCellValue(row, col++, userData.get(Constants.MOBILE));
         setCellValue(row, col++, userData.get(Constants.GENDER));
         setCellValue(row, col++, userData.get(Constants.DOB));
@@ -1090,7 +1092,7 @@ public class BPReportsServiceV2Impl implements BPReportsServiceV2 {
         LocalDate start = parseToLocalDate(batchDetails.get(Constants.START_DATE_COLUMN));
         LocalDate end = parseToLocalDate(batchDetails.get(Constants.END_DATE_COLUMN));
         if (Objects.nonNull(start) && Objects.nonNull(end)) {
-            return String.valueOf(ChronoUnit.DAYS.between(start, end));
+            return String.valueOf(ChronoUnit.DAYS.between(start, end) + 1);
         }
         return "";
     }
@@ -1208,6 +1210,7 @@ public class BPReportsServiceV2Impl implements BPReportsServiceV2 {
         SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.API_BP_REPORT_LIST);
         try {
             String userId = validateUserToken(authToken, response);
+
             if (StringUtils.isBlank(userId)) {
                 logger.warn("BPReportsServiceV2Impl:: getBPReportList: Invalid or missing auth token");
                 return response;
