@@ -394,7 +394,6 @@ public class BPReportsServiceV2Impl implements BPReportsServiceV2 {
         String contextType = (String) request.getOrDefault(Constants.CONTEXT_TYPE, Constants.BP_REPORT_V2_CONTEXT_TYPE);
         logger.info("BPReportsServiceV2Impl:: processBPReportV2: Started for courseId: {}, batchId: {}", courseId, batchId);
         Map<String, Object> batchDetails = fetchBatchDetails(courseId, batchId);
-        logger.info("BPReportsServiceV2Impl:: test log batchDetails {}", batchDetails);
         if (batchDetails.isEmpty()) {
             logger.error("BPReportsServiceV2Impl:: processBPReportV2: No batch details found for courseId: {}, batchId: {}", courseId, batchId);
             updateReportStatus(orgId, courseId, batchId, reportRequester, Constants.FAILED_UPPERCASE, contextType);
@@ -403,14 +402,12 @@ public class BPReportsServiceV2Impl implements BPReportsServiceV2 {
         logger.debug("BPReportsServiceV2Impl:: processBPReportV2: Batch details fetched for batchId: {}", batchId);
 
         List<WfStatusEntity> enrolledUsers = fetchEnrolledUsers(batchId);
-        logger.info("BPReportsServiceV2Impl:: test log enrolledUsers {}", enrolledUsers.toString());
         if (enrolledUsers.isEmpty()) {
             logger.warn("BPReportsServiceV2Impl:: processBPReportV2: No active enrolled users found for batchId: {}", batchId);
         }
         logger.info("BPReportsServiceV2Impl:: processBPReportV2: {} active enrolled users fetched for batchId: {}", enrolledUsers.size(), batchId);
 
         Map<String, Object> referenceData = fetchBatchReferenceData(batchDetails);
-        logger.info("BPReportsServiceV2Impl:: test log referenceData {}", referenceData);
         logger.debug("BPReportsServiceV2Impl:: processBPReportV2: Reference data fetched for batchId: {}", batchId);
 
         List<String> userIds = enrolledUsers.stream()
@@ -419,7 +416,6 @@ public class BPReportsServiceV2Impl implements BPReportsServiceV2 {
         Map<String, Object> allUserProfiles = batchFetchUserProfiles(userIds);
         Map<String, List<Map<String, Object>>> allCertStatuses = batchFetchCertificateStatuses(userIds, courseId, batchId);
         logger.debug("BPReportsServiceV2Impl:: processBPReportV2: User profiles and certificate statuses fetched for batchId: {}", batchId);
-        logger.debug("BPReportsServiceV2Impl:: processBPReportV2: User profiles and certificate allCertStatuses: {}", allCertStatuses);
         List<String> createdFor = (List<String>) batchDetails.get(Constants.CREATED_FOR);
         String contentOrgId = CollectionUtils.isEmpty(createdFor) ? null : createdFor.get(0);
 
@@ -564,14 +560,12 @@ public class BPReportsServiceV2Impl implements BPReportsServiceV2 {
                 propertyMap,
                 Arrays.asList(Constants.ID, Constants.FIRSTNAME),
                 Constants.ID);
-        logger.info("BPReportsServiceV2Impl:: fetchCoordinatorName:: Fetched user details for userId: {}, userDetails: {}", userId, userDetails);
         if (MapUtils.isNotEmpty(userDetails)) {
             Map<String, Object> user = (Map<String, Object>) userDetails.get(userId);
             if (MapUtils.isNotEmpty(user)) {
                 String name = (String) user.get(Constants.FIRSTNAME);
                 referenceData.put(Constants.PROGRAM_COORDINATOR_NAME, name);
                 referenceData.put(Constants.BATCH_CREATED_BY_NAME, name);
-                logger.info("BPReportsServiceV2Impl:: fetchCoordinatorName:: test log referenceData {}", referenceData.toString());
             }
         }
     }
@@ -977,7 +971,7 @@ public class BPReportsServiceV2Impl implements BPReportsServiceV2 {
     private void buildExcelSheet(Workbook workbook, Map<String, Object> batchDetails,
                                  Map<String, Object> referenceData, int totalEnrolled,
                                  List<Map<String, Object>> userDataList) {
-        Sheet sheet = workbook.createSheet(serverProperties.getBpReportSheetName());
+        Sheet sheet = workbook.createSheet(serverProperties.getBpReportConsumptionSheetName());
         createHeaderRow(workbook, sheet);
         int rowNum = 1;
         for (Map<String, Object> userData : userDataList) {
@@ -1015,7 +1009,6 @@ public class BPReportsServiceV2Impl implements BPReportsServiceV2 {
         int col = 0;
         // Batch-level columns (16)
         setCellValue(row, col++, batchDetails.get(Constants.BATCH_ID));
-        setCellValue(row, col++, batchDetails.get(Constants.NAME));
         setCellValue(row, col++, batchDetails.get(Constants.COURSE_ID));
         setCellValue(row, col++, referenceData.get(Constants.PROGRAM_NAME));
         setCellValue(row, col++, referenceData.get(Constants.PRIMARY_CATEGORY));
@@ -1036,7 +1029,6 @@ public class BPReportsServiceV2Impl implements BPReportsServiceV2 {
         setCellValue(row, col++, userData.get(Constants.GROUP));
         setCellValue(row, col++, userData.get(Constants.DESIGNATION));
         setCellValue(row, col++, userData.get(Constants.EMPLOYEE_CODE));
-        setCellValue(row, col++, userData.get(Constants.PRIMARY_EMAIL));
         setCellValue(row, col++, userData.get(Constants.MOBILE));
         setCellValue(row, col++, userData.get(Constants.GENDER));
         setCellValue(row, col++, userData.get(Constants.DOB));
