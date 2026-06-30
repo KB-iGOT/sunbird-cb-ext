@@ -167,7 +167,7 @@ public class BPReportConsumer {
             Map<String, Object> userBatchFormData = getUserBatchFormData(profileSurveyId);
 
             // Create header row and apply styles
-            Sheet sheet = workbook.createSheet("Enrollment Report");
+            Sheet sheet = workbook.createSheet(serverProperties.getBpReportConsumptionSheetName());
             if (Constants.MDO_ADMIN.equalsIgnoreCase(reportRequester) || Constants.MDO_LEADER.equalsIgnoreCase(reportRequester)) {
                 createHeaderRowWithDefaultFields(workbook, sheet, formQuestions, headerKeyMapping);
             } else {
