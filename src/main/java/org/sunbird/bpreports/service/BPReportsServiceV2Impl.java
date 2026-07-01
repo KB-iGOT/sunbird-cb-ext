@@ -718,7 +718,7 @@ public class BPReportsServiceV2Impl implements BPReportsServiceV2 {
             propertyMap.put(Constants.COURSE_ID, courseId);
             propertyMap.put(Constants.BATCH_ID, batchId);
             List<Map<String, Object>> rows = cassandraOperation.getRecordsByPropertiesWithoutFiltering(
-                    Constants.SUNBIRD_COURSES_KEY_SPACE_NAME, Constants.TABLE_USER_ENROLMENT,
+                    Constants.SUNBIRD_COURSES_KEY_SPACE_NAME, Constants.TABLE_USER_ENROLMENT_V2,
                     propertyMap, Arrays.asList(Constants.USER_ID, Constants.ISSUED_CERTIFICATES));
             if (!CollectionUtils.isEmpty(rows)) {
                 for (Map<String, Object> row : rows) {
@@ -1001,7 +1001,7 @@ public class BPReportsServiceV2Impl implements BPReportsServiceV2 {
 
     /**
      * Fills a single Excel row: first 16 columns are batch/program-level (same for every row),
-     * remaining 30 columns are per-user.  Column order must match the header list from
+     * remaining 28 columns are per-user.  Column order must match the header list from
      * {@code serverProperties.getBpReportV2Headers()}.
      */
     private void writeDataRow(Row row, Map<String, Object> batchDetails, Map<String, Object> referenceData,
@@ -1009,6 +1009,7 @@ public class BPReportsServiceV2Impl implements BPReportsServiceV2 {
         int col = 0;
         // Batch-level columns (16)
         setCellValue(row, col++, batchDetails.get(Constants.BATCH_ID));
+        setCellValue(row, col++, batchDetails.get(Constants.NAME));
         setCellValue(row, col++, batchDetails.get(Constants.COURSE_ID));
         setCellValue(row, col++, referenceData.get(Constants.PROGRAM_NAME));
         setCellValue(row, col++, referenceData.get(Constants.PRIMARY_CATEGORY));
@@ -1021,10 +1022,9 @@ public class BPReportsServiceV2Impl implements BPReportsServiceV2 {
         setCellValue(row, col++, batchDetails.get(Constants.ENROLMENT_END_DATE_COLUMN));
         setCellValue(row, col++, computeBatchDuration(batchDetails));
         setCellValue(row, col++, totalEnrolled);
-        setCellValue(row, col++, batchDetails.get(Constants.CREATED_DATE));
+        setCellValue(row, col++, batchDetails.get(Constants.CREATED_DATE_COLUMN));
         setCellValue(row, col++, referenceData.get(Constants.BATCH_CREATED_BY_NAME));
-        // Per-user columns (30)
-        setCellValue(row, col++, userData.get(Constants.FIRSTNAME));
+        // Per-user columns (28)
         setCellValue(row, col++, userData.get(Constants.DEPARTMENTNAME));
         setCellValue(row, col++, userData.get(Constants.GROUP));
         setCellValue(row, col++, userData.get(Constants.DESIGNATION));
