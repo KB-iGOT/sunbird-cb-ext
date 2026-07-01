@@ -20,6 +20,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.util.ObjectUtils;
+import org.sunbird.cassandra.utils.CassandraOperation;
 import org.sunbird.common.model.SBApiOrgSearchRequest;
 import org.sunbird.common.model.SBApiResponse;
 import org.sunbird.common.service.OutboundRequestHandlerServiceImpl;
@@ -36,12 +37,17 @@ import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
-
+import org.sunbird.cache.RedisCacheMgr;
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 @RequiredArgsConstructor
 @Service
 public class ExtendedOrgServiceImpl implements ExtendedOrgService {
     private final IndexerService indexerService;
     private final CbExtServerProperties serverConfig;
+
+    @Autowired
+    private RedisCacheMgr redisCacheMgr;
     @Autowired
     OutboundRequestHandlerServiceImpl outboundService;
     @Autowired
@@ -54,6 +60,9 @@ public class ExtendedOrgServiceImpl implements ExtendedOrgService {
     private final Logger logger = LoggerFactory.getLogger(getClass().getName());
     @Value("${kafka.topics.org.hierarchy.framework.new.org.event}")
     private String kafkaTopicCreateHierarchyFramework;
+
+    @Autowired
+    CassandraOperation cassandraOperation;
 
     @SuppressWarnings("unchecked")
     @Override
@@ -1125,14 +1134,25 @@ public class ExtendedOrgServiceImpl implements ExtendedOrgService {
     public SBApiResponse getNodalOfficer(String orgId) {
         logger.info("Fetching MDO Leader List");
         SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.API_ORG_LIST);
+        // VALIDATION
+        if (StringUtils.isEmpty(orgId)) {
+            response.getParams().setErrmsg(Constants.ERR_ORG_ID_REQUIRED);
+            response.getParams().setStatus(Constants.FAILED);
+            response.setResponseCode(HttpStatus.BAD_REQUEST);
+            return response;
+        }
+        String cacheKey = Constants.NODAL_OFFICER_PREFIX + orgId;
+        String cachedResponse = redisCacheMgr.getCache(cacheKey);
+        if (StringUtils.isNotBlank(cachedResponse)) {
+            Object cachedObject = new Gson().fromJson(cachedResponse, new TypeToken<List<Map<String, Object>>>() {
+            }.getType());
+            Map<String, Object> finalResponse = new HashMap<>();
+            finalResponse.put(Constants.CONTENT, cachedObject);
+            response.getResult().put(Constants.RESPONSE, finalResponse);
+            response.getParams().setStatus(Constants.SUCCESS);
+            return response;
+        }
         try {
-            // VALIDATION
-            if (StringUtils.isEmpty(orgId)) {
-                response.getParams().setErrmsg(Constants.ERR_ORG_ID_REQUIRED);
-                response.getParams().setStatus(Constants.FAILED);
-                response.setResponseCode(HttpStatus.BAD_REQUEST);
-                return response;
-            }
             List<Map<String, Object>> contentList = new ArrayList<>();
             BoolQueryBuilder finalQuery = QueryBuilders.boolQuery();
             // FILTER BY ORG ID
@@ -1142,85 +1162,38 @@ public class ExtendedOrgServiceImpl implements ExtendedOrgService {
             sourceBuilder.size(serverConfig.getUserSearchLimit());
             // USER PROFILE SEARCH
             SearchResponse searchResponse = indexerService.getEsResult(serverConfig.getSbEsUserProfileIndex(), serverConfig.getEsProfileIndexType(), sourceBuilder, ProjectUtil.ESIndexType.USER_ES);
-            Map<String, Map<String, Object>> userMap = new HashMap<>();
-            List<String> rootOrgIds = new ArrayList<>();
-
-            /* ---------- USER LOOP ---------- */
-            for (SearchHit hit : searchResponse.getHits()) {
-                Map<String, Object> source = hit.getSourceAsMap();
-                String rootOrgId = (String) source.get(Constants.ROOT_ORG_ID);
-                userMap.put(rootOrgId, source);
-                rootOrgIds.add(rootOrgId);
-            }
-
-            /* ---------- BATCH LOGIC ---------- */
-            int batchSize = serverConfig.getBatchsize();
-            Map<String, String> ministryMap = new HashMap<>();
-            for (int i = 0; i < rootOrgIds.size(); i += batchSize) {
-                List<String> batch = rootOrgIds.subList(i, Math.min(i + batchSize, rootOrgIds.size()));
-                /* ---------- ORG SEARCH REQUEST ---------- */
-                Map<String, Object> orgSearchRequestBody = new HashMap<>();
-                Map<String, Object> request = new HashMap<>();
-                Map<String, Object> filters = new HashMap<>();
-                filters.put(Constants.ID, batch);
-                request.put(Constants.FILTERS, filters);
-                request.put(Constants.LIMIT, batch.size());
-                orgSearchRequestBody.put(Constants.REQUEST, request);
-                /* ---------- HEADERS ---------- */
-                Map<String, String> headers = new HashMap<>();
-                headers.put(Constants.CONTENT_TYPE, Constants.APPLICATION_JSON);
-                /* ---------- URL ---------- */
-                String url = configProperties.getSbUrl() + configProperties.getSbOrgSearchPath();
-                /* ---------- MICROSERVICE CALL ---------- */
-                Map<String, Object> apiResponse = outboundService.fetchResultUsingPost(url, orgSearchRequestBody, headers);
-                Map<String, Object> result = (Map<String, Object>) apiResponse.get(Constants.RESULT);
-                if (result != null) {
-                    Map<String, Object> responseMap = (Map<String, Object>) result.get(Constants.RESPONSE);
-                    if (responseMap != null) {
-                        List<Map<String, Object>> orgContent = (List<Map<String, Object>>) responseMap.get(Constants.CONTENT);
-                        if (CollectionUtils.isNotEmpty(orgContent)) {
-                            for (Map<String, Object> org : orgContent) {
-                                String identifier = org.get(Constants.IDENTIFIER) != null ? (String) org.get(Constants.IDENTIFIER) : "";
-                                String ministry = org.get(Constants.MINISTRY_STATE_NAME) != null ? (String) org.get(Constants.MINISTRY_STATE_NAME) : "";
-                                ministryMap.put(identifier, ministry);
+           if (searchResponse != null && searchResponse.getHits() != null && searchResponse.getHits().getHits().length > 0){
+                /* ---------- FINAL USER LOOP ---------- */
+                for (SearchHit hit : searchResponse.getHits()) {
+                    Map<String, Object> source = hit.getSourceAsMap();
+                    String orgName = (String) source.get(Constants.ROOT_ORG_NAME);
+                    String nodalName = null;
+                    String email = null;
+                    String ministryName = "";
+                    Map<String, Object> profileDetails = (Map<String, Object>) source.get(Constants.PROFILE_DETAILS);
+                    if (MapUtils.isNotEmpty(profileDetails)) {
+                        Map<String, Object> personalDetails = (Map<String, Object>) profileDetails.get(Constants.PERSONAL_DETAILS);
+                        if (MapUtils.isNotEmpty(personalDetails)) {
+                            nodalName = (String) personalDetails.get(Constants.FIRST_NAME_LOWER_CASE);
+                            email = (String) personalDetails.get(Constants.PRIMARY_EMAIL);
+                            if (email != null) {
+                                email = email.replace("@", "[at]");
+                                email = email.replace(".", "[dot]");
                             }
                         }
+                        ministryName = profileDetails.get(Constants.MINISTRY_OR_STATE_ORG_NAME) != null ? (String) profileDetails.get(Constants.MINISTRY_OR_STATE_ORG_NAME) : "";
                     }
+                    Map<String, Object> leaderMap = new LinkedHashMap<>();
+                    leaderMap.put("name", nodalName);
+                    leaderMap.put("orgName", orgName);
+                    leaderMap.put("stateOrMinistryName", ministryName);
+                    leaderMap.put("email", email);
+                    contentList.add(leaderMap);
                 }
+        }
+            if(CollectionUtils.isNotEmpty(contentList)) {
+                redisCacheMgr.putCache(cacheKey, contentList);
             }
-
-            /* ---------- FINAL USER LOOP ---------- */
-            if (CollectionUtils.isNotEmpty(rootOrgIds)) {
-                for (String rootOrgId : rootOrgIds) {
-                    Map<String, Object> source = userMap.get(rootOrgId);
-                    if (MapUtils.isNotEmpty(source)) {
-                        String orgName = (String) source.get(Constants.ROOT_ORG_NAME);
-                        String ministry = ministryMap.get(rootOrgId);
-                        String nodalName = null;
-                        String email = null;
-                        Map<String, Object> profileDetails = (Map<String, Object>) source.get(Constants.PROFILE_DETAILS);
-                        if (MapUtils.isNotEmpty(profileDetails)) {
-                            Map<String, Object> personalDetails = (Map<String, Object>) profileDetails.get(Constants.PERSONAL_DETAILS);
-                            if (MapUtils.isNotEmpty(personalDetails)) {
-                                nodalName = (String) personalDetails.get(Constants.FIRST_NAME_LOWER_CASE);
-                                email = (String) personalDetails.get(Constants.PRIMARY_EMAIL);
-                                if (email != null) {
-                                    email = email.replace("@", "[at]");
-                                    email = email.replace(".", "[dot]");
-                                }
-                            }
-                        }
-                        Map<String, Object> leaderMap = new LinkedHashMap<>();
-                        // DOC RESPONSE FORMAT
-                        leaderMap.put("Name", nodalName);
-                        leaderMap.put("OrgName", orgName);
-                        leaderMap.put("StateOrMinistryName", ministry);
-                        leaderMap.put("Email", email);
-                        contentList.add(leaderMap);
-                    }
-                }
-            }
-
             /* ---------- FINAL RESPONSE ---------- */
             Map<String, Object> finalResponse = new HashMap<>();
             finalResponse.put(Constants.CONTENT, contentList);
@@ -1234,4 +1207,22 @@ public class ExtendedOrgServiceImpl implements ExtendedOrgService {
         return response;
     }
 
+    @Override
+    public Map<String, Object> getOrgDetailsFromDB(String orgId) {
+        Map<String, Object> propertyMap = new HashMap<>();
+        propertyMap.put(Constants.ID, orgId);
+        List<Map<String, Object>> orgDetails = cassandraOperation.getRecordsByPropertiesWithoutFiltering(
+                Constants.KEYSPACE_SUNBIRD,
+                Constants.TABLE_ORGANIZATION,
+                propertyMap,
+                null,
+                1
+        );
+
+        if (CollectionUtils.isNotEmpty(orgDetails)) {
+            return orgDetails.get(0);
+        } else {
+            return null;
+        }
+    }
 }
