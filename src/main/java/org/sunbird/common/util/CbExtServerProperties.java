@@ -1279,6 +1279,30 @@ public class CbExtServerProperties {
 	@Value("${user.search.limit}")
 	private int userSearchLimit;
 
+	@Value("${bp.report.cassandra.in.chunk.size:100}")
+	private int bpReportCassandraInChunkSize;
+
+	@Value("#{'${bp.report.batch.detail.fields}'.split(',')}")
+	private List<String> bpReportBatchDetailFields;
+
+	@Value("#{'${bp.report.v2.headers}'.split(',')}")
+	private List<String> bpReportV2Headers;
+
+	@Value("${bp.report.wf.page.size:100}")
+	private int bpReportWfPageSize;
+
+	@Value("${bp.report.sheet.name:Enrollment Report}")
+	private String bpReportEnrollmentSheetName;
+
+	@Value("${bp.report.consumption.sheet.name:Consumption Report}")
+	private String bpReportConsumptionSheetName;
+
+	@Value("${bp.report.excel.row.window.size:100}")
+	private int bpReportExcelRowWindowSize;
+
+	@Value("${bp.report.v2.file.name.prefix:BlendedProgramConsumptionReport_}")
+	private String bpReportV2FileNamePrefix;
+
 	@Value("${operational.report.jwt.ttl}")
 	private int operationalReportJwtTTL;
 
@@ -4343,6 +4367,68 @@ public class CbExtServerProperties {
 		this.userAchievementFileUploadAllowedExtensions = userAchievementFileUploadAllowedExtensions;
 	}
 
+	public int getBpReportCassandraInChunkSize() {
+		return bpReportCassandraInChunkSize;
+	}
+
+	public void setBpReportCassandraInChunkSize(int bpReportCassandraInChunkSize) {
+		this.bpReportCassandraInChunkSize = bpReportCassandraInChunkSize;
+	}
+
+	public List<String> getBpReportBatchDetailFields() {
+		return bpReportBatchDetailFields;
+	}
+
+	public void setBpReportBatchDetailFields(List<String> bpReportBatchDetailFields) {
+		this.bpReportBatchDetailFields = bpReportBatchDetailFields;
+	}
+
+	public List<String> getBpReportV2Headers() {
+		return bpReportV2Headers;
+	}
+
+	public void setBpReportV2Headers(List<String> bpReportV2Headers) {
+		this.bpReportV2Headers = bpReportV2Headers;
+	}
+
+	public int getBpReportWfPageSize() {
+		return bpReportWfPageSize;
+	}
+
+	public void setBpReportWfPageSize(int bpReportWfPageSize) {
+		this.bpReportWfPageSize = bpReportWfPageSize;
+	}
+
+	public String getBpReportEnrollmentSheetName() { return bpReportEnrollmentSheetName; }
+
+	public void setBpReportEnrollmentSheetName(String bpReportEnrollmentSheetName) {
+		this.bpReportEnrollmentSheetName = bpReportEnrollmentSheetName;
+	}
+
+	public String getBpReportConsumptionSheetName() {
+		return bpReportConsumptionSheetName;
+	}
+
+	public void setBpReportConsumptionSheetName(String bpReportConsumptionSheetName) {
+		this.bpReportConsumptionSheetName = bpReportConsumptionSheetName;
+	}
+
+	public int getBpReportExcelRowWindowSize() {
+		return bpReportExcelRowWindowSize;
+	}
+
+	public void setBpReportExcelRowWindowSize(int bpReportExcelRowWindowSize) {
+		this.bpReportExcelRowWindowSize = bpReportExcelRowWindowSize;
+	}
+
+	public String getBpReportV2FileNamePrefix() {
+		return bpReportV2FileNamePrefix;
+	}
+
+	public void setBpReportV2FileNamePrefix(String bpReportV2FileNamePrefix) {
+		this.bpReportV2FileNamePrefix = bpReportV2FileNamePrefix;
+	}
+  
 	public int getOperationalReportJwtTTL() {
 		return operationalReportJwtTTL;
 	}
