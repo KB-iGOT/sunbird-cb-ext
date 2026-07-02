@@ -1022,10 +1022,7 @@ public class BPReportsServiceV2Impl implements BPReportsServiceV2 {
         setCellValue(row, col++, batchDetails.get(Constants.ENROLMENT_END_DATE_COLUMN));
         setCellValue(row, col++, computeBatchDuration(batchDetails));
         setCellValue(row, col++, totalEnrolled);
-        Object batchCreatedDate = batchDetails.get(Constants.CREATED_DATE_COLUMN);
-        logger.info("BPReportsServiceV2Impl:: writeDataRow: batchCreatedDate value: {}, type: {}",
-                batchCreatedDate, batchCreatedDate == null ? "null" : batchCreatedDate.getClass().getName());
-        setCellValue(row, col++, batchCreatedDate);
+        setCellValue(row, col++, batchDetails.get(Constants.CREATED_DATE_COLUMN));
         setCellValue(row, col++, referenceData.get(Constants.BATCH_CREATED_BY_NAME));
         // Per-user columns (28)
         setCellValue(row, col++, userData.get(Constants.DEPARTMENTNAME));
@@ -1135,23 +1132,12 @@ public class BPReportsServiceV2Impl implements BPReportsServiceV2 {
         Map<String, Object> propertyMap = new HashMap<>();
         propertyMap.put(Constants.COURSE_ID, courseId);
         propertyMap.put(Constants.BATCH_ID, batchId);
-        List<String> requestedFields = serverProperties.getBpReportBatchDetailFields();
-        logger.info("BPReportsServiceV2Impl:: fetchBatchDetails: courseId: {}, batchId: {}, requestedFields: {}",
-                courseId, batchId, requestedFields);
         List<Map<String, Object>> results = cassandraOperation.getRecordsByPropertiesWithoutFiltering(
                 Constants.SUNBIRD_COURSES_KEY_SPACE_NAME,
                 Constants.TABLE_COURSE_BATCH,
                 propertyMap,
-                requestedFields);
-        if (CollectionUtils.isEmpty(results)) {
-            logger.warn("BPReportsServiceV2Impl:: fetchBatchDetails: No course_batch row found for courseId: {}, batchId: {}", courseId, batchId);
-            return Collections.emptyMap();
-        }
-        Map<String, Object> batchDetails = results.get(0);
-        logger.info("BPReportsServiceV2Impl:: fetchBatchDetails: returned keys: {}", batchDetails.keySet());
-        logger.info("BPReportsServiceV2Impl:: fetchBatchDetails: CREATED_DATE_COLUMN [{}] resolved value: {}",
-                Constants.CREATED_DATE_COLUMN, batchDetails.get(Constants.CREATED_DATE_COLUMN));
-        return batchDetails;
+                serverProperties.getBpReportBatchDetailFields());
+        return CollectionUtils.isEmpty(results) ? Collections.emptyMap() : results.get(0);
     }
 
     /**
