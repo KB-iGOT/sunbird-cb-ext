@@ -724,7 +724,7 @@ public class BPReportsServiceV2Impl implements BPReportsServiceV2 {
                 for (Map<String, Object> row : rows) {
                     String uid = (String) row.get(Constants.USER_ID);
                     logger.info("BPReportsServiceV2Impl:: batchFetchCertificateStatuses: Fetched certificates for userId: {}", uid);
-                    Object certs = row.get(Constants.ISSUED_CERTIFICATES);
+                    Object certs = row.get(Constants.ISSUED_USER_CERTIFICATE);
                     combined.put(uid, certs instanceof List
                             ? (List<Map<String, Object>>) certs : Collections.emptyList());
                 }
