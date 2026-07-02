@@ -1263,6 +1263,7 @@ public class Constants {
 	public static final String COMPLETED_ON ="completedOn";
 	public static final String START_DATE_COLUMN = "start_date";
 	public static final String END_DATE_COLUMN = "end_date";
+	public static final String CREATED_DATE_COLUMN = "created_date";
 	public static final String BATCH_ATTRIBUTES_COLUMN="batch_attributes";
 	public static final String USER_EVENT_CONSUMPTION = "api.user.event.consumption";
 	public static final String LRC_PROGRESS_DETAILS_COLUMN="lrc_progressdetails";
@@ -1627,7 +1628,7 @@ public class Constants {
 
 	public static final String MINISTRY_OR_STATE_ORG_NAME = "ministryOrStateOrgName";
 	public static final String NODAL_OFFICER_PREFIX= "nodalofficer_";
-    public static final String DOWNLOAD_URL = "downloadUrl";
+  public static final String DOWNLOAD_URL = "downloadUrl";
 	public static final String SIGNED_URL = "signedUrl";
 	public static final String CONTENT_LENGTH = "contentLength";
 	public static final String UID = "uid";
