@@ -8,10 +8,8 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RestController;
 import org.sunbird.common.model.SBApiResponse;
-import org.sunbird.common.util.Constants;
 import org.sunbird.course.service.ExploreCourseService;
 
 /**
@@ -30,13 +28,6 @@ public class ExploreCourseController {
 	@GetMapping("/course/v1/explore")
 	public ResponseEntity<SBApiResponse> getPublicCourseList() {
 		SBApiResponse response = courseService.getExploreCourseList();
-		return new ResponseEntity<>(response, response.getResponseCode());
-	}
-
-	@GetMapping("/ngo/course/v1/explore")
-	public ResponseEntity<SBApiResponse> getPublicCourseListWrapper(
-			@RequestHeader(Constants.X_AUTH_TOKEN) String authToken) {
-		SBApiResponse response = courseService.getExploreCourseListWithToken(authToken);
 		return new ResponseEntity<>(response, response.getResponseCode());
 	}
 
