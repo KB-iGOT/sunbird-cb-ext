@@ -1327,6 +1327,9 @@ public class CbExtServerProperties {
 	@Value("#{${insights.week.range.count}}")
 	private Map<String, String> insightsWeekRangeCount;
 
+	@Value("${bp.report.profile.survey.es.page.size:100}")
+	private int bpReportProfileSurveyEsPageSize;
+
 	public int getUserSearchLimit() {
 		return userSearchLimit;
 	}
@@ -4489,5 +4492,13 @@ public class CbExtServerProperties {
 	}
 	public void setInsightsWeekRangeCount(Map<String, String> insightsWeekRangeCount) {
 		this.insightsWeekRangeCount = insightsWeekRangeCount;
+	}
+
+	public int getBpReportProfileSurveyEsPageSize() {
+		return bpReportProfileSurveyEsPageSize;
+	}
+
+	public void setBpReportProfileSurveyEsPageSize(int bpReportProfileSurveyEsPageSize) {
+		this.bpReportProfileSurveyEsPageSize = bpReportProfileSurveyEsPageSize;
 	}
 }
