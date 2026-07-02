@@ -655,13 +655,15 @@ public class BPReportsServiceV2Impl implements BPReportsServiceV2 {
         userData.put(Constants.CREATED_ON, entity.getCreatedOn());
         userData.put(Constants.DEPT_NAME, entity.getDeptName());
         parseEnrollmentFormData(entity.getUpdateFieldValues(), userData);
-        Map<String, Object> surveyResponse = profileSurveyResponses.get(userId);
-        if (MapUtils.isNotEmpty(surveyResponse)) {
-            if (surveyResponse.containsKey(Constants.GROUP_TITLE_CASE)) {
-                userData.put(Constants.GROUP_TITLE_CASE, surveyResponse.get(Constants.GROUP_TITLE_CASE));
-            }
-            if (surveyResponse.containsKey(Constants.DESIGNATION_TITLE_CASE)) {
-                userData.put(Constants.DESIGNATION_TITLE_CASE, surveyResponse.get(Constants.DESIGNATION_TITLE_CASE));
+        if (MapUtils.isNotEmpty(profileSurveyResponses)) {
+            Map<String, Object> surveyResponse = profileSurveyResponses.get(userId);
+            if (MapUtils.isNotEmpty(surveyResponse)) {
+                if (surveyResponse.containsKey(Constants.GROUP_TITLE_CASE)) {
+                    userData.put(Constants.GROUP_TITLE_CASE, surveyResponse.get(Constants.GROUP_TITLE_CASE));
+                }
+                if (surveyResponse.containsKey(Constants.DESIGNATION_TITLE_CASE)) {
+                    userData.put(Constants.DESIGNATION_TITLE_CASE, surveyResponse.get(Constants.DESIGNATION_TITLE_CASE));
+                }
             }
         }
         applyUserProfile(userId, allUserProfiles, userData);
