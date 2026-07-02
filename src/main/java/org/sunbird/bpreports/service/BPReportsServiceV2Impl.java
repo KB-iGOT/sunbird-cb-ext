@@ -580,9 +580,10 @@ public class BPReportsServiceV2Impl implements BPReportsServiceV2 {
     }
 
     /**
-     * Resolves instructor names from batch_attributes.sessionDetails_v2.
-     * Each session may carry an instructorId; unique IDs are batch-fetched from Cassandra
-     * and joined as a comma-separated string so multi-session batches show all instructors.
+     * Resolves instructor names from batch_attributes.instructors — a top-level array of
+     * {id, name, email} objects with the name already embedded, so no Cassandra lookup is
+     * needed. (sessionDetails_v2 entries carry no instructorId field — only unused
+     * facilatorIDs/facilatorDetails — so that was never a valid source.)
      * Safely returns nothing if the field is absent — the schema is still evolving.
      */
     private void fetchInstructorName(Map<String, Object> batchDetails, Map<String, Object> referenceData) {
@@ -599,44 +600,18 @@ public class BPReportsServiceV2Impl implements BPReportsServiceV2 {
             logger.error("BPReportsServiceV2Impl:: fetchInstructorName: Failed to resolve instructor names", e);
             return;
         }
-        List<Map<String, Object>> sessions =
-                (List<Map<String, Object>>) batchAttributes.get(Constants.TABLE_COURSE_SESSION_DETAILS);
-        if (CollectionUtils.isEmpty(sessions)) {
+        List<Map<String, Object>> instructors = (List<Map<String, Object>>) batchAttributes.get(Constants.INSTRUCTORS);
+        if (CollectionUtils.isEmpty(instructors)) {
             logger.debug("BPReportsServiceV2Impl:: fetchInstructorName: No {} found in batch_attributes",
-                    Constants.TABLE_COURSE_SESSION_DETAILS);
+                    Constants.INSTRUCTORS);
             return;
         }
-        List<String> instructorIds = sessions.stream()
-                .map(s -> (String) s.get(Constants.INSTRUCTOR_ID))
-                .filter(StringUtils::isNotBlank)
-                .distinct()
-                .collect(Collectors.toList());
-        if (instructorIds.isEmpty()) {
-            logger.warn("BPReportsServiceV2Impl:: fetchInstructorName: No instructorId found in sessionDetails_v2");
-            return;
-        }
-        Map<String, Object> propertyMap = new HashMap<>();
-        propertyMap.put(Constants.ID, instructorIds);
-        Map<String, Object> userDetails = cassandraOperation.getRecordsByProperties(
-                Constants.SUNBIRD_KEY_SPACE_NAME,
-                Constants.TABLE_USER,
-                propertyMap,
-                Arrays.asList(Constants.ID, Constants.FIRSTNAME),
-                Constants.ID);
-        if (MapUtils.isEmpty(userDetails)) {
-            logger.warn("BPReportsServiceV2Impl:: fetchInstructorName: No user records found for instructorIds: {}", instructorIds);
-            return;
-        }
-        List<String> names = instructorIds.stream()
-                .map(id -> (Map<String, Object>) userDetails.get(id))
-                .filter(MapUtils::isNotEmpty)
-                .map(user -> (String) user.get(Constants.FIRSTNAME))
-                .filter(StringUtils::isNotBlank)
-                .collect(Collectors.toList());
+        List<String> names = extractInstructorNames(instructors);
         if (!names.isEmpty()) {
             referenceData.put(Constants.INSTRUCTOR_NAME, String.join(", ", names));
         } else {
-            logger.warn("BPReportsServiceV2Impl:: fetchInstructorName: instructorIds resolved to no firstnames: {}", instructorIds);
+            logger.warn("BPReportsServiceV2Impl:: fetchInstructorName: {} entries had no usable name: {}",
+                    Constants.INSTRUCTORS, instructors);
         }
     }
 
@@ -1402,5 +1377,19 @@ public class BPReportsServiceV2Impl implements BPReportsServiceV2 {
                         (existing, replacement) -> replacement,
                         LinkedHashMap::new));
         resultMap.put((String) sourceMap.get(Constants.SUBMITTED_BY), questionAnswerMap);
+    }
+
+
+    /**
+     * Extracts distinct, trimmed, non-blank names from a batch_attributes.instructors list.
+     */
+    private List<String> extractInstructorNames(List<Map<String, Object>> instructors) {
+        return instructors.stream()
+                .filter(MapUtils::isNotEmpty)
+                .map(instructor -> (String) instructor.get(Constants.NAME))
+                .filter(StringUtils::isNotBlank)
+                .map(String::trim)
+                .distinct()
+                .collect(Collectors.toList());
     }
 }
