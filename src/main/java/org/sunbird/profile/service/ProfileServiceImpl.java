@@ -906,8 +906,15 @@ public class ProfileServiceImpl implements ProfileService {
 		return response;
 	}
 
-	public SBApiResponse userBasicProfileUpdate(Map<String, Object> request) {
+	public SBApiResponse userBasicProfileUpdate(Map<String, Object> request, String userToken) {
 		SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.API_USER_BASIC_PROFILE_UPDATE);
+		String userIdFromToken = accessTokenValidator.fetchUserIdFromAccessToken(userToken);
+		if (StringUtils.isBlank(userIdFromToken)){
+			response.setResponseCode(HttpStatus.UNAUTHORIZED);
+			response.getParams().setStatus(Constants.FAILED);
+			response.getParams().setErrmsg("Invalid user token.");
+			return response;
+		}
 		String errMsg = validateBasicProfilePayload(request);
 		if (StringUtils.isNotBlank(errMsg)) {
 			response.setResponseCode(HttpStatus.BAD_REQUEST);
@@ -917,7 +924,7 @@ public class ProfileServiceImpl implements ProfileService {
 		}
 		try {
 			Map<String, Object> requestBody = (Map<String, Object>) request.get(Constants.REQUEST);
-			errMsg = createOrgIfRequired(requestBody);
+			errMsg = createOrgIfRequired(requestBody, userToken);
 		} catch (Exception e) {
 			log.error("Failed to do user basic profile update. Exception: ", e);
 			response.setResponseCode(HttpStatus.INTERNAL_SERVER_ERROR);
@@ -1262,7 +1269,7 @@ public class ProfileServiceImpl implements ProfileService {
 		return request;
 	}
 
-	private String createOrgIfRequired(Map<String, Object> requestBody) {
+	private String createOrgIfRequired(Map<String, Object> requestBody, String userToken) {
 		String errMsg = StringUtils.EMPTY;
 		// Create the org if it's not already onboarded.
 		if (StringUtils.isEmpty((String) requestBody.get(Constants.SB_ORG_ID))) {
@@ -1280,7 +1287,7 @@ public class ProfileServiceImpl implements ProfileService {
 					Thread.currentThread().interrupt();
 					log.error("Thread sleep interrupted", e);
 				}
-				errMsg = executeSelfMigrateUser(requestBody);
+				errMsg = executeSelfMigrateUser(requestBody, userToken);
 			} else {
 				try {
 					errMsg = "Failed to auto onboard org.";
@@ -1289,12 +1296,12 @@ public class ProfileServiceImpl implements ProfileService {
 				}
 			}
 		} else {
-			errMsg = executeSelfMigrateUser(requestBody);
+			errMsg = executeSelfMigrateUser(requestBody, userToken);
 		}
 		return errMsg;
 	}
 
-	private String executeSelfMigrateUser(Map<String, Object> requestBody) {
+	private String executeSelfMigrateUser(Map<String, Object> requestBody, String userToken) {
 		String errMsg = StringUtils.EMPTY;
 		Map<String, Object> migrateResponse = (Map<String, Object>) outboundRequestHandlerService.fetchResultUsingPatch(
 				serverConfig.getSbUrl() + serverConfig.getLmsUserMigratePath(),
@@ -1304,7 +1311,7 @@ public class ProfileServiceImpl implements ProfileService {
 		if (Constants.OK.equalsIgnoreCase((String) migrateResponse.get(Constants.RESPONSE_CODE))) {
 			log.info(String.format("Successfully self migrated user. UserId: %s, Channel: %s",
 					(String) requestBody.get(Constants.USER_ID), (String) requestBody.get(Constants.CHANNEL)));
-			errMsg = updateUserProfile(requestBody);
+			errMsg = updateUserProfile(requestBody, userToken);
 		} else {
 			try {
 				errMsg = "Failed to Self migrate User.";
@@ -1315,7 +1322,7 @@ public class ProfileServiceImpl implements ProfileService {
 		return errMsg;
 	}
 
-	private String updateUserProfile(Map<String, Object> request) {
+	private String updateUserProfile(Map<String, Object> request, String userToken) {
 		String errMsg = StringUtils.EMPTY;
 
 		Map<String, Object> userReadResponse = userUtilityService
@@ -1407,12 +1414,12 @@ public class ProfileServiceImpl implements ProfileService {
 			Map<String, Object> params = (Map<String, Object>) updateResponse.get(Constants.PARAMS);
 			errMsg = String.format("Failed to update user profile. Error: %s", params.get("errmsg"));
 		} else {
-			errMsg = assignUserRole(request, existingRoles);
+			errMsg = assignUserRole(request, existingRoles, userToken);
 		}
 		return errMsg;
 	}
 
-	private String assignUserRole(Map<String, Object> requestBody, List<String> existingRoles) {
+	private String assignUserRole(Map<String, Object> requestBody, List<String> existingRoles, String userToken) {
 		String errMsg = StringUtils.EMPTY;
 		Map<String, Object> assignRoleReq = new HashMap<>();
 		Map<String, Object> assignRoleReqBody = new HashMap<String, Object>();
@@ -1427,9 +1434,12 @@ public class ProfileServiceImpl implements ProfileService {
 		assignRoleReqBody.put(Constants.ROLES, existingRoles);
 		assignRoleReq.put(Constants.REQUEST, assignRoleReqBody);
 
+		Map<String, String> assignRoleHeaders = new HashMap<>();
+		assignRoleHeaders.put(Constants.X_AUTH_TOKEN, userToken);
+		assignRoleHeaders.put(Constants.CONTENT_TYPE, Constants.APPLICATION_JSON);
 		Map<String, Object> assignRoleResponse = (Map<String, Object>) outboundRequestHandlerService
 				.fetchResultUsingPost(serverConfig.getSbUrl() + serverConfig.getSbAssignRolePath(), assignRoleReq,
-						MapUtils.EMPTY_MAP);
+						assignRoleHeaders);
 		if (!Constants.OK.equalsIgnoreCase((String) assignRoleResponse.get(Constants.RESPONSE_CODE))) {
 			Map<String, Object> params = (Map<String, Object>) assignRoleResponse.get(Constants.PARAMS);
 			errMsg = String.format("Failed to assign roles to User. Error: %s", params.get("errmsg"));
@@ -1659,7 +1669,7 @@ public class ProfileServiceImpl implements ProfileService {
 		requestBody.put(Constants.ROLES, Arrays.asList(Constants.PUBLIC));
 		requestObj.put(Constants.REQUEST, requestBody);
 		Map<String, Object> readData = (Map<String, Object>) outboundRequestHandlerService.fetchResultUsingPost(
-				serverConfig.getSbUrl() + serverConfig.getSbAssignRolePath(), requestObj,
+				serverConfig.getSbUrl() + serverConfig.getSbAssignPublicRolePath(), requestObj,
 				ProjectUtil.getDefaultHeaders());
 		if (readData.isEmpty() == Boolean.FALSE) {
 			if (Constants.OK.equalsIgnoreCase((String) readData.get(Constants.RESPONSE_CODE)))

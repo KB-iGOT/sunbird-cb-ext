@@ -17,7 +17,7 @@ public interface ProfileService {
 
 	SBApiResponse userBasicInfo(String userId);
 
-	SBApiResponse userBasicProfileUpdate(Map<String, Object> request);
+	SBApiResponse userBasicProfileUpdate(Map<String, Object> request, String userToken);
 
 	SBApiResponse userAutoComplete(String searchTerm);
 
