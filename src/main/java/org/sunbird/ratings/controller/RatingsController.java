@@ -30,8 +30,9 @@ public class RatingsController {
     @GetMapping("/ratings/v1/read/{activityId}/{activityType}/{userId}")
     public ResponseEntity<?> getRating(@PathVariable("activityId") String activityId,
                                        @PathVariable("activityType") String activityType,
-                                       @PathVariable("userId") String userId) {
-        SBApiResponse response = ratingService.getRatings(activityId, activityType, userId);
+                                       @PathVariable("userId") String userId,
+                                       @RequestHeader(value = Constants.X_AUTH_TOKEN, required = false) String authToken) {
+        SBApiResponse response = ratingService.getRatings(activityId, activityType, userId,authToken);
         return new ResponseEntity<>(response, response.getResponseCode());
     }
 
@@ -69,6 +70,14 @@ public class RatingsController {
     @GetMapping("/ratings/v1/topReviews/{orgId}")
     public ResponseEntity<?> getRatingTopReviewsSummary(@PathVariable(Constants.ORG_ID) String userOrgId) {
         SBApiResponse response = ratingService.getTopReviewsForUserByOrgID(userOrgId);
+        return new ResponseEntity<>(response, response.getResponseCode());
+    }
+
+    @GetMapping("volunteer/ratings/v1/read/{activityId}/{activityType}")
+    public ResponseEntity<?> getRatingForVolunteer(@PathVariable("activityId") String activityId,
+                                                   @PathVariable("activityType") String activityType,
+                                                   @RequestHeader(value = Constants.X_AUTH_TOKEN, required = true) String authToken) {
+        SBApiResponse response =  response = ratingService.getRatings(activityId, activityType, "",authToken);
         return new ResponseEntity<>(response, response.getResponseCode());
     }
 }
