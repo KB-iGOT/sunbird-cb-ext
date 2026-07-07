@@ -344,7 +344,7 @@ public class UserUtilityServiceImpl implements UserUtilityService {
 		requestBody.put(Constants.ROLES, Arrays.asList(Constants.PUBLIC));
 		request.put(Constants.REQUEST, requestBody);
 		Map<String, Object> readData = (Map<String, Object>) outboundRequestHandlerService.fetchResultUsingPost(
-				props.getSbUrl() + props.getSbAssignRolePath(), request, ProjectUtil.getDefaultHeaders());
+				props.getSbUrl() + props.getSbAssignPublicRolePath(), request, ProjectUtil.getDefaultHeaders());
 		if (Constants.OK.equalsIgnoreCase((String) readData.get(Constants.RESPONSE_CODE))) {
 			retValue = true;
 		}
