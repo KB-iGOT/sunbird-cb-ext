@@ -73,7 +73,7 @@ public class RatingsController {
         return new ResponseEntity<>(response, response.getResponseCode());
     }
 
-    @GetMapping("volunteer/ratings/v1/read/{activityId}/{activityType}")
+    @GetMapping("/volunteer/ratings/v1/read/{activityId}/{activityType}")
     public ResponseEntity<?> getRatingForVolunteer(@PathVariable("activityId") String activityId,
                                                    @PathVariable("activityType") String activityType,
                                                    @RequestHeader(value = Constants.X_AUTH_TOKEN, required = true) String authToken) {
@@ -81,7 +81,7 @@ public class RatingsController {
         return new ResponseEntity<>(response, response.getResponseCode());
     }
 
-    @GetMapping("ratings/v1/read/{activityId}/{activityType}")
+    @GetMapping("/ratings/v1/read/{activityId}/{activityType}")
     public ResponseEntity<?> getRatingForPublic(@PathVariable("activityId") String activityId,
                                                    @PathVariable("activityType") String activityType,
                                                    @RequestHeader(value = Constants.X_AUTH_TOKEN, required = true) String authToken) {
