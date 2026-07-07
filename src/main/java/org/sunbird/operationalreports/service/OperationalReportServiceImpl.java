@@ -137,9 +137,12 @@ public class OperationalReportServiceImpl implements OperationalReportService {
                 roleRequestBody.put(Constants.ROLES, mdoAdminRoles);
                 assignRoleReq.put(Constants.REQUEST, roleRequestBody);
 
+                Map<String, String> assignRoleHeaders = new HashMap<>();
+                assignRoleHeaders.put(Constants.X_AUTH_TOKEN, authToken);
+                assignRoleHeaders.put(Constants.CONTENT_TYPE, Constants.APPLICATION_JSON);
                 Map<String, Object> assignRoleResp = outboundRequestHandlerService.fetchResultUsingPost(
                         serverProperties.getSbUrl() + serverProperties.getSbAssignRolePath(), assignRoleReq,
-                        null);
+                        assignRoleHeaders);
                 if (!Constants.OK.equalsIgnoreCase((String) assignRoleResp.get(Constants.RESPONSE_CODE))) {
                     logger.error("Failed to assign MDO_REPORT_ACCESSOR role for user. Response : %s",
                             (new ObjectMapper()).writeValueAsString(assignRoleResp));

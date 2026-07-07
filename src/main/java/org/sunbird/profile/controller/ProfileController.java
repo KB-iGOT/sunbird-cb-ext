@@ -64,8 +64,10 @@ public class ProfileController {
 	}
 
 	@PostMapping("/user/v1/basicProfileUpdate")
-	public ResponseEntity<?> parichayProfileUpdate(@RequestBody Map<String, Object> request) {
-		SBApiResponse response = profileService.userBasicProfileUpdate(request);
+	public ResponseEntity<?> parichayProfileUpdate(
+			@RequestHeader(value = Constants.X_AUTH_TOKEN, required = true) String userToken,
+			@RequestBody Map<String, Object> request) {
+		SBApiResponse response = profileService.userBasicProfileUpdate(request, userToken);
 		return new ResponseEntity<>(response, response.getResponseCode());
 	}
 
