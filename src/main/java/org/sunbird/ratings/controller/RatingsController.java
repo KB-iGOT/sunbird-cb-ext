@@ -80,5 +80,13 @@ public class RatingsController {
         SBApiResponse response =  response = ratingService.getRatings(activityId, activityType, "",authToken);
         return new ResponseEntity<>(response, response.getResponseCode());
     }
+
+    @GetMapping("ratings/v1/read/{activityId}/{activityType}")
+    public ResponseEntity<?> getRatingForPublic(@PathVariable("activityId") String activityId,
+                                                   @PathVariable("activityType") String activityType,
+                                                   @RequestHeader(value = Constants.X_AUTH_TOKEN, required = true) String authToken) {
+        SBApiResponse response =  response = ratingService.getRatings(activityId, activityType, "",authToken);
+        return new ResponseEntity<>(response, response.getResponseCode());
+    }
 }
 
