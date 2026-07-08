@@ -121,6 +121,7 @@ public class OrgLevelHierarchyServiceImpl implements OrgLevelHierarchyService {
             Map<String, Object> filters = new HashMap<>();
             filters.put(Constants.IS_TENANT, Boolean.TRUE);
             filters.put(Constants.IDENTIFIER, orgIds);
+            filters.put(Constants.STATUS, 1);
             requestMap.put(Constants.FILTERS, filters);
             String serviceURL = configProperties.getSbUrl() + configProperties.getSbOrgSearchPath();
             Map<String, Object> payload = new HashMap<>();
