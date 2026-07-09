@@ -21,6 +21,7 @@ import org.sunbird.insights.entity.LearnerStatsEntity;
 import org.sunbird.insights.repository.LearnerStatsRepository;
 import org.sunbird.user.service.UserUtilityService;
 
+import javax.annotation.PostConstruct;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -57,7 +58,30 @@ public class InsightsServiceImpl implements InsightsService {
 
     ObjectMapper mapper = new ObjectMapper();
 
-    public SBApiResponse insights(Map<String, Object> requestBody,String userId) throws Exception {
+    private Map<String, List<String>> weekRangeFields;
+    private Map<String, String> weekRangeCachePrefix;
+    private Map<String, Integer> weekRangeCount;
+
+    @PostConstruct
+    public void init() {
+        Map<String, List<String>> map = new HashMap<>();
+        extServerProperties.getInsightsWeekRange().forEach((key, value) ->
+                map.put(key, Collections.unmodifiableList(Arrays.asList(value.split(","))))
+        );
+        weekRangeFields = Collections.unmodifiableMap(map);
+
+        weekRangeCachePrefix = Collections.unmodifiableMap(
+                new HashMap<>(extServerProperties.getInsightsWeekRangeCachePrefix())
+        );
+
+        Map<String, Integer> countMap = new HashMap<>();
+        extServerProperties.getInsightsWeekRangeCount().forEach((key, value) ->
+                countMap.put(key, Integer.parseInt(value))
+        );
+        weekRangeCount = Collections.unmodifiableMap(countMap);
+    }
+
+    public SBApiResponse insights(Map<String, Object> requestBody, String userId, String weekRange) throws Exception {
         String [] labelsCertificates = {extServerProperties.getInsightsLabelCertificatesAcross(),extServerProperties.getInsightsLabelCertificatesYourDepartment()} ;
         String [] labelsLearningHours = {extServerProperties.getInsightsLabelLearningHoursYourDepartment(),extServerProperties.getInsightsLabelLearningHoursAcross()} ;
         HashMap<String, Object> request = (HashMap<String, Object>) requestBody.get(REQUEST) == null ? new HashMap<>() : (HashMap<String, Object>) requestBody.get(REQUEST);
@@ -79,9 +103,17 @@ public class InsightsServiceImpl implements InsightsService {
         populateIfNudgeExist(lhpLearningHours, nudges, INSIGHTS_TYPE_LEARNING_HOURS,organizations,labelsLearningHours);
         populateIfNudgeExist(lhpCertifications, nudges, INSIGHTS_TYPE_CERTIFICATE,Arrays.asList(fieldsArray_certificates),labelsCertificates);
         HashMap<String, Object> responseMap = new HashMap<>();
-        responseMap.put(WEEKLY_CLAPS, populateIfClapsExist(userId) );
+        List<String> weekFields = weekRangeFields.getOrDefault(weekRange, weekRangeFields.get(Constants.W4));
+        String cachePrefix = weekRangeCachePrefix.getOrDefault(weekRange, Constants.USER_INSIGHTS_CACHE_KEY_PREFIX);
+        int weekCount = weekRangeCount.getOrDefault(weekRange, Constants.WEEK_RANGE_COUNT);
+        responseMap.put(WEEKLY_CLAPS, populateIfClapsExist(userId, weekFields, cachePrefix, weekCount));
         responseMap.put(NUDGES, nudges);
-        SBApiResponse response = ProjectUtil.createDefaultResponse(API_USER_INSIGHTS);
+        SBApiResponse response;
+        if (Constants.W12.equals(weekRange)) {
+            response = ProjectUtil.createDefaultResponse(API_CHATBOT_INSIGHTS);
+        }else {
+            response = ProjectUtil.createDefaultResponse(API_USER_INSIGHTS);
+        }
         response.getResult().put(RESPONSE, responseMap);
         return response;
     }
@@ -94,12 +126,13 @@ public class InsightsServiceImpl implements InsightsService {
         }
         return  keys;
     }
-    private Map<String, Object> populateIfClapsExist(String userId) {
-        Optional<Map<String, Object>> cachedOpt = getClapsFromUserInsightsRedis(userId);
+    private Map<String, Object> populateIfClapsExist(String userId, List<String> weekFields, String cacheKeyPrefix, int weekCount) {
+        Optional<Map<String, Object>> cachedOpt = getClapsFromUserInsightsRedis(userId, cacheKeyPrefix);
+
         if (cachedOpt.isPresent()) {
             log.info("successfully fetching data from redis for weekly cap Insights");
             Map<String, Object> cached = cachedOpt.get();
-            LocalDate[] dates = populateDate();
+            LocalDate[] dates = populateDate(weekCount);
             cached.put(Constants.START_DATE, dates[0]);
             cached.put(Constants.END_DATE, dates[1]);
             return cached;
@@ -111,55 +144,28 @@ public class InsightsServiceImpl implements InsightsService {
             LearnerStatsEntity stats = optionalStats.get();
             response.put(USER_ID, stats.getUserId());
             response.put(Constants.TOTAL_CLAPS, stats.getTotalClaps());
-            // check if type of stats.getW1() is string. If yes, convert it to Json
-            Object w1 = stats.getW1();
-            if (w1 instanceof String) {
-                try {
-                    w1 = mapper.readTree((String) w1);
-                } catch (Exception e) {
-                    log.error("Failed to parse W1 as JSON", e);
-                }
+            Map<String, String> rawWeekData = new HashMap<>();
+            rawWeekData.put(W0, stats.getW0());
+            rawWeekData.put(W1, stats.getW1());
+            rawWeekData.put(W2, stats.getW2());
+            rawWeekData.put(W3, stats.getW3());
+            rawWeekData.put(W4, stats.getW4());
+            rawWeekData.put(WN1, stats.getWn1());
+            rawWeekData.put(WN2, stats.getWn2());
+            rawWeekData.put(WN3, stats.getWn3());
+            rawWeekData.put(WN4, stats.getWn4());
+            rawWeekData.put(WN5, stats.getWn5());
+            rawWeekData.put(WN6, stats.getWn6());
+            rawWeekData.put(WN7, stats.getWn7());
+            for (String field : weekFields) {
+                response.put(field, parseWeekField(rawWeekData.get(field)));
             }
-
-            Object w2 = stats.getW2();
-            if (w2 instanceof String) {
-                try {
-                    w2 = mapper.readTree((String) w2);
-                } catch (Exception e) {
-                    log.error("Failed to parse W1 as JSON", e);
-                }
-            }
-
-            Object w3 = stats.getW3();
-            if (w3 instanceof String) {
-                try {
-                    w3 = mapper.readTree((String) w3);
-                } catch (Exception e) {
-                    log.error("Failed to parse W3 as JSON", e);
-                }
-            }
-
-            Object w4 = stats.getW4();
-            if (w4 instanceof String) {
-                try {
-                    w4 = mapper.readTree((String) w4);
-                } catch (Exception e) {
-                    log.error("Failed to parse W4 as JSON", e);
-                }
-            }
-
-            response.put(W1, w1);
-            response.put(W2, w2);
-            response.put(W3, w3);
-            response.put(W4, w4);
         }
-        redisCacheMgr.putCacheToUserInsightsRedis(Constants.USER_INSIGHTS_CACHE_KEY_PREFIX + userId, response, serverProperties.getRedisUserInsightsTtl(), serverProperties.getRedisUserInsightsIndex());
-        LocalDate[] dates = populateDate();
+        redisCacheMgr.putCacheToUserInsightsRedis(cacheKeyPrefix + userId, response, serverProperties.getRedisUserInsightsTtl(), serverProperties.getRedisUserInsightsIndex());
+        LocalDate[] dates = populateDate(weekCount);
         response.put(Constants.START_DATE, dates[0]);
         response.put(Constants.END_DATE, dates[1]);
         return response;
-
-
     }
     public void populateIfNudgeExist(List<String> data, ArrayList<Object> nudges, String type, List<String> organizations,String labels[]) {
         for (int i = 0, j = 0; i < data.size(); i += 2, j++) {
@@ -195,10 +201,10 @@ public class InsightsServiceImpl implements InsightsService {
         }
     }
 
-    public LocalDate[] populateDate(){
+    public LocalDate[] populateDate(int weekCount){
         LocalDate currentDate = LocalDate.now();
         LocalDate endDate = currentDate.with(TemporalAdjusters.next(DayOfWeek.SUNDAY));
-        LocalDate startDate = endDate.minusWeeks(4).plusDays(1);
+        LocalDate startDate = endDate.minusWeeks(weekCount).plusDays(1);
         LocalDate[] local = new LocalDate[2];
         local[0] = startDate;
         local[1] = endDate;
@@ -588,9 +594,9 @@ public class InsightsServiceImpl implements InsightsService {
      * @param userId the authenticated user's ID used to construct the Redis cache key
      * @return an {@link Optional} containing the cached clap stats map on hit, or empty on miss/error
      */
-    private Optional<Map<String, Object>> getClapsFromUserInsightsRedis(String userId) {
+    private Optional<Map<String, Object>> getClapsFromUserInsightsRedis(String userId, String cacheKeyPrefix) {
         try {
-            String cachedData = redisCacheMgr.getCacheFromUserInsightsRedis(Constants.USER_INSIGHTS_CACHE_KEY_PREFIX + userId, serverProperties.getRedisUserInsightsIndex());
+            String cachedData = redisCacheMgr.getCacheFromUserInsightsRedis(cacheKeyPrefix + userId, serverProperties.getRedisUserInsightsIndex());
             if (StringUtils.isNotBlank(cachedData)) {
                 Map<String, Object> cached = mapper.readValue(cachedData, new TypeReference<Map<String, Object>>() {
                 });
@@ -601,6 +607,17 @@ public class InsightsServiceImpl implements InsightsService {
             log.warn("UserInsights Redis cache unavailable for userId: {}, falling back to Postgres", userId, e);
         }
         return Optional.empty();
+    }
+
+    private Object parseWeekField(Object raw) {
+        if (raw instanceof String) {
+            try {
+                return mapper.readTree((String) raw);
+            } catch (Exception e) {
+                log.error("Failed to parse week field as JSON", e);
+            }
+        }
+        return raw;
     }
 }
 
