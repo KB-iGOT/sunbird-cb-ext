@@ -1626,6 +1626,43 @@ public class Constants {
 	public static final String API_BP_REPORT_STATUS_V2 = "api.bp.report.status.v2";
 	public static final String API_BP_REPORT_LIST = "api.bp.report.list";
 
+	// Non-Govt (Volunteer) user bulk creation API
+	public static final String API_NON_GOVT_USER_BULK_UPLOAD = "api.nongovt.user.bulk.upload";
+	public static final String NON_GOVT_USER_BULK_UPLOAD_ENDPOINT = "/user/nongovt/v1/bulkupload";
+	public static final String NON_GOVT_BULK_UPLOAD_IN_PROGRESS_ERROR =
+			"Failed to upload for another request as previous request is in processing state, please try after some time.";
+	public static final String NON_GOVT_BULK_UPLOAD_CSV_PARSE_ERROR =
+			"Failed to parse the uploaded csv file of non-govt user bulk upload request.";
+	public static final String NON_GOVT_BULK_UPLOAD_FILE_UPLOAD_ERROR =
+			"Failed to upload file for non-govt user bulk upload request.";
+	public static final String NON_GOVT_BULK_UPLOAD_DB_INSERT_ERROR =
+			"Failed to update database with non-govt user bulk upload file details.";
+	public static final String NON_GOVT_BULK_UPLOAD_PROCESSING_ERROR =
+			"Failed to process non-govt user bulk upload request.";
+	public static final String FIELD_NOT_PRESENT_ERROR = "%s is not present";
+	public static final String NON_GOVT_USER_CREATE_ERROR = "Failed to create volunteer user.";
+	public static final String NON_GOVT_USER_CREATE_EMPTY_RESPONSE_ERROR = "Failed to create volunteer user: empty response from user create API.";
+	public static final String CSV_COLUMN_ERROR_DETAILS = "Error Details";
+	public static final String NON_GOVT_CSV_COLUMN_FULL_NAME = "Full Name";
+	public static final String NON_GOVT_CSV_COLUMN_MOBILE_NUMBER = "Mobile Number";
+	public static final String NON_GOVT_CSV_COLUMN_EMAIL = "Email";
+	public static final String NON_GOVT_CSV_COLUMN_EXTERNAL_ID = "External ID";
+	public static final String STATUS_PARTIALLY_COMPLETED_UPPERCASE = "PARTIALLY-COMPLETED";
+	public static final String NON_GOVT_BULK_UPLOAD_FILE_NOT_FOUND_ERROR = "Uploaded file not found or is empty.";
+	public static final String NON_GOVT_BULK_UPLOAD_EMPTY_ROW_ERROR = "Row is empty.";
+	public static final String NON_GOVT_BULK_UPLOAD_DUPLICATE_MOBILE_ERROR = "Duplicate mobile number within the uploaded file.";
+	public static final String NON_GOVT_BULK_UPLOAD_INVALID_FULL_NAME_ERROR = "Invalid Full Name.";
+	public static final String NON_GOVT_BULK_UPLOAD_INVALID_MOBILE_ERROR = "Invalid Mobile Number. Expecting a 10-digit number.";
+	public static final String NON_GOVT_BULK_UPLOAD_INVALID_EMAIL_ERROR = "Invalid Email format.";
+	public static final String NON_GOVT_BULK_UPLOAD_INVALID_EXTERNAL_ID_ERROR = "Invalid External ID format.";
+	public static final String NON_GOVT_BULK_UPLOAD_ROW_PROCESSING_ERROR = "Failed to process this row.";
+	public static final String ERROR_FILE_PATH = "errorFilePath";
+	public static final String NON_GOVT_BULK_UPLOAD_MANDATORY_COLUMNS_MISSING_ERROR =
+			"Uploaded csv file is missing mandatory columns: Full Name and/or Mobile Number.";
+	public static final String NON_GOVT_BULK_UPLOAD_UNSUPPORTED_FILE_TYPE_ERROR =
+			"Unsupported file type. Please upload a .csv or .xlsx file.";
+	public static final String NON_GOVT_BULK_UPLOAD_XLSX_PARSE_ERROR =
+			"Failed to parse the uploaded excel file of non-govt user bulk upload request.";
 	public static final String MINISTRY_OR_STATE_ORG_NAME = "ministryOrStateOrgName";
 	public static final String NODAL_OFFICER_PREFIX= "nodalofficer_";
   	public static final String DOWNLOAD_URL = "downloadUrl";

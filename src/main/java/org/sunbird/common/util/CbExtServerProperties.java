@@ -1303,6 +1303,18 @@ public class CbExtServerProperties {
 	@Value("${bp.report.v2.file.name.prefix:BlendedProgramConsumptionReport_}")
 	private String bpReportV2FileNamePrefix;
 
+	@Value("${kafka.topics.nongovt.user.bulk.upload}")
+	private String nonGovtUserBulkUploadTopic;
+
+	@Value("${nongovt.user.organisation.type:Volunteer}")
+	private String nonGovtUserOrganisationType;
+
+	@Value("${nongovt.bulk.upload.max.rows:10000}")
+	private int nonGovtBulkUploadMaxRows;
+
+	@Value("${nongovt.user.default.role:VOLUNTEER}")
+	private String nonGovtUserDefaultRole;
+
 	@Value("${operational.report.jwt.ttl}")
 	private int operationalReportJwtTTL;
 
@@ -4442,6 +4454,38 @@ public class CbExtServerProperties {
 
 	public String getJwtPrivateKeyPath() {
 		return jwtPrivateKeyPath;
+	}
+
+	public String getNonGovtUserBulkUploadTopic() {
+		return nonGovtUserBulkUploadTopic;
+	}
+
+	public void setNonGovtUserBulkUploadTopic(String nonGovtUserBulkUploadTopic) {
+		this.nonGovtUserBulkUploadTopic = nonGovtUserBulkUploadTopic;
+	}
+
+	public int getNonGovtBulkUploadMaxRows() {
+		return nonGovtBulkUploadMaxRows;
+	}
+
+	public void setNonGovtBulkUploadMaxRows(int nonGovtBulkUploadMaxRows) {
+		this.nonGovtBulkUploadMaxRows = nonGovtBulkUploadMaxRows;
+	}
+
+	public String getNonGovtUserDefaultRole() {
+		return nonGovtUserDefaultRole;
+	}
+
+	public void setNonGovtUserDefaultRole(String nonGovtUserDefaultRole) {
+		this.nonGovtUserDefaultRole = nonGovtUserDefaultRole;
+	}
+	
+	public String getNonGovtUserOrganisationType() {
+		return nonGovtUserOrganisationType;
+	}
+
+	public void setNonGovtUserOrganisationType(String nonGovtUserOrganisationType) {
+		this.nonGovtUserOrganisationType = nonGovtUserOrganisationType;
 	}
 
 	public void setJwtPrivateKeyPath(String jwtPrivateKeyPath) {
