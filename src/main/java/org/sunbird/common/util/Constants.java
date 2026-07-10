@@ -42,6 +42,7 @@ public class Constants {
 	public static final String INDUSTRIES = "industries";
 	public static final String CADRE = "cadre";
 	public static final String MINISTRY = "ministry";
+	public static final String GLOBAL_NGO = "globalngo";
 	public static final String MINISTRIES = "ministries";
 	public static final String SERVICE = "service";
 	public static final String NATIONALITIES = "nationalities";

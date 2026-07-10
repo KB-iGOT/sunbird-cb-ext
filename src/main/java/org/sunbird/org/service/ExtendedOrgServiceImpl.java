@@ -230,7 +230,9 @@ public class ExtendedOrgServiceImpl implements ExtendedOrgService {
         }
 
         List<OrgHierarchy> orgHierarchyList = null;
-        if (Constants.MINISTRY.equalsIgnoreCase(parentMapId) || Constants.STATE.equalsIgnoreCase(parentMapId)) {
+        if (Constants.MINISTRY.equalsIgnoreCase(parentMapId) 
+            || Constants.STATE.equalsIgnoreCase(parentMapId) 
+            || Constants.GLOBAL_NGO.equalsIgnoreCase(parentMapId)) {
             orgHierarchyList = orgRepository.findAllBySbOrgType(parentMapId);
         } else {
             orgHierarchyList = orgRepository.findAllByParentMapId(parentMapId);
