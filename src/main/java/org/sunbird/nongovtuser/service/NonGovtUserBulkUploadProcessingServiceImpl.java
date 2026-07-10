@@ -190,7 +190,13 @@ public class NonGovtUserBulkUploadProcessingServiceImpl implements NonGovtUserBu
 
     private void deleteLocalFile(File file) {
         try {
-            Files.delete(file.toPath());
+            if (file != null && file.exists()) {
+                Files.delete(file.toPath());
+                logger.debug("NonGovtUserBulkUploadProcessingServiceImpl:: deleteLocalFile: Successfully deleted file: {}", file.getPath());
+            } else {
+                logger.debug("NonGovtUserBulkUploadProcessingServiceImpl:: deleteLocalFile: File does not exist or is null: {}",
+                        file != null ? file.getPath() : "null");
+            }
         } catch (IOException e) {
             logger.error("NonGovtUserBulkUploadProcessingServiceImpl:: deleteLocalFile: Failed to delete file: {}", file.getPath(), e);
         }
@@ -589,7 +595,7 @@ public class NonGovtUserBulkUploadProcessingServiceImpl implements NonGovtUserBu
         updateNonGovtUserBulkUploadStatus(rootOrgId, identifier, finalStatus,
                 summary.getTotalRecords(), summary.getSuccessfulRecords(), summary.getFailedRecords());
         if (StringUtils.isNotBlank(resultFileUrl)) {
-            updateErrorFilePath(rootOrgId, identifier, resultFileUrl);
+            updateResultFilePath(rootOrgId, identifier, resultFileUrl);
         }
         logger.info("NonGovtUserBulkUploadProcessingServiceImpl:: persistFinalOutcome: identifier: {}, "
                 + "finalStatus: {}", identifier, finalStatus);
@@ -610,20 +616,20 @@ public class NonGovtUserBulkUploadProcessingServiceImpl implements NonGovtUserBu
     }
 
     /**
-     * Persists the annotated results file's URL — the govt reference never does this,
-     * leaving callers with no way to fetch the per-row error report.
+     * Persists the annotated results file's URL for both successful and failed uploads.
+     * The results file contains the original data with added Status and Error Details columns.
      */
-    private void updateErrorFilePath(String rootOrgId, String identifier, String resultFileUrl) {
+    private void updateResultFilePath(String rootOrgId, String identifier, String resultFileUrl) {
         try {
             Map<String, Object> compositeKeys = new HashMap<>();
             compositeKeys.put(Constants.ROOT_ORG_ID_LOWER, rootOrgId);
             compositeKeys.put(Constants.IDENTIFIER, identifier);
             Map<String, Object> fieldsToBeUpdated = new HashMap<>();
-            fieldsToBeUpdated.put(Constants.ERROR_FILE_PATH, resultFileUrl);
+            fieldsToBeUpdated.put(Constants.FILE_PATH_LOWER, resultFileUrl);
             cassandraOperation.updateRecord(Constants.KEYSPACE_SUNBIRD, Constants.TABLE_USER_BULK_UPLOAD,
                     fieldsToBeUpdated, compositeKeys);
         } catch (Exception e) {
-            logger.error("NonGovtUserBulkUploadProcessingServiceImpl:: updateErrorFilePath: Failed for identifier: {}", identifier, e);
+            logger.error("NonGovtUserBulkUploadProcessingServiceImpl:: updateResultFilePath: Failed for identifier: {}", identifier, e);
         }
     }
 

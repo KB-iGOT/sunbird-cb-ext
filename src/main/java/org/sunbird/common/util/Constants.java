@@ -1658,7 +1658,6 @@ public class Constants {
 	public static final String NON_GOVT_BULK_UPLOAD_INVALID_EMAIL_ERROR = "Invalid Email format.";
 	public static final String NON_GOVT_BULK_UPLOAD_INVALID_EXTERNAL_ID_ERROR = "Invalid External ID format.";
 	public static final String NON_GOVT_BULK_UPLOAD_ROW_PROCESSING_ERROR = "Failed to process this row.";
-	public static final String ERROR_FILE_PATH = "errorFilePath";
 	public static final String NON_GOVT_BULK_UPLOAD_MANDATORY_COLUMNS_MISSING_ERROR =
 			"Uploaded csv file is missing mandatory columns: Full Name and/or Mobile Number.";
 	public static final String NON_GOVT_BULK_UPLOAD_MANDATORY_VALUE_MISSING_ERROR =
@@ -1670,7 +1669,6 @@ public class Constants {
 	public static final String MINISTRY_OR_STATE_ORG_NAME = "ministryOrStateOrgName";
 	public static final String NODAL_OFFICER_PREFIX= "nodalofficer_";
   	public static final String DOWNLOAD_URL = "downloadUrl";
-	public static final String SIGNED_URL = "signedUrl";
 	public static final String CONTENT_LENGTH = "contentLength";
 	public static final String UID = "uid";
 	public static final String BKT = "bkt";
