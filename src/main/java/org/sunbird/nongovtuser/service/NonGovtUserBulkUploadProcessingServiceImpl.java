@@ -261,10 +261,18 @@ public class NonGovtUserBulkUploadProcessingServiceImpl implements NonGovtUserBu
     private List<Map<String, String>> extractCsvRows(File file) {
         List<CSVRecord> records = parseCsvRecords(file);
         List<Map<String, String>> rows = new ArrayList<>();
+        if (records.isEmpty()) {
+            return rows;
+        }
+        Set<String> headers = records.get(0).toMap().keySet();
+        String fullNameHeader = findMatchingHeader(headers,
+                Constants.NON_GOVT_CSV_COLUMN_FULL_NAME, Constants.NON_GOVT_CSV_COLUMN_FULL_NAME_HEADER);
+        String mobileNumberHeader = findMatchingHeader(headers,
+                Constants.NON_GOVT_CSV_COLUMN_MOBILE_NUMBER, Constants.NON_GOVT_CSV_COLUMN_MOBILE_NUMBER_HEADER);
         for (CSVRecord csvRecord : records) {
             rows.add(extractRowFields(
-                    getCsvFieldValue(csvRecord, Constants.NON_GOVT_CSV_COLUMN_FULL_NAME),
-                    getCsvFieldValue(csvRecord, Constants.NON_GOVT_CSV_COLUMN_MOBILE_NUMBER),
+                    getCsvFieldValue(csvRecord, fullNameHeader),
+                    getCsvFieldValue(csvRecord, mobileNumberHeader),
                     getCsvFieldValue(csvRecord, Constants.NON_GOVT_CSV_COLUMN_EMAIL),
                     getCsvFieldValue(csvRecord, Constants.NON_GOVT_CSV_COLUMN_EXTERNAL_ID)));
         }
@@ -289,7 +297,7 @@ public class NonGovtUserBulkUploadProcessingServiceImpl implements NonGovtUserBu
     }
 
     private String getCsvFieldValue(CSVRecord csvRecord, String columnName) {
-        return csvRecord.isSet(columnName) ? csvRecord.get(columnName).trim() : StringUtils.EMPTY;
+        return (columnName != null && csvRecord.isSet(columnName)) ? csvRecord.get(columnName).trim() : StringUtils.EMPTY;
     }
 
     private List<Map<String, String>> extractExcelRows(File file) {
@@ -300,6 +308,10 @@ public class NonGovtUserBulkUploadProcessingServiceImpl implements NonGovtUserBu
             if (MapUtils.isEmpty(columnIndexByHeader)) {
                 return Collections.emptyList();
             }
+            String fullNameHeader = findMatchingHeader(columnIndexByHeader.keySet(),
+                    Constants.NON_GOVT_CSV_COLUMN_FULL_NAME, Constants.NON_GOVT_CSV_COLUMN_FULL_NAME_HEADER);
+            String mobileNumberHeader = findMatchingHeader(columnIndexByHeader.keySet(),
+                    Constants.NON_GOVT_CSV_COLUMN_MOBILE_NUMBER, Constants.NON_GOVT_CSV_COLUMN_MOBILE_NUMBER_HEADER);
             List<Map<String, String>> rows = new ArrayList<>();
             for (int rowIndex = 1; rowIndex <= sheet.getLastRowNum(); rowIndex++) {
                 Row row = sheet.getRow(rowIndex);
@@ -307,8 +319,8 @@ public class NonGovtUserBulkUploadProcessingServiceImpl implements NonGovtUserBu
                     continue;
                 }
                 rows.add(extractRowFields(
-                        getExcelCellValue(row, columnIndexByHeader, Constants.NON_GOVT_CSV_COLUMN_FULL_NAME),
-                        getExcelCellValue(row, columnIndexByHeader, Constants.NON_GOVT_CSV_COLUMN_MOBILE_NUMBER),
+                        getExcelCellValue(row, columnIndexByHeader, fullNameHeader),
+                        getExcelCellValue(row, columnIndexByHeader, mobileNumberHeader),
                         getExcelCellValue(row, columnIndexByHeader, Constants.NON_GOVT_CSV_COLUMN_EMAIL),
                         getExcelCellValue(row, columnIndexByHeader, Constants.NON_GOVT_CSV_COLUMN_EXTERNAL_ID)));
             }
@@ -340,12 +352,26 @@ public class NonGovtUserBulkUploadProcessingServiceImpl implements NonGovtUserBu
      * mobile number that Excel auto-typed as numeric without extra special-casing.
      */
     private String getExcelCellValue(Row row, Map<String, Integer> columnIndexByHeader, String columnName) {
-        Integer columnIndex = columnIndexByHeader.get(columnName);
+        Integer columnIndex = columnName == null ? null : columnIndexByHeader.get(columnName);
         if (ObjectUtils.isEmpty(columnIndex)) {
             return StringUtils.EMPTY;
         }
         Cell cell = row.getCell(columnIndex);
         return ObjectUtils.isEmpty(cell) ? StringUtils.EMPTY : EXCEL_CELL_FORMATTER.formatCellValue(cell).trim();
+    }
+
+    /**
+     * Finds the actual header text for a mandatory column, matching either its bare
+     * name (e.g. "Full Name") or the "(mandatory)"-suffixed form the template header
+     * row actually uses (e.g. "Full Name (mandatory)"). Returns null if neither is present.
+     */
+    private String findMatchingHeader(Set<String> headers, String bareColumnName, String columnNameWithMandatorySuffix) {
+        for (String header : headers) {
+            if (header.equalsIgnoreCase(bareColumnName) || header.equalsIgnoreCase(columnNameWithMandatorySuffix)) {
+                return header;
+            }
+        }
+        return null;
     }
 
     private Map<String, String> extractRowFields(String fullName, String mobileNumber, String email, String externalId) {
