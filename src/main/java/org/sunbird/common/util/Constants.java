@@ -1645,6 +1645,8 @@ public class Constants {
 	public static final String CSV_COLUMN_ERROR_DETAILS = "Error Details";
 	public static final String NON_GOVT_CSV_COLUMN_FULL_NAME = "Full Name";
 	public static final String NON_GOVT_CSV_COLUMN_MOBILE_NUMBER = "Mobile Number";
+	public static final String NON_GOVT_CSV_COLUMN_FULL_NAME_HEADER = "Full Name (mandatory)";
+	public static final String NON_GOVT_CSV_COLUMN_MOBILE_NUMBER_HEADER = "Mobile Number (mandatory)";
 	public static final String NON_GOVT_CSV_COLUMN_EMAIL = "Email";
 	public static final String NON_GOVT_CSV_COLUMN_EXTERNAL_ID = "External ID";
 	public static final String STATUS_PARTIALLY_COMPLETED_UPPERCASE = "PARTIALLY-COMPLETED";
@@ -1659,6 +1661,8 @@ public class Constants {
 	public static final String ERROR_FILE_PATH = "errorFilePath";
 	public static final String NON_GOVT_BULK_UPLOAD_MANDATORY_COLUMNS_MISSING_ERROR =
 			"Uploaded csv file is missing mandatory columns: Full Name and/or Mobile Number.";
+	public static final String NON_GOVT_BULK_UPLOAD_MANDATORY_VALUE_MISSING_ERROR =
+			"Row %d is missing mandatory value(s): %s.";
 	public static final String NON_GOVT_BULK_UPLOAD_UNSUPPORTED_FILE_TYPE_ERROR =
 			"Unsupported file type. Please upload a .csv or .xlsx file.";
 	public static final String NON_GOVT_BULK_UPLOAD_XLSX_PARSE_ERROR =

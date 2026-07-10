@@ -6,18 +6,19 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.sql.Timestamp;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
+import org.apache.commons.csv.CSVRecord;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.DataFormatter;
@@ -149,7 +150,10 @@ public class NonGovtUserBulkUploadServiceImpl implements NonGovtUserBulkUploadSe
 
     /**
      * Confirms the uploaded file parses as a CSV with a header row containing the
-     * mandatory columns.
+     * mandatory columns, and that every non-blank data row has a value for each
+     * mandatory column. Rows left entirely blank (formatting artifacts / trailing
+     * rows) are skipped rather than rejected — they're caught individually as empty
+     * rows later by the async per-row validation instead of failing the whole file.
      */
     private String validateCsvStructure(MultipartFile mFile) {
         try (BufferedReader reader = new BufferedReader(
@@ -161,9 +165,25 @@ public class NonGovtUserBulkUploadServiceImpl implements NonGovtUserBulkUploadSe
                     .build();
             try (CSVParser csvParser = new CSVParser(reader, csvFormat)) {
                 List<String> headers = csvParser.getHeaderNames();
-                if (!headers.contains(Constants.NON_GOVT_CSV_COLUMN_FULL_NAME)
-                        || !headers.contains(Constants.NON_GOVT_CSV_COLUMN_MOBILE_NUMBER)) {
+                String fullNameHeader = findMatchingHeader(headers,
+                        Constants.NON_GOVT_CSV_COLUMN_FULL_NAME, Constants.NON_GOVT_CSV_COLUMN_FULL_NAME_HEADER);
+                String mobileNumberHeader = findMatchingHeader(headers,
+                        Constants.NON_GOVT_CSV_COLUMN_MOBILE_NUMBER, Constants.NON_GOVT_CSV_COLUMN_MOBILE_NUMBER_HEADER);
+                if (fullNameHeader == null || mobileNumberHeader == null) {
                     return Constants.NON_GOVT_BULK_UPLOAD_MANDATORY_COLUMNS_MISSING_ERROR;
+                }
+                int rowNumber = 1;
+                for (CSVRecord record : csvParser) {
+                    rowNumber++;
+                    if (isCsvRecordEntirelyBlank(record)) {
+                        continue;
+                    }
+                    String missingFields = findMissingMandatoryFields(
+                            record.get(fullNameHeader), record.get(mobileNumberHeader));
+                    if (missingFields != null) {
+                        return String.format(Constants.NON_GOVT_BULK_UPLOAD_MANDATORY_VALUE_MISSING_ERROR,
+                                rowNumber, missingFields);
+                    }
                 }
             }
             return null;
@@ -173,9 +193,21 @@ public class NonGovtUserBulkUploadServiceImpl implements NonGovtUserBulkUploadSe
         }
     }
 
+    private boolean isCsvRecordEntirelyBlank(CSVRecord record) {
+        for (String value : record) {
+            if (StringUtils.isNotBlank(value)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     /**
      * Confirms the uploaded file parses as an XLSX workbook whose first sheet's header
-     * row contains the mandatory columns.
+     * row contains the mandatory columns, and that every non-blank data row has a value
+     * for each mandatory column. Rows left entirely blank (formatting artifacts /
+     * trailing rows) are skipped rather than rejected — they're caught individually as
+     * empty rows later by the async per-row validation instead of failing the whole file.
      */
     private String validateExcelStructure(MultipartFile mFile) {
         try (InputStream inputStream = mFile.getInputStream();
@@ -185,20 +217,84 @@ public class NonGovtUserBulkUploadServiceImpl implements NonGovtUserBulkUploadSe
             if (ObjectUtils.isEmpty(headerRow)) {
                 return Constants.NON_GOVT_BULK_UPLOAD_MANDATORY_COLUMNS_MISSING_ERROR;
             }
-            Set<String> headers = new HashSet<>();
             DataFormatter dataFormatter = new DataFormatter();
+            Map<String, Integer> columnIndexByHeader = new HashMap<>();
             for (Cell cell : headerRow) {
-                headers.add(dataFormatter.formatCellValue(cell).trim());
+                columnIndexByHeader.put(dataFormatter.formatCellValue(cell).trim(), cell.getColumnIndex());
             }
-            if (!headers.contains(Constants.NON_GOVT_CSV_COLUMN_FULL_NAME)
-                    || !headers.contains(Constants.NON_GOVT_CSV_COLUMN_MOBILE_NUMBER)) {
+            String fullNameHeader = findMatchingHeader(columnIndexByHeader.keySet(),
+                    Constants.NON_GOVT_CSV_COLUMN_FULL_NAME, Constants.NON_GOVT_CSV_COLUMN_FULL_NAME_HEADER);
+            String mobileNumberHeader = findMatchingHeader(columnIndexByHeader.keySet(),
+                    Constants.NON_GOVT_CSV_COLUMN_MOBILE_NUMBER, Constants.NON_GOVT_CSV_COLUMN_MOBILE_NUMBER_HEADER);
+            if (fullNameHeader == null || mobileNumberHeader == null) {
                 return Constants.NON_GOVT_BULK_UPLOAD_MANDATORY_COLUMNS_MISSING_ERROR;
+            }
+            int fullNameColumnIndex = columnIndexByHeader.get(fullNameHeader);
+            int mobileNumberColumnIndex = columnIndexByHeader.get(mobileNumberHeader);
+            for (int rowIndex = 1; rowIndex <= sheet.getLastRowNum(); rowIndex++) {
+                Row dataRow = sheet.getRow(rowIndex);
+                if (isExcelRowEntirelyBlank(dataRow, dataFormatter)) {
+                    continue;
+                }
+                String missingFields = findMissingMandatoryFields(
+                        getExcelCellValue(dataRow, fullNameColumnIndex, dataFormatter),
+                        getExcelCellValue(dataRow, mobileNumberColumnIndex, dataFormatter));
+                if (missingFields != null) {
+                    return String.format(Constants.NON_GOVT_BULK_UPLOAD_MANDATORY_VALUE_MISSING_ERROR,
+                            rowIndex + 1, missingFields);
+                }
             }
             return null;
         } catch (IOException e) {
             logger.error("NonGovtUserBulkUploadServiceImpl:: validateExcelStructure: Failed to parse excel file", e);
             return Constants.NON_GOVT_BULK_UPLOAD_XLSX_PARSE_ERROR + " " + e.getMessage();
         }
+    }
+
+    private boolean isExcelRowEntirelyBlank(Row row, DataFormatter dataFormatter) {
+        if (ObjectUtils.isEmpty(row)) {
+            return true;
+        }
+        for (Cell cell : row) {
+            if (StringUtils.isNotBlank(dataFormatter.formatCellValue(cell))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private String getExcelCellValue(Row row, int columnIndex, DataFormatter dataFormatter) {
+        Cell cell = row.getCell(columnIndex);
+        return cell == null ? StringUtils.EMPTY : dataFormatter.formatCellValue(cell).trim();
+    }
+
+    /**
+     * Finds the actual header text for a mandatory column, matching either its bare
+     * name (e.g. "Full Name") or the "(mandatory)"-suffixed form the template header
+     * row actually uses (e.g. "Full Name (mandatory)"). Returns null if neither is present.
+     */
+    private String findMatchingHeader(Collection<String> headers, String bareColumnName, String columnNameWithMandatorySuffix) {
+        for (String header : headers) {
+            if (header.equalsIgnoreCase(bareColumnName) || header.equalsIgnoreCase(columnNameWithMandatorySuffix)) {
+                return header;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Returns a comma-separated list of the mandatory column names that are blank for
+     * this row, or null when both are present.
+     */
+    private String findMissingMandatoryFields(String fullName, String mobileNumber) {
+        List<String> missingFields = new ArrayList<>();
+        if (StringUtils.isBlank(fullName)) {
+            missingFields.add(Constants.NON_GOVT_CSV_COLUMN_FULL_NAME);
+        }
+        if (StringUtils.isBlank(mobileNumber)) {
+            missingFields.add(Constants.NON_GOVT_CSV_COLUMN_MOBILE_NUMBER);
+        }
+        return missingFields.isEmpty() ? null : String.join(", ", missingFields);
     }
 
     /**
