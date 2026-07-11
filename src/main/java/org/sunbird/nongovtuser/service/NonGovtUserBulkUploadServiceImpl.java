@@ -62,7 +62,8 @@ public class NonGovtUserBulkUploadServiceImpl implements NonGovtUserBulkUploadSe
     private final CbExtServerProperties serverProperties;
 
     @Override
-    public SBApiResponse bulkUploadNonGovtUsers(MultipartFile mFile, String orgId, String orgName,
+    public SBApiResponse
+    bulkUploadNonGovtUsers(MultipartFile mFile, String orgId, String orgName,
                                                  String userId, String userAuthToken) {
         logger.info("NonGovtUserBulkUploadServiceImpl:: bulkUploadNonGovtUsers: Started for orgId: {}", orgId);
         SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.API_NON_GOVT_USER_BULK_UPLOAD);
@@ -350,6 +351,7 @@ public class NonGovtUserBulkUploadServiceImpl implements NonGovtUserBulkUploadSe
         Map<String, Object> kafkaPayload = new HashMap<>(trackingRecord);
         kafkaPayload.put(Constants.ORG_NAME, orgName);
         kafkaPayload.put(Constants.X_AUTH_TOKEN, userAuthToken);
+        kafkaPayload.put(Constants.X_AUTH_USER_ORG_ID, orgId);
         kafkaProducer.pushWithKey(serverProperties.getNonGovtUserBulkUploadTopic(), kafkaPayload, orgId);
     }
 
