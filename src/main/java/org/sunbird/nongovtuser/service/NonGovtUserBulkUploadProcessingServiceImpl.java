@@ -238,7 +238,7 @@ public class NonGovtUserBulkUploadProcessingServiceImpl implements NonGovtUserBu
         }
         logger.info("NonGovtUserBulkUploadProcessingServiceImpl:: processDownloadedFile: identifier: {}, "
                 + "extracted {} rows for processing", identifier, rawRows.size());
-        RowProcessingSummary summary = processRows(rawRows, inputDataMap.get(Constants.ORG_NAME), inputDataMap.get(Constants.X_AUTH_TOKEN));
+        RowProcessingSummary summary = processRows(rawRows, inputDataMap.get(Constants.ORG_NAME), inputDataMap.get(Constants.X_AUTH_TOKEN), rootOrgId);
         logger.info("NonGovtUserBulkUploadProcessingServiceImpl:: processDownloadedFile: identifier: {}, "
                         + "total: {}, successful: {}, failed: {}",
                 identifier, summary.getTotalRecords(), summary.getSuccessfulRecords(), summary.getFailedRecords());
@@ -389,12 +389,12 @@ public class NonGovtUserBulkUploadProcessingServiceImpl implements NonGovtUserBu
         return fields;
     }
 
-    private RowProcessingSummary processRows(List<Map<String, String>> rawRows, String orgName, String userAuthToken) {
+    private RowProcessingSummary processRows(List<Map<String, String>> rawRows, String orgName, String userAuthToken, String rootOrgId) {
         RowProcessingSummary summary = new RowProcessingSummary();
         Set<String> seenMobileNumbers = new HashSet<>();
         int rowIndex = 1;
         for (Map<String, String> rawRow : rawRows) {
-            summary.recordRow(processSingleRow(rawRow, rowIndex++, seenMobileNumbers, orgName, userAuthToken));
+            summary.recordRow(processSingleRow(rawRow, rowIndex++, seenMobileNumbers, orgName, userAuthToken, rootOrgId));
         }
         return summary;
     }
@@ -409,7 +409,7 @@ public class NonGovtUserBulkUploadProcessingServiceImpl implements NonGovtUserBu
      * is written.
      */
     private Map<String, String> processSingleRow(Map<String, String> rawRow, int rowIndex, Set<String> seenMobileNumbers,
-                                                 String orgName, String userAuthToken) {
+                                                 String orgName, String userAuthToken, String orgId) {
         String fullName = rawRow.get(Constants.NON_GOVT_CSV_COLUMN_FULL_NAME);
         String mobileNumber = rawRow.get(Constants.NON_GOVT_CSV_COLUMN_MOBILE_NUMBER);
         String email = rawRow.get(Constants.NON_GOVT_CSV_COLUMN_EMAIL);
@@ -423,7 +423,7 @@ public class NonGovtUserBulkUploadProcessingServiceImpl implements NonGovtUserBu
                 return updatedRecord;
             }
             seenMobileNumbers.add(mobileNumber);
-            String creationError = createVolunteerUser(fullName, mobileNumber, email, externalId, orgName, userAuthToken, rowIndex);
+            String creationError = createVolunteerUser(fullName, mobileNumber, email, externalId, orgName, userAuthToken, rowIndex, orgId);
             if (StringUtils.isNotBlank(creationError)) {
                 markRowFailed(updatedRecord, creationError);
             } else {
@@ -679,12 +679,12 @@ public class NonGovtUserBulkUploadProcessingServiceImpl implements NonGovtUserBu
      * @return null on success, or a caller-facing error message on failure
      */
     private String createVolunteerUser(String fullName, String mobileNumber, String email, String externalId,
-                                       String orgName, String userAuthToken, int rowIndex) {
+                                       String orgName, String userAuthToken, int rowIndex, String orgId) {
         try {
             Map<String, Object> request = buildVolunteerUserCreateRequest(fullName, mobileNumber, email, externalId, orgName);
-            Map<String, String> headers = buildAuthHeaders(userAuthToken);
+            Map<String, String> headers = buildAuthHeaders(userAuthToken, orgId);
             Map<String, Object> createUserResponse = outboundRequestHandlerService.fetchResultUsingPost(
-                    serverProperties.getSbUrl() + serverProperties.getLmsBulkUserCreatePath(), request, headers);
+                    serverProperties.getSbUrl() + serverProperties.getLmsBulkNgoUserCreatePath(), request, headers);
             String error = interpretCreateUserResponse(createUserResponse);
             if (StringUtils.isNotBlank(error)) {
                 logger.warn("NonGovtUserBulkUploadProcessingServiceImpl:: createVolunteerUser: LMS returned failure for row: {}, reason: {}",
@@ -697,10 +697,13 @@ public class NonGovtUserBulkUploadProcessingServiceImpl implements NonGovtUserBu
         }
     }
 
-    private Map<String, String> buildAuthHeaders(String userAuthToken) {
+    private Map<String, String> buildAuthHeaders(String rootOrgId, String userAuthToken) {
         Map<String, String> headers = ProjectUtil.getDefaultHeaders();
         if (StringUtils.isNotBlank(userAuthToken)) {
             headers.put(Constants.X_AUTH_TOKEN, userAuthToken);
+        }
+        if (StringUtils.isNotBlank(rootOrgId)) {
+            headers.put(Constants.X_AUTH_USER_ORG_ID, rootOrgId);
         }
         return headers;
     }
