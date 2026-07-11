@@ -1342,6 +1342,9 @@ public class CbExtServerProperties {
 	@Value("${bp.report.profile.survey.es.page.size:100}")
 	private int bpReportProfileSurveyEsPageSize;
 
+	@Value("${sb.service.bulk.ngo.user.create.path}")
+	private String lmsBulkNgoUserCreatePath;
+
 	public int getUserSearchLimit() {
 		return userSearchLimit;
 	}
@@ -3838,6 +3841,14 @@ public class CbExtServerProperties {
 
 	public String getLmsBulkUserCreatePath() {
 		return lmsBulkUserCreatePath;
+	}
+
+	public String getLmsBulkNgoUserCreatePath() {
+		return lmsBulkNgoUserCreatePath;
+	}
+
+	public void setLmsBulkNgoUserCreatePath(String lmsBulkNgoUserCreatePath) {
+		this.lmsBulkNgoUserCreatePath = lmsBulkNgoUserCreatePath;
 	}
 
 	public String getSelfRegistrationUserEndpointUrl() {
