@@ -682,7 +682,7 @@ public class NonGovtUserBulkUploadProcessingServiceImpl implements NonGovtUserBu
                                        String orgName, String userAuthToken, int rowIndex, String orgId) {
         try {
             Map<String, Object> request = buildVolunteerUserCreateRequest(fullName, mobileNumber, email, externalId, orgName);
-            Map<String, String> headers = buildAuthHeaders(userAuthToken, orgId);
+            Map<String, String> headers = buildAuthHeaders(orgId, userAuthToken);
             Map<String, Object> createUserResponse = outboundRequestHandlerService.fetchResultUsingPost(
                     serverProperties.getSbUrl() + serverProperties.getLmsBulkNgoUserCreatePath(), request, headers);
             String error = interpretCreateUserResponse(createUserResponse);
