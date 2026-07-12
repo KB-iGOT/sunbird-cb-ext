@@ -383,7 +383,7 @@ public class NonGovtUserBulkUploadProcessingServiceImpl implements NonGovtUserBu
     }
 
     private Map<String, String> extractRowFields(String fullName, String mobileNumber, String email, String externalId,
-                                                  String orgName) {
+                                                 String orgName) {
         Map<String, String> fields = new HashMap<>();
         fields.put(Constants.NON_GOVT_CSV_COLUMN_FULL_NAME, fullName);
         fields.put(Constants.NON_GOVT_CSV_COLUMN_MOBILE_NUMBER, mobileNumber);
@@ -735,7 +735,7 @@ public class NonGovtUserBulkUploadProcessingServiceImpl implements NonGovtUserBu
     }
 
     private Map<String, Object> buildVolunteerProfileDetails(String fullName, String mobileNumber, String email, String externalId,
-                                                              String rowOrgName) {
+                                                             String rowOrgName) {
         Map<String, Object> profileDetails = new HashMap<>();
         profileDetails.put(Constants.MANDATORY_FIELDS_EXISTS, false);
         profileDetails.put(Constants.VERIFIED_KARMAYOGI, false);
