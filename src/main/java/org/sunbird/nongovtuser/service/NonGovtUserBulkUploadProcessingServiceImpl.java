@@ -683,8 +683,10 @@ public class NonGovtUserBulkUploadProcessingServiceImpl implements NonGovtUserBu
         try {
             Map<String, Object> request = buildVolunteerUserCreateRequest(fullName, mobileNumber, email, externalId, orgName);
             Map<String, String> headers = buildAuthHeaders(orgId, userAuthToken);
-            Map<String, Object> createUserResponse = outboundRequestHandlerService.fetchResultUsingPost(
-                    serverProperties.getSbUrl() + serverProperties.getLmsBulkNgoUserCreatePath(), request, headers);
+            String url = serverProperties.getSbUrl() + serverProperties.getLmsBulkNgoUserCreatePath();
+            logger.info("NonGovtUserBulkUploadProcessingServiceImpl:: createVolunteerUser: row: {}, url: {}, headers: {}, request: {}",
+                    rowIndex, url, headers, request);
+            Map<String, Object> createUserResponse = outboundRequestHandlerService.fetchResultUsingPost(url, request, headers);
             String error = interpretCreateUserResponse(createUserResponse);
             if (StringUtils.isNotBlank(error)) {
                 logger.warn("NonGovtUserBulkUploadProcessingServiceImpl:: createVolunteerUser: LMS returned failure for row: {}, reason: {}",
