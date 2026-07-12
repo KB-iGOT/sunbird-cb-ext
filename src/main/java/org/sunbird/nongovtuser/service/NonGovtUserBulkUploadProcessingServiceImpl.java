@@ -722,6 +722,7 @@ public class NonGovtUserBulkUploadProcessingServiceImpl implements NonGovtUserBu
         requestBody.put(Constants.FIRSTNAME, fullName);
         requestBody.put(Constants.PHONE, mobileNumber);
         requestBody.put(Constants.PHONE_VERIFIED, true);
+        requestBody.put(Constants.ORG_NAME, rowOrgName);
         requestBody.put(Constants.CHANNEL, orgName);
         requestBody.put(Constants.ROLES, Collections.singletonList(serverProperties.getNonGovtUserDefaultRole()));
         if (StringUtils.isNotBlank(email)) {
@@ -758,7 +759,6 @@ public class NonGovtUserBulkUploadProcessingServiceImpl implements NonGovtUserBu
      */
     private List<Map<String, Object>> buildVolunteerProfessionalDetails(String rowOrgName) {
         Map<String, Object> professionalDetail = new HashMap<>();
-        professionalDetail.put(Constants.ORGANIZATION_TYPE, serverProperties.getNonGovtUserOrganisationType());
         professionalDetail.put(Constants.ORGANISATION_NAME, StringUtils.defaultString(rowOrgName));
         return Collections.singletonList(professionalDetail);
     }
