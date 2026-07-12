@@ -7,6 +7,12 @@ import org.apache.commons.collections.MapUtils;
 import org.apache.commons.lang.StringUtils;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.streaming.SXSSFWorkbook;
+import org.elasticsearch.action.search.SearchResponse;
+import org.elasticsearch.index.query.BoolQueryBuilder;
+import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.search.SearchHit;
+import org.elasticsearch.search.builder.SearchSourceBuilder;
+import org.elasticsearch.search.sort.SortOrder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
@@ -23,6 +29,7 @@ import org.sunbird.common.service.OutboundRequestHandlerServiceImpl;
 import org.sunbird.common.util.AccessTokenValidator;
 import org.sunbird.common.util.CbExtServerProperties;
 import org.sunbird.common.util.Constants;
+import org.sunbird.common.util.IndexerService;
 import org.sunbird.common.util.ProjectUtil;
 import org.sunbird.core.producer.Producer;
 import org.sunbird.storage.service.StorageService;
@@ -62,6 +69,7 @@ public class BPReportsServiceV2Impl implements BPReportsServiceV2 {
     private final OutboundRequestHandlerServiceImpl outboundRequestHandlerService;
     private final ObjectMapper objectMapper;
     private final StorageService storageService;
+    private final IndexerService indexerService;
 
     /**
      * Entry point for /bp/v2/generate/report. Returns 200 immediately —
@@ -415,8 +423,8 @@ public class BPReportsServiceV2Impl implements BPReportsServiceV2 {
                 .collect(Collectors.toList());
         Map<String, Object> allUserProfiles = batchFetchUserProfiles(userIds);
         Map<String, List<Map<String, Object>>> allCertStatuses = batchFetchCertificateStatuses(userIds, courseId, batchId);
+        Map<String, Map<String, Object>> profileSurveyResponses = fetchProfileSurveyResponses(batchDetails);
         logger.debug("BPReportsServiceV2Impl:: processBPReportV2: User profiles and certificate statuses fetched for batchId: {}", batchId);
-
         List<String> createdFor = (List<String>) batchDetails.get(Constants.CREATED_FOR);
         String contentOrgId = CollectionUtils.isEmpty(createdFor) ? null : createdFor.get(0);
 
@@ -431,7 +439,7 @@ public class BPReportsServiceV2Impl implements BPReportsServiceV2 {
                 }
             }
             filteredUsers.add(entity);
-            userDataList.add(buildUserData(entity, allUserProfiles, allCertStatuses));
+            userDataList.add(buildUserData(entity, allUserProfiles, allCertStatuses, profileSurveyResponses));
         }
         logger.info("BPReportsServiceV2Impl:: processBPReportV2: User data assembled for {} users, batchId: {}", userDataList.size(), batchId);
 
@@ -490,6 +498,7 @@ public class BPReportsServiceV2Impl implements BPReportsServiceV2 {
         if (!CollectionUtils.isEmpty(createdFor)) {
             fetchMdoName(createdFor.get(0), referenceData);
         }
+        logger.info("BPReportsServiceV2Impl:: fetchBatchReferenceData:: test log createdBy {}", createdBy);
         if (StringUtils.isNotBlank(createdBy)) {
             fetchCoordinatorName(createdBy, referenceData);
         }
@@ -558,7 +567,7 @@ public class BPReportsServiceV2Impl implements BPReportsServiceV2 {
                 Constants.SUNBIRD_KEY_SPACE_NAME,
                 Constants.TABLE_USER,
                 propertyMap,
-                Collections.singletonList(Constants.FIRSTNAME),
+                Arrays.asList(Constants.ID, Constants.FIRSTNAME),
                 Constants.ID);
         if (MapUtils.isNotEmpty(userDetails)) {
             Map<String, Object> user = (Map<String, Object>) userDetails.get(userId);
@@ -571,14 +580,16 @@ public class BPReportsServiceV2Impl implements BPReportsServiceV2 {
     }
 
     /**
-     * Resolves instructor names from batch_attributes.sessionDetails_v2.
-     * Each session may carry an instructorId; unique IDs are batch-fetched from Cassandra
-     * and joined as a comma-separated string so multi-session batches show all instructors.
+     * Resolves instructor names from batch_attributes.instructors — a top-level array of
+     * {id, name, email} objects with the name already embedded, so no Cassandra lookup is
+     * needed. (sessionDetails_v2 entries carry no instructorId field — only unused
+     * facilatorIDs/facilatorDetails — so that was never a valid source.)
      * Safely returns nothing if the field is absent — the schema is still evolving.
      */
     private void fetchInstructorName(Map<String, Object> batchDetails, Map<String, Object> referenceData) {
         String batchAttributesStr = (String) batchDetails.get(Constants.BATCH_ATTRIBUTES);
         if (StringUtils.isBlank(batchAttributesStr)) {
+            logger.debug("BPReportsServiceV2Impl:: fetchInstructorName: batch_attributes is blank, skipping");
             return;
         }
         Map<String, Object> batchAttributes;
@@ -589,56 +600,47 @@ public class BPReportsServiceV2Impl implements BPReportsServiceV2 {
             logger.error("BPReportsServiceV2Impl:: fetchInstructorName: Failed to resolve instructor names", e);
             return;
         }
-        List<Map<String, Object>> sessions =
-                (List<Map<String, Object>>) batchAttributes.get(Constants.TABLE_COURSE_SESSION_DETAILS);
-        if (CollectionUtils.isEmpty(sessions)) {
+        List<Map<String, Object>> instructors = (List<Map<String, Object>>) batchAttributes.get(Constants.INSTRUCTORS);
+        if (CollectionUtils.isEmpty(instructors)) {
+            logger.debug("BPReportsServiceV2Impl:: fetchInstructorName: No {} found in batch_attributes",
+                    Constants.INSTRUCTORS);
             return;
         }
-        List<String> instructorIds = sessions.stream()
-                .map(s -> (String) s.get(Constants.INSTRUCTOR_ID))
-                .filter(StringUtils::isNotBlank)
-                .distinct()
-                .collect(Collectors.toList());
-        if (instructorIds.isEmpty()) {
-            logger.warn("BPReportsServiceV2Impl:: fetchInstructorName: No instructorId found in sessionDetails_v2");
-            return;
-        }
-        Map<String, Object> propertyMap = new HashMap<>();
-        propertyMap.put(Constants.ID, instructorIds);
-        Map<String, Object> userDetails = cassandraOperation.getRecordsByProperties(
-                Constants.SUNBIRD_KEY_SPACE_NAME,
-                Constants.TABLE_USER,
-                propertyMap,
-                Collections.singletonList(Constants.FIRSTNAME),
-                Constants.ID);
-        if (MapUtils.isEmpty(userDetails)) {
-            return;
-        }
-        List<String> names = instructorIds.stream()
-                .map(id -> (Map<String, Object>) userDetails.get(id))
-                .filter(MapUtils::isNotEmpty)
-                .map(user -> (String) user.get(Constants.FIRSTNAME))
-                .filter(StringUtils::isNotBlank)
-                .collect(Collectors.toList());
+        List<String> names = extractInstructorNames(instructors);
         if (!names.isEmpty()) {
             referenceData.put(Constants.INSTRUCTOR_NAME, String.join(", ", names));
+        } else {
+            logger.warn("BPReportsServiceV2Impl:: fetchInstructorName: {} entries had no usable name: {}",
+                    Constants.INSTRUCTORS, instructors);
         }
     }
 
     /**
-     * Assembles a single user's report row from three pre-fetched data sources.
+     * Assembles a single user's report row from pre-fetched data sources.
      * All lookups use in-memory maps rather than per-user DB calls — the batch
      * fetches upstream keep this method allocation-only (no I/O per user).
      */
     private Map<String, Object> buildUserData(WfStatusEntity entity,
                                               Map<String, Object> allUserProfiles,
-                                              Map<String, List<Map<String, Object>>> allCertStatuses) {
+                                              Map<String, List<Map<String, Object>>> allCertStatuses,
+                                              Map<String, Map<String, Object>> profileSurveyResponses) {
         Map<String, Object> userData = new HashMap<>();
         String userId = entity.getUserId();
         userData.put(Constants.ENROLLMENT_STATUS, getEnrollmentStatus(entity.getCurrentStatus()));
         userData.put(Constants.CREATED_ON, entity.getCreatedOn());
         userData.put(Constants.DEPT_NAME, entity.getDeptName());
         parseEnrollmentFormData(entity.getUpdateFieldValues(), userData);
+        if (MapUtils.isNotEmpty(profileSurveyResponses)) {
+            Map<String, Object> surveyResponse = profileSurveyResponses.get(userId);
+            if (MapUtils.isNotEmpty(surveyResponse)) {
+                if (surveyResponse.containsKey(Constants.GROUP_TITLE_CASE)) {
+                    userData.put(Constants.GROUP_TITLE_CASE, surveyResponse.get(Constants.GROUP_TITLE_CASE));
+                }
+                if (surveyResponse.containsKey(Constants.DESIGNATION_TITLE_CASE)) {
+                    userData.put(Constants.DESIGNATION_TITLE_CASE, surveyResponse.get(Constants.DESIGNATION_TITLE_CASE));
+                }
+            }
+        }
         applyUserProfile(userId, allUserProfiles, userData);
         applyCertificateStatus(userId, allCertStatuses, userData);
         return userData;
@@ -718,17 +720,19 @@ public class BPReportsServiceV2Impl implements BPReportsServiceV2 {
             propertyMap.put(Constants.COURSE_ID, courseId);
             propertyMap.put(Constants.BATCH_ID, batchId);
             List<Map<String, Object>> rows = cassandraOperation.getRecordsByPropertiesWithoutFiltering(
-                    Constants.SUNBIRD_COURSES_KEY_SPACE_NAME, Constants.TABLE_USER_ENROLMENT,
+                    Constants.SUNBIRD_COURSES_KEY_SPACE_NAME, Constants.TABLE_USER_ENROLMENT_V2,
                     propertyMap, Arrays.asList(Constants.USER_ID, Constants.ISSUED_CERTIFICATES));
             if (!CollectionUtils.isEmpty(rows)) {
                 for (Map<String, Object> row : rows) {
                     String uid = (String) row.get(Constants.USER_ID);
-                    Object certs = row.get(Constants.ISSUED_CERTIFICATES);
+                    logger.info("BPReportsServiceV2Impl:: batchFetchCertificateStatuses: Fetched certificates for userId: {}", uid);
+                    Object certs = row.get(Constants.ISSUED_USER_CERTIFICATE);
                     combined.put(uid, certs instanceof List
                             ? (List<Map<String, Object>>) certs : Collections.emptyList());
                 }
             }
         }
+        logger.debug("BPReportsServiceV2Impl:: batchFetchCertificateStatuses: result :combined {}", combined);
         return combined;
     }
 
@@ -863,7 +867,9 @@ public class BPReportsServiceV2Impl implements BPReportsServiceV2 {
     private void applyCertificateStatus(String userId,
                                         Map<String, List<Map<String, Object>>> allCertStatuses,
                                         Map<String, Object> userData) {
+        logger.info("applyCertificateStatus :: allCertStatuses {}",allCertStatuses);
         List<Map<String, Object>> certs = allCertStatuses.get(userId);
+        logger.info("applyCertificateStatus :: certs {}",certs);
         if (CollectionUtils.isEmpty(certs)) {
             userData.put(Constants.CERTIFICATE_ISSUED, Constants.NO);
         } else {
@@ -967,7 +973,7 @@ public class BPReportsServiceV2Impl implements BPReportsServiceV2 {
     private void buildExcelSheet(Workbook workbook, Map<String, Object> batchDetails,
                                  Map<String, Object> referenceData, int totalEnrolled,
                                  List<Map<String, Object>> userDataList) {
-        Sheet sheet = workbook.createSheet(serverProperties.getBpReportSheetName());
+        Sheet sheet = workbook.createSheet(serverProperties.getBpReportConsumptionSheetName());
         createHeaderRow(workbook, sheet);
         int rowNum = 1;
         for (Map<String, Object> userData : userDataList) {
@@ -997,7 +1003,7 @@ public class BPReportsServiceV2Impl implements BPReportsServiceV2 {
 
     /**
      * Fills a single Excel row: first 16 columns are batch/program-level (same for every row),
-     * remaining 30 columns are per-user.  Column order must match the header list from
+     * remaining 28 columns are per-user.  Column order must match the header list from
      * {@code serverProperties.getBpReportV2Headers()}.
      */
     private void writeDataRow(Row row, Map<String, Object> batchDetails, Map<String, Object> referenceData,
@@ -1018,15 +1024,13 @@ public class BPReportsServiceV2Impl implements BPReportsServiceV2 {
         setCellValue(row, col++, batchDetails.get(Constants.ENROLMENT_END_DATE_COLUMN));
         setCellValue(row, col++, computeBatchDuration(batchDetails));
         setCellValue(row, col++, totalEnrolled);
-        setCellValue(row, col++, batchDetails.get(Constants.CREATED_DATE));
+        setCellValue(row, col++, batchDetails.get(Constants.CREATED_DATE_COLUMN));
         setCellValue(row, col++, referenceData.get(Constants.BATCH_CREATED_BY_NAME));
-        // Per-user columns (30)
-        setCellValue(row, col++, userData.get(Constants.FIRSTNAME));
+        // Per-user columns (28)
         setCellValue(row, col++, userData.get(Constants.DEPARTMENTNAME));
         setCellValue(row, col++, userData.get(Constants.GROUP));
         setCellValue(row, col++, userData.get(Constants.DESIGNATION));
         setCellValue(row, col++, userData.get(Constants.EMPLOYEE_CODE));
-        setCellValue(row, col++, userData.get(Constants.PRIMARY_EMAIL));
         setCellValue(row, col++, userData.get(Constants.MOBILE));
         setCellValue(row, col++, userData.get(Constants.GENDER));
         setCellValue(row, col++, userData.get(Constants.DOB));
@@ -1090,7 +1094,7 @@ public class BPReportsServiceV2Impl implements BPReportsServiceV2 {
         LocalDate start = parseToLocalDate(batchDetails.get(Constants.START_DATE_COLUMN));
         LocalDate end = parseToLocalDate(batchDetails.get(Constants.END_DATE_COLUMN));
         if (Objects.nonNull(start) && Objects.nonNull(end)) {
-            return String.valueOf(ChronoUnit.DAYS.between(start, end));
+            return String.valueOf(ChronoUnit.DAYS.between(start, end) + 1);
         }
         return "";
     }
@@ -1208,6 +1212,7 @@ public class BPReportsServiceV2Impl implements BPReportsServiceV2 {
         SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.API_BP_REPORT_LIST);
         try {
             String userId = validateUserToken(authToken, response);
+
             if (StringUtils.isBlank(userId)) {
                 logger.warn("BPReportsServiceV2Impl:: getBPReportList: Invalid or missing auth token");
                 return response;
@@ -1264,5 +1269,127 @@ public class BPReportsServiceV2Impl implements BPReportsServiceV2 {
         if (!CollectionUtils.isEmpty(v1Reports)) combined.addAll(v1Reports);
         if (!CollectionUtils.isEmpty(v2Reports)) combined.addAll(v2Reports);
         return combined;
+    }
+
+    /**
+     * Fetches Designation/Group "filled during enrollment" from the batch's Profile Survey
+     * form responses in Elasticsearch — mirrors V1's getUserBatchFormData. The survey form
+     * is identified by batch_attributes.profileSurveyId; each submission is a question/answer
+     * document keyed by submittedBy (userId). Returns an empty map if the batch has no
+     * profileSurveyId configured or the index has no matching submissions.
+     */
+    private Map<String, Map<String, Object>> fetchProfileSurveyResponses(Map<String, Object> batchDetails) {
+        String profileSurveyId = extractProfileSurveyId(batchDetails);
+        if (StringUtils.isBlank(profileSurveyId)) {
+            return Collections.emptyMap();
+        }
+        Map<String, Map<String, Object>> resultMap = new LinkedHashMap<>();
+        try {
+            Object[] searchAfter = null;
+            SearchHit[] hits;
+            do {
+                SearchResponse searchResponse = searchProfileSurveyPage(profileSurveyId, searchAfter);
+                hits = searchResponse.getHits().getHits();
+                if (ObjectUtils.isEmpty(hits)) {
+                    hits = new SearchHit[0];
+                }
+                for (SearchHit hit : hits) {
+                    collectSurveyResponse(hit, resultMap);
+                }
+                searchAfter = hits.length == 0 ? null : hits[hits.length - 1].getSortValues();
+            } while (hits.length > 0);
+        } catch (IOException e) {
+            logger.error("BPReportsServiceV2Impl:: fetchProfileSurveyResponses: Failed for profileSurveyId: {}", profileSurveyId, e);
+        }
+        logger.info("BPReportsServiceV2Impl:: fetchProfileSurveyResponses: {} records found for profileSurveyId: {}", resultMap.size(), profileSurveyId);
+        return resultMap;
+    }
+
+    /**
+     * Parses batch_attributes JSON off the batch row and pulls out profileSurveyId.
+     * Returns null (not empty string) on any missing/unparseable input so callers
+     * can use a single blank check.
+     */
+    private String extractProfileSurveyId(Map<String, Object> batchDetails) {
+        String batchAttributesStr = (String) batchDetails.get(Constants.BATCH_ATTRIBUTES);
+        if (StringUtils.isBlank(batchAttributesStr)) {
+            logger.debug("BPReportsServiceV2Impl:: extractProfileSurveyId: batch_attributes is blank, skipping profile survey lookup");
+            return null;
+        }
+        try {
+            Map<String, Object> batchAttributes = objectMapper.readValue(
+                    batchAttributesStr, new TypeReference<Map<String, Object>>() {
+                    });
+            String profileSurveyId = (String) batchAttributes.get(Constants.PROFILE_SURVEY_ID);
+            if (StringUtils.isBlank(profileSurveyId)) {
+                logger.debug("BPReportsServiceV2Impl:: extractProfileSurveyId: No profileSurveyId configured in batch_attributes");
+            }
+            return profileSurveyId;
+        } catch (IOException e) {
+            logger.error("BPReportsServiceV2Impl:: extractProfileSurveyId: Failed to parse batch_attributes", e);
+            return null;
+        }
+    }
+
+    /**
+     * Fetches one page of form-data-index submissions for the given survey, ordered by
+     * submittedDate desc. Pass the previous page's last sort values as searchAfter to
+     * page forward; null fetches the first page.
+     */
+    private SearchResponse searchProfileSurveyPage(String profileSurveyId, Object[] searchAfter) throws IOException {
+        logger.debug("BPReportsServiceV2Impl:: searchProfileSurveyPage: profileSurveyId: {}, hasSearchAfter: {}",
+                profileSurveyId, !ObjectUtils.isEmpty(searchAfter));
+        SearchSourceBuilder sourceBuilder = new SearchSourceBuilder();
+        BoolQueryBuilder finalQuery = QueryBuilders.boolQuery()
+                .must(QueryBuilders.termQuery(Constants.FORM_ID, profileSurveyId));
+        sourceBuilder.query(finalQuery);
+        sourceBuilder.sort(Constants.SUBMITTED_DATE, SortOrder.DESC);
+        sourceBuilder.size(serverProperties.getBpReportProfileSurveyEsPageSize());
+        if (!ObjectUtils.isEmpty(searchAfter)) {
+            sourceBuilder.searchAfter(searchAfter);
+        }
+        return indexerService.getEsResult(
+                serverProperties.getUserFormDataIndexV2(),
+                serverProperties.getEsFormIndexType(),
+                sourceBuilder,
+                ProjectUtil.ESIndexType.IGOT_ES);
+    }
+
+    /**
+     * Extracts one submission's question/answer pairs and stores them keyed by submittedBy
+     * (userId) into resultMap. No-ops if the hit has no source or no responses array.
+     */
+    private void collectSurveyResponse(SearchHit hit, Map<String, Map<String, Object>> resultMap) {
+        Map<String, Object> sourceMap = hit.getSourceAsMap();
+        if (MapUtils.isEmpty(sourceMap)) {
+            return;
+        }
+        List<Map<String, Object>> responses = (List<Map<String, Object>>) sourceMap.get(Constants.RESPONSES);
+        if (CollectionUtils.isEmpty(responses)) {
+            return;
+        }
+        Map<String, Object> questionAnswerMap = responses.stream()
+                .filter(Objects::nonNull)
+                .filter(qa -> StringUtils.isNotBlank((String) qa.get(Constants.QUESTION)))
+                .collect(Collectors.toMap(
+                        qa -> (String) qa.get(Constants.QUESTION),
+                        qa -> qa.get(Constants.ANSWER),
+                        (existing, replacement) -> replacement,
+                        LinkedHashMap::new));
+        resultMap.put((String) sourceMap.get(Constants.SUBMITTED_BY), questionAnswerMap);
+    }
+
+
+    /**
+     * Extracts distinct, trimmed, non-blank names from a batch_attributes.instructors list.
+     */
+    private List<String> extractInstructorNames(List<Map<String, Object>> instructors) {
+        return instructors.stream()
+                .filter(MapUtils::isNotEmpty)
+                .map(instructor -> (String) instructor.get(Constants.NAME))
+                .filter(StringUtils::isNotBlank)
+                .map(String::trim)
+                .distinct()
+                .collect(Collectors.toList());
     }
 }

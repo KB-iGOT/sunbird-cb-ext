@@ -833,6 +833,8 @@ public class Constants {
 
 	public static final String API_USER_INSIGHTS="api.user.insights";
 
+	public static final String API_CHATBOT_INSIGHTS="api.chatbot.insights";
+
 	public static final String API_TRENDING_SEARCH="api.trending.search";
 
 	public static final String COURSES="courses";
@@ -848,11 +850,25 @@ public class Constants {
 	public static final String W2 ="w2";
 	public static final String W3= "w3";
 	public static final String W4 ="w4";
+	public static final String W0 ="w0";
+	public static final String WN1 ="wn1";
+	public static final String WN2 ="wn2";
+	public static final String WN3 ="wn3";
+	public static final String WN4 ="wn4";
+	public static final String WN5 ="wn5";
+	public static final String WN6 ="wn6";
+	public static final String WN7 ="wn7";
+	public static final String W12 ="w12";
 
 	public static final String LEARNER_STATS = "learner_stats";
 	public static final String LEARNER_STATUS_USER_ID="userid";
 
 	public static final String VERSION_KEY = "versionKey";
+	public static final String CONSENT_ID = "consentId";
+	public static final String VERSION_KEY_MISSING = "versionKey is missing in the request";
+	public static final String VERSION_KEY_EMPTY = "versionKey cannot be null or empty";
+	public static final String CONSENT_ID_MISSING = "consentId is missing in the request";
+	public static final String CONSENT_ID_EMPTY = "consentId cannot be null or empty";
 	public static final String AVG_RATING = "avgRating";
 	public static final String TOTAL_NO_OF_RATING = "totalNoOfRating";
 	public static final String COUNT_ONE_STAR_RATING = "countOf1StarRating";
@@ -1247,6 +1263,7 @@ public class Constants {
 	public static final String COMPLETED_ON ="completedOn";
 	public static final String START_DATE_COLUMN = "start_date";
 	public static final String END_DATE_COLUMN = "end_date";
+	public static final String CREATED_DATE_COLUMN = "created_date";
 	public static final String BATCH_ATTRIBUTES_COLUMN="batch_attributes";
 	public static final String USER_EVENT_CONSUMPTION = "api.user.event.consumption";
 	public static final String LRC_PROGRESS_DETAILS_COLUMN="lrc_progressdetails";
@@ -1612,4 +1629,56 @@ public class Constants {
 	public static final String COURSEIDS = "courseids";
 	public static final String VOLUNTEER_NOT_ELIGIBLE_TO_ENROLL = "You are not eligible to enroll into this course.";
 
+
+	// Non-Govt (Volunteer) user bulk creation API
+	public static final String API_NON_GOVT_USER_BULK_UPLOAD = "api.nongovt.user.bulk.upload";
+	public static final String NON_GOVT_USER_BULK_UPLOAD_ENDPOINT = "/user/nongovt/v1/bulkupload";
+	public static final String NON_GOVT_BULK_UPLOAD_IN_PROGRESS_ERROR =
+			"Failed to upload for another request as previous request is in processing state, please try after some time.";
+	public static final String NON_GOVT_BULK_UPLOAD_CSV_PARSE_ERROR =
+			"Failed to parse the uploaded csv file of non-govt user bulk upload request.";
+	public static final String NON_GOVT_BULK_UPLOAD_FILE_UPLOAD_ERROR =
+			"Failed to upload file for non-govt user bulk upload request.";
+	public static final String NON_GOVT_BULK_UPLOAD_DB_INSERT_ERROR =
+			"Failed to update database with non-govt user bulk upload file details.";
+	public static final String NON_GOVT_BULK_UPLOAD_PROCESSING_ERROR =
+			"Failed to process non-govt user bulk upload request.";
+	public static final String FIELD_NOT_PRESENT_ERROR = "%s is not present";
+	public static final String NON_GOVT_USER_CREATE_ERROR = "Failed to create volunteer user.";
+	public static final String NON_GOVT_USER_CREATE_EMPTY_RESPONSE_ERROR = "Failed to create volunteer user: empty response from user create API.";
+	public static final String CSV_COLUMN_ERROR_DETAILS = "Error Details";
+	public static final String NON_GOVT_CSV_COLUMN_FULL_NAME = "Full Name";
+	public static final String NON_GOVT_CSV_COLUMN_MOBILE_NUMBER = "Mobile Number";
+	public static final String NON_GOVT_CSV_COLUMN_EMAIL = "Email";
+	public static final String NON_GOVT_CSV_COLUMN_EXTERNAL_ID = "External ID";
+	public static final String STATUS_PARTIALLY_COMPLETED_UPPERCASE = "PARTIALLY-COMPLETED";
+	public static final String NON_GOVT_BULK_UPLOAD_FILE_NOT_FOUND_ERROR = "Uploaded file not found or is empty.";
+	public static final String NON_GOVT_BULK_UPLOAD_EMPTY_ROW_ERROR = "Row is empty.";
+	public static final String NON_GOVT_BULK_UPLOAD_DUPLICATE_MOBILE_ERROR = "Duplicate mobile number within the uploaded file.";
+	public static final String NON_GOVT_BULK_UPLOAD_INVALID_FULL_NAME_ERROR = "Invalid Full Name.";
+	public static final String NON_GOVT_BULK_UPLOAD_INVALID_MOBILE_ERROR = "Invalid Mobile Number. Expecting a 10-digit number.";
+	public static final String NON_GOVT_BULK_UPLOAD_INVALID_EMAIL_ERROR = "Invalid Email format.";
+	public static final String NON_GOVT_BULK_UPLOAD_INVALID_EXTERNAL_ID_ERROR = "Invalid External ID format.";
+	public static final String NON_GOVT_BULK_UPLOAD_ROW_PROCESSING_ERROR = "Failed to process this row.";
+	public static final String ERROR_FILE_PATH = "errorFilePath";
+	public static final String NON_GOVT_BULK_UPLOAD_MANDATORY_COLUMNS_MISSING_ERROR =
+			"Uploaded csv file is missing mandatory columns: Full Name and/or Mobile Number.";
+	public static final String NON_GOVT_BULK_UPLOAD_UNSUPPORTED_FILE_TYPE_ERROR =
+			"Unsupported file type. Please upload a .csv or .xlsx file.";
+	public static final String NON_GOVT_BULK_UPLOAD_XLSX_PARSE_ERROR =
+			"Failed to parse the uploaded excel file of non-govt user bulk upload request.";
+	public static final String MINISTRY_OR_STATE_ORG_NAME = "ministryOrStateOrgName";
+	public static final String NODAL_OFFICER_PREFIX= "nodalofficer_";
+  	public static final String DOWNLOAD_URL = "downloadUrl";
+	public static final String SIGNED_URL = "signedUrl";
+	public static final String CONTENT_LENGTH = "contentLength";
+	public static final String UID = "uid";
+	public static final String BKT = "bkt";
+	public static final String OBJ = "obj";
+	public static final String IP = "ip";
+	public static final String SID = "sid";
+	public static final String FID = "fid";
+	public static final String FNAME = "fname";
+	public static final int WEEK_RANGE_COUNT = 4;
+	public static final String INSTRUCTORS = "instructors";
 }

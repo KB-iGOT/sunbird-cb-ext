@@ -4,6 +4,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.sunbird.common.model.SBApiResponse;
 import static org.sunbird.common.util.Constants.*;
+
+import org.sunbird.common.util.Constants;
 import org.sunbird.insights.controller.service.InsightsService;
 
 import java.util.*;
@@ -17,7 +19,7 @@ public class InsightsController {
     @PostMapping("/user/v2/insights")
     public ResponseEntity<?> insights(
             @RequestBody Map<String, Object> requestBody,@RequestHeader("x-authenticated-userid") String userId) throws Exception {
-        SBApiResponse response = insightsService.insights(requestBody,userId);
+        SBApiResponse response = insightsService.insights(requestBody, userId, Constants.W4);
         return new ResponseEntity<>(response, response.getResponseCode());
     }
 
@@ -50,6 +52,13 @@ public class InsightsController {
     @GetMapping("/v1/landingpage/insights")
     public ResponseEntity<?> landingPageMatrix() throws Exception {
         SBApiResponse response = insightsService.landingPageMatrix();
+        return new ResponseEntity<>(response, response.getResponseCode());
+    }
+
+    @PostMapping("/chatbot/v2/insights")
+    public ResponseEntity<?> chatbotInsights(
+            @RequestBody Map<String, Object> requestBody,@RequestHeader("x-authenticated-userid") String userId) throws Exception {
+        SBApiResponse response = insightsService.insights(requestBody, userId, Constants.W12);
         return new ResponseEntity<>(response, response.getResponseCode());
     }
 }

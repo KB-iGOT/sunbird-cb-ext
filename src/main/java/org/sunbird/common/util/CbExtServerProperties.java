@@ -204,17 +204,6 @@ public class CbExtServerProperties {
 	@Value("${kafka.topic.cbplan.content.request}")
 	private String cbplanContentRequestKafkaTopic;
 
-	@Value("${chatbot.search.size}")
-	private Integer ChatbotSearchSize;
-
-	public void setChatbotSearchSize(Integer chatbotSearchSize) {
-		ChatbotSearchSize = chatbotSearchSize;
-	}
-
-	public Integer getChatbotSearchSize() {
-		return ChatbotSearchSize;
-	}
-
 	public String getRedisDataHostName() {
 		return redisDataHostName;
 	}
@@ -1303,7 +1292,10 @@ public class CbExtServerProperties {
 	private int bpReportWfPageSize;
 
 	@Value("${bp.report.sheet.name:Enrollment Report}")
-	private String bpReportSheetName;
+	private String bpReportEnrollmentSheetName;
+
+	@Value("${bp.report.consumption.sheet.name:Consumption Report}")
+	private String bpReportConsumptionSheetName;
 
 	@Value("${bp.report.excel.row.window.size:100}")
 	private int bpReportExcelRowWindowSize;
@@ -1317,6 +1309,44 @@ public class CbExtServerProperties {
 	@Value("${es.org.eligibility.index.type}")
 	private String orgEligibilityIndexType;
 
+	@Value("${kafka.topics.nongovt.user.bulk.upload}")
+	private String nonGovtUserBulkUploadTopic;
+
+	@Value("${nongovt.user.organisation.type:Volunteer}")
+	private String nonGovtUserOrganisationType;
+
+	@Value("${nongovt.bulk.upload.max.rows:10000}")
+	private int nonGovtBulkUploadMaxRows;
+
+	@Value("${nongovt.user.default.role:VOLUNTEER}")
+	private String nonGovtUserDefaultRole;
+
+	@Value("${operational.report.jwt.ttl}")
+	private int operationalReportJwtTTL;
+
+	@Value("${jwt.private.key.path}")
+	private String jwtPrivateKeyPath;
+
+	@Value("${cb.download.proxy.base.url}")
+	private String cbDownloadProxyBaseUrl;
+
+	@Value("${report.download.jwt.key.id}")
+	private String reportDownloadJwtKeyId;
+
+	@Value("${chatbot.search.size}")
+	private int chatbotSearchSize;
+
+	@Value("#{${insights.week.range}}")
+	private Map<String, String> insightsWeekRange;
+
+	@Value("#{${insights.week.range.cache.prefix}}")
+	private Map<String, String> insightsWeekRangeCachePrefix;
+
+	@Value("#{${insights.week.range.count}}")
+	private Map<String, String> insightsWeekRangeCount;
+
+	@Value("${bp.report.profile.survey.es.page.size:100}")
+	private int bpReportProfileSurveyEsPageSize;
 
 	public int getUserSearchLimit() {
 		return userSearchLimit;
@@ -1337,8 +1367,6 @@ public class CbExtServerProperties {
 	public String getProfilePreferenceValue() {
 		return profilePreferenceValue;
 	}
-
-
 
 	public void setProfilePreferenceValue(String profilePreferenceValue) {
 		this.profilePreferenceValue = profilePreferenceValue;
@@ -4392,12 +4420,18 @@ public class CbExtServerProperties {
 		this.bpReportWfPageSize = bpReportWfPageSize;
 	}
 
-	public String getBpReportSheetName() {
-		return bpReportSheetName;
+	public String getBpReportEnrollmentSheetName() { return bpReportEnrollmentSheetName; }
+
+	public void setBpReportEnrollmentSheetName(String bpReportEnrollmentSheetName) {
+		this.bpReportEnrollmentSheetName = bpReportEnrollmentSheetName;
 	}
 
-	public void setBpReportSheetName(String bpReportSheetName) {
-		this.bpReportSheetName = bpReportSheetName;
+	public String getBpReportConsumptionSheetName() {
+		return bpReportConsumptionSheetName;
+	}
+
+	public void setBpReportConsumptionSheetName(String bpReportConsumptionSheetName) {
+		this.bpReportConsumptionSheetName = bpReportConsumptionSheetName;
 	}
 
 	public int getBpReportExcelRowWindowSize() {
@@ -4414,6 +4448,30 @@ public class CbExtServerProperties {
 
 	public void setBpReportV2FileNamePrefix(String bpReportV2FileNamePrefix) {
 		this.bpReportV2FileNamePrefix = bpReportV2FileNamePrefix;
+	}
+  
+	public int getOperationalReportJwtTTL() {
+		return operationalReportJwtTTL;
+	}
+
+	public void setOperationalReportJwtTTL(int operationalReportJwtTTL) {
+		this.operationalReportJwtTTL = operationalReportJwtTTL;
+	}
+
+	public String getJwtPrivateKeyPath() {
+		return jwtPrivateKeyPath;
+	}
+
+	public String getNonGovtUserBulkUploadTopic() {
+		return nonGovtUserBulkUploadTopic;
+	}
+
+	public void setNonGovtUserBulkUploadTopic(String nonGovtUserBulkUploadTopic) {
+		this.nonGovtUserBulkUploadTopic = nonGovtUserBulkUploadTopic;
+	}
+
+	public int getNonGovtBulkUploadMaxRows() {
+		return nonGovtBulkUploadMaxRows;
 	}
 
 	public String getOrgEligibilityIndex() {
@@ -4433,4 +4491,81 @@ public class CbExtServerProperties {
 		this.orgEligibilityIndexType = orgEligibilityIndexType;
 	}
 
+	public void setNonGovtBulkUploadMaxRows(int nonGovtBulkUploadMaxRows) {
+		this.nonGovtBulkUploadMaxRows = nonGovtBulkUploadMaxRows;
+	}
+
+	public String getNonGovtUserDefaultRole() {
+		return nonGovtUserDefaultRole;
+	}
+
+	public void setNonGovtUserDefaultRole(String nonGovtUserDefaultRole) {
+		this.nonGovtUserDefaultRole = nonGovtUserDefaultRole;
+	}
+	
+	public String getNonGovtUserOrganisationType() {
+		return nonGovtUserOrganisationType;
+	}
+
+	public void setNonGovtUserOrganisationType(String nonGovtUserOrganisationType) {
+		this.nonGovtUserOrganisationType = nonGovtUserOrganisationType;
+	}
+
+	public void setJwtPrivateKeyPath(String jwtPrivateKeyPath) {
+		this.jwtPrivateKeyPath = jwtPrivateKeyPath;
+	}
+
+	public String getCbDownloadProxyBaseUrl() {
+		return cbDownloadProxyBaseUrl;
+	}
+
+	public void setCbDownloadProxyBaseUrl(String cbDownloadProxyBaseUrl) {
+		this.cbDownloadProxyBaseUrl = cbDownloadProxyBaseUrl;
+	}
+
+	public String getReportDownloadJwtKeyId() {
+		return reportDownloadJwtKeyId;
+	}
+
+	public void setReportDownloadJwtKeyId(String reportDownloadJwtKeyId) {
+		this.reportDownloadJwtKeyId = reportDownloadJwtKeyId;
+	}
+
+	public int getChatbotSearchSize() {
+		return chatbotSearchSize;
+	}
+
+	public void setChatbotSearchSize(int chatbotSearchSize) {
+		this.chatbotSearchSize = chatbotSearchSize;
+	}
+
+	public Map<String, String> getInsightsWeekRange() {
+		return insightsWeekRange;
+	}
+
+	public void setInsightsWeekRange(Map<String, String> insightsWeekRange) {
+		this.insightsWeekRange = insightsWeekRange;
+	}
+
+	public Map<String, String> getInsightsWeekRangeCachePrefix() {
+		return insightsWeekRangeCachePrefix;
+	}
+	public void setInsightsWeekRangeCachePrefix(Map<String, String> insightsWeekRangeCachePrefix) {
+		this.insightsWeekRangeCachePrefix = insightsWeekRangeCachePrefix;
+	}
+
+	public Map<String, String> getInsightsWeekRangeCount() {
+		return insightsWeekRangeCount;
+	}
+	public void setInsightsWeekRangeCount(Map<String, String> insightsWeekRangeCount) {
+		this.insightsWeekRangeCount = insightsWeekRangeCount;
+	}
+
+	public int getBpReportProfileSurveyEsPageSize() {
+		return bpReportProfileSurveyEsPageSize;
+	}
+
+	public void setBpReportProfileSurveyEsPageSize(int bpReportProfileSurveyEsPageSize) {
+		this.bpReportProfileSurveyEsPageSize = bpReportProfileSurveyEsPageSize;
+	}
 }

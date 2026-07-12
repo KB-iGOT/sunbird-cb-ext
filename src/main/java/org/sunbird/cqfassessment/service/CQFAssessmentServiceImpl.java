@@ -17,7 +17,7 @@ import org.elasticsearch.search.sort.FieldSortBuilder;
 import org.elasticsearch.search.sort.SortOrder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
@@ -43,35 +43,18 @@ import static java.util.stream.Collectors.toList;
  */
 
 @Service
+@RequiredArgsConstructor
 public class CQFAssessmentServiceImpl implements CQFAssessmentService {
     private final Logger logger = LoggerFactory.getLogger(CQFAssessmentServiceImpl.class);
 
-    @Autowired
-    AccessTokenValidator accessTokenValidator;
-
-    @Autowired
-    CassandraOperation cassandraOperation;
-
-    @Autowired
-    AssessmentUtilServiceV2 assessUtilServ;
-
-    @Autowired
-    CbExtServerProperties serverProperties;
-
-    @Autowired
-    ObjectMapper objectMapper;
-
-    @Autowired
-    AssessmentRepository assessmentRepository;
-
-    @Autowired
-    OutboundRequestHandlerServiceImpl outboundRequestHandlerService;
-
-    @Autowired
-    IndexerService indexerService;
-
-    @Autowired
-    CbExtServerProperties serverConfig;
+    private final AccessTokenValidator accessTokenValidator;
+    private final CassandraOperation cassandraOperation;
+    private final AssessmentUtilServiceV2 assessUtilServ;
+    private final CbExtServerProperties serverProperties;
+    private final ObjectMapper objectMapper;
+    private final AssessmentRepository assessmentRepository;
+    private final OutboundRequestHandlerServiceImpl outboundRequestHandlerService;
+    private final IndexerService indexerService;
     /**
      * Creates a entry for new CQF Assessment.
      *
@@ -195,7 +178,7 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
             searchSourceBuilder.from((Integer.parseInt(requestBody.get(Constants.CURRENT_PAGE).toString()) - 1) * Integer.parseInt(requestBody.get(Constants.PAGE_SIZE).toString()));
             searchSourceBuilder.size(Integer.parseInt(requestBody.get(Constants.PAGE_SIZE).toString()));
             if(indexerService.isIndexPresent(serverProperties.getQuestionSetHierarchyIndex())) {
-                searchResponse = indexerService.getEsResult(serverProperties.getQuestionSetHierarchyIndex(), serverConfig.getEsProfileIndexType(), searchSourceBuilder, ESIndexType.IGOT_ES);
+                searchResponse = indexerService.getEsResult(serverProperties.getQuestionSetHierarchyIndex(), serverProperties.getEsProfileIndexType(), searchSourceBuilder, ESIndexType.IGOT_ES);
                 long totalCount = searchResponse.getHits().getTotalHits();
                 int pageSize = Integer.parseInt(requestBody.get(Constants.PAGE_SIZE).toString());
                 int totalPages = (int) Math.ceil((double) totalCount / pageSize);
@@ -712,6 +695,18 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
         submitRequest.put(Constants.USER_ID, userId);
         if (StringUtils.isEmpty((String) submitRequest.get(Constants.IDENTIFIER))) {
             return Constants.INVALID_ASSESSMENT_ID;
+        }
+        if (!submitRequest.containsKey(Constants.VERSION_KEY)) {
+            return Constants.VERSION_KEY_MISSING;
+        }
+        if (StringUtils.isEmpty((String) submitRequest.get(Constants.VERSION_KEY))) {
+            return Constants.VERSION_KEY_EMPTY;
+        }
+        if (!submitRequest.containsKey(Constants.CONSENT_ID)) {
+            return Constants.CONSENT_ID_MISSING;
+        }
+        if (StringUtils.isEmpty((String) submitRequest.get(Constants.CONSENT_ID))) {
+            return Constants.CONSENT_ID_EMPTY;
         }
         String assessmentIdFromRequest = (String) submitRequest.get(Constants.IDENTIFIER);
         cqfAssessmentModel.getAssessmentHierarchy().putAll(assessUtilServ.readAssessmentHierarchyFromCache(assessmentIdFromRequest, editMode, token));
@@ -1297,7 +1292,7 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
         }
 
         // Update or add the CQF assessment to Elasticsearch
-        RestStatus status = updateOrAddEntity(serverProperties.getQuestionSetHierarchyIndex(), serverConfig.getEsProfileIndexType(), identifier, esCQFAssessmentMap, isCQFAssessmentExist);
+        RestStatus status = updateOrAddEntity(serverProperties.getQuestionSetHierarchyIndex(), serverProperties.getEsProfileIndexType(), identifier, esCQFAssessmentMap, isCQFAssessmentExist);
         if (status.equals(RestStatus.CREATED) || status.equals(RestStatus.OK)) {
             outgoingResponse.setResponseCode(HttpStatus.OK);
             outgoingResponse.getResult().put(Constants.IDENTIFIER, map.get(Constants.IDENTIFIER));
@@ -1371,7 +1366,7 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
     public Map<String, Object> getCQFAssessmentsByIds(String assessmentIdentifier) {
         try {
             return indexerService.readEntity(serverProperties.getQuestionSetHierarchyIndex(),
-                    serverConfig.getEsProfileIndexType(), assessmentIdentifier);
+                    serverProperties.getEsProfileIndexType(), assessmentIdentifier);
         } catch (Exception e) {
             logger.error("Failed to get AssessemntId. Exception: ", e);
             logger.warn(String.format("Exception in %s : %s", "getCQFAssessmentsByIds", e.getMessage()));
@@ -1425,7 +1420,7 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
         // Check if the CQF assessment exists in the Elasticsearch index
         boolean isCQFAssessmentExist = !ObjectUtils.isEmpty(esCQFAssessmentMap);
         // Update or add the question set data to the Elasticsearch index
-        RestStatus status = updateOrAddEntity(serverProperties.getQuestionSetHierarchyIndex(), serverConfig.getEsProfileIndexType(), identifier, questionSetMap, isCQFAssessmentExist);
+        RestStatus status = updateOrAddEntity(serverProperties.getQuestionSetHierarchyIndex(), serverProperties.getEsProfileIndexType(), identifier, questionSetMap, isCQFAssessmentExist);
         // Set the response code based on the status of the update operation
         if (status.equals(RestStatus.CREATED) || status.equals(RestStatus.OK)) {
             outgoingResponse.setResponseCode(HttpStatus.OK);
@@ -1661,7 +1656,7 @@ public class CQFAssessmentServiceImpl implements CQFAssessmentService {
         }
         questionSetMap.put(Constants.CHILDREN, children);
         // Update or add the question set data to the Elasticsearch index
-        RestStatus status = updateOrAddEntity(serverProperties.getQuestionSetHierarchyIndex(), serverConfig.getEsProfileIndexType(), assessmentId, questionSetMap, isCQFAssessmentExist);
+        RestStatus status = updateOrAddEntity(serverProperties.getQuestionSetHierarchyIndex(), serverProperties.getEsProfileIndexType(), assessmentId, questionSetMap, isCQFAssessmentExist);
         if (status.equals(RestStatus.CREATED) || status.equals(RestStatus.OK)) {
             logger.info("Updated the question set hierarchy in the Elasticsearch index successfully.");
         } else {
