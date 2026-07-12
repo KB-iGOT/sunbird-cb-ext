@@ -280,7 +280,8 @@ public class NonGovtUserBulkUploadProcessingServiceImpl implements NonGovtUserBu
                     getCsvFieldValue(csvRecord, fullNameHeader),
                     getCsvFieldValue(csvRecord, mobileNumberHeader),
                     getCsvFieldValue(csvRecord, Constants.NON_GOVT_CSV_COLUMN_EMAIL),
-                    getCsvFieldValue(csvRecord, Constants.NON_GOVT_CSV_COLUMN_EXTERNAL_ID)));
+                    getCsvFieldValue(csvRecord, Constants.NON_GOVT_CSV_COLUMN_EXTERNAL_ID),
+                    getCsvFieldValue(csvRecord, Constants.NON_GOVT_CSV_COLUMN_ORG_NAME)));
         }
         return rows;
     }
@@ -328,7 +329,8 @@ public class NonGovtUserBulkUploadProcessingServiceImpl implements NonGovtUserBu
                         getExcelCellValue(row, columnIndexByHeader, fullNameHeader),
                         getExcelCellValue(row, columnIndexByHeader, mobileNumberHeader),
                         getExcelCellValue(row, columnIndexByHeader, Constants.NON_GOVT_CSV_COLUMN_EMAIL),
-                        getExcelCellValue(row, columnIndexByHeader, Constants.NON_GOVT_CSV_COLUMN_EXTERNAL_ID)));
+                        getExcelCellValue(row, columnIndexByHeader, Constants.NON_GOVT_CSV_COLUMN_EXTERNAL_ID),
+                        getExcelCellValue(row, columnIndexByHeader, Constants.NON_GOVT_CSV_COLUMN_ORG_NAME)));
             }
             return rows;
         } catch (IOException e) {
@@ -380,12 +382,14 @@ public class NonGovtUserBulkUploadProcessingServiceImpl implements NonGovtUserBu
         return null;
     }
 
-    private Map<String, String> extractRowFields(String fullName, String mobileNumber, String email, String externalId) {
+    private Map<String, String> extractRowFields(String fullName, String mobileNumber, String email, String externalId,
+                                                  String orgName) {
         Map<String, String> fields = new HashMap<>();
         fields.put(Constants.NON_GOVT_CSV_COLUMN_FULL_NAME, fullName);
         fields.put(Constants.NON_GOVT_CSV_COLUMN_MOBILE_NUMBER, mobileNumber);
         fields.put(Constants.NON_GOVT_CSV_COLUMN_EMAIL, email);
         fields.put(Constants.NON_GOVT_CSV_COLUMN_EXTERNAL_ID, externalId);
+        fields.put(Constants.NON_GOVT_CSV_COLUMN_ORG_NAME, orgName);
         return fields;
     }
 
@@ -414,6 +418,7 @@ public class NonGovtUserBulkUploadProcessingServiceImpl implements NonGovtUserBu
         String mobileNumber = rawRow.get(Constants.NON_GOVT_CSV_COLUMN_MOBILE_NUMBER);
         String email = rawRow.get(Constants.NON_GOVT_CSV_COLUMN_EMAIL);
         String externalId = rawRow.get(Constants.NON_GOVT_CSV_COLUMN_EXTERNAL_ID);
+        String rowOrgName = rawRow.get(Constants.NON_GOVT_CSV_COLUMN_ORG_NAME);
 
         Map<String, String> updatedRecord = new HashMap<>(rawRow);
         try {
@@ -423,7 +428,7 @@ public class NonGovtUserBulkUploadProcessingServiceImpl implements NonGovtUserBu
                 return updatedRecord;
             }
             seenMobileNumbers.add(mobileNumber);
-            String creationError = createVolunteerUser(fullName, mobileNumber, email, externalId, orgName, userAuthToken, rowIndex, orgId);
+            String creationError = createVolunteerUser(fullName, mobileNumber, email, externalId, rowOrgName, orgName, userAuthToken, rowIndex, orgId);
             if (StringUtils.isNotBlank(creationError)) {
                 markRowFailed(updatedRecord, creationError);
             } else {
@@ -679,9 +684,9 @@ public class NonGovtUserBulkUploadProcessingServiceImpl implements NonGovtUserBu
      * @return null on success, or a caller-facing error message on failure
      */
     private String createVolunteerUser(String fullName, String mobileNumber, String email, String externalId,
-                                       String orgName, String userAuthToken, int rowIndex, String orgId) {
+                                       String rowOrgName, String orgName, String userAuthToken, int rowIndex, String orgId) {
         try {
-            Map<String, Object> request = buildVolunteerUserCreateRequest(fullName, mobileNumber, email, externalId, orgName);
+            Map<String, Object> request = buildVolunteerUserCreateRequest(fullName, mobileNumber, email, externalId, rowOrgName, orgName);
             Map<String, String> headers = buildAuthHeaders(orgId, userAuthToken);
             String url = serverProperties.getSbUrl() + serverProperties.getLmsBulkNgoUserCreatePath();
             logger.info("NonGovtUserBulkUploadProcessingServiceImpl:: createVolunteerUser: row: {}, url: {}, headers: {}, request: {}",
@@ -711,7 +716,7 @@ public class NonGovtUserBulkUploadProcessingServiceImpl implements NonGovtUserBu
     }
 
     private Map<String, Object> buildVolunteerUserCreateRequest(String fullName, String mobileNumber, String email,
-                                                                String externalId, String orgName) {
+                                                                String externalId, String rowOrgName, String orgName) {
         Map<String, Object> requestBody = new HashMap<>();
         requestBody.put(Constants.FIRSTNAME, fullName);
         requestBody.put(Constants.PHONE, mobileNumber);
@@ -722,20 +727,21 @@ public class NonGovtUserBulkUploadProcessingServiceImpl implements NonGovtUserBu
             requestBody.put(Constants.EMAIL, email);
             requestBody.put(Constants.EMAIL_VERIFIED, true);
         }
-        requestBody.put(Constants.PROFILE_DETAILS, buildVolunteerProfileDetails(fullName, mobileNumber, email, externalId));
+        requestBody.put(Constants.PROFILE_DETAILS, buildVolunteerProfileDetails(fullName, mobileNumber, email, externalId, rowOrgName));
 
         Map<String, Object> request = new HashMap<>();
         request.put(Constants.REQUEST, requestBody);
         return request;
     }
 
-    private Map<String, Object> buildVolunteerProfileDetails(String fullName, String mobileNumber, String email, String externalId) {
+    private Map<String, Object> buildVolunteerProfileDetails(String fullName, String mobileNumber, String email, String externalId,
+                                                              String rowOrgName) {
         Map<String, Object> profileDetails = new HashMap<>();
         profileDetails.put(Constants.MANDATORY_FIELDS_EXISTS, false);
         profileDetails.put(Constants.VERIFIED_KARMAYOGI, false);
         profileDetails.put(Constants.PROFILE_STATUS_UPDATED_ON, currentIstTimestamp());
         profileDetails.put(Constants.PERSONAL_DETAILS, buildVolunteerPersonalDetails(fullName, mobileNumber, email));
-        profileDetails.put(Constants.PROFESSIONAL_DETAILS, buildVolunteerProfessionalDetails());
+        profileDetails.put(Constants.PROFESSIONAL_DETAILS, buildVolunteerProfessionalDetails(rowOrgName));
         Map<String, Object> additionalProperties = buildVolunteerAdditionalProperties(externalId);
         if (MapUtils.isNotEmpty(additionalProperties)) {
             profileDetails.put(Constants.ADDITIONAL_PROPERTIES, additionalProperties);
@@ -749,9 +755,10 @@ public class NonGovtUserBulkUploadProcessingServiceImpl implements NonGovtUserBu
      * govt reference's professionalDetails[0].organisationType (hardcoded "Government"
      * there), but ours is configurable rather than a fixed Java constant.
      */
-    private List<Map<String, Object>> buildVolunteerProfessionalDetails() {
+    private List<Map<String, Object>> buildVolunteerProfessionalDetails(String rowOrgName) {
         Map<String, Object> professionalDetail = new HashMap<>();
         professionalDetail.put(Constants.ORGANIZATION_TYPE, serverProperties.getNonGovtUserOrganisationType());
+        professionalDetail.put(Constants.ORGANISATION_NAME, StringUtils.defaultString(rowOrgName));
         return Collections.singletonList(professionalDetail);
     }
 
