@@ -90,7 +90,8 @@ public class StorageServiceImpl implements StorageService {
 		SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.API_FILE_UPLOAD);
 		File file = null;
 		try {
-			file = new File(System.currentTimeMillis() + "_" + mFile.getOriginalFilename());
+			String sanitizedFilename = sanitizeFilename(mFile.getOriginalFilename());
+			file = new File(System.currentTimeMillis() + "_" + sanitizedFilename);
 			file.createNewFile();
 			// Use try-with-resources to ensure FileOutputStream is closed
 			try (FileOutputStream fos = new FileOutputStream(file)) {
@@ -162,7 +163,8 @@ public class StorageServiceImpl implements StorageService {
 				return validationError;
 			}
 
-			file = new File(System.currentTimeMillis() + "_" + mFile.getOriginalFilename());
+			String sanitizedFilename = sanitizeFilename(mFile.getOriginalFilename());
+			file = new File(System.currentTimeMillis() + "_" + sanitizedFilename);
 			file.createNewFile();
 
 			try (FileOutputStream fos = new FileOutputStream(file)) {
@@ -571,7 +573,8 @@ public class StorageServiceImpl implements StorageService {
 		SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.API_FILE_UPLOAD);
 		File file = null;
 		try {
-			file = new File(System.currentTimeMillis() + "_" + mFile.getOriginalFilename());
+			String sanitizedFilename = sanitizeFilename(mFile.getOriginalFilename());
+			file = new File(System.currentTimeMillis() + "_" + sanitizedFilename);
 			file.createNewFile();
 			FileOutputStream fos = new FileOutputStream(file);
 			fos.write(mFile.getBytes());
@@ -595,7 +598,8 @@ public class StorageServiceImpl implements StorageService {
 		SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.API_FILE_UPLOAD);
 		File file = null;
 		try {
-			file = new File(System.currentTimeMillis() + "_" + mFile.getOriginalFilename());
+			String sanitizedFilename = sanitizeFilename(mFile.getOriginalFilename());
+			file = new File(System.currentTimeMillis() + "_" + sanitizedFilename);
 			file.createNewFile();
 			FileOutputStream fos = new FileOutputStream(file);
 			fos.write(mFile.getBytes());
@@ -744,7 +748,8 @@ public class StorageServiceImpl implements StorageService {
 			if (validationError != null) {
 				return validationError;
 			}
-			File file = File.createTempFile(String.valueOf(System.currentTimeMillis()), multipartFile.getOriginalFilename());
+			String sanitizedFilename = sanitizeFilename(multipartFile.getOriginalFilename());
+			File file = File.createTempFile(String.valueOf(System.currentTimeMillis()), sanitizedFilename);
 			try (FileOutputStream fos = new FileOutputStream(file)) {
 				logger.info("Wrote image to temporary file: {}", file.getAbsolutePath());
 				fos.write(multipartFile.getBytes());
@@ -818,7 +823,8 @@ public class StorageServiceImpl implements StorageService {
         }
         File tempFile = null;
         try {
-            tempFile = new File(System.currentTimeMillis() + "_" + multipartFile.getOriginalFilename());
+            String sanitizedFilename = sanitizeFilename(multipartFile.getOriginalFilename());
+            tempFile = new File(System.currentTimeMillis() + "_" + sanitizedFilename);
             if (!tempFile.createNewFile()) {
                 logger.warn("Temporary file already exists or could not be created: {}", tempFile.getAbsolutePath());
                 return ProjectUtil.returnErrorMsg("Failed to create temporary file for upload.", HttpStatus.INTERNAL_SERVER_ERROR, response, Constants.FAILED);
@@ -1334,7 +1340,8 @@ public class StorageServiceImpl implements StorageService {
 				return validationError;
 			}
 
-			file = new File(System.currentTimeMillis() + "_" + mFile.getOriginalFilename());
+			String sanitizedFilename = sanitizeFilename(mFile.getOriginalFilename());
+			file = new File(System.currentTimeMillis() + "_" + sanitizedFilename);
 			file.createNewFile();
 
 			try (FileOutputStream fos = new FileOutputStream(file)) {
@@ -1439,6 +1446,16 @@ public class StorageServiceImpl implements StorageService {
 
 		logger.info("Detected image type '{}' is not in allowed extensions", actualType);
 		return false;
+	}
+
+	private String sanitizeFilename(String filename) {
+		if (StringUtils.isBlank(filename)) {
+			return String.valueOf(System.currentTimeMillis());
+		}
+		// Extract only the file name (basename) to prevent path traversal
+		String basename = Paths.get(filename).getFileName().toString();
+		// Replace non-alphanumeric, dot, hyphen, or underscore characters with underscore
+		return basename.replaceAll("[^a-zA-Z0-9\\.\\-_]", "_");
 	}
 
 }
