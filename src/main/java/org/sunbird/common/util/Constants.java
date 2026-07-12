@@ -1650,6 +1650,7 @@ public class Constants {
 	public static final String NON_GOVT_CSV_COLUMN_MOBILE_NUMBER_HEADER = "Mobile Number (mandatory)";
 	public static final String NON_GOVT_CSV_COLUMN_EMAIL = "Email";
 	public static final String NON_GOVT_CSV_COLUMN_EXTERNAL_ID = "External ID";
+	public static final String NON_GOVT_CSV_COLUMN_ORG_NAME = "orgName";
 	public static final String STATUS_PARTIALLY_COMPLETED_UPPERCASE = "PARTIALLY-COMPLETED";
 	public static final String NON_GOVT_BULK_UPLOAD_FILE_NOT_FOUND_ERROR = "Uploaded file not found or is empty.";
 	public static final String NON_GOVT_BULK_UPLOAD_EMPTY_ROW_ERROR = "Row is empty.";
