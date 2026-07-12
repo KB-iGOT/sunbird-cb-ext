@@ -458,8 +458,8 @@ public class CohortsServiceImpl implements CohortsService {
 		Map<String, Object> response = cassandraOperation.getRecordsByProperties(
 				Constants.KEYSPACE_SUNBIRD,
 				Constants.TABLE_USER_ROLES,
-				Collections.singletonMap(Constants.USERID, userUUID),
-				Arrays.asList(Constants.ROLE, Constants.USERID),
+				Collections.singletonMap(Constants.USER_ID, userUUID),
+				Arrays.asList(Constants.ROLE, Constants.USER_ID),
 				null);
 
 		List<Map<String, Object>> userRoles = (List<Map<String, Object>>) response.get(Constants.RESPONSE);
