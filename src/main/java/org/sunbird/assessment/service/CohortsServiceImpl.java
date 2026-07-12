@@ -457,13 +457,12 @@ public class CohortsServiceImpl implements CohortsService {
 	private boolean isVolunteerUser(String userUUID) {
 		Map<String, Object> response = cassandraOperation.getRecordsByProperties(
 				Constants.KEYSPACE_SUNBIRD,
-				Constants.USER_ROLES,
+				Constants.TABLE_USER_ROLES,
 				Collections.singletonMap(Constants.USERID, userUUID),
 				Arrays.asList(Constants.ROLE, Constants.USERID),
 				null);
 
 		List<Map<String, Object>> userRoles = (List<Map<String, Object>>) response.get(Constants.RESPONSE);
-		logger.info("userRoles of UserId: " + userRoles.toString());
 
 		return !CollectionUtils.isEmpty(userRoles)
 				&& userRoles.stream().anyMatch(roleMap ->

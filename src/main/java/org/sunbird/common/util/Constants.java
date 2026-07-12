@@ -517,7 +517,7 @@ public class Constants {
 	public static final String CUSTODIAN_ORG_CHANNEL = "custodianOrgChannel";
 	public static final String ROOT_ORG_ID = "rootOrgId";
 	public static final String IS_UPDATE_REQUIRED = "isUpdateRequired";
-	public static final String USER_ROLES = "user_roles";
+	public static final String USER_ROLES = "userRoles";
 	public static final String X_AUTH_USER_ID = "x-authenticated-userid";
 	public static final String SOFT_DELETE_OLD_ORG = "softDeleteOldOrg";
 	public static final String NOTIFY_MIGRATION = "notifyMigration";
