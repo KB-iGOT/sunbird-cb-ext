@@ -1681,4 +1681,8 @@ public class Constants {
 	public static final String FNAME = "fname";
 	public static final int WEEK_RANGE_COUNT = 4;
 	public static final String INSTRUCTORS = "instructors";
+	public static final String VOLUNTEER_NOT_ELIGIBLE_TO_ENROLL = "You are not eligible to enroll into this course.";
+	public static final String ROLE_VOLUNTEER = "VOLUNTEER";
+	public static final String COURSEIDS= "courseids";
+
 }

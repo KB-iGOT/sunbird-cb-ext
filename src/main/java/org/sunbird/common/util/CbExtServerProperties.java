@@ -692,6 +692,12 @@ public class CbExtServerProperties {
 	@Value("${redis.badge.dashboard.index}")
 	private int redisBadgeDashboardIndex;
 
+	@Value("${es.org.eligibility.index}")
+	private String orgEligibilityIndex;
+
+	@Value("${es.org.eligibility.index.type}")
+	private String orgEligibilityIndexType;
+
 	public String getPublicUserAssessmentTableName() {
 		return publicUserAssessmentTableName;
 	}
@@ -4555,5 +4561,22 @@ public class CbExtServerProperties {
 
 	public void setBpReportProfileSurveyEsPageSize(int bpReportProfileSurveyEsPageSize) {
 		this.bpReportProfileSurveyEsPageSize = bpReportProfileSurveyEsPageSize;
+	}
+
+	public String getOrgEligibilityIndex() {
+    	return orgEligibilityIndex;
+	}
+
+	public void setOrgEligibilityIndex(String orgEligibilityIndex) {
+		this.orgEligibilityIndex = orgEligibilityIndex;
+	}
+
+
+	public String getOrgEligibilityIndexType() {
+		return orgEligibilityIndexType;
+	}
+
+	public void setOrgEligibilityIndexType(String orgEligibilityIndexType) {
+		this.orgEligibilityIndexType = orgEligibilityIndexType;
 	}
 }
