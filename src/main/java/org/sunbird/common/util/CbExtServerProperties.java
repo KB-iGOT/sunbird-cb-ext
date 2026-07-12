@@ -1311,6 +1311,12 @@ public class CbExtServerProperties {
 	@Value("${bp.report.v2.file.name.prefix:BlendedProgramConsumptionReport_}")
 	private String bpReportV2FileNamePrefix;
 
+	@Value("${es.org.eligibility.index}")
+	private String orgEligibilityIndex;
+
+	@Value("${es.org.eligibility.index.type}")
+	private String orgEligibilityIndexType;
+
 
 	public int getUserSearchLimit() {
 		return userSearchLimit;
@@ -4408,6 +4414,23 @@ public class CbExtServerProperties {
 
 	public void setBpReportV2FileNamePrefix(String bpReportV2FileNamePrefix) {
 		this.bpReportV2FileNamePrefix = bpReportV2FileNamePrefix;
+	}
+
+	public String getOrgEligibilityIndex() {
+    		return orgEligibilityIndex;
+    }
+
+	public void setOrgEligibilityIndex(String orgEligibilityIndex) {
+		this.orgEligibilityIndex = orgEligibilityIndex;
+	}
+
+    
+	public String getOrgEligibilityIndexType() {
+		return orgEligibilityIndexType;
+	}
+
+	public void setOrgEligibilityIndexType(String orgEligibilityIndexType) {
+		this.orgEligibilityIndexType = orgEligibilityIndexType;
 	}
 
 }
