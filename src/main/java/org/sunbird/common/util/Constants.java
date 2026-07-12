@@ -1625,6 +1625,10 @@ public class Constants {
 	public static final String BP_REPORT_V2_CONTEXT_TYPE = "Blended Program Consumption Report";
 	public static final String API_BP_REPORT_STATUS_V2 = "api.bp.report.status.v2";
 	public static final String API_BP_REPORT_LIST = "api.bp.report.list";
+	public static final String ROLE_VOLUNTEER = "VOLUNTEER";
+	public static final String COURSEIDS = "courseids";
+	public static final String VOLUNTEER_NOT_ELIGIBLE_TO_ENROLL = "You are not eligible to enroll into this course.";
+
 
 	// Non-Govt (Volunteer) user bulk creation API
 	public static final String API_NON_GOVT_USER_BULK_UPLOAD = "api.nongovt.user.bulk.upload";

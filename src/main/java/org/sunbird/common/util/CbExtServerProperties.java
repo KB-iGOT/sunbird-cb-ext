@@ -1303,6 +1303,12 @@ public class CbExtServerProperties {
 	@Value("${bp.report.v2.file.name.prefix:BlendedProgramConsumptionReport_}")
 	private String bpReportV2FileNamePrefix;
 
+	@Value("${es.org.eligibility.index}")
+	private String orgEligibilityIndex;
+
+	@Value("${es.org.eligibility.index.type}")
+	private String orgEligibilityIndexType;
+
 	@Value("${kafka.topics.nongovt.user.bulk.upload}")
 	private String nonGovtUserBulkUploadTopic;
 
@@ -4466,6 +4472,23 @@ public class CbExtServerProperties {
 
 	public int getNonGovtBulkUploadMaxRows() {
 		return nonGovtBulkUploadMaxRows;
+	}
+
+	public String getOrgEligibilityIndex() {
+    		return orgEligibilityIndex;
+    }
+
+	public void setOrgEligibilityIndex(String orgEligibilityIndex) {
+		this.orgEligibilityIndex = orgEligibilityIndex;
+	}
+
+    
+	public String getOrgEligibilityIndexType() {
+		return orgEligibilityIndexType;
+	}
+
+	public void setOrgEligibilityIndexType(String orgEligibilityIndexType) {
+		this.orgEligibilityIndexType = orgEligibilityIndexType;
 	}
 
 	public void setNonGovtBulkUploadMaxRows(int nonGovtBulkUploadMaxRows) {
