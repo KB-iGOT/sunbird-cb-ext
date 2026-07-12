@@ -77,6 +77,7 @@ public class NonGovtUserBulkUploadProcessingServiceImpl implements NonGovtUserBu
             Constants.NON_GOVT_CSV_COLUMN_MOBILE_NUMBER,
             Constants.NON_GOVT_CSV_COLUMN_EMAIL,
             Constants.NON_GOVT_CSV_COLUMN_EXTERNAL_ID,
+            Constants.NON_GOVT_CSV_COLUMN_ORG_NAME,
             Constants.PASCALCASESTATUS,
             Constants.CSV_COLUMN_ERROR_DETAILS);
 
