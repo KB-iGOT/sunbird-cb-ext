@@ -166,7 +166,7 @@ public class UserMigrationServiceImpl implements UserMigrationService {
                                         Map<String, Object> roleRequest = new HashMap<String, Object>() {{
                                             put("request", requestBody);
                                         }};
-                                        StringBuilder assignRoleUrl = new StringBuilder(serverConfig.getSbUrl()).append(serverConfig.getSbAssignRolePath());
+                                        StringBuilder assignRoleUrl = new StringBuilder(serverConfig.getSbUrl()).append(serverConfig.getSbAssignPublicRolePath());
                                         log.info("printing assignRoleUrl: {}", assignRoleUrl);
                                         Map<String, Object> assignRole = outboundRequestHandlerService.fetchResultUsingPost(assignRoleUrl.toString(), roleRequest, null);
 

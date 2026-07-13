@@ -1348,6 +1348,8 @@ public class CbExtServerProperties {
 	@Value("${bp.report.profile.survey.es.page.size:100}")
 	private int bpReportProfileSurveyEsPageSize;
 
+	@Value("${sb.service.assign.public.role.path}")
+	private String sbAssignPublicRolePath;
 	@Value("${sb.service.bulk.ngo.user.create.path}")
 	private String lmsBulkNgoUserCreatePath;
 
@@ -4563,6 +4565,12 @@ public class CbExtServerProperties {
 		this.bpReportProfileSurveyEsPageSize = bpReportProfileSurveyEsPageSize;
 	}
 
+	public String getSbAssignPublicRolePath() {
+		return sbAssignPublicRolePath;
+	}
+
+	public void setSbAssignPublicRolePath(String sbAssignPublicRolePath) {
+		this.sbAssignPublicRolePath = sbAssignPublicRolePath;
 	public String getOrgEligibilityIndex() {
     	return orgEligibilityIndex;
 	}
