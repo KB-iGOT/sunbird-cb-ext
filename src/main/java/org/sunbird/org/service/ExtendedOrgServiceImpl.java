@@ -230,7 +230,9 @@ public class ExtendedOrgServiceImpl implements ExtendedOrgService {
         }
 
         List<OrgHierarchy> orgHierarchyList = null;
-        if (Constants.MINISTRY.equalsIgnoreCase(parentMapId) || Constants.STATE.equalsIgnoreCase(parentMapId)) {
+        if (Constants.MINISTRY.equalsIgnoreCase(parentMapId) 
+            || Constants.STATE.equalsIgnoreCase(parentMapId) 
+            || Constants.GLOBAL_NGO.equalsIgnoreCase(parentMapId)) {
             orgHierarchyList = orgRepository.findAllBySbOrgType(parentMapId);
         } else {
             orgHierarchyList = orgRepository.findAllByParentMapId(parentMapId);
@@ -1064,19 +1066,34 @@ public class ExtendedOrgServiceImpl implements ExtendedOrgService {
         if (Constants.BOARD.equalsIgnoreCase((String) request.get(Constants.ORGANIZATION_SUB_TYPE))) {
             logger.info("ExtendedOrgServiceImpl::fetchStateOrMinistryDetails:Fetching the state or ministry details based on the parent map ID." + request.get("parentMapId"));
             OrgHierarchy deptOrgDetails = orgRepository.findByMapId((String) request.get(Constants.PARENT_MAP_ID));
-            if (StringUtils.isNotEmpty(deptOrgDetails.getOrgName()) && "department".equalsIgnoreCase(deptOrgDetails.getSbOrgSubType())) {
-                logger.info("ExtendedOrgServiceImpl::fetchStateOrMinistryDetails: Found department details. " + "DeptName: {}, ParentMapId: {}", deptOrgDetails.getOrgName(), deptOrgDetails.getParentMapId());
-                request.put(Constants.DEPT_NAME, deptOrgDetails.getOrgName());
-                String deptMapId = deptOrgDetails.getParentMapId();
-                OrgHierarchy ministryOrgDetails = orgRepository.findByMapId(deptMapId);
-                if (StringUtils.isNotEmpty(deptOrgDetails.getOrgName()) && (Constants.MINISTRY.equalsIgnoreCase(ministryOrgDetails.getSbOrgType()) || Constants.STATE.equalsIgnoreCase(ministryOrgDetails.getSbOrgType()))) {
-                    logger.info("ExtendedOrgServiceImpl::fetchStateOrMinistryDetails: Found ministry/state details. " + "Name: {}, Type: {}", ministryOrgDetails.getOrgName(), ministryOrgDetails.getSbOrgType());
-                    request.put(Constants.MINISTRY_STATE_NAME, ministryOrgDetails.getOrgName());
-                    request.put(Constants.MINISTRY_STATE_TYPE, ministryOrgDetails.getSbOrgType());
+            if (deptOrgDetails != null) {
+                if (StringUtils.isNotEmpty(deptOrgDetails.getOrgName()) && "department".equalsIgnoreCase(deptOrgDetails.getSbOrgSubType())) {
+                    logger.info("ExtendedOrgServiceImpl::fetchStateOrMinistryDetails: Found department details. " + "DeptName: {}, ParentMapId: {}", deptOrgDetails.getOrgName(), deptOrgDetails.getParentMapId());
+                    request.put(Constants.DEPT_NAME, deptOrgDetails.getOrgName());
+                    String deptMapId = deptOrgDetails.getParentMapId();
+                    OrgHierarchy ministryOrgDetails = orgRepository.findByMapId(deptMapId);
+                    if (ministryOrgDetails != null) {
+                        if (StringUtils.isNotEmpty(ministryOrgDetails.getOrgName()) && (Constants.MINISTRY.equalsIgnoreCase(ministryOrgDetails.getSbOrgType()) || Constants.STATE.equalsIgnoreCase(ministryOrgDetails.getSbOrgType()))) {
+                            logger.info("ExtendedOrgServiceImpl::fetchStateOrMinistryDetails: Found ministry/state details. " + "Name: {}, Type: {}", ministryOrgDetails.getOrgName(), ministryOrgDetails.getSbOrgType());
+                            request.put(Constants.MINISTRY_STATE_NAME, ministryOrgDetails.getOrgName());
+                            request.put(Constants.MINISTRY_STATE_TYPE, ministryOrgDetails.getSbOrgType());
+                            request.put(Constants.MINISTRY_OR_STATE_ID, ministryOrgDetails.getSbOrgId());
+                        } else if (StringUtils.isNotEmpty(ministryOrgDetails.getOrgName()) && Constants.GLOBAL_NGO.equalsIgnoreCase(ministryOrgDetails.getSbOrgType())) {
+                            logger.info("ExtendedOrgServiceImpl::fetchStateOrMinistryDetails: Found globalngo details. " + "Name: {}, Type: {}", ministryOrgDetails.getOrgName(), ministryOrgDetails.getSbOrgType());
+                            request.put(Constants.MINISTRY_STATE_NAME, ministryOrgDetails.getOrgName());
+                            request.put(Constants.MINISTRY_STATE_TYPE, "GlobalNgo");
+                            request.put(Constants.MINISTRY_OR_STATE_ID, ministryOrgDetails.getSbOrgId());
+                        }
+                    }
+                } else if (StringUtils.isNotEmpty(deptOrgDetails.getOrgName()) && (Constants.MINISTRY.equalsIgnoreCase(deptOrgDetails.getSbOrgType()) || Constants.STATE.equalsIgnoreCase(deptOrgDetails.getSbOrgType()))) {
+                    request.put(Constants.MINISTRY_STATE_NAME, deptOrgDetails.getOrgName());
+                    request.put(Constants.MINISTRY_STATE_TYPE, deptOrgDetails.getSbOrgType());
+                    request.put(Constants.MINISTRY_OR_STATE_ID, deptOrgDetails.getSbOrgId());
+                } else if (StringUtils.isNotEmpty(deptOrgDetails.getOrgName()) && Constants.GLOBAL_NGO.equalsIgnoreCase(deptOrgDetails.getSbOrgType())) {
+                    request.put(Constants.MINISTRY_STATE_NAME, deptOrgDetails.getOrgName());
+                    request.put(Constants.MINISTRY_STATE_TYPE, "GlobalNgo");
+                    request.put(Constants.MINISTRY_OR_STATE_ID, deptOrgDetails.getSbOrgId());
                 }
-            } else if (StringUtils.isNotEmpty(deptOrgDetails.getOrgName()) && (Constants.MINISTRY.equalsIgnoreCase(deptOrgDetails.getSbOrgType()) || Constants.STATE.equalsIgnoreCase(deptOrgDetails.getSbOrgType()))) {
-                request.put(Constants.MINISTRY_STATE_NAME, deptOrgDetails.getOrgName());
-                request.put(Constants.MINISTRY_STATE_TYPE, deptOrgDetails.getSbOrgType());
             }
         }
     }
