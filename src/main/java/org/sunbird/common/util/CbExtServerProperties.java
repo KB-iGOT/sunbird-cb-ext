@@ -4571,6 +4571,8 @@ public class CbExtServerProperties {
 
 	public void setSbAssignPublicRolePath(String sbAssignPublicRolePath) {
 		this.sbAssignPublicRolePath = sbAssignPublicRolePath;
+	}
+	
 	public String getOrgEligibilityIndex() {
     	return orgEligibilityIndex;
 	}
