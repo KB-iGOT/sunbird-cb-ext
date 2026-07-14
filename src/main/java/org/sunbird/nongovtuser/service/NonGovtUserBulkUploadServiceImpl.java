@@ -63,21 +63,36 @@ public class NonGovtUserBulkUploadServiceImpl implements NonGovtUserBulkUploadSe
 
     @Override
     public SBApiResponse
-    bulkUploadNonGovtUsers(MultipartFile mFile, String orgId, String orgName,
-                                                 String userId, String userAuthToken) {
+    bulkUploadNonGovtUsers(MultipartFile mFile, String orgId,
+                                                 String userId, String userAuthToken, String targetOrgId) {
         logger.info("NonGovtUserBulkUploadServiceImpl:: bulkUploadNonGovtUsers: Started for orgId: {}", orgId);
         SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.API_NON_GOVT_USER_BULK_UPLOAD);
         try {
-            if (isPreviousUploadInProgress(orgId)) {
+            if (isPreviousUploadInProgress(targetOrgId)) {
                 logger.warn("NonGovtUserBulkUploadServiceImpl:: bulkUploadNonGovtUsers: Rejected for orgId: {}, "
-                        + "previous upload still in progress", orgId);
+                        + "previous upload still in progress", targetOrgId);
                 markResponseFailed(response, Constants.NON_GOVT_BULK_UPLOAD_IN_PROGRESS_ERROR, HttpStatus.TOO_MANY_REQUESTS);
                 return response;
             }
+            Map<String, Object> targetOrgDetails = readTargetOrgDetails(targetOrgId);
+            if (targetOrgDetails == null) {
+                logger.error("NonGovtUserBulkUploadServiceImpl:: bulkUploadNonGovtUsers: Target org not found for "
+                        + "targetOrgId: {}", targetOrgId);
+                markResponseFailed(response, Constants.ORGANIZATION_NOT_FOUND, HttpStatus.BAD_REQUEST);
+                return response;
+            }
+            String ministryOrStateId = (String) targetOrgDetails.get(Constants.MINISTRY_STATE_ID);
+            if (StringUtils.isNotBlank(ministryOrStateId) && !ministryOrStateId.equalsIgnoreCase(orgId)) {
+                logger.warn("NonGovtUserBulkUploadServiceImpl:: bulkUploadNonGovtUsers: targetOrgId: {} does not "
+                        + "belong to requesting ministry orgId: {}", targetOrgId, orgId);
+                markResponseFailed(response, Constants.NON_GOVT_BULK_UPLOAD_ORG_NOT_PART_OF_MINISTRY_ERROR, HttpStatus.BAD_REQUEST);
+                return response;
+            }
+            String orgName =  (String) targetOrgDetails.get(Constants.ORG_NAME_LOWER);
             String fileValidationError = validateFileStructure(mFile);
             if (StringUtils.isNotBlank(fileValidationError)) {
                 logger.error("NonGovtUserBulkUploadServiceImpl:: bulkUploadNonGovtUsers: File validation failed for "
-                        + "orgId: {}, reason: {}", orgId, fileValidationError);
+                        + "orgId: {}, reason: {}", targetOrgId, fileValidationError);
                 markResponseFailed(response, fileValidationError, HttpStatus.INTERNAL_SERVER_ERROR);
                 return response;
             }
@@ -85,19 +100,19 @@ public class NonGovtUserBulkUploadServiceImpl implements NonGovtUserBulkUploadSe
             if (!HttpStatus.OK.equals(uploadResponse.getResponseCode())) {
                 String uploadFailureMessage = buildUploadFailureMessage(uploadResponse);
                 logger.error("NonGovtUserBulkUploadServiceImpl:: bulkUploadNonGovtUsers: Raw file upload failed for "
-                        + "orgId: {}, reason: {}", orgId, uploadFailureMessage);
+                        + "orgId: {}, reason: {}", targetOrgId, uploadFailureMessage);
                 markResponseFailed(response, uploadFailureMessage, HttpStatus.INTERNAL_SERVER_ERROR);
                 return response;
             }
-            Map<String, Object> trackingRecord = buildTrackingRecord(orgId, userId, uploadResponse);
+            Map<String, Object> trackingRecord = buildTrackingRecord(targetOrgId, userId, uploadResponse);
             if (!persistTrackingRecord(trackingRecord)) {
                 logger.error("NonGovtUserBulkUploadServiceImpl:: bulkUploadNonGovtUsers: Failed to persist tracking "
-                        + "record for orgId: {}, identifier: {}", orgId, trackingRecord.get(Constants.IDENTIFIER));
+                        + "record for orgId: {}, identifier: {}", targetOrgId, trackingRecord.get(Constants.IDENTIFIER));
                 markResponseFailed(response, Constants.NON_GOVT_BULK_UPLOAD_DB_INSERT_ERROR, HttpStatus.INTERNAL_SERVER_ERROR);
                 return response;
             }
             populateSuccessResponse(response, trackingRecord);
-            triggerBulkUploadKafkaEvent(trackingRecord, orgId, orgName, userAuthToken);
+            triggerBulkUploadKafkaEvent(trackingRecord, orgId, orgName, userAuthToken, targetOrgId);
             logger.info("NonGovtUserBulkUploadServiceImpl:: bulkUploadNonGovtUsers: Successfully queued upload for "
                     + "orgId: {}, identifier: {}", orgId, trackingRecord.get(Constants.IDENTIFIER));
         } catch (Exception e) {
@@ -347,17 +362,30 @@ public class NonGovtUserBulkUploadServiceImpl implements NonGovtUserBulkUploadSe
      * trackingRecord, since that map is also used to populate the HTTP response.
      */
     private void triggerBulkUploadKafkaEvent(Map<String, Object> trackingRecord, String orgId,
-                                              String orgName, String userAuthToken) {
+                                              String orgName, String userAuthToken, String targetOrgId) {
         Map<String, Object> kafkaPayload = new HashMap<>(trackingRecord);
         kafkaPayload.put(Constants.ORG_NAME, orgName);
         kafkaPayload.put(Constants.X_AUTH_TOKEN, userAuthToken);
         kafkaPayload.put(Constants.X_AUTH_USER_ORG_ID, orgId);
-        kafkaProducer.pushWithKey(serverProperties.getNonGovtUserBulkUploadTopic(), kafkaPayload, orgId);
+        kafkaProducer.pushWithKey(serverProperties.getNonGovtUserBulkUploadTopic(), kafkaPayload, targetOrgId);
     }
 
     private void markResponseFailed(SBApiResponse response, String errMsg, HttpStatus status) {
         response.getParams().setStatus(Constants.FAILED_UPPERCASE);
         response.getParams().setErrmsg(errMsg);
         response.setResponseCode(status);
+    }
+
+    /**
+     * Reads the target org's row directly from Cassandra by identifier — used to
+     * validate ministry/state ownership and to resolve the org's canonical name, both
+     * from this single read (no second lookup later in the consumer).
+     */
+    private Map<String, Object> readTargetOrgDetails(String targetOrgId) {
+        Map<String, Object> propertyMap = new HashMap<>();
+        propertyMap.put(Constants.ID, targetOrgId);
+        List<Map<String, Object>> orgRecords = cassandraOperation.getRecordsByPropertiesWithoutFiltering(
+                Constants.KEYSPACE_SUNBIRD, Constants.TABLE_ORGANIZATION, propertyMap, null);
+        return CollectionUtils.isEmpty(orgRecords) ? null : orgRecords.get(0);
     }
 }

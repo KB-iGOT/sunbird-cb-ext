@@ -16,10 +16,9 @@ public interface NonGovtUserBulkUploadService {
      *
      * @param mFile         uploaded CSV of volunteer records
      * @param orgId         SPV/MDO admin's org id (must resolve to a Volunteer Organisation)
-     * @param orgName       channel/org name for the uploading org
      * @param userId        id of the admin performing the upload
      * @param userAuthToken caller's auth token
      */
-    SBApiResponse bulkUploadNonGovtUsers(MultipartFile mFile, String orgId, String orgName,
-                                          String userId, String userAuthToken);
+    SBApiResponse bulkUploadNonGovtUsers(MultipartFile mFile, String orgId,
+                                          String userId, String userAuthToken, String targetOrgId);
 }
