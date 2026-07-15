@@ -1640,6 +1640,8 @@ public class Constants {
 			"Failed to update database with non-govt user bulk upload file details.";
 	public static final String NON_GOVT_BULK_UPLOAD_PROCESSING_ERROR =
 			"Failed to process non-govt user bulk upload request.";
+	public static final String NON_GOVT_BULK_UPLOAD_ORG_NOT_PART_OF_MINISTRY_ERROR =
+			"This organisation is not part of the requesting ministry.";
 	public static final String FIELD_NOT_PRESENT_ERROR = "%s is not present";
 	public static final String NON_GOVT_USER_CREATE_ERROR = "Failed to create volunteer user.";
 	public static final String NON_GOVT_USER_CREATE_EMPTY_RESPONSE_ERROR = "Failed to create volunteer user: empty response from user create API.";
@@ -1684,5 +1686,6 @@ public class Constants {
 	public static final String VOLUNTEER_NOT_ELIGIBLE_TO_ENROLL = "You are not eligible to enroll into this course.";
 	public static final String ROLE_VOLUNTEER = "VOLUNTEER";
 	public static final String COURSEIDS= "courseids";
+	public static final String TARGET_ORG_ID= "targetorgid";
 
 }
