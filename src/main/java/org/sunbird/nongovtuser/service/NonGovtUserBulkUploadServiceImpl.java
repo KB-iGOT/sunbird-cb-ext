@@ -191,13 +191,13 @@ public class NonGovtUserBulkUploadServiceImpl implements NonGovtUserBulkUploadSe
                     return Constants.NON_GOVT_BULK_UPLOAD_MANDATORY_COLUMNS_MISSING_ERROR;
                 }
                 int rowNumber = 1;
-                for (CSVRecord record : csvParser) {
+                for (CSVRecord csvRecord : csvParser) {
                     rowNumber++;
-                    if (isCsvRecordEntirelyBlank(record)) {
+                    if (isCsvRecordEntirelyBlank(csvRecord)) {
                         continue;
                     }
                     String missingFields = findMissingMandatoryFields(
-                            record.get(fullNameHeader), record.get(mobileNumberHeader), record.get(emailHeader));
+                            csvRecord.get(fullNameHeader), csvRecord.get(mobileNumberHeader), csvRecord.get(emailHeader));
                     if (missingFields != null) {
                         return String.format(Constants.NON_GOVT_BULK_UPLOAD_MANDATORY_VALUE_MISSING_ERROR,
                                 rowNumber, missingFields);
@@ -211,8 +211,8 @@ public class NonGovtUserBulkUploadServiceImpl implements NonGovtUserBulkUploadSe
         }
     }
 
-    private boolean isCsvRecordEntirelyBlank(CSVRecord record) {
-        for (String value : record) {
+    private boolean isCsvRecordEntirelyBlank(CSVRecord csvRecord) {
+        for (String value : csvRecord) {
             if (StringUtils.isNotBlank(value)) {
                 return false;
             }
