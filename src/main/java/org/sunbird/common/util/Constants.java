@@ -1688,5 +1688,11 @@ public class Constants {
 	public static final String ROLE_VOLUNTEER = "VOLUNTEER";
 	public static final String COURSEIDS= "courseids";
 	public static final String TARGET_ORG_ID= "targetorgid";
+	public static final String NON_GOVT_CSV_COLUMN_GENDER = "Gender";
+	public static final String NON_GOVT_CSV_COLUMN_CATEGORY = "Category";
+	public static final String NON_GOVT_CSV_COLUMN_DOB = "Date of Birth";
+	public static final String NON_GOVT_CSV_COLUMN_MOTHER_TONGUE = "Mother Tongue";
+	public static final String NON_GOVT_CSV_COLUMN_OFFICE_PINCODE = "Office Pin code";
+	public static final String NON_GOVT_CSV_COLUMN_TAGS = "Tags";
 
 }
