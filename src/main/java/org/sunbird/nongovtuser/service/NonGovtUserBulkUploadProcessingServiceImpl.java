@@ -50,6 +50,7 @@ import org.sunbird.common.model.SBApiResponse;
 import org.sunbird.common.service.OutboundRequestHandlerServiceImpl;
 import org.sunbird.common.util.CbExtServerProperties;
 import org.sunbird.common.util.Constants;
+import org.sunbird.nongovtuser.model.CsvRowData;
 import org.sunbird.nongovtuser.model.RowProcessingSummary;
 import org.sunbird.nongovtuser.model.VolunteerUserRequest;
 import org.sunbird.common.util.ProjectUtil;
@@ -80,7 +81,13 @@ public class NonGovtUserBulkUploadProcessingServiceImpl implements NonGovtUserBu
             Constants.NON_GOVT_CSV_COLUMN_EXTERNAL_ID,
             Constants.NON_GOVT_CSV_COLUMN_ORG_NAME,
             Constants.PASCALCASESTATUS,
-            Constants.CSV_COLUMN_ERROR_DETAILS);
+            Constants.CSV_COLUMN_ERROR_DETAILS,
+            Constants.NON_GOVT_CSV_COLUMN_GENDER,
+            Constants.NON_GOVT_CSV_COLUMN_CATEGORY,
+            Constants.NON_GOVT_CSV_COLUMN_DOB,
+            Constants.NON_GOVT_CSV_COLUMN_MOTHER_TONGUE,
+            Constants.NON_GOVT_CSV_COLUMN_OFFICE_PINCODE,
+            Constants.NON_GOVT_CSV_COLUMN_TAGS);
 
     private static final DataFormatter EXCEL_CELL_FORMATTER = new DataFormatter();
 
@@ -278,12 +285,20 @@ public class NonGovtUserBulkUploadProcessingServiceImpl implements NonGovtUserBu
         String mobileNumberHeader = findMatchingHeader(headers,
                 Constants.NON_GOVT_CSV_COLUMN_MOBILE_NUMBER, Constants.NON_GOVT_CSV_COLUMN_MOBILE_NUMBER_HEADER);
         for (CSVRecord csvRecord : records) {
-            rows.add(extractRowFields(
-                    getCsvFieldValue(csvRecord, fullNameHeader),
-                    getCsvFieldValue(csvRecord, mobileNumberHeader),
-                    getCsvFieldValue(csvRecord, Constants.NON_GOVT_CSV_COLUMN_EMAIL),
-                    getCsvFieldValue(csvRecord, Constants.NON_GOVT_CSV_COLUMN_EXTERNAL_ID),
-                    getCsvFieldValue(csvRecord, Constants.NON_GOVT_CSV_COLUMN_ORG_NAME)));
+            CsvRowData rowData = CsvRowData.builder()
+                    .fullName(getCsvFieldValue(csvRecord, fullNameHeader))
+                    .mobileNumber(getCsvFieldValue(csvRecord, mobileNumberHeader))
+                    .email(getCsvFieldValue(csvRecord, Constants.NON_GOVT_CSV_COLUMN_EMAIL))
+                    .externalId(getCsvFieldValue(csvRecord, Constants.NON_GOVT_CSV_COLUMN_EXTERNAL_ID))
+                    .gender(getCsvFieldValue(csvRecord, Constants.NON_GOVT_CSV_COLUMN_GENDER))
+                    .category(getCsvFieldValue(csvRecord, Constants.NON_GOVT_CSV_COLUMN_CATEGORY))
+                    .dob(getCsvFieldValue(csvRecord, Constants.NON_GOVT_CSV_COLUMN_DOB))
+                    .motherTongue(getCsvFieldValue(csvRecord, Constants.NON_GOVT_CSV_COLUMN_MOTHER_TONGUE))
+                    .officePincode(getCsvFieldValue(csvRecord, Constants.NON_GOVT_CSV_COLUMN_OFFICE_PINCODE))
+                    .tags(getCsvFieldValue(csvRecord, Constants.NON_GOVT_CSV_COLUMN_TAGS))
+                    .orgName(getCsvFieldValue(csvRecord, Constants.NON_GOVT_CSV_COLUMN_ORG_NAME))
+                    .build();
+            rows.add(extractRowFields(rowData));
         }
         return rows;
     }
@@ -327,12 +342,20 @@ public class NonGovtUserBulkUploadProcessingServiceImpl implements NonGovtUserBu
                 if (ObjectUtils.isEmpty(row)) {
                     continue;
                 }
-                rows.add(extractRowFields(
-                        getExcelCellValue(row, columnIndexByHeader, fullNameHeader),
-                        getExcelCellValue(row, columnIndexByHeader, mobileNumberHeader),
-                        getExcelCellValue(row, columnIndexByHeader, Constants.NON_GOVT_CSV_COLUMN_EMAIL),
-                        getExcelCellValue(row, columnIndexByHeader, Constants.NON_GOVT_CSV_COLUMN_EXTERNAL_ID),
-                        getExcelCellValue(row, columnIndexByHeader, Constants.NON_GOVT_CSV_COLUMN_ORG_NAME)));
+                CsvRowData rowData = CsvRowData.builder()
+                        .fullName(getExcelCellValue(row, columnIndexByHeader, fullNameHeader))
+                        .mobileNumber(getExcelCellValue(row, columnIndexByHeader, mobileNumberHeader))
+                        .email(getExcelCellValue(row, columnIndexByHeader, Constants.NON_GOVT_CSV_COLUMN_EMAIL))
+                        .externalId(getExcelCellValue(row, columnIndexByHeader, Constants.NON_GOVT_CSV_COLUMN_EXTERNAL_ID))
+                        .gender(getExcelCellValue(row, columnIndexByHeader, Constants.NON_GOVT_CSV_COLUMN_GENDER))
+                        .category(getExcelCellValue(row, columnIndexByHeader, Constants.NON_GOVT_CSV_COLUMN_CATEGORY))
+                        .dob(getExcelCellValue(row, columnIndexByHeader, Constants.NON_GOVT_CSV_COLUMN_DOB))
+                        .motherTongue(getExcelCellValue(row, columnIndexByHeader, Constants.NON_GOVT_CSV_COLUMN_MOTHER_TONGUE))
+                        .officePincode(getExcelCellValue(row, columnIndexByHeader, Constants.NON_GOVT_CSV_COLUMN_OFFICE_PINCODE))
+                        .tags(getExcelCellValue(row, columnIndexByHeader, Constants.NON_GOVT_CSV_COLUMN_TAGS))
+                        .orgName(getExcelCellValue(row, columnIndexByHeader, Constants.NON_GOVT_CSV_COLUMN_ORG_NAME))
+                        .build();
+                rows.add(extractRowFields(rowData));
             }
             return rows;
         } catch (IOException e) {
@@ -384,14 +407,19 @@ public class NonGovtUserBulkUploadProcessingServiceImpl implements NonGovtUserBu
         return null;
     }
 
-    private Map<String, String> extractRowFields(String fullName, String mobileNumber, String email, String externalId,
-                                                 String orgName) {
+    private Map<String, String> extractRowFields(CsvRowData rowData) {
         Map<String, String> fields = new HashMap<>();
-        fields.put(Constants.NON_GOVT_CSV_COLUMN_FULL_NAME, fullName);
-        fields.put(Constants.NON_GOVT_CSV_COLUMN_MOBILE_NUMBER, mobileNumber);
-        fields.put(Constants.NON_GOVT_CSV_COLUMN_EMAIL, email);
-        fields.put(Constants.NON_GOVT_CSV_COLUMN_EXTERNAL_ID, externalId);
-        fields.put(Constants.NON_GOVT_CSV_COLUMN_ORG_NAME, orgName);
+        fields.put(Constants.NON_GOVT_CSV_COLUMN_FULL_NAME, rowData.getFullName());
+        fields.put(Constants.NON_GOVT_CSV_COLUMN_MOBILE_NUMBER, rowData.getMobileNumber());
+        fields.put(Constants.NON_GOVT_CSV_COLUMN_EMAIL, rowData.getEmail());
+        fields.put(Constants.NON_GOVT_CSV_COLUMN_EXTERNAL_ID, rowData.getExternalId());
+        fields.put(Constants.NON_GOVT_CSV_COLUMN_GENDER, rowData.getGender());
+        fields.put(Constants.NON_GOVT_CSV_COLUMN_CATEGORY, rowData.getCategory());
+        fields.put(Constants.NON_GOVT_CSV_COLUMN_DOB, rowData.getDob());
+        fields.put(Constants.NON_GOVT_CSV_COLUMN_MOTHER_TONGUE, rowData.getMotherTongue());
+        fields.put(Constants.NON_GOVT_CSV_COLUMN_OFFICE_PINCODE, rowData.getOfficePincode());
+        fields.put(Constants.NON_GOVT_CSV_COLUMN_TAGS, rowData.getTags());
+        fields.put(Constants.NON_GOVT_CSV_COLUMN_ORG_NAME, rowData.getOrgName());
         return fields;
     }
 
@@ -434,6 +462,12 @@ public class NonGovtUserBulkUploadProcessingServiceImpl implements NonGovtUserBu
                     .mobileNumber(mobileNumber)
                     .email(email)
                     .externalId(externalId)
+                    .gender(rawRow.get(Constants.NON_GOVT_CSV_COLUMN_GENDER))
+                    .category(rawRow.get(Constants.NON_GOVT_CSV_COLUMN_CATEGORY))
+                    .dob(rawRow.get(Constants.NON_GOVT_CSV_COLUMN_DOB))
+                    .motherTongue(rawRow.get(Constants.NON_GOVT_CSV_COLUMN_MOTHER_TONGUE))
+                    .officePincode(rawRow.get(Constants.NON_GOVT_CSV_COLUMN_OFFICE_PINCODE))
+                    .tags(rawRow.get(Constants.NON_GOVT_CSV_COLUMN_TAGS))
                     .orgName(orgName)
                     .orgId(orgId)
                     .userAuthToken(userAuthToken)
@@ -696,12 +730,7 @@ public class NonGovtUserBulkUploadProcessingServiceImpl implements NonGovtUserBu
      */
     private String createVolunteerUser(VolunteerUserRequest userRequest) {
         try {
-            Map<String, Object> request = buildVolunteerUserCreateRequest(
-                    userRequest.getFullName(),
-                    userRequest.getMobileNumber(),
-                    userRequest.getEmail(),
-                    userRequest.getExternalId(),
-                    userRequest.getOrgName());
+            Map<String, Object> request = buildVolunteerUserCreateRequest(userRequest);
             Map<String, String> headers = buildAuthHeaders(userRequest.getOrgId(), userRequest.getUserAuthToken());
             String url = serverProperties.getSbUrl() + serverProperties.getLmsBulkNgoUserCreatePath();
 
@@ -739,35 +768,39 @@ public class NonGovtUserBulkUploadProcessingServiceImpl implements NonGovtUserBu
         return headers;
     }
 
-    private Map<String, Object> buildVolunteerUserCreateRequest(String fullName, String mobileNumber, String email,
-                                                                String externalId, String orgName) {
+    private Map<String, Object> buildVolunteerUserCreateRequest(VolunteerUserRequest userRequest) {
         Map<String, Object> requestBody = new HashMap<>();
-        requestBody.put(Constants.FIRSTNAME, fullName);
-        requestBody.put(Constants.PHONE, mobileNumber);
+        requestBody.put(Constants.FIRSTNAME, userRequest.getFullName());
+        requestBody.put(Constants.PHONE, userRequest.getMobileNumber());
         requestBody.put(Constants.PHONE_VERIFIED, true);
-        requestBody.put(Constants.ORG_NAME, orgName);
-        requestBody.put(Constants.CHANNEL, orgName);
+        requestBody.put(Constants.ORG_NAME, userRequest.getOrgName());
+        requestBody.put(Constants.CHANNEL, userRequest.getOrgName());
         requestBody.put(Constants.ROLES, Collections.singletonList(serverProperties.getNonGovtUserDefaultRole()));
-        if (StringUtils.isNotBlank(email)) {
-            requestBody.put(Constants.EMAIL, email);
+        if (StringUtils.isNotBlank(userRequest.getEmail())) {
+            requestBody.put(Constants.EMAIL, userRequest.getEmail());
             requestBody.put(Constants.EMAIL_VERIFIED, true);
         }
-        requestBody.put(Constants.PROFILE_DETAILS, buildVolunteerProfileDetails(fullName, mobileNumber, email, externalId, orgName));
+        requestBody.put(Constants.PROFILE_DETAILS, buildVolunteerProfileDetails(userRequest));
 
         Map<String, Object> request = new HashMap<>();
         request.put(Constants.REQUEST, requestBody);
         return request;
     }
 
-    private Map<String, Object> buildVolunteerProfileDetails(String fullName, String mobileNumber, String email, String externalId,
-                                                             String orgName) {
+    private Map<String, Object> buildVolunteerProfileDetails(VolunteerUserRequest userRequest) {
         Map<String, Object> profileDetails = new HashMap<>();
         profileDetails.put(Constants.MANDATORY_FIELDS_EXISTS, false);
         profileDetails.put(Constants.VERIFIED_KARMAYOGI, false);
         profileDetails.put(Constants.PROFILE_STATUS_UPDATED_ON, currentIstTimestamp());
-        profileDetails.put(Constants.PERSONAL_DETAILS, buildVolunteerPersonalDetails(fullName, mobileNumber, email));
-        profileDetails.put(Constants.PROFESSIONAL_DETAILS, buildVolunteerProfessionalDetails(orgName));
-        Map<String, Object> additionalProperties = buildVolunteerAdditionalProperties(externalId);
+        profileDetails.put(Constants.PERSONAL_DETAILS, buildVolunteerPersonalDetails(userRequest));
+        profileDetails.put(Constants.PROFESSIONAL_DETAILS, buildVolunteerProfessionalDetails(userRequest.getOrgName()));
+        if (StringUtils.isNotBlank(userRequest.getOfficePincode())) {
+            Map<String, Object> employmentDetails = new HashMap<>();
+            employmentDetails.put(Constants.PINCODE, userRequest.getOfficePincode());
+            profileDetails.put(Constants.EMPLOYMENTDETAILS, employmentDetails);
+        }
+
+        Map<String, Object> additionalProperties = buildVolunteerAdditionalProperties(userRequest);
         if (MapUtils.isNotEmpty(additionalProperties)) {
             profileDetails.put(Constants.ADDITIONAL_PROPERTIES, additionalProperties);
         }
@@ -788,21 +821,42 @@ public class NonGovtUserBulkUploadProcessingServiceImpl implements NonGovtUserBu
         return Collections.singletonList(professionalDetail);
     }
 
-    private Map<String, Object> buildVolunteerPersonalDetails(String fullName, String mobileNumber, String email) {
+    private Map<String, Object> buildVolunteerPersonalDetails(VolunteerUserRequest userRequest) {
         Map<String, Object> personalDetails = new HashMap<>();
-        personalDetails.put(Constants.FIRSTNAME.toLowerCase(), fullName);
-        personalDetails.put(Constants.MOBILE, mobileNumber);
+        personalDetails.put(Constants.FIRSTNAME.toLowerCase(), userRequest.getFullName());
+        personalDetails.put(Constants.MOBILE, userRequest.getMobileNumber());
         personalDetails.put(Constants.PHONE_VERIFIED, true);
-        if (StringUtils.isNotBlank(email)) {
-            personalDetails.put(Constants.PRIMARY_EMAIL, email);
+        if (StringUtils.isNotBlank(userRequest.getEmail())) {
+            personalDetails.put(Constants.PRIMARY_EMAIL, userRequest.getEmail());
+        }
+        if (StringUtils.isNotBlank(userRequest.getGender())) {
+            personalDetails.put(Constants.GENDER, userRequest.getGender());
+        }
+        if (StringUtils.isNotBlank(userRequest.getCategory())) {
+            personalDetails.put(Constants.CATEGORY, userRequest.getCategory());
+        }
+        if (StringUtils.isNotBlank(userRequest.getDob())) {
+            personalDetails.put(Constants.DOB, userRequest.getDob());
+        }
+        if (StringUtils.isNotBlank(userRequest.getMotherTongue())) {
+            personalDetails.put(Constants.DOMICILE_MEDIUM, userRequest.getMotherTongue());
         }
         return personalDetails;
     }
 
-    private Map<String, Object> buildVolunteerAdditionalProperties(String externalId) {
+    private Map<String, Object> buildVolunteerAdditionalProperties(VolunteerUserRequest userRequest) {
         Map<String, Object> additionalProperties = new HashMap<>();
-        if (StringUtils.isNotBlank(externalId)) {
-            additionalProperties.put(Constants.EXTERNAL_SYSTEM_ID, externalId);
+        if (StringUtils.isNotBlank(userRequest.getExternalId())) {
+            additionalProperties.put(Constants.EXTERNAL_SYSTEM_ID, userRequest.getExternalId());
+        }
+        if (StringUtils.isNotBlank(userRequest.getTags())) {
+            List<String> tagList = Arrays.stream(userRequest.getTags().split(","))
+                    .map(String::trim)
+                    .filter(StringUtils::isNotBlank)
+                    .collect(java.util.stream.Collectors.toList());
+            if (!tagList.isEmpty()) {
+                additionalProperties.put(Constants.TAG, tagList);
+            }
         }
         return additionalProperties;
     }
