@@ -51,6 +51,7 @@ import org.sunbird.common.service.OutboundRequestHandlerServiceImpl;
 import org.sunbird.common.util.CbExtServerProperties;
 import org.sunbird.common.util.Constants;
 import org.sunbird.nongovtuser.model.RowProcessingSummary;
+import org.sunbird.nongovtuser.model.VolunteerUserRequest;
 import org.sunbird.common.util.ProjectUtil;
 import org.sunbird.storage.service.StorageService;
 
@@ -419,8 +420,6 @@ public class NonGovtUserBulkUploadProcessingServiceImpl implements NonGovtUserBu
         String mobileNumber = rawRow.get(Constants.NON_GOVT_CSV_COLUMN_MOBILE_NUMBER);
         String email = rawRow.get(Constants.NON_GOVT_CSV_COLUMN_EMAIL);
         String externalId = rawRow.get(Constants.NON_GOVT_CSV_COLUMN_EXTERNAL_ID);
-        String rowOrgName = rawRow.get(Constants.NON_GOVT_CSV_COLUMN_ORG_NAME);
-
         Map<String, String> updatedRecord = new HashMap<>(rawRow);
         try {
             List<String> rowErrors = validateRow(fullName, mobileNumber, email, externalId, seenMobileNumbers);
@@ -428,12 +427,19 @@ public class NonGovtUserBulkUploadProcessingServiceImpl implements NonGovtUserBu
                 markRowFailed(updatedRecord, String.join(Constants.COMMA + " ", rowErrors));
                 return updatedRecord;
             }
-            if (StringUtils.isNotBlank(rowOrgName) && !rowOrgName.equalsIgnoreCase(orgName)) {
-                markRowFailed(updatedRecord, String.format(Constants.TARGET_ORG_NAME_MISMATCH, orgName, rowOrgName));
-                return updatedRecord;
-            }
             seenMobileNumbers.add(mobileNumber);
-            String creationError = createVolunteerUser(fullName, mobileNumber, email, externalId, orgName, userAuthToken, rowIndex, orgId);
+            // Always use orgName from upload headers (x-authenticated-user-channel)
+            VolunteerUserRequest userRequest = VolunteerUserRequest.builder()
+                    .fullName(fullName)
+                    .mobileNumber(mobileNumber)
+                    .email(email)
+                    .externalId(externalId)
+                    .orgName(orgName)
+                    .orgId(orgId)
+                    .userAuthToken(userAuthToken)
+                    .rowIndex(rowIndex)
+                    .build();
+            String creationError = createVolunteerUser(userRequest);
             if (StringUtils.isNotBlank(creationError)) {
                 markRowFailed(updatedRecord, creationError);
             } else {
@@ -468,7 +474,7 @@ public class NonGovtUserBulkUploadProcessingServiceImpl implements NonGovtUserBu
                         ProjectUtil::validateFullName, Constants.NON_GOVT_BULK_UPLOAD_INVALID_FULL_NAME_ERROR),
                 new FieldValidationRule(Constants.NON_GOVT_CSV_COLUMN_MOBILE_NUMBER, mobileNumber, true,
                         ProjectUtil::validateContactPattern, Constants.NON_GOVT_BULK_UPLOAD_INVALID_MOBILE_ERROR),
-                new FieldValidationRule(Constants.NON_GOVT_CSV_COLUMN_EMAIL, email, false,
+                new FieldValidationRule(Constants.NON_GOVT_CSV_COLUMN_EMAIL, email, true,
                         ProjectUtil::validateEmailPattern, Constants.NON_GOVT_BULK_UPLOAD_INVALID_EMAIL_ERROR),
                 new FieldValidationRule(Constants.NON_GOVT_CSV_COLUMN_EXTERNAL_ID, externalId, false,
                         ProjectUtil::validateExternalSystemId, Constants.NON_GOVT_BULK_UPLOAD_INVALID_EXTERNAL_ID_ERROR));
@@ -688,24 +694,37 @@ public class NonGovtUserBulkUploadProcessingServiceImpl implements NonGovtUserBu
      *
      * @return null on success, or a caller-facing error message on failure
      */
-    private String createVolunteerUser(String fullName, String mobileNumber, String email, String externalId,
-                                       String orgName, String userAuthToken, int rowIndex, String orgId) {
+    private String createVolunteerUser(VolunteerUserRequest userRequest) {
         try {
-            Map<String, Object> request = buildVolunteerUserCreateRequest(fullName, mobileNumber, email, externalId, orgName);
-            Map<String, String> headers = buildAuthHeaders(orgId, userAuthToken);
+            Map<String, Object> request = buildVolunteerUserCreateRequest(
+                    userRequest.getFullName(),
+                    userRequest.getMobileNumber(),
+                    userRequest.getEmail(),
+                    userRequest.getExternalId(),
+                    userRequest.getOrgName());
+            Map<String, String> headers = buildAuthHeaders(userRequest.getOrgId(), userRequest.getUserAuthToken());
             String url = serverProperties.getSbUrl() + serverProperties.getLmsBulkNgoUserCreatePath();
-            logger.info("NonGovtUserBulkUploadProcessingServiceImpl:: createVolunteerUser: row: {}, url: {}, headers: {}, request: {}",
-                    rowIndex, url, headers, request);
+
+            // Log without sensitive data (auth token, request body)
+            logger.info("NonGovtUserBulkUploadProcessingServiceImpl:: createVolunteerUser: Processing row: {}",
+                    userRequest.getRowIndex());
+
             Map<String, Object> createUserResponse = outboundRequestHandlerService.fetchResultUsingPost(url, request, headers);
             String error = interpretCreateUserResponse(createUserResponse);
+
             if (StringUtils.isNotBlank(error)) {
                 logger.warn("NonGovtUserBulkUploadProcessingServiceImpl:: createVolunteerUser: LMS returned failure for row: {}, reason: {}",
-                        rowIndex, error);
+                        userRequest.getRowIndex(), error);
             }
             return error;
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            logger.error("NonGovtUserBulkUploadProcessingServiceImpl:: createVolunteerUser: Invalid request for row: {}",
+                    userRequest.getRowIndex(), e);
+            return String.format("%s %s", Constants.NON_GOVT_USER_CREATE_ERROR, e.getMessage());
         } catch (Exception e) {
-            logger.error("NonGovtUserBulkUploadProcessingServiceImpl:: createVolunteerUser: Failed for row: {}", rowIndex, e);
-            return Constants.NON_GOVT_USER_CREATE_ERROR + " " + e.getMessage();
+            logger.error("NonGovtUserBulkUploadProcessingServiceImpl:: createVolunteerUser: Failed for row: {}",
+                    userRequest.getRowIndex(), e);
+            return String.format("%s %s", Constants.NON_GOVT_USER_CREATE_ERROR, e.getMessage());
         }
     }
 
