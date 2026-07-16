@@ -185,7 +185,9 @@ public class NonGovtUserBulkUploadServiceImpl implements NonGovtUserBulkUploadSe
                         Constants.NON_GOVT_CSV_COLUMN_FULL_NAME, Constants.NON_GOVT_CSV_COLUMN_FULL_NAME_HEADER);
                 String mobileNumberHeader = findMatchingHeader(headers,
                         Constants.NON_GOVT_CSV_COLUMN_MOBILE_NUMBER, Constants.NON_GOVT_CSV_COLUMN_MOBILE_NUMBER_HEADER);
-                if (fullNameHeader == null || mobileNumberHeader == null) {
+                String emailHeader = findMatchingHeader(headers,
+                        Constants.NON_GOVT_CSV_COLUMN_EMAIL, Constants.NON_GOVT_CSV_COLUMN_EMAIL_HEADER);
+                if (fullNameHeader == null || mobileNumberHeader == null || emailHeader == null) {
                     return Constants.NON_GOVT_BULK_UPLOAD_MANDATORY_COLUMNS_MISSING_ERROR;
                 }
                 int rowNumber = 1;
@@ -195,7 +197,7 @@ public class NonGovtUserBulkUploadServiceImpl implements NonGovtUserBulkUploadSe
                         continue;
                     }
                     String missingFields = findMissingMandatoryFields(
-                            record.get(fullNameHeader), record.get(mobileNumberHeader));
+                            record.get(fullNameHeader), record.get(mobileNumberHeader), record.get(emailHeader));
                     if (missingFields != null) {
                         return String.format(Constants.NON_GOVT_BULK_UPLOAD_MANDATORY_VALUE_MISSING_ERROR,
                                 rowNumber, missingFields);
@@ -242,11 +244,14 @@ public class NonGovtUserBulkUploadServiceImpl implements NonGovtUserBulkUploadSe
                     Constants.NON_GOVT_CSV_COLUMN_FULL_NAME, Constants.NON_GOVT_CSV_COLUMN_FULL_NAME_HEADER);
             String mobileNumberHeader = findMatchingHeader(columnIndexByHeader.keySet(),
                     Constants.NON_GOVT_CSV_COLUMN_MOBILE_NUMBER, Constants.NON_GOVT_CSV_COLUMN_MOBILE_NUMBER_HEADER);
-            if (fullNameHeader == null || mobileNumberHeader == null) {
+            String emailHeader = findMatchingHeader(columnIndexByHeader.keySet(),
+                    Constants.NON_GOVT_CSV_COLUMN_EMAIL, Constants.NON_GOVT_CSV_COLUMN_EMAIL_HEADER);
+            if (fullNameHeader == null || mobileNumberHeader == null || emailHeader == null) {
                 return Constants.NON_GOVT_BULK_UPLOAD_MANDATORY_COLUMNS_MISSING_ERROR;
             }
             int fullNameColumnIndex = columnIndexByHeader.get(fullNameHeader);
             int mobileNumberColumnIndex = columnIndexByHeader.get(mobileNumberHeader);
+            int emailColumnIndex = columnIndexByHeader.get(emailHeader);
             for (int rowIndex = 1; rowIndex <= sheet.getLastRowNum(); rowIndex++) {
                 Row dataRow = sheet.getRow(rowIndex);
                 if (isExcelRowEntirelyBlank(dataRow, dataFormatter)) {
@@ -254,7 +259,8 @@ public class NonGovtUserBulkUploadServiceImpl implements NonGovtUserBulkUploadSe
                 }
                 String missingFields = findMissingMandatoryFields(
                         getExcelCellValue(dataRow, fullNameColumnIndex, dataFormatter),
-                        getExcelCellValue(dataRow, mobileNumberColumnIndex, dataFormatter));
+                        getExcelCellValue(dataRow, mobileNumberColumnIndex, dataFormatter),
+                        getExcelCellValue(dataRow, emailColumnIndex, dataFormatter));
                 if (missingFields != null) {
                     return String.format(Constants.NON_GOVT_BULK_UPLOAD_MANDATORY_VALUE_MISSING_ERROR,
                             rowIndex + 1, missingFields);
@@ -300,15 +306,18 @@ public class NonGovtUserBulkUploadServiceImpl implements NonGovtUserBulkUploadSe
 
     /**
      * Returns a comma-separated list of the mandatory column names that are blank for
-     * this row, or null when both are present.
+     * this row, or null when all mandatory fields are present.
      */
-    private String findMissingMandatoryFields(String fullName, String mobileNumber) {
+    private String findMissingMandatoryFields(String fullName, String mobileNumber, String email) {
         List<String> missingFields = new ArrayList<>();
         if (StringUtils.isBlank(fullName)) {
             missingFields.add(Constants.NON_GOVT_CSV_COLUMN_FULL_NAME);
         }
         if (StringUtils.isBlank(mobileNumber)) {
             missingFields.add(Constants.NON_GOVT_CSV_COLUMN_MOBILE_NUMBER);
+        }
+        if (StringUtils.isBlank(email)) {
+            missingFields.add(Constants.NON_GOVT_CSV_COLUMN_EMAIL);
         }
         return missingFields.isEmpty() ? null : String.join(", ", missingFields);
     }

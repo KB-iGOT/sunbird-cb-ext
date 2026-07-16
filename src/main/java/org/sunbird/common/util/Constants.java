@@ -1651,6 +1651,7 @@ public class Constants {
 	public static final String NON_GOVT_CSV_COLUMN_FULL_NAME_HEADER = "Full Name (mandatory)";
 	public static final String NON_GOVT_CSV_COLUMN_MOBILE_NUMBER_HEADER = "Mobile Number (mandatory)";
 	public static final String NON_GOVT_CSV_COLUMN_EMAIL = "Email";
+	public static final String NON_GOVT_CSV_COLUMN_EMAIL_HEADER = "Email (mandatory)";
 	public static final String NON_GOVT_CSV_COLUMN_EXTERNAL_ID = "External ID";
 	public static final String NON_GOVT_CSV_COLUMN_ORG_NAME = "orgName";
 	public static final String STATUS_PARTIALLY_COMPLETED_UPPERCASE = "PARTIALLY-COMPLETED";

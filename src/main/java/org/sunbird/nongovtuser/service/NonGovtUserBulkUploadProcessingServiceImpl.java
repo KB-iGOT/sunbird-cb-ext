@@ -419,8 +419,6 @@ public class NonGovtUserBulkUploadProcessingServiceImpl implements NonGovtUserBu
         String mobileNumber = rawRow.get(Constants.NON_GOVT_CSV_COLUMN_MOBILE_NUMBER);
         String email = rawRow.get(Constants.NON_GOVT_CSV_COLUMN_EMAIL);
         String externalId = rawRow.get(Constants.NON_GOVT_CSV_COLUMN_EXTERNAL_ID);
-        String rowOrgName = rawRow.get(Constants.NON_GOVT_CSV_COLUMN_ORG_NAME);
-
         Map<String, String> updatedRecord = new HashMap<>(rawRow);
         try {
             List<String> rowErrors = validateRow(fullName, mobileNumber, email, externalId, seenMobileNumbers);
@@ -428,11 +426,8 @@ public class NonGovtUserBulkUploadProcessingServiceImpl implements NonGovtUserBu
                 markRowFailed(updatedRecord, String.join(Constants.COMMA + " ", rowErrors));
                 return updatedRecord;
             }
-            if (StringUtils.isNotBlank(rowOrgName) && !rowOrgName.equalsIgnoreCase(orgName)) {
-                markRowFailed(updatedRecord, String.format(Constants.TARGET_ORG_NAME_MISMATCH, orgName, rowOrgName));
-                return updatedRecord;
-            }
             seenMobileNumbers.add(mobileNumber);
+            // Always use orgName from upload headers (x-authenticated-user-channel)
             String creationError = createVolunteerUser(fullName, mobileNumber, email, externalId, orgName, userAuthToken, rowIndex, orgId);
             if (StringUtils.isNotBlank(creationError)) {
                 markRowFailed(updatedRecord, creationError);
@@ -468,7 +463,7 @@ public class NonGovtUserBulkUploadProcessingServiceImpl implements NonGovtUserBu
                         ProjectUtil::validateFullName, Constants.NON_GOVT_BULK_UPLOAD_INVALID_FULL_NAME_ERROR),
                 new FieldValidationRule(Constants.NON_GOVT_CSV_COLUMN_MOBILE_NUMBER, mobileNumber, true,
                         ProjectUtil::validateContactPattern, Constants.NON_GOVT_BULK_UPLOAD_INVALID_MOBILE_ERROR),
-                new FieldValidationRule(Constants.NON_GOVT_CSV_COLUMN_EMAIL, email, false,
+                new FieldValidationRule(Constants.NON_GOVT_CSV_COLUMN_EMAIL, email, true,
                         ProjectUtil::validateEmailPattern, Constants.NON_GOVT_BULK_UPLOAD_INVALID_EMAIL_ERROR),
                 new FieldValidationRule(Constants.NON_GOVT_CSV_COLUMN_EXTERNAL_ID, externalId, false,
                         ProjectUtil::validateExternalSystemId, Constants.NON_GOVT_BULK_UPLOAD_INVALID_EXTERNAL_ID_ERROR));
