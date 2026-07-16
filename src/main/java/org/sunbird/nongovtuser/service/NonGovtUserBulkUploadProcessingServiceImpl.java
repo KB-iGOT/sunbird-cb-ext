@@ -775,13 +775,15 @@ public class NonGovtUserBulkUploadProcessingServiceImpl implements NonGovtUserBu
     }
 
     /**
-     * Sets organisationType for the volunteer, configurable via
-     * nongovt.user.organisation.type (default "Volunteer") — mirrors the shape of the
-     * govt reference's professionalDetails[0].organisationType (hardcoded "Government"
-     * there), but ours is configurable rather than a fixed Java constant.
+     * Builds professionalDetails with only organisationName. Note: designation is set in
+     * personalDetails instead, as LMS bulk flow (createBulkUsers → createSSOUser) preserves
+        return Collections.singletonList(professionalDetail);
+     * the profileDetails structure we send, but other flows (createUserV5 → createBasisProfileDetails)
+     * extract designation from personalDetails and move it to professionalDetails.
      */
     private List<Map<String, Object>> buildVolunteerProfessionalDetails(String orgName) {
         Map<String, Object> professionalDetail = new HashMap<>();
+        professionalDetail.put(Constants.DESIGNATION, serverProperties.getNonGovtUserOrganisationType());
         professionalDetail.put(Constants.ORGANISATION_NAME, StringUtils.defaultString(orgName));
         return Collections.singletonList(professionalDetail);
     }
