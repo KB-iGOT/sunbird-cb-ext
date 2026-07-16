@@ -73,22 +73,6 @@ import org.sunbird.storage.service.StorageService;
 public class NonGovtUserBulkUploadProcessingServiceImpl implements NonGovtUserBulkUploadProcessingService {
 
     private static final Logger logger = LoggerFactory.getLogger(NonGovtUserBulkUploadProcessingServiceImpl.class);
-
-    private static final List<String> RESULT_HEADERS = Arrays.asList(
-            Constants.NON_GOVT_CSV_COLUMN_FULL_NAME,
-            Constants.NON_GOVT_CSV_COLUMN_MOBILE_NUMBER,
-            Constants.NON_GOVT_CSV_COLUMN_EMAIL,
-            Constants.NON_GOVT_CSV_COLUMN_EXTERNAL_ID,
-            Constants.NON_GOVT_CSV_COLUMN_ORG_NAME,
-            Constants.PASCALCASESTATUS,
-            Constants.CSV_COLUMN_ERROR_DETAILS,
-            Constants.NON_GOVT_CSV_COLUMN_GENDER,
-            Constants.NON_GOVT_CSV_COLUMN_CATEGORY,
-            Constants.NON_GOVT_CSV_COLUMN_DOB,
-            Constants.NON_GOVT_CSV_COLUMN_MOTHER_TONGUE,
-            Constants.NON_GOVT_CSV_COLUMN_OFFICE_PINCODE,
-            Constants.NON_GOVT_CSV_COLUMN_TAGS);
-
     private static final DataFormatter EXCEL_CELL_FORMATTER = new DataFormatter();
 
     private final ObjectMapper objectMapper;
@@ -96,6 +80,18 @@ public class NonGovtUserBulkUploadProcessingServiceImpl implements NonGovtUserBu
     private final StorageService storageService;
     private final CbExtServerProperties serverProperties;
     private final OutboundRequestHandlerServiceImpl outboundRequestHandlerService;
+
+    /**
+     * Gets result CSV/Excel headers from configuration property.
+     * Headers are comma-separated in nongovt.user.bulk.upload.result.headers property.
+     * Property must be configured - no fallback provided.
+     */
+    private List<String> getResultHeaders() {
+        String headersConfig = serverProperties.getNonGovtUserBulkUploadResultHeaders();
+        return Arrays.stream(headersConfig.split(","))
+                .map(String::trim)
+                .collect(java.util.stream.Collectors.toList());
+    }
 
     @Override
     public void initiateNonGovtUserBulkUploadProcess(String inputData) {
@@ -409,9 +405,9 @@ public class NonGovtUserBulkUploadProcessingServiceImpl implements NonGovtUserBu
 
     private Map<String, String> extractRowFields(CsvRowData rowData) {
         Map<String, String> fields = new HashMap<>();
-        fields.put(Constants.NON_GOVT_CSV_COLUMN_FULL_NAME, rowData.getFullName());
-        fields.put(Constants.NON_GOVT_CSV_COLUMN_MOBILE_NUMBER, rowData.getMobileNumber());
-        fields.put(Constants.NON_GOVT_CSV_COLUMN_EMAIL, rowData.getEmail());
+        fields.put(Constants.NON_GOVT_CSV_COLUMN_FULL_NAME_HEADER, rowData.getFullName());
+        fields.put(Constants.NON_GOVT_CSV_COLUMN_MOBILE_NUMBER_HEADER, rowData.getMobileNumber());
+        fields.put(Constants.NON_GOVT_CSV_COLUMN_EMAIL_HEADER, rowData.getEmail());
         fields.put(Constants.NON_GOVT_CSV_COLUMN_EXTERNAL_ID, rowData.getExternalId());
         fields.put(Constants.NON_GOVT_CSV_COLUMN_GENDER, rowData.getGender());
         fields.put(Constants.NON_GOVT_CSV_COLUMN_CATEGORY, rowData.getCategory());
@@ -444,9 +440,9 @@ public class NonGovtUserBulkUploadProcessingServiceImpl implements NonGovtUserBu
      */
     private Map<String, String> processSingleRow(Map<String, String> rawRow, int rowIndex, Set<String> seenMobileNumbers,
                                                  String orgName, String userAuthToken, String orgId) {
-        String fullName = rawRow.get(Constants.NON_GOVT_CSV_COLUMN_FULL_NAME);
-        String mobileNumber = rawRow.get(Constants.NON_GOVT_CSV_COLUMN_MOBILE_NUMBER);
-        String email = rawRow.get(Constants.NON_GOVT_CSV_COLUMN_EMAIL);
+        String fullName = rawRow.get(Constants.NON_GOVT_CSV_COLUMN_FULL_NAME_HEADER);
+        String mobileNumber = rawRow.get(Constants.NON_GOVT_CSV_COLUMN_MOBILE_NUMBER_HEADER);
+        String email = rawRow.get(Constants.NON_GOVT_CSV_COLUMN_EMAIL_HEADER);
         String externalId = rawRow.get(Constants.NON_GOVT_CSV_COLUMN_EXTERNAL_ID);
         Map<String, String> updatedRecord = new HashMap<>(rawRow);
         try {
@@ -581,8 +577,9 @@ public class NonGovtUserBulkUploadProcessingServiceImpl implements NonGovtUserBu
 
     private void writeResultCsv(File file, List<Map<String, String>> updatedRecords) throws IOException {
         char csvDelimiter = serverProperties.getCsvDelimiter();
+        List<String> resultHeaders = getResultHeaders();
         CSVFormat outputFormat = CSVFormat.newFormat(csvDelimiter).builder()
-                .setHeader(RESULT_HEADERS.toArray(new String[0]))
+                .setHeader(resultHeaders.toArray(new String[0]))
                 .setRecordSeparator(System.lineSeparator())
                 .build();
         try (FileWriter fileWriter = new FileWriter(file);
@@ -590,7 +587,7 @@ public class NonGovtUserBulkUploadProcessingServiceImpl implements NonGovtUserBu
              CSVPrinter csvPrinter = new CSVPrinter(bufferedWriter, outputFormat)) {
             for (Map<String, String> rowData : updatedRecords) {
                 List<String> row = new ArrayList<>();
-                for (String header : RESULT_HEADERS) {
+                for (String header : resultHeaders) {
                     row.add(rowData.getOrDefault(header, StringUtils.EMPTY));
                 }
                 csvPrinter.printRecord(row);
@@ -614,15 +611,17 @@ public class NonGovtUserBulkUploadProcessingServiceImpl implements NonGovtUserBu
 
     private void writeExcelHeaderRow(Sheet sheet) {
         Row headerRow = sheet.createRow(0);
-        for (int i = 0; i < RESULT_HEADERS.size(); i++) {
-            headerRow.createCell(i).setCellValue(RESULT_HEADERS.get(i));
+        List<String> resultHeaders = getResultHeaders();
+        for (int i = 0; i < resultHeaders.size(); i++) {
+            headerRow.createCell(i).setCellValue(resultHeaders.get(i));
         }
     }
 
     private void writeExcelDataRow(Sheet sheet, int rowIndex, Map<String, String> rowData) {
         Row row = sheet.createRow(rowIndex);
-        for (int i = 0; i < RESULT_HEADERS.size(); i++) {
-            row.createCell(i).setCellValue(rowData.getOrDefault(RESULT_HEADERS.get(i), StringUtils.EMPTY));
+        List<String> resultHeaders = getResultHeaders();
+        for (int i = 0; i < resultHeaders.size(); i++) {
+            row.createCell(i).setCellValue(rowData.getOrDefault(resultHeaders.get(i), StringUtils.EMPTY));
         }
     }
 
