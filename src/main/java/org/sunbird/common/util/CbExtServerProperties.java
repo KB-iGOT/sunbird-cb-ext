@@ -1353,6 +1353,9 @@ public class CbExtServerProperties {
 	@Value("${sb.service.bulk.ngo.user.create.path}")
 	private String lmsBulkNgoUserCreatePath;
 
+	@Value("${nongovt.user.bulk.upload.result.headers}")
+	private String nonGovtUserBulkUploadResultHeaders;
+
 	public int getUserSearchLimit() {
 		return userSearchLimit;
 	}
@@ -4588,5 +4591,13 @@ public class CbExtServerProperties {
 
 	public void setOrgEligibilityIndexType(String orgEligibilityIndexType) {
 		this.orgEligibilityIndexType = orgEligibilityIndexType;
+	}
+
+	public String getNonGovtUserBulkUploadResultHeaders() {
+		return nonGovtUserBulkUploadResultHeaders;
+	}
+
+	public void setNonGovtUserBulkUploadResultHeaders(String nonGovtUserBulkUploadResultHeaders) {
+		this.nonGovtUserBulkUploadResultHeaders = nonGovtUserBulkUploadResultHeaders;
 	}
 }
