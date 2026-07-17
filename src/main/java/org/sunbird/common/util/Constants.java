@@ -1671,6 +1671,8 @@ public class Constants {
 			"Unsupported file type. Please upload a .csv or .xlsx file.";
 	public static final String NON_GOVT_BULK_UPLOAD_XLSX_PARSE_ERROR =
 			"Failed to parse the uploaded excel file of non-govt user bulk upload request.";
+	public static final String NON_GOVT_BULK_UPLOAD_NO_DATA_ROWS_ERROR =
+			"Uploaded file contains only headers with no data rows. Please add at least one user to upload.";
 	public static final String MINISTRY_OR_STATE_ORG_NAME = "ministryOrStateOrgName";
 	public static final String NODAL_OFFICER_PREFIX= "nodalofficer_";
   	public static final String DOWNLOAD_URL = "downloadUrl";
@@ -1690,9 +1692,9 @@ public class Constants {
 	public static final String TARGET_ORG_ID= "targetorgid";
 	public static final String NON_GOVT_CSV_COLUMN_GENDER = "Gender";
 	public static final String NON_GOVT_CSV_COLUMN_CATEGORY = "Category";
-	public static final String NON_GOVT_CSV_COLUMN_DOB = "Date of Birth";
+	public static final String NON_GOVT_CSV_COLUMN_DOB = "Date Of Birth (dd-mm-yyyy)";
 	public static final String NON_GOVT_CSV_COLUMN_MOTHER_TONGUE = "Mother Tongue";
-	public static final String NON_GOVT_CSV_COLUMN_OFFICE_PINCODE = "Office Pin code";
+	public static final String NON_GOVT_CSV_COLUMN_OFFICE_PINCODE = "Office Pin Code";
 	public static final String NON_GOVT_CSV_COLUMN_TAGS = "Tags";
 
 }

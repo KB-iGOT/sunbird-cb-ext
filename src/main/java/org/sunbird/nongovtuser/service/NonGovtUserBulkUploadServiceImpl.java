@@ -6,7 +6,6 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.sql.Timestamp;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
@@ -18,7 +17,6 @@ import lombok.RequiredArgsConstructor;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
-import org.apache.commons.csv.CSVRecord;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.DataFormatter;
@@ -166,10 +164,10 @@ public class NonGovtUserBulkUploadServiceImpl implements NonGovtUserBulkUploadSe
 
     /**
      * Confirms the uploaded file parses as a CSV with a header row containing the
-     * mandatory columns, and that every non-blank data row has a value for each
-     * mandatory column. Rows left entirely blank (formatting artifacts / trailing
-     * rows) are skipped rather than rejected — they're caught individually as empty
-     * rows later by the async per-row validation instead of failing the whole file.
+     * mandatory columns and at least one data row. Individual rows with missing values
+     * are NOT rejected here - they are processed by the async layer which marks them as
+     * Failed in the result CSV, allowing valid rows to succeed even when some rows have
+     * validation errors.
      */
     private String validateCsvStructure(MultipartFile mFile) {
         try (BufferedReader reader = new BufferedReader(
@@ -190,19 +188,11 @@ public class NonGovtUserBulkUploadServiceImpl implements NonGovtUserBulkUploadSe
                 if (fullNameHeader == null || mobileNumberHeader == null || emailHeader == null) {
                     return Constants.NON_GOVT_BULK_UPLOAD_MANDATORY_COLUMNS_MISSING_ERROR;
                 }
-                int rowNumber = 1;
-                for (CSVRecord csvRecord : csvParser) {
-                    rowNumber++;
-                    if (isCsvRecordEntirelyBlank(csvRecord)) {
-                        continue;
-                    }
-                    String missingFields = findMissingMandatoryFields(
-                            csvRecord.get(fullNameHeader), csvRecord.get(mobileNumberHeader), csvRecord.get(emailHeader));
-                    if (missingFields != null) {
-                        return String.format(Constants.NON_GOVT_BULK_UPLOAD_MANDATORY_VALUE_MISSING_ERROR,
-                                rowNumber, missingFields);
-                    }
+                // Check if file has at least one data row
+                if (!csvParser.iterator().hasNext()) {
+                    return Constants.NON_GOVT_BULK_UPLOAD_NO_DATA_ROWS_ERROR;
                 }
+                // Per-row validation removed - async processing handles it
             }
             return null;
         } catch (IOException e) {
@@ -211,21 +201,12 @@ public class NonGovtUserBulkUploadServiceImpl implements NonGovtUserBulkUploadSe
         }
     }
 
-    private boolean isCsvRecordEntirelyBlank(CSVRecord csvRecord) {
-        for (String value : csvRecord) {
-            if (StringUtils.isNotBlank(value)) {
-                return false;
-            }
-        }
-        return true;
-    }
-
     /**
      * Confirms the uploaded file parses as an XLSX workbook whose first sheet's header
-     * row contains the mandatory columns, and that every non-blank data row has a value
-     * for each mandatory column. Rows left entirely blank (formatting artifacts /
-     * trailing rows) are skipped rather than rejected — they're caught individually as
-     * empty rows later by the async per-row validation instead of failing the whole file.
+     * row contains the mandatory columns and at least one data row. Individual rows with
+     * missing values are NOT rejected here - they are processed by the async layer which
+     * marks them as Failed in the result CSV, allowing valid rows to succeed even when
+     * some rows have validation errors.
      */
     private String validateExcelStructure(MultipartFile mFile) {
         try (InputStream inputStream = mFile.getInputStream();
@@ -249,45 +230,16 @@ public class NonGovtUserBulkUploadServiceImpl implements NonGovtUserBulkUploadSe
             if (fullNameHeader == null || mobileNumberHeader == null || emailHeader == null) {
                 return Constants.NON_GOVT_BULK_UPLOAD_MANDATORY_COLUMNS_MISSING_ERROR;
             }
-            int fullNameColumnIndex = columnIndexByHeader.get(fullNameHeader);
-            int mobileNumberColumnIndex = columnIndexByHeader.get(mobileNumberHeader);
-            int emailColumnIndex = columnIndexByHeader.get(emailHeader);
-            for (int rowIndex = 1; rowIndex <= sheet.getLastRowNum(); rowIndex++) {
-                Row dataRow = sheet.getRow(rowIndex);
-                if (isExcelRowEntirelyBlank(dataRow, dataFormatter)) {
-                    continue;
-                }
-                String missingFields = findMissingMandatoryFields(
-                        getExcelCellValue(dataRow, fullNameColumnIndex, dataFormatter),
-                        getExcelCellValue(dataRow, mobileNumberColumnIndex, dataFormatter),
-                        getExcelCellValue(dataRow, emailColumnIndex, dataFormatter));
-                if (missingFields != null) {
-                    return String.format(Constants.NON_GOVT_BULK_UPLOAD_MANDATORY_VALUE_MISSING_ERROR,
-                            rowIndex + 1, missingFields);
-                }
+            // Check if file has at least one data row
+            if (sheet.getLastRowNum() < 1) {
+                return Constants.NON_GOVT_BULK_UPLOAD_NO_DATA_ROWS_ERROR;
             }
+            // Per-row validation removed - async processing handles it
             return null;
         } catch (IOException e) {
             logger.error("NonGovtUserBulkUploadServiceImpl:: validateExcelStructure: Failed to parse excel file", e);
             return Constants.NON_GOVT_BULK_UPLOAD_XLSX_PARSE_ERROR + " " + e.getMessage();
         }
-    }
-
-    private boolean isExcelRowEntirelyBlank(Row row, DataFormatter dataFormatter) {
-        if (ObjectUtils.isEmpty(row)) {
-            return true;
-        }
-        for (Cell cell : row) {
-            if (StringUtils.isNotBlank(dataFormatter.formatCellValue(cell))) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    private String getExcelCellValue(Row row, int columnIndex, DataFormatter dataFormatter) {
-        Cell cell = row.getCell(columnIndex);
-        return cell == null ? StringUtils.EMPTY : dataFormatter.formatCellValue(cell).trim();
     }
 
     /**
@@ -302,24 +254,6 @@ public class NonGovtUserBulkUploadServiceImpl implements NonGovtUserBulkUploadSe
             }
         }
         return null;
-    }
-
-    /**
-     * Returns a comma-separated list of the mandatory column names that are blank for
-     * this row, or null when all mandatory fields are present.
-     */
-    private String findMissingMandatoryFields(String fullName, String mobileNumber, String email) {
-        List<String> missingFields = new ArrayList<>();
-        if (StringUtils.isBlank(fullName)) {
-            missingFields.add(Constants.NON_GOVT_CSV_COLUMN_FULL_NAME);
-        }
-        if (StringUtils.isBlank(mobileNumber)) {
-            missingFields.add(Constants.NON_GOVT_CSV_COLUMN_MOBILE_NUMBER);
-        }
-        if (StringUtils.isBlank(email)) {
-            missingFields.add(Constants.NON_GOVT_CSV_COLUMN_EMAIL);
-        }
-        return missingFields.isEmpty() ? null : String.join(", ", missingFields);
     }
 
     /**
