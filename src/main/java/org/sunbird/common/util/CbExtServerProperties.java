@@ -1312,8 +1312,8 @@ public class CbExtServerProperties {
 	@Value("${kafka.topics.nongovt.user.bulk.upload}")
 	private String nonGovtUserBulkUploadTopic;
 
-	@Value("${nongovt.user.organisation.type:Volunteer}")
-	private String nonGovtUserOrganisationType;
+	@Value("${nongovt.user.default.designation:Volunteer}")
+	private String nonGovtUserDefaultDesignation;
 
 	@Value("${nongovt.bulk.upload.max.rows:10000}")
 	private int nonGovtBulkUploadMaxRows;
@@ -4502,12 +4502,12 @@ public class CbExtServerProperties {
 		this.nonGovtUserDefaultRole = nonGovtUserDefaultRole;
 	}
 	
-	public String getNonGovtUserOrganisationType() {
-		return nonGovtUserOrganisationType;
+	public String getNonGovtUserDefaultDesignation() {
+		return nonGovtUserDefaultDesignation;
 	}
 
-	public void setNonGovtUserOrganisationType(String nonGovtUserOrganisationType) {
-		this.nonGovtUserOrganisationType = nonGovtUserOrganisationType;
+	public void setNonGovtUserDefaultDesignation(String nonGovtUserDefaultDesignation) {
+		this.nonGovtUserDefaultDesignation = nonGovtUserDefaultDesignation;
 	}
 
 	public void setJwtPrivateKeyPath(String jwtPrivateKeyPath) {
