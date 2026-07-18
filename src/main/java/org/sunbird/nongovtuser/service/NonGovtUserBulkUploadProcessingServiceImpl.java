@@ -424,7 +424,10 @@ public class NonGovtUserBulkUploadProcessingServiceImpl implements NonGovtUserBu
         Set<String> seenMobileNumbers = new HashSet<>();
         int rowIndex = 1;
         for (Map<String, String> rawRow : rawRows) {
-            summary.recordRow(processSingleRow(rawRow, rowIndex++, seenMobileNumbers, orgName, userAuthToken, rootOrgId));
+            Map<String, String> result = processSingleRow(rawRow, rowIndex++, seenMobileNumbers, orgName, userAuthToken, rootOrgId);
+            if (MapUtils.isNotEmpty(result)) {
+                summary.recordRow(result);
+            }
         }
         return summary;
     }
@@ -444,10 +447,17 @@ public class NonGovtUserBulkUploadProcessingServiceImpl implements NonGovtUserBu
         String mobileNumber = rawRow.get(Constants.NON_GOVT_CSV_COLUMN_MOBILE_NUMBER_HEADER);
         String email = rawRow.get(Constants.NON_GOVT_CSV_COLUMN_EMAIL_HEADER);
         String externalId = rawRow.get(Constants.NON_GOVT_CSV_COLUMN_EXTERNAL_ID);
+        if (isRowCompletelyEmpty(fullName, mobileNumber, email, externalId, rawRow)) {
+            logger.debug("NonGovtUserBulkUploadProcessingServiceImpl:: processSingleRow: "
+                    + "Skipping completely empty row at index: {}", rowIndex);
+            return Collections.emptyMap();
+        }
         Map<String, String> updatedRecord = new HashMap<>(rawRow);
         try {
             List<String> rowErrors = validateRow(fullName, mobileNumber, email, externalId, seenMobileNumbers);
             if (!rowErrors.isEmpty()) {
+                logger.debug("NonGovtUserBulkUploadProcessingServiceImpl:: processSingleRow: "
+                        + "Validation failed for row: {}, errors: {}", rowIndex, rowErrors);
                 markRowFailed(updatedRecord, String.join(Constants.COMMA + " ", rowErrors));
                 return updatedRecord;
             }
@@ -493,12 +503,6 @@ public class NonGovtUserBulkUploadProcessingServiceImpl implements NonGovtUserBu
     private List<String> validateRow(String fullName, String mobileNumber, String email, String externalId,
                                      Set<String> seenMobileNumbers) {
         List<String> errors = new ArrayList<>();
-        if (StringUtils.isBlank(fullName) && StringUtils.isBlank(mobileNumber)
-                && StringUtils.isBlank(email) && StringUtils.isBlank(externalId)) {
-            errors.add(Constants.NON_GOVT_BULK_UPLOAD_EMPTY_ROW_ERROR);
-            return errors;
-        }
-
         List<FieldValidationRule> rules = Arrays.asList(
                 new FieldValidationRule(Constants.NON_GOVT_CSV_COLUMN_FULL_NAME, fullName, true,
                         ProjectUtil::validateFullName, Constants.NON_GOVT_BULK_UPLOAD_INVALID_FULL_NAME_ERROR),
@@ -883,4 +887,35 @@ public class NonGovtUserBulkUploadProcessingServiceImpl implements NonGovtUserBu
         }
         return Constants.NON_GOVT_USER_CREATE_ERROR;
     }
+
+    /**
+     * Checks if a row is completely empty (all fields blank or whitespace).
+     * Handles deleted rows that user cleared in Excel/CSV but still left the row in the file.
+     *
+     * @param fullName Full name field value
+     * @param mobileNumber Mobile number field value
+     * @param email Email field value
+     * @param externalId External ID field value
+     * @param rawRow Complete row data for checking optional fields
+     * @return true if all fields are blank, false otherwise
+     */
+    private boolean isRowCompletelyEmpty(String fullName, String mobileNumber, String email,
+                                         String externalId, Map<String, String> rawRow) {
+        // Check all mandatory fields first
+        if (StringUtils.isNotBlank(fullName) ||
+                StringUtils.isNotBlank(mobileNumber) ||
+                StringUtils.isNotBlank(email) ||
+                StringUtils.isNotBlank(externalId)) {
+            return false;
+        }
+
+        // Check all optional fields to be thorough
+        return StringUtils.isBlank(rawRow.get(Constants.NON_GOVT_CSV_COLUMN_GENDER)) &&
+                StringUtils.isBlank(rawRow.get(Constants.NON_GOVT_CSV_COLUMN_CATEGORY)) &&
+                StringUtils.isBlank(rawRow.get(Constants.NON_GOVT_CSV_COLUMN_DOB)) &&
+                StringUtils.isBlank(rawRow.get(Constants.NON_GOVT_CSV_COLUMN_MOTHER_TONGUE)) &&
+                StringUtils.isBlank(rawRow.get(Constants.NON_GOVT_CSV_COLUMN_OFFICE_PINCODE)) &&
+                StringUtils.isBlank(rawRow.get(Constants.NON_GOVT_CSV_COLUMN_TAGS));
+    }
+
 }
