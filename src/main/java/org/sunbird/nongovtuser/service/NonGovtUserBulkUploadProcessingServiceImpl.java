@@ -819,7 +819,7 @@ public class NonGovtUserBulkUploadProcessingServiceImpl implements NonGovtUserBu
      */
     private List<Map<String, Object>> buildVolunteerProfessionalDetails(String orgName) {
         Map<String, Object> professionalDetail = new HashMap<>();
-        professionalDetail.put(Constants.DESIGNATION, serverProperties.getNonGovtUserOrganisationType());
+        professionalDetail.put(Constants.DESIGNATION, serverProperties.getNonGovtUserDefaultDesignation());
         professionalDetail.put(Constants.ORGANISATION_NAME, StringUtils.defaultString(orgName));
         return Collections.singletonList(professionalDetail);
     }
