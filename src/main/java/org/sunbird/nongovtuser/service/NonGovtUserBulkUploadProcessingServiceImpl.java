@@ -303,9 +303,14 @@ public class NonGovtUserBulkUploadProcessingServiceImpl implements NonGovtUserBu
         try (BufferedReader reader = new BufferedReader(
                 new InputStreamReader(Files.newInputStream(file.toPath()), StandardCharsets.UTF_8))) {
             char csvDelimiter = serverProperties.getCsvDelimiter();
-            CSVFormat csvFormat = CSVFormat.newFormat(csvDelimiter).builder()
+            // Use RFC 4180 compliant format to properly handle quoted fields with commas
+            CSVFormat csvFormat = CSVFormat.RFC4180.builder()
+                    .setDelimiter(csvDelimiter)
                     .setHeader()
                     .setSkipHeaderRecord(true)
+                    .setQuote('"')
+                    .setIgnoreSurroundingSpaces(true)
+                    .setTrim(true)
                     .build();
             try (CSVParser csvParser = new CSVParser(reader, csvFormat)) {
                 return csvParser.getRecords();
@@ -582,9 +587,13 @@ public class NonGovtUserBulkUploadProcessingServiceImpl implements NonGovtUserBu
     private void writeResultCsv(File file, List<Map<String, String>> updatedRecords) throws IOException {
         char csvDelimiter = serverProperties.getCsvDelimiter();
         List<String> resultHeaders = getResultHeaders();
-        CSVFormat outputFormat = CSVFormat.newFormat(csvDelimiter).builder()
+        // Use RFC 4180 compliant CSV format with proper quoting for fields containing commas, quotes, newlines
+        CSVFormat outputFormat = CSVFormat.RFC4180.builder()
+                .setDelimiter(csvDelimiter)
                 .setHeader(resultHeaders.toArray(new String[0]))
                 .setRecordSeparator(System.lineSeparator())
+                .setQuote('"')
+                .setQuoteMode(org.apache.commons.csv.QuoteMode.MINIMAL)
                 .build();
         try (FileWriter fileWriter = new FileWriter(file);
              BufferedWriter bufferedWriter = new BufferedWriter(fileWriter);
