@@ -20,6 +20,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.TimeZone;
 import java.util.function.Function;
@@ -45,6 +46,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.util.ObjectUtils;
+import org.sunbird.cache.RedisCacheMgr;
 import org.sunbird.cassandra.utils.CassandraOperation;
 import org.sunbird.common.model.SBApiResponse;
 import org.sunbird.common.service.OutboundRequestHandlerServiceImpl;
@@ -80,6 +82,7 @@ public class NonGovtUserBulkUploadProcessingServiceImpl implements NonGovtUserBu
     private final StorageService storageService;
     private final CbExtServerProperties serverProperties;
     private final OutboundRequestHandlerServiceImpl outboundRequestHandlerService;
+    private final RedisCacheMgr redisCacheMgr;
 
     /**
      * Gets result CSV/Excel headers from configuration property.
@@ -452,6 +455,10 @@ public class NonGovtUserBulkUploadProcessingServiceImpl implements NonGovtUserBu
         String mobileNumber = rawRow.get(Constants.NON_GOVT_CSV_COLUMN_MOBILE_NUMBER_HEADER);
         String email = rawRow.get(Constants.NON_GOVT_CSV_COLUMN_EMAIL_HEADER);
         String externalId = rawRow.get(Constants.NON_GOVT_CSV_COLUMN_EXTERNAL_ID);
+        String gender = rawRow.get(Constants.NON_GOVT_CSV_COLUMN_GENDER);
+        String category = rawRow.get(Constants.NON_GOVT_CSV_COLUMN_CATEGORY);
+        String motherTongue = rawRow.get(Constants.NON_GOVT_CSV_COLUMN_MOTHER_TONGUE);
+        String dob = rawRow.get(Constants.NON_GOVT_CSV_COLUMN_DOB);
         if (isRowCompletelyEmpty(fullName, mobileNumber, email, externalId, rawRow)) {
             logger.debug("NonGovtUserBulkUploadProcessingServiceImpl:: processSingleRow: "
                     + "Skipping completely empty row at index: {}", rowIndex);
@@ -459,7 +466,7 @@ public class NonGovtUserBulkUploadProcessingServiceImpl implements NonGovtUserBu
         }
         Map<String, String> updatedRecord = new HashMap<>(rawRow);
         try {
-            List<String> rowErrors = validateRow(fullName, mobileNumber, email, externalId, seenMobileNumbers);
+            List<String> rowErrors = validateRow(fullName, mobileNumber, email, externalId, gender, category, motherTongue, dob, seenMobileNumbers);
             if (!rowErrors.isEmpty()) {
                 logger.debug("NonGovtUserBulkUploadProcessingServiceImpl:: processSingleRow: "
                         + "Validation failed for row: {}, errors: {}", rowIndex, rowErrors);
@@ -473,8 +480,8 @@ public class NonGovtUserBulkUploadProcessingServiceImpl implements NonGovtUserBu
                     .mobileNumber(mobileNumber)
                     .email(email)
                     .externalId(externalId)
-                    .gender(rawRow.get(Constants.NON_GOVT_CSV_COLUMN_GENDER))
-                    .category(rawRow.get(Constants.NON_GOVT_CSV_COLUMN_CATEGORY))
+                    .gender(normalizeGender(gender).orElse(null))
+                    .category(normalizeCategory(category).orElse(null))
                     .dob(rawRow.get(Constants.NON_GOVT_CSV_COLUMN_DOB))
                     .motherTongue(rawRow.get(Constants.NON_GOVT_CSV_COLUMN_MOTHER_TONGUE))
                     .officePincode(rawRow.get(Constants.NON_GOVT_CSV_COLUMN_OFFICE_PINCODE))
@@ -504,9 +511,12 @@ public class NonGovtUserBulkUploadProcessingServiceImpl implements NonGovtUserBu
      * pattern check) instead of one hand-written if/else-if per field, so adding a new
      * field later means adding one rule, not one more copy of the same branching.
      * Also flags mobile numbers already seen earlier in this same file as duplicates.
+     * Gender and Category are validated separately as they require whitelist validation against allowed values.
+     * Mother Tongue is validated against database list and checked for special characters.
+     * Date of Birth is validated for dd-MM-yyyy format.
      */
     private List<String> validateRow(String fullName, String mobileNumber, String email, String externalId,
-                                     Set<String> seenMobileNumbers) {
+                                     String gender, String category, String motherTongue, String dob, Set<String> seenMobileNumbers) {
         List<String> errors = new ArrayList<>();
         List<FieldValidationRule> rules = Arrays.asList(
                 new FieldValidationRule(Constants.NON_GOVT_CSV_COLUMN_FULL_NAME, fullName, true,
@@ -524,6 +534,25 @@ public class NonGovtUserBulkUploadProcessingServiceImpl implements NonGovtUserBu
             if (fieldErrors.isEmpty() && Constants.NON_GOVT_CSV_COLUMN_MOBILE_NUMBER.equals(rule.columnName)
                     && seenMobileNumbers.contains(rule.value)) {
                 errors.add(Constants.NON_GOVT_BULK_UPLOAD_DUPLICATE_MOBILE_ERROR);
+            }
+        }
+        if (StringUtils.isNotBlank(gender) && !normalizeGender(gender).isPresent()) {
+            errors.add(Constants.NON_GOVT_BULK_UPLOAD_INVALID_GENDER_ERROR);
+        }
+        if (StringUtils.isNotBlank(category) && !normalizeCategory(category).isPresent()) {
+            errors.add(Constants.NON_GOVT_BULK_UPLOAD_INVALID_CATEGORY_ERROR);
+        }
+        if (StringUtils.isNotBlank(motherTongue)) {
+            if (!ProjectUtil.validateRegexPatternWithNoSpecialCharacter(motherTongue)
+                    || validateFieldValue(motherTongue)) {
+                errors.add(Constants.NON_GOVT_BULK_UPLOAD_INVALID_MOTHER_TONGUE_ERROR);
+            }
+        }
+        if (StringUtils.isNotBlank(dob)) {
+            if (!ProjectUtil.validateDate(dob)) {
+                errors.add(Constants.NON_GOVT_BULK_UPLOAD_INVALID_DOB_ERROR);
+            } else if (ProjectUtil.validatesNewLine(dob)) {
+                errors.add(Constants.NON_GOVT_BULK_UPLOAD_INVALID_DOB_ERROR);
             }
         }
         return errors;
@@ -927,4 +956,111 @@ public class NonGovtUserBulkUploadProcessingServiceImpl implements NonGovtUserBu
                 StringUtils.isBlank(rawRow.get(Constants.NON_GOVT_CSV_COLUMN_TAGS));
     }
 
+    /**
+     * Normalizes gender value to proper case (Male/Female/Others) for learner service.
+     * Accepts case-insensitive input ("male", "MALE", "Female") and returns proper case.
+     * Returns empty Optional if the gender value is invalid (not in allowed list).
+     * Returns Optional with the input as-is if blank/empty (gender is optional).
+     */
+    private Optional<String> normalizeGender(String gender) {
+        if (StringUtils.isBlank(gender)) {
+            return Optional.of(gender);
+        }
+        List<String> genderValues = serverProperties.getBulkUploadGenderValue();
+        if (CollectionUtils.isEmpty(genderValues)) {
+            return Optional.empty();
+        }
+        return genderValues.stream()
+                .filter(validGender -> validGender.equalsIgnoreCase(gender))
+                .findFirst();
+    }
+
+    /**
+     * Normalizes category value to proper case (General/OBC/SC/ST) for learner service.
+     * Accepts case-insensitive input ("general", "GENERAL", "obc", "OBC") and returns proper case.
+     * Returns empty Optional if the category value is invalid (not in allowed list).
+     * Returns Optional with the input as-is if blank/empty (category is optional).
+     */
+    private Optional<String> normalizeCategory(String category) {
+        if (StringUtils.isBlank(category)) {
+            return Optional.of(category);
+        }
+        List<String> categoryValues = serverProperties.getBulkUploadCategoryValue();
+        if (CollectionUtils.isEmpty(categoryValues)) {
+            return Optional.empty();
+        }
+        return categoryValues.stream()
+                .filter(validCategory -> validCategory.equalsIgnoreCase(category))
+                .findFirst();
+    }
+
+    /**
+     * Validates field value against database master data.
+     * Used for Mother Tongue validation against approved language list.
+     * Returns true if invalid (NOT in the list), false if valid.
+     * Follows the same logic as UserBulkUploadService.validateFieldValue().
+     *
+     * @param fieldValue The value to validate
+     * @return true if invalid, false if valid
+     */
+    private boolean validateFieldValue(String fieldValue) {
+        try {
+            String normalizedValue = fieldValue.toLowerCase();
+            boolean isValueInList = isValueInValidList(normalizedValue);
+            return !isValueInList;
+        } catch (Exception e) {
+            logger.error("NonGovtUserBulkUploadProcessingServiceImpl:: validateFieldValue: "
+                    + "Error while validating field. key: {}, value: {}", Constants.LANGUAGES, fieldValue, e);
+            return false;
+        }
+    }
+
+    /**
+     * Checks if a value exists in the valid values list (cache or database).
+     *
+     * @param normalizedValue The lowercase value to check
+     * @return true if value is in the valid list, false otherwise
+     */
+    private boolean isValueInValidList(String normalizedValue) {
+        if (redisCacheMgr.keyExists(Constants.LANGUAGES)) {
+            return redisCacheMgr.valueExists(Constants.LANGUAGES, normalizedValue);
+        }
+        Set<String> validValues = fetchValidValuesFromDatabase();
+        cacheValidValues(validValues);
+        return validValues.contains(normalizedValue);
+    }
+
+    /**
+     * Fetches valid values from Cassandra database for a given field key.
+     */
+    private Set<String> fetchValidValuesFromDatabase() {
+        Set<String> validValues = new HashSet<>();
+        Map<String, Object> queryParams = new HashMap<>();
+        queryParams.put(Constants.CONTEXT_TYPE, Constants.LANGUAGES);
+        List<Map<String, Object>> results = cassandraOperation.getRecordsByProperties(
+                Constants.KEYSPACE_SUNBIRD,
+                Constants.TABLE_MASTER_DATA,
+                queryParams,
+                Collections.singletonList(Constants.CONTEXT_NAME));
+        if (CollectionUtils.isEmpty(results)) {
+            return validValues;
+        }
+        String columnName = results.get(0).get(Constants.CONTEXT_NAME_LOWERCASE) != null
+                ? Constants.CONTEXT_NAME_LOWERCASE
+                : Constants.CONTEXT_NAME;
+        for (Map<String, Object> row : results) {
+            String value = (String) row.get(columnName);
+            if (StringUtils.isNotBlank(value)) {
+                validValues.add(value.toLowerCase());
+            }
+        }
+        return validValues;
+    }
+
+    /**
+     * Caches valid values in Redis for faster future lookups.
+     */
+    private void cacheValidValues(Set<String> validValues) {
+        redisCacheMgr.putCacheAsStringArray(Constants.LANGUAGES, validValues.toArray(new String[0]), null);
+    }
 }

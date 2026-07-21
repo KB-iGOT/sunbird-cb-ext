@@ -1696,5 +1696,10 @@ public class Constants {
 	public static final String NON_GOVT_CSV_COLUMN_MOTHER_TONGUE = "Mother Tongue";
 	public static final String NON_GOVT_CSV_COLUMN_OFFICE_PINCODE = "Office Pin Code";
 	public static final String NON_GOVT_CSV_COLUMN_TAGS = "Tags";
+	public static final String NON_GOVT_BULK_UPLOAD_INVALID_GENDER_ERROR = "Invalid Gender : Gender can be only among one of these Male, Female, Others.";
+	public static final String NON_GOVT_BULK_UPLOAD_INVALID_CATEGORY_ERROR = "Invalid Category : Category can be only among one of these General, OBC, SC, ST.";
+	public static final String NON_GOVT_BULK_UPLOAD_INVALID_MOTHER_TONGUE_ERROR = "Invalid Mother Tongue: Mother Tongue should be added from default list and/or cannot contain special character.";
+	public static final String NON_GOVT_BULK_UPLOAD_INVALID_DOB_ERROR = "Invalid format for Date of Birth type. Expecting in dd-mm-yyyy format.";
+	public static final String CONTEXT_NAME_LOWERCASE = "contextname";
 
 }
