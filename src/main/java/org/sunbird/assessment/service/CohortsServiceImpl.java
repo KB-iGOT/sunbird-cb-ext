@@ -381,16 +381,6 @@ public class CohortsServiceImpl implements CohortsService {
 			if (!ObjectUtils.isEmpty(errResponse)) {
 				return errResponse;
 			}
-			// is the course applicable for the volunteer to enroll
-        if (isVolunteerUser(userUUID) && !isCourseEligibleForOrg(rootOrgId, contentId)) {
-
-        ProjectUtil.updateErrorDetails(
-						finalResponse,
-						Constants.VOLUNTEER_NOT_ELIGIBLE_TO_ENROLL,
-						HttpStatus.FORBIDDEN
-						);
-        return finalResponse;
-        }
 			//Enroll for the 1st batch for the course, Standalone Assessment
 			logger.info("Enrolling user with contentId: " + contentId + ", language: " + language);
 			Map<String, Object> enrollResponse = enrollInCourse(contentId, userUUID, headers, batchDetail.getBatchId(), language);
@@ -452,37 +442,6 @@ public class CohortsServiceImpl implements CohortsService {
 			}
 		}
 		return null;
-	}
-
-	private boolean isVolunteerUser(String userUUID) {
-		Map<String, Object> response = cassandraOperation.getRecordsByProperties(
-				Constants.KEYSPACE_SUNBIRD,
-				Constants.TABLE_USER_ROLES,
-				Collections.singletonMap(Constants.USER_ID, userUUID),
-				Arrays.asList(Constants.ROLE, Constants.USER_ID),
-				null);
-
-		List<Map<String, Object>> userRoles = (List<Map<String, Object>>) response.get(Constants.RESPONSE);
-
-		return !CollectionUtils.isEmpty(userRoles)
-				&& userRoles.stream().anyMatch(roleMap ->
-						Constants.ROLE_VOLUNTEER.equalsIgnoreCase((String) roleMap.get(Constants.ROLE)));
-	}
-
-	private boolean isCourseEligibleForOrg(String orgId, String courseId) throws IOException {
-		Map<String, Object> eligibility = indexerService.readEntity(
-				cbExtServerProperties.getOrgEligibilityIndex(),
-				cbExtServerProperties.getOrgEligibilityIndexType(),
-				orgId);
-
-		if (MapUtils.isEmpty(eligibility)) {
-			return false;
-		}
-
-		List<String> courseIds = (List<String>) eligibility.get(Constants.COURSEIDS);
-		logger.info("courseIds in orgEligibilityIndex -> " + courseIds.toString());
-		return !CollectionUtils.isEmpty(courseIds)
-				&& courseIds.contains(courseId);
 	}
 
 }
