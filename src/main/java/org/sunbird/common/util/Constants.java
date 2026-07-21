@@ -1640,6 +1640,8 @@ public class Constants {
 			"Failed to update database with non-govt user bulk upload file details.";
 	public static final String NON_GOVT_BULK_UPLOAD_PROCESSING_ERROR =
 			"Failed to process non-govt user bulk upload request.";
+	public static final String NON_GOVT_BULK_UPLOAD_ORG_NOT_PART_OF_MINISTRY_ERROR =
+			"This organisation is not part of the requesting ministry.";
 	public static final String FIELD_NOT_PRESENT_ERROR = "%s is not present";
 	public static final String NON_GOVT_USER_CREATE_ERROR = "Failed to create volunteer user.";
 	public static final String NON_GOVT_USER_CREATE_EMPTY_RESPONSE_ERROR = "Failed to create volunteer user: empty response from user create API.";
@@ -1649,6 +1651,7 @@ public class Constants {
 	public static final String NON_GOVT_CSV_COLUMN_FULL_NAME_HEADER = "Full Name (mandatory)";
 	public static final String NON_GOVT_CSV_COLUMN_MOBILE_NUMBER_HEADER = "Mobile Number (mandatory)";
 	public static final String NON_GOVT_CSV_COLUMN_EMAIL = "Email";
+	public static final String NON_GOVT_CSV_COLUMN_EMAIL_HEADER = "Email (mandatory)";
 	public static final String NON_GOVT_CSV_COLUMN_EXTERNAL_ID = "External ID";
 	public static final String NON_GOVT_CSV_COLUMN_ORG_NAME = "orgName";
 	public static final String STATUS_PARTIALLY_COMPLETED_UPPERCASE = "PARTIALLY-COMPLETED";
@@ -1668,6 +1671,8 @@ public class Constants {
 			"Unsupported file type. Please upload a .csv or .xlsx file.";
 	public static final String NON_GOVT_BULK_UPLOAD_XLSX_PARSE_ERROR =
 			"Failed to parse the uploaded excel file of non-govt user bulk upload request.";
+	public static final String NON_GOVT_BULK_UPLOAD_NO_DATA_ROWS_ERROR =
+			"Uploaded file contains only headers with no data rows. Please add at least one user to upload.";
 	public static final String MINISTRY_OR_STATE_ORG_NAME = "ministryOrStateOrgName";
 	public static final String NODAL_OFFICER_PREFIX= "nodalofficer_";
   	public static final String DOWNLOAD_URL = "downloadUrl";
@@ -1681,6 +1686,15 @@ public class Constants {
 	public static final String FNAME = "fname";
 	public static final int WEEK_RANGE_COUNT = 4;
 	public static final String INSTRUCTORS = "instructors";
-
+	public static final String VOLUNTEER_NOT_ELIGIBLE_TO_ENROLL = "You are not eligible to enroll into this course.";
+	public static final String ROLE_VOLUNTEER = "VOLUNTEER";
+	public static final String COURSEIDS= "courseids";
+	public static final String TARGET_ORG_ID= "targetorgid";
+	public static final String NON_GOVT_CSV_COLUMN_GENDER = "Gender";
+	public static final String NON_GOVT_CSV_COLUMN_CATEGORY = "Category";
+	public static final String NON_GOVT_CSV_COLUMN_DOB = "Date Of Birth (dd-mm-yyyy)";
+	public static final String NON_GOVT_CSV_COLUMN_MOTHER_TONGUE = "Mother Tongue";
+	public static final String NON_GOVT_CSV_COLUMN_OFFICE_PINCODE = "Office Pin Code";
+	public static final String NON_GOVT_CSV_COLUMN_TAGS = "Tags";
 
 }

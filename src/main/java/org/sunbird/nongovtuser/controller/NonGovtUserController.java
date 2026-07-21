@@ -30,13 +30,12 @@ public class NonGovtUserController {
     @PostMapping(Constants.NON_GOVT_USER_BULK_UPLOAD_ENDPOINT)
     public ResponseEntity<SBApiResponse> bulkUploadNonGovtUsers(
             @RequestParam(value = Constants.FILE, required = true) MultipartFile multipartFile,
+            @RequestHeader(value = Constants.TARGET_ORG_ID, required = true) String targetOrgId,
             @RequestHeader(Constants.X_AUTH_USER_ORG_ID) String rootOrgId,
-            @RequestHeader(Constants.X_AUTH_USER_CHANNEL) String channel,
             @RequestHeader(Constants.X_AUTH_USER_ID) String userId,
             @RequestHeader(Constants.X_AUTH_TOKEN) String userAuthToken) throws UnsupportedEncodingException {
-        String decodedChannel = URLDecoder.decode(channel, StandardCharsets.UTF_8.name());
         SBApiResponse uploadResponse = nonGovtUserBulkUploadService.bulkUploadNonGovtUsers(
-                multipartFile, rootOrgId, decodedChannel, userId, userAuthToken);
+                multipartFile, rootOrgId, userId, userAuthToken, targetOrgId);
         return new ResponseEntity<>(uploadResponse, uploadResponse.getResponseCode());
     }
 }

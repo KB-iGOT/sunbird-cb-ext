@@ -50,7 +50,9 @@ import org.sunbird.common.model.SBApiResponse;
 import org.sunbird.common.service.OutboundRequestHandlerServiceImpl;
 import org.sunbird.common.util.CbExtServerProperties;
 import org.sunbird.common.util.Constants;
+import org.sunbird.nongovtuser.model.CsvRowData;
 import org.sunbird.nongovtuser.model.RowProcessingSummary;
+import org.sunbird.nongovtuser.model.VolunteerUserRequest;
 import org.sunbird.common.util.ProjectUtil;
 import org.sunbird.storage.service.StorageService;
 
@@ -71,16 +73,6 @@ import org.sunbird.storage.service.StorageService;
 public class NonGovtUserBulkUploadProcessingServiceImpl implements NonGovtUserBulkUploadProcessingService {
 
     private static final Logger logger = LoggerFactory.getLogger(NonGovtUserBulkUploadProcessingServiceImpl.class);
-
-    private static final List<String> RESULT_HEADERS = Arrays.asList(
-            Constants.NON_GOVT_CSV_COLUMN_FULL_NAME,
-            Constants.NON_GOVT_CSV_COLUMN_MOBILE_NUMBER,
-            Constants.NON_GOVT_CSV_COLUMN_EMAIL,
-            Constants.NON_GOVT_CSV_COLUMN_EXTERNAL_ID,
-            Constants.NON_GOVT_CSV_COLUMN_ORG_NAME,
-            Constants.PASCALCASESTATUS,
-            Constants.CSV_COLUMN_ERROR_DETAILS);
-
     private static final DataFormatter EXCEL_CELL_FORMATTER = new DataFormatter();
 
     private final ObjectMapper objectMapper;
@@ -88,6 +80,18 @@ public class NonGovtUserBulkUploadProcessingServiceImpl implements NonGovtUserBu
     private final StorageService storageService;
     private final CbExtServerProperties serverProperties;
     private final OutboundRequestHandlerServiceImpl outboundRequestHandlerService;
+
+    /**
+     * Gets result CSV/Excel headers from configuration property.
+     * Headers are comma-separated in nongovt.user.bulk.upload.result.headers property.
+     * Property must be configured - no fallback provided.
+     */
+    private List<String> getResultHeaders() {
+        String headersConfig = serverProperties.getNonGovtUserBulkUploadResultHeaders();
+        return Arrays.stream(headersConfig.split(","))
+                .map(String::trim)
+                .collect(java.util.stream.Collectors.toList());
+    }
 
     @Override
     public void initiateNonGovtUserBulkUploadProcess(String inputData) {
@@ -239,7 +243,7 @@ public class NonGovtUserBulkUploadProcessingServiceImpl implements NonGovtUserBu
         }
         logger.info("NonGovtUserBulkUploadProcessingServiceImpl:: processDownloadedFile: identifier: {}, "
                 + "extracted {} rows for processing", identifier, rawRows.size());
-        RowProcessingSummary summary = processRows(rawRows, inputDataMap.get(Constants.ORG_NAME), inputDataMap.get(Constants.X_AUTH_TOKEN), rootOrgId);
+        RowProcessingSummary summary = processRows(rawRows, inputDataMap.get(Constants.ORG_NAME), inputDataMap.get(Constants.X_AUTH_TOKEN), inputDataMap.get(Constants.X_AUTH_USER_ORG_ID));
         logger.info("NonGovtUserBulkUploadProcessingServiceImpl:: processDownloadedFile: identifier: {}, "
                         + "total: {}, successful: {}, failed: {}",
                 identifier, summary.getTotalRecords(), summary.getSuccessfulRecords(), summary.getFailedRecords());
@@ -277,12 +281,20 @@ public class NonGovtUserBulkUploadProcessingServiceImpl implements NonGovtUserBu
         String mobileNumberHeader = findMatchingHeader(headers,
                 Constants.NON_GOVT_CSV_COLUMN_MOBILE_NUMBER, Constants.NON_GOVT_CSV_COLUMN_MOBILE_NUMBER_HEADER);
         for (CSVRecord csvRecord : records) {
-            rows.add(extractRowFields(
-                    getCsvFieldValue(csvRecord, fullNameHeader),
-                    getCsvFieldValue(csvRecord, mobileNumberHeader),
-                    getCsvFieldValue(csvRecord, Constants.NON_GOVT_CSV_COLUMN_EMAIL),
-                    getCsvFieldValue(csvRecord, Constants.NON_GOVT_CSV_COLUMN_EXTERNAL_ID),
-                    getCsvFieldValue(csvRecord, Constants.NON_GOVT_CSV_COLUMN_ORG_NAME)));
+            CsvRowData rowData = CsvRowData.builder()
+                    .fullName(getCsvFieldValue(csvRecord, fullNameHeader))
+                    .mobileNumber(getCsvFieldValue(csvRecord, mobileNumberHeader))
+                    .email(getCsvFieldValue(csvRecord, Constants.NON_GOVT_CSV_COLUMN_EMAIL_HEADER))
+                    .externalId(getCsvFieldValue(csvRecord, Constants.NON_GOVT_CSV_COLUMN_EXTERNAL_ID))
+                    .gender(getCsvFieldValue(csvRecord, Constants.NON_GOVT_CSV_COLUMN_GENDER))
+                    .category(getCsvFieldValue(csvRecord, Constants.NON_GOVT_CSV_COLUMN_CATEGORY))
+                    .dob(getCsvFieldValue(csvRecord, Constants.NON_GOVT_CSV_COLUMN_DOB))
+                    .motherTongue(getCsvFieldValue(csvRecord, Constants.NON_GOVT_CSV_COLUMN_MOTHER_TONGUE))
+                    .officePincode(getCsvFieldValue(csvRecord, Constants.NON_GOVT_CSV_COLUMN_OFFICE_PINCODE))
+                    .tags(getCsvFieldValue(csvRecord, Constants.NON_GOVT_CSV_COLUMN_TAGS))
+                    .orgName(getCsvFieldValue(csvRecord, Constants.NON_GOVT_CSV_COLUMN_ORG_NAME))
+                    .build();
+            rows.add(extractRowFields(rowData));
         }
         return rows;
     }
@@ -291,9 +303,14 @@ public class NonGovtUserBulkUploadProcessingServiceImpl implements NonGovtUserBu
         try (BufferedReader reader = new BufferedReader(
                 new InputStreamReader(Files.newInputStream(file.toPath()), StandardCharsets.UTF_8))) {
             char csvDelimiter = serverProperties.getCsvDelimiter();
-            CSVFormat csvFormat = CSVFormat.newFormat(csvDelimiter).builder()
+            // Use RFC 4180 compliant format to properly handle quoted fields with commas
+            CSVFormat csvFormat = CSVFormat.RFC4180.builder()
+                    .setDelimiter(csvDelimiter)
                     .setHeader()
                     .setSkipHeaderRecord(true)
+                    .setQuote('"')
+                    .setIgnoreSurroundingSpaces(true)
+                    .setTrim(true)
                     .build();
             try (CSVParser csvParser = new CSVParser(reader, csvFormat)) {
                 return csvParser.getRecords();
@@ -326,12 +343,20 @@ public class NonGovtUserBulkUploadProcessingServiceImpl implements NonGovtUserBu
                 if (ObjectUtils.isEmpty(row)) {
                     continue;
                 }
-                rows.add(extractRowFields(
-                        getExcelCellValue(row, columnIndexByHeader, fullNameHeader),
-                        getExcelCellValue(row, columnIndexByHeader, mobileNumberHeader),
-                        getExcelCellValue(row, columnIndexByHeader, Constants.NON_GOVT_CSV_COLUMN_EMAIL),
-                        getExcelCellValue(row, columnIndexByHeader, Constants.NON_GOVT_CSV_COLUMN_EXTERNAL_ID),
-                        getExcelCellValue(row, columnIndexByHeader, Constants.NON_GOVT_CSV_COLUMN_ORG_NAME)));
+                CsvRowData rowData = CsvRowData.builder()
+                        .fullName(getExcelCellValue(row, columnIndexByHeader, fullNameHeader))
+                        .mobileNumber(getExcelCellValue(row, columnIndexByHeader, mobileNumberHeader))
+                        .email(getExcelCellValue(row, columnIndexByHeader, Constants.NON_GOVT_CSV_COLUMN_EMAIL_HEADER))
+                        .externalId(getExcelCellValue(row, columnIndexByHeader, Constants.NON_GOVT_CSV_COLUMN_EXTERNAL_ID))
+                        .gender(getExcelCellValue(row, columnIndexByHeader, Constants.NON_GOVT_CSV_COLUMN_GENDER))
+                        .category(getExcelCellValue(row, columnIndexByHeader, Constants.NON_GOVT_CSV_COLUMN_CATEGORY))
+                        .dob(getExcelCellValue(row, columnIndexByHeader, Constants.NON_GOVT_CSV_COLUMN_DOB))
+                        .motherTongue(getExcelCellValue(row, columnIndexByHeader, Constants.NON_GOVT_CSV_COLUMN_MOTHER_TONGUE))
+                        .officePincode(getExcelCellValue(row, columnIndexByHeader, Constants.NON_GOVT_CSV_COLUMN_OFFICE_PINCODE))
+                        .tags(getExcelCellValue(row, columnIndexByHeader, Constants.NON_GOVT_CSV_COLUMN_TAGS))
+                        .orgName(getExcelCellValue(row, columnIndexByHeader, Constants.NON_GOVT_CSV_COLUMN_ORG_NAME))
+                        .build();
+                rows.add(extractRowFields(rowData));
             }
             return rows;
         } catch (IOException e) {
@@ -383,14 +408,19 @@ public class NonGovtUserBulkUploadProcessingServiceImpl implements NonGovtUserBu
         return null;
     }
 
-    private Map<String, String> extractRowFields(String fullName, String mobileNumber, String email, String externalId,
-                                                 String orgName) {
+    private Map<String, String> extractRowFields(CsvRowData rowData) {
         Map<String, String> fields = new HashMap<>();
-        fields.put(Constants.NON_GOVT_CSV_COLUMN_FULL_NAME, fullName);
-        fields.put(Constants.NON_GOVT_CSV_COLUMN_MOBILE_NUMBER, mobileNumber);
-        fields.put(Constants.NON_GOVT_CSV_COLUMN_EMAIL, email);
-        fields.put(Constants.NON_GOVT_CSV_COLUMN_EXTERNAL_ID, externalId);
-        fields.put(Constants.NON_GOVT_CSV_COLUMN_ORG_NAME, orgName);
+        fields.put(Constants.NON_GOVT_CSV_COLUMN_FULL_NAME_HEADER, rowData.getFullName());
+        fields.put(Constants.NON_GOVT_CSV_COLUMN_MOBILE_NUMBER_HEADER, rowData.getMobileNumber());
+        fields.put(Constants.NON_GOVT_CSV_COLUMN_EMAIL_HEADER, rowData.getEmail());
+        fields.put(Constants.NON_GOVT_CSV_COLUMN_EXTERNAL_ID, rowData.getExternalId());
+        fields.put(Constants.NON_GOVT_CSV_COLUMN_GENDER, rowData.getGender());
+        fields.put(Constants.NON_GOVT_CSV_COLUMN_CATEGORY, rowData.getCategory());
+        fields.put(Constants.NON_GOVT_CSV_COLUMN_DOB, rowData.getDob());
+        fields.put(Constants.NON_GOVT_CSV_COLUMN_MOTHER_TONGUE, rowData.getMotherTongue());
+        fields.put(Constants.NON_GOVT_CSV_COLUMN_OFFICE_PINCODE, rowData.getOfficePincode());
+        fields.put(Constants.NON_GOVT_CSV_COLUMN_TAGS, rowData.getTags());
+        fields.put(Constants.NON_GOVT_CSV_COLUMN_ORG_NAME, rowData.getOrgName());
         return fields;
     }
 
@@ -399,7 +429,10 @@ public class NonGovtUserBulkUploadProcessingServiceImpl implements NonGovtUserBu
         Set<String> seenMobileNumbers = new HashSet<>();
         int rowIndex = 1;
         for (Map<String, String> rawRow : rawRows) {
-            summary.recordRow(processSingleRow(rawRow, rowIndex++, seenMobileNumbers, orgName, userAuthToken, rootOrgId));
+            Map<String, String> result = processSingleRow(rawRow, rowIndex++, seenMobileNumbers, orgName, userAuthToken, rootOrgId);
+            if (MapUtils.isNotEmpty(result)) {
+                summary.recordRow(result);
+            }
         }
         return summary;
     }
@@ -415,21 +448,43 @@ public class NonGovtUserBulkUploadProcessingServiceImpl implements NonGovtUserBu
      */
     private Map<String, String> processSingleRow(Map<String, String> rawRow, int rowIndex, Set<String> seenMobileNumbers,
                                                  String orgName, String userAuthToken, String orgId) {
-        String fullName = rawRow.get(Constants.NON_GOVT_CSV_COLUMN_FULL_NAME);
-        String mobileNumber = rawRow.get(Constants.NON_GOVT_CSV_COLUMN_MOBILE_NUMBER);
-        String email = rawRow.get(Constants.NON_GOVT_CSV_COLUMN_EMAIL);
+        String fullName = rawRow.get(Constants.NON_GOVT_CSV_COLUMN_FULL_NAME_HEADER);
+        String mobileNumber = rawRow.get(Constants.NON_GOVT_CSV_COLUMN_MOBILE_NUMBER_HEADER);
+        String email = rawRow.get(Constants.NON_GOVT_CSV_COLUMN_EMAIL_HEADER);
         String externalId = rawRow.get(Constants.NON_GOVT_CSV_COLUMN_EXTERNAL_ID);
-        String rowOrgName = rawRow.get(Constants.NON_GOVT_CSV_COLUMN_ORG_NAME);
-
+        if (isRowCompletelyEmpty(fullName, mobileNumber, email, externalId, rawRow)) {
+            logger.debug("NonGovtUserBulkUploadProcessingServiceImpl:: processSingleRow: "
+                    + "Skipping completely empty row at index: {}", rowIndex);
+            return Collections.emptyMap();
+        }
         Map<String, String> updatedRecord = new HashMap<>(rawRow);
         try {
             List<String> rowErrors = validateRow(fullName, mobileNumber, email, externalId, seenMobileNumbers);
             if (!rowErrors.isEmpty()) {
+                logger.debug("NonGovtUserBulkUploadProcessingServiceImpl:: processSingleRow: "
+                        + "Validation failed for row: {}, errors: {}", rowIndex, rowErrors);
                 markRowFailed(updatedRecord, String.join(Constants.COMMA + " ", rowErrors));
                 return updatedRecord;
             }
             seenMobileNumbers.add(mobileNumber);
-            String creationError = createVolunteerUser(fullName, mobileNumber, email, externalId, rowOrgName, orgName, userAuthToken, rowIndex, orgId);
+            // Always use orgName from upload headers (x-authenticated-user-channel)
+            VolunteerUserRequest userRequest = VolunteerUserRequest.builder()
+                    .fullName(fullName)
+                    .mobileNumber(mobileNumber)
+                    .email(email)
+                    .externalId(externalId)
+                    .gender(rawRow.get(Constants.NON_GOVT_CSV_COLUMN_GENDER))
+                    .category(rawRow.get(Constants.NON_GOVT_CSV_COLUMN_CATEGORY))
+                    .dob(rawRow.get(Constants.NON_GOVT_CSV_COLUMN_DOB))
+                    .motherTongue(rawRow.get(Constants.NON_GOVT_CSV_COLUMN_MOTHER_TONGUE))
+                    .officePincode(rawRow.get(Constants.NON_GOVT_CSV_COLUMN_OFFICE_PINCODE))
+                    .tags(rawRow.get(Constants.NON_GOVT_CSV_COLUMN_TAGS))
+                    .orgName(orgName)
+                    .orgId(orgId)
+                    .userAuthToken(userAuthToken)
+                    .rowIndex(rowIndex)
+                    .build();
+            String creationError = createVolunteerUser(userRequest);
             if (StringUtils.isNotBlank(creationError)) {
                 markRowFailed(updatedRecord, creationError);
             } else {
@@ -453,18 +508,12 @@ public class NonGovtUserBulkUploadProcessingServiceImpl implements NonGovtUserBu
     private List<String> validateRow(String fullName, String mobileNumber, String email, String externalId,
                                      Set<String> seenMobileNumbers) {
         List<String> errors = new ArrayList<>();
-        if (StringUtils.isBlank(fullName) && StringUtils.isBlank(mobileNumber)
-                && StringUtils.isBlank(email) && StringUtils.isBlank(externalId)) {
-            errors.add(Constants.NON_GOVT_BULK_UPLOAD_EMPTY_ROW_ERROR);
-            return errors;
-        }
-
         List<FieldValidationRule> rules = Arrays.asList(
                 new FieldValidationRule(Constants.NON_GOVT_CSV_COLUMN_FULL_NAME, fullName, true,
                         ProjectUtil::validateFullName, Constants.NON_GOVT_BULK_UPLOAD_INVALID_FULL_NAME_ERROR),
                 new FieldValidationRule(Constants.NON_GOVT_CSV_COLUMN_MOBILE_NUMBER, mobileNumber, true,
                         ProjectUtil::validateContactPattern, Constants.NON_GOVT_BULK_UPLOAD_INVALID_MOBILE_ERROR),
-                new FieldValidationRule(Constants.NON_GOVT_CSV_COLUMN_EMAIL, email, false,
+                new FieldValidationRule(Constants.NON_GOVT_CSV_COLUMN_EMAIL, email, true,
                         ProjectUtil::validateEmailPattern, Constants.NON_GOVT_BULK_UPLOAD_INVALID_EMAIL_ERROR),
                 new FieldValidationRule(Constants.NON_GOVT_CSV_COLUMN_EXTERNAL_ID, externalId, false,
                         ProjectUtil::validateExternalSystemId, Constants.NON_GOVT_BULK_UPLOAD_INVALID_EXTERNAL_ID_ERROR));
@@ -537,16 +586,21 @@ public class NonGovtUserBulkUploadProcessingServiceImpl implements NonGovtUserBu
 
     private void writeResultCsv(File file, List<Map<String, String>> updatedRecords) throws IOException {
         char csvDelimiter = serverProperties.getCsvDelimiter();
-        CSVFormat outputFormat = CSVFormat.newFormat(csvDelimiter).builder()
-                .setHeader(RESULT_HEADERS.toArray(new String[0]))
+        List<String> resultHeaders = getResultHeaders();
+        // Use RFC 4180 compliant CSV format with proper quoting for fields containing commas, quotes, newlines
+        CSVFormat outputFormat = CSVFormat.RFC4180.builder()
+                .setDelimiter(csvDelimiter)
+                .setHeader(resultHeaders.toArray(new String[0]))
                 .setRecordSeparator(System.lineSeparator())
+                .setQuote('"')
+                .setQuoteMode(org.apache.commons.csv.QuoteMode.MINIMAL)
                 .build();
         try (FileWriter fileWriter = new FileWriter(file);
              BufferedWriter bufferedWriter = new BufferedWriter(fileWriter);
              CSVPrinter csvPrinter = new CSVPrinter(bufferedWriter, outputFormat)) {
             for (Map<String, String> rowData : updatedRecords) {
                 List<String> row = new ArrayList<>();
-                for (String header : RESULT_HEADERS) {
+                for (String header : resultHeaders) {
                     row.add(rowData.getOrDefault(header, StringUtils.EMPTY));
                 }
                 csvPrinter.printRecord(row);
@@ -570,15 +624,17 @@ public class NonGovtUserBulkUploadProcessingServiceImpl implements NonGovtUserBu
 
     private void writeExcelHeaderRow(Sheet sheet) {
         Row headerRow = sheet.createRow(0);
-        for (int i = 0; i < RESULT_HEADERS.size(); i++) {
-            headerRow.createCell(i).setCellValue(RESULT_HEADERS.get(i));
+        List<String> resultHeaders = getResultHeaders();
+        for (int i = 0; i < resultHeaders.size(); i++) {
+            headerRow.createCell(i).setCellValue(resultHeaders.get(i));
         }
     }
 
     private void writeExcelDataRow(Sheet sheet, int rowIndex, Map<String, String> rowData) {
         Row row = sheet.createRow(rowIndex);
-        for (int i = 0; i < RESULT_HEADERS.size(); i++) {
-            row.createCell(i).setCellValue(rowData.getOrDefault(RESULT_HEADERS.get(i), StringUtils.EMPTY));
+        List<String> resultHeaders = getResultHeaders();
+        for (int i = 0; i < resultHeaders.size(); i++) {
+            row.createCell(i).setCellValue(rowData.getOrDefault(resultHeaders.get(i), StringUtils.EMPTY));
         }
     }
 
@@ -684,24 +740,32 @@ public class NonGovtUserBulkUploadProcessingServiceImpl implements NonGovtUserBu
      *
      * @return null on success, or a caller-facing error message on failure
      */
-    private String createVolunteerUser(String fullName, String mobileNumber, String email, String externalId,
-                                       String rowOrgName, String orgName, String userAuthToken, int rowIndex, String orgId) {
+    private String createVolunteerUser(VolunteerUserRequest userRequest) {
         try {
-            Map<String, Object> request = buildVolunteerUserCreateRequest(fullName, mobileNumber, email, externalId, rowOrgName, orgName);
-            Map<String, String> headers = buildAuthHeaders(orgId, userAuthToken);
+            Map<String, Object> request = buildVolunteerUserCreateRequest(userRequest);
+            Map<String, String> headers = buildAuthHeaders(userRequest.getOrgId(), userRequest.getUserAuthToken());
             String url = serverProperties.getSbUrl() + serverProperties.getLmsBulkNgoUserCreatePath();
-            logger.info("NonGovtUserBulkUploadProcessingServiceImpl:: createVolunteerUser: row: {}, url: {}, headers: {}, request: {}",
-                    rowIndex, url, headers, request);
+
+            // Log without sensitive data (auth token, request body)
+            logger.info("NonGovtUserBulkUploadProcessingServiceImpl:: createVolunteerUser: Processing row: {}",
+                    userRequest.getRowIndex());
+
             Map<String, Object> createUserResponse = outboundRequestHandlerService.fetchResultUsingPost(url, request, headers);
             String error = interpretCreateUserResponse(createUserResponse);
+
             if (StringUtils.isNotBlank(error)) {
                 logger.warn("NonGovtUserBulkUploadProcessingServiceImpl:: createVolunteerUser: LMS returned failure for row: {}, reason: {}",
-                        rowIndex, error);
+                        userRequest.getRowIndex(), error);
             }
             return error;
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            logger.error("NonGovtUserBulkUploadProcessingServiceImpl:: createVolunteerUser: Invalid request for row: {}",
+                    userRequest.getRowIndex(), e);
+            return String.format("%s %s", Constants.NON_GOVT_USER_CREATE_ERROR, e.getMessage());
         } catch (Exception e) {
-            logger.error("NonGovtUserBulkUploadProcessingServiceImpl:: createVolunteerUser: Failed for row: {}", rowIndex, e);
-            return Constants.NON_GOVT_USER_CREATE_ERROR + " " + e.getMessage();
+            logger.error("NonGovtUserBulkUploadProcessingServiceImpl:: createVolunteerUser: Failed for row: {}",
+                    userRequest.getRowIndex(), e);
+            return String.format("%s %s", Constants.NON_GOVT_USER_CREATE_ERROR, e.getMessage());
         }
     }
 
@@ -716,35 +780,39 @@ public class NonGovtUserBulkUploadProcessingServiceImpl implements NonGovtUserBu
         return headers;
     }
 
-    private Map<String, Object> buildVolunteerUserCreateRequest(String fullName, String mobileNumber, String email,
-                                                                String externalId, String rowOrgName, String orgName) {
+    private Map<String, Object> buildVolunteerUserCreateRequest(VolunteerUserRequest userRequest) {
         Map<String, Object> requestBody = new HashMap<>();
-        requestBody.put(Constants.FIRSTNAME, fullName);
-        requestBody.put(Constants.PHONE, mobileNumber);
+        requestBody.put(Constants.FIRSTNAME, userRequest.getFullName());
+        requestBody.put(Constants.PHONE, userRequest.getMobileNumber());
         requestBody.put(Constants.PHONE_VERIFIED, true);
-        requestBody.put(Constants.ORG_NAME, rowOrgName);
-        requestBody.put(Constants.CHANNEL, orgName);
+        requestBody.put(Constants.ORG_NAME, userRequest.getOrgName());
+        requestBody.put(Constants.CHANNEL, userRequest.getOrgName());
         requestBody.put(Constants.ROLES, Collections.singletonList(serverProperties.getNonGovtUserDefaultRole()));
-        if (StringUtils.isNotBlank(email)) {
-            requestBody.put(Constants.EMAIL, email);
+        if (StringUtils.isNotBlank(userRequest.getEmail())) {
+            requestBody.put(Constants.EMAIL, userRequest.getEmail());
             requestBody.put(Constants.EMAIL_VERIFIED, true);
         }
-        requestBody.put(Constants.PROFILE_DETAILS, buildVolunteerProfileDetails(fullName, mobileNumber, email, externalId, rowOrgName));
+        requestBody.put(Constants.PROFILE_DETAILS, buildVolunteerProfileDetails(userRequest));
 
         Map<String, Object> request = new HashMap<>();
         request.put(Constants.REQUEST, requestBody);
         return request;
     }
 
-    private Map<String, Object> buildVolunteerProfileDetails(String fullName, String mobileNumber, String email, String externalId,
-                                                             String rowOrgName) {
+    private Map<String, Object> buildVolunteerProfileDetails(VolunteerUserRequest userRequest) {
         Map<String, Object> profileDetails = new HashMap<>();
         profileDetails.put(Constants.MANDATORY_FIELDS_EXISTS, false);
         profileDetails.put(Constants.VERIFIED_KARMAYOGI, false);
         profileDetails.put(Constants.PROFILE_STATUS_UPDATED_ON, currentIstTimestamp());
-        profileDetails.put(Constants.PERSONAL_DETAILS, buildVolunteerPersonalDetails(fullName, mobileNumber, email));
-        profileDetails.put(Constants.PROFESSIONAL_DETAILS, buildVolunteerProfessionalDetails(rowOrgName));
-        Map<String, Object> additionalProperties = buildVolunteerAdditionalProperties(externalId);
+        profileDetails.put(Constants.PERSONAL_DETAILS, buildVolunteerPersonalDetails(userRequest));
+        profileDetails.put(Constants.PROFESSIONAL_DETAILS, buildVolunteerProfessionalDetails(userRequest.getOrgName()));
+        if (StringUtils.isNotBlank(userRequest.getOfficePincode())) {
+            Map<String, Object> employmentDetails = new HashMap<>();
+            employmentDetails.put(Constants.PINCODE, userRequest.getOfficePincode());
+            profileDetails.put(Constants.EMPLOYMENTDETAILS, employmentDetails);
+        }
+
+        Map<String, Object> additionalProperties = buildVolunteerAdditionalProperties(userRequest);
         if (MapUtils.isNotEmpty(additionalProperties)) {
             profileDetails.put(Constants.ADDITIONAL_PROPERTIES, additionalProperties);
         }
@@ -752,32 +820,55 @@ public class NonGovtUserBulkUploadProcessingServiceImpl implements NonGovtUserBu
     }
 
     /**
-     * Sets organisationType for the volunteer, configurable via
-     * nongovt.user.organisation.type (default "Volunteer") — mirrors the shape of the
-     * govt reference's professionalDetails[0].organisationType (hardcoded "Government"
-     * there), but ours is configurable rather than a fixed Java constant.
+     * Builds professionalDetails with only organisationName. Note: designation is set in
+     * personalDetails instead, as LMS bulk flow (createBulkUsers → createSSOUser) preserves
+        return Collections.singletonList(professionalDetail);
+     * the profileDetails structure we send, but other flows (createUserV5 → createBasisProfileDetails)
+     * extract designation from personalDetails and move it to professionalDetails.
      */
-    private List<Map<String, Object>> buildVolunteerProfessionalDetails(String rowOrgName) {
+    private List<Map<String, Object>> buildVolunteerProfessionalDetails(String orgName) {
         Map<String, Object> professionalDetail = new HashMap<>();
-        professionalDetail.put(Constants.ORGANISATION_NAME, StringUtils.defaultString(rowOrgName));
+        professionalDetail.put(Constants.DESIGNATION, serverProperties.getNonGovtUserDefaultDesignation());
+        professionalDetail.put(Constants.ORGANISATION_NAME, StringUtils.defaultString(orgName));
         return Collections.singletonList(professionalDetail);
     }
 
-    private Map<String, Object> buildVolunteerPersonalDetails(String fullName, String mobileNumber, String email) {
+    private Map<String, Object> buildVolunteerPersonalDetails(VolunteerUserRequest userRequest) {
         Map<String, Object> personalDetails = new HashMap<>();
-        personalDetails.put(Constants.FIRSTNAME.toLowerCase(), fullName);
-        personalDetails.put(Constants.MOBILE, mobileNumber);
+        personalDetails.put(Constants.FIRSTNAME.toLowerCase(), userRequest.getFullName());
+        personalDetails.put(Constants.MOBILE, userRequest.getMobileNumber());
         personalDetails.put(Constants.PHONE_VERIFIED, true);
-        if (StringUtils.isNotBlank(email)) {
-            personalDetails.put(Constants.PRIMARY_EMAIL, email);
+        if (StringUtils.isNotBlank(userRequest.getEmail())) {
+            personalDetails.put(Constants.PRIMARY_EMAIL, userRequest.getEmail());
+        }
+        if (StringUtils.isNotBlank(userRequest.getGender())) {
+            personalDetails.put(Constants.GENDER, userRequest.getGender());
+        }
+        if (StringUtils.isNotBlank(userRequest.getCategory())) {
+            personalDetails.put(Constants.CATEGORY, userRequest.getCategory());
+        }
+        if (StringUtils.isNotBlank(userRequest.getDob())) {
+            personalDetails.put(Constants.DOB, userRequest.getDob());
+        }
+        if (StringUtils.isNotBlank(userRequest.getMotherTongue())) {
+            personalDetails.put(Constants.DOMICILE_MEDIUM, userRequest.getMotherTongue());
         }
         return personalDetails;
     }
 
-    private Map<String, Object> buildVolunteerAdditionalProperties(String externalId) {
+    private Map<String, Object> buildVolunteerAdditionalProperties(VolunteerUserRequest userRequest) {
         Map<String, Object> additionalProperties = new HashMap<>();
-        if (StringUtils.isNotBlank(externalId)) {
-            additionalProperties.put(Constants.EXTERNAL_SYSTEM_ID, externalId);
+        if (StringUtils.isNotBlank(userRequest.getExternalId())) {
+            additionalProperties.put(Constants.EXTERNAL_SYSTEM_ID, userRequest.getExternalId());
+        }
+        if (StringUtils.isNotBlank(userRequest.getTags())) {
+            List<String> tagList = Arrays.stream(userRequest.getTags().split(","))
+                    .map(String::trim)
+                    .filter(StringUtils::isNotBlank)
+                    .collect(java.util.stream.Collectors.toList());
+            if (!tagList.isEmpty()) {
+                additionalProperties.put(Constants.TAG, tagList);
+            }
         }
         return additionalProperties;
     }
@@ -805,4 +896,35 @@ public class NonGovtUserBulkUploadProcessingServiceImpl implements NonGovtUserBu
         }
         return Constants.NON_GOVT_USER_CREATE_ERROR;
     }
+
+    /**
+     * Checks if a row is completely empty (all fields blank or whitespace).
+     * Handles deleted rows that user cleared in Excel/CSV but still left the row in the file.
+     *
+     * @param fullName Full name field value
+     * @param mobileNumber Mobile number field value
+     * @param email Email field value
+     * @param externalId External ID field value
+     * @param rawRow Complete row data for checking optional fields
+     * @return true if all fields are blank, false otherwise
+     */
+    private boolean isRowCompletelyEmpty(String fullName, String mobileNumber, String email,
+                                         String externalId, Map<String, String> rawRow) {
+        // Check all mandatory fields first
+        if (StringUtils.isNotBlank(fullName) ||
+                StringUtils.isNotBlank(mobileNumber) ||
+                StringUtils.isNotBlank(email) ||
+                StringUtils.isNotBlank(externalId)) {
+            return false;
+        }
+
+        // Check all optional fields to be thorough
+        return StringUtils.isBlank(rawRow.get(Constants.NON_GOVT_CSV_COLUMN_GENDER)) &&
+                StringUtils.isBlank(rawRow.get(Constants.NON_GOVT_CSV_COLUMN_CATEGORY)) &&
+                StringUtils.isBlank(rawRow.get(Constants.NON_GOVT_CSV_COLUMN_DOB)) &&
+                StringUtils.isBlank(rawRow.get(Constants.NON_GOVT_CSV_COLUMN_MOTHER_TONGUE)) &&
+                StringUtils.isBlank(rawRow.get(Constants.NON_GOVT_CSV_COLUMN_OFFICE_PINCODE)) &&
+                StringUtils.isBlank(rawRow.get(Constants.NON_GOVT_CSV_COLUMN_TAGS));
+    }
+
 }

@@ -6,7 +6,6 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.sql.Timestamp;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
@@ -18,7 +17,6 @@ import lombok.RequiredArgsConstructor;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
-import org.apache.commons.csv.CSVRecord;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.DataFormatter;
@@ -63,21 +61,36 @@ public class NonGovtUserBulkUploadServiceImpl implements NonGovtUserBulkUploadSe
 
     @Override
     public SBApiResponse
-    bulkUploadNonGovtUsers(MultipartFile mFile, String orgId, String orgName,
-                                                 String userId, String userAuthToken) {
+    bulkUploadNonGovtUsers(MultipartFile mFile, String orgId,
+                                                 String userId, String userAuthToken, String targetOrgId) {
         logger.info("NonGovtUserBulkUploadServiceImpl:: bulkUploadNonGovtUsers: Started for orgId: {}", orgId);
         SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.API_NON_GOVT_USER_BULK_UPLOAD);
         try {
-            if (isPreviousUploadInProgress(orgId)) {
+            if (isPreviousUploadInProgress(targetOrgId)) {
                 logger.warn("NonGovtUserBulkUploadServiceImpl:: bulkUploadNonGovtUsers: Rejected for orgId: {}, "
-                        + "previous upload still in progress", orgId);
+                        + "previous upload still in progress", targetOrgId);
                 markResponseFailed(response, Constants.NON_GOVT_BULK_UPLOAD_IN_PROGRESS_ERROR, HttpStatus.TOO_MANY_REQUESTS);
                 return response;
             }
+            Map<String, Object> targetOrgDetails = readTargetOrgDetails(targetOrgId);
+            if (targetOrgDetails == null) {
+                logger.error("NonGovtUserBulkUploadServiceImpl:: bulkUploadNonGovtUsers: Target org not found for "
+                        + "targetOrgId: {}", targetOrgId);
+                markResponseFailed(response, Constants.ORGANIZATION_NOT_FOUND, HttpStatus.BAD_REQUEST);
+                return response;
+            }
+            String ministryOrStateId = (String) targetOrgDetails.get(Constants.MINISTRY_STATE_ID);
+            if (StringUtils.isNotBlank(ministryOrStateId) && !ministryOrStateId.equalsIgnoreCase(orgId)) {
+                logger.warn("NonGovtUserBulkUploadServiceImpl:: bulkUploadNonGovtUsers: targetOrgId: {} does not "
+                        + "belong to requesting ministry orgId: {}", targetOrgId, orgId);
+                markResponseFailed(response, Constants.NON_GOVT_BULK_UPLOAD_ORG_NOT_PART_OF_MINISTRY_ERROR, HttpStatus.BAD_REQUEST);
+                return response;
+            }
+            String orgName =  (String) targetOrgDetails.get(Constants.ORG_NAME_LOWER);
             String fileValidationError = validateFileStructure(mFile);
             if (StringUtils.isNotBlank(fileValidationError)) {
                 logger.error("NonGovtUserBulkUploadServiceImpl:: bulkUploadNonGovtUsers: File validation failed for "
-                        + "orgId: {}, reason: {}", orgId, fileValidationError);
+                        + "orgId: {}, reason: {}", targetOrgId, fileValidationError);
                 markResponseFailed(response, fileValidationError, HttpStatus.INTERNAL_SERVER_ERROR);
                 return response;
             }
@@ -85,19 +98,19 @@ public class NonGovtUserBulkUploadServiceImpl implements NonGovtUserBulkUploadSe
             if (!HttpStatus.OK.equals(uploadResponse.getResponseCode())) {
                 String uploadFailureMessage = buildUploadFailureMessage(uploadResponse);
                 logger.error("NonGovtUserBulkUploadServiceImpl:: bulkUploadNonGovtUsers: Raw file upload failed for "
-                        + "orgId: {}, reason: {}", orgId, uploadFailureMessage);
+                        + "orgId: {}, reason: {}", targetOrgId, uploadFailureMessage);
                 markResponseFailed(response, uploadFailureMessage, HttpStatus.INTERNAL_SERVER_ERROR);
                 return response;
             }
-            Map<String, Object> trackingRecord = buildTrackingRecord(orgId, userId, uploadResponse);
+            Map<String, Object> trackingRecord = buildTrackingRecord(targetOrgId, userId, uploadResponse);
             if (!persistTrackingRecord(trackingRecord)) {
                 logger.error("NonGovtUserBulkUploadServiceImpl:: bulkUploadNonGovtUsers: Failed to persist tracking "
-                        + "record for orgId: {}, identifier: {}", orgId, trackingRecord.get(Constants.IDENTIFIER));
+                        + "record for orgId: {}, identifier: {}", targetOrgId, trackingRecord.get(Constants.IDENTIFIER));
                 markResponseFailed(response, Constants.NON_GOVT_BULK_UPLOAD_DB_INSERT_ERROR, HttpStatus.INTERNAL_SERVER_ERROR);
                 return response;
             }
             populateSuccessResponse(response, trackingRecord);
-            triggerBulkUploadKafkaEvent(trackingRecord, orgId, orgName, userAuthToken);
+            triggerBulkUploadKafkaEvent(trackingRecord, orgId, orgName, userAuthToken, targetOrgId);
             logger.info("NonGovtUserBulkUploadServiceImpl:: bulkUploadNonGovtUsers: Successfully queued upload for "
                     + "orgId: {}, identifier: {}", orgId, trackingRecord.get(Constants.IDENTIFIER));
         } catch (Exception e) {
@@ -151,10 +164,10 @@ public class NonGovtUserBulkUploadServiceImpl implements NonGovtUserBulkUploadSe
 
     /**
      * Confirms the uploaded file parses as a CSV with a header row containing the
-     * mandatory columns, and that every non-blank data row has a value for each
-     * mandatory column. Rows left entirely blank (formatting artifacts / trailing
-     * rows) are skipped rather than rejected — they're caught individually as empty
-     * rows later by the async per-row validation instead of failing the whole file.
+     * mandatory columns and at least one data row. Individual rows with missing values
+     * are NOT rejected here - they are processed by the async layer which marks them as
+     * Failed in the result CSV, allowing valid rows to succeed even when some rows have
+     * validation errors.
      */
     private String validateCsvStructure(MultipartFile mFile) {
         try (BufferedReader reader = new BufferedReader(
@@ -170,22 +183,16 @@ public class NonGovtUserBulkUploadServiceImpl implements NonGovtUserBulkUploadSe
                         Constants.NON_GOVT_CSV_COLUMN_FULL_NAME, Constants.NON_GOVT_CSV_COLUMN_FULL_NAME_HEADER);
                 String mobileNumberHeader = findMatchingHeader(headers,
                         Constants.NON_GOVT_CSV_COLUMN_MOBILE_NUMBER, Constants.NON_GOVT_CSV_COLUMN_MOBILE_NUMBER_HEADER);
-                if (fullNameHeader == null || mobileNumberHeader == null) {
+                String emailHeader = findMatchingHeader(headers,
+                        Constants.NON_GOVT_CSV_COLUMN_EMAIL, Constants.NON_GOVT_CSV_COLUMN_EMAIL_HEADER);
+                if (fullNameHeader == null || mobileNumberHeader == null || emailHeader == null) {
                     return Constants.NON_GOVT_BULK_UPLOAD_MANDATORY_COLUMNS_MISSING_ERROR;
                 }
-                int rowNumber = 1;
-                for (CSVRecord record : csvParser) {
-                    rowNumber++;
-                    if (isCsvRecordEntirelyBlank(record)) {
-                        continue;
-                    }
-                    String missingFields = findMissingMandatoryFields(
-                            record.get(fullNameHeader), record.get(mobileNumberHeader));
-                    if (missingFields != null) {
-                        return String.format(Constants.NON_GOVT_BULK_UPLOAD_MANDATORY_VALUE_MISSING_ERROR,
-                                rowNumber, missingFields);
-                    }
+                // Check if file has at least one data row
+                if (!csvParser.iterator().hasNext()) {
+                    return Constants.NON_GOVT_BULK_UPLOAD_NO_DATA_ROWS_ERROR;
                 }
+                // Per-row validation removed - async processing handles it
             }
             return null;
         } catch (IOException e) {
@@ -194,21 +201,12 @@ public class NonGovtUserBulkUploadServiceImpl implements NonGovtUserBulkUploadSe
         }
     }
 
-    private boolean isCsvRecordEntirelyBlank(CSVRecord record) {
-        for (String value : record) {
-            if (StringUtils.isNotBlank(value)) {
-                return false;
-            }
-        }
-        return true;
-    }
-
     /**
      * Confirms the uploaded file parses as an XLSX workbook whose first sheet's header
-     * row contains the mandatory columns, and that every non-blank data row has a value
-     * for each mandatory column. Rows left entirely blank (formatting artifacts /
-     * trailing rows) are skipped rather than rejected — they're caught individually as
-     * empty rows later by the async per-row validation instead of failing the whole file.
+     * row contains the mandatory columns and at least one data row. Individual rows with
+     * missing values are NOT rejected here - they are processed by the async layer which
+     * marks them as Failed in the result CSV, allowing valid rows to succeed even when
+     * some rows have validation errors.
      */
     private String validateExcelStructure(MultipartFile mFile) {
         try (InputStream inputStream = mFile.getInputStream();
@@ -227,46 +225,21 @@ public class NonGovtUserBulkUploadServiceImpl implements NonGovtUserBulkUploadSe
                     Constants.NON_GOVT_CSV_COLUMN_FULL_NAME, Constants.NON_GOVT_CSV_COLUMN_FULL_NAME_HEADER);
             String mobileNumberHeader = findMatchingHeader(columnIndexByHeader.keySet(),
                     Constants.NON_GOVT_CSV_COLUMN_MOBILE_NUMBER, Constants.NON_GOVT_CSV_COLUMN_MOBILE_NUMBER_HEADER);
-            if (fullNameHeader == null || mobileNumberHeader == null) {
+            String emailHeader = findMatchingHeader(columnIndexByHeader.keySet(),
+                    Constants.NON_GOVT_CSV_COLUMN_EMAIL, Constants.NON_GOVT_CSV_COLUMN_EMAIL_HEADER);
+            if (fullNameHeader == null || mobileNumberHeader == null || emailHeader == null) {
                 return Constants.NON_GOVT_BULK_UPLOAD_MANDATORY_COLUMNS_MISSING_ERROR;
             }
-            int fullNameColumnIndex = columnIndexByHeader.get(fullNameHeader);
-            int mobileNumberColumnIndex = columnIndexByHeader.get(mobileNumberHeader);
-            for (int rowIndex = 1; rowIndex <= sheet.getLastRowNum(); rowIndex++) {
-                Row dataRow = sheet.getRow(rowIndex);
-                if (isExcelRowEntirelyBlank(dataRow, dataFormatter)) {
-                    continue;
-                }
-                String missingFields = findMissingMandatoryFields(
-                        getExcelCellValue(dataRow, fullNameColumnIndex, dataFormatter),
-                        getExcelCellValue(dataRow, mobileNumberColumnIndex, dataFormatter));
-                if (missingFields != null) {
-                    return String.format(Constants.NON_GOVT_BULK_UPLOAD_MANDATORY_VALUE_MISSING_ERROR,
-                            rowIndex + 1, missingFields);
-                }
+            // Check if file has at least one data row
+            if (sheet.getLastRowNum() < 1) {
+                return Constants.NON_GOVT_BULK_UPLOAD_NO_DATA_ROWS_ERROR;
             }
+            // Per-row validation removed - async processing handles it
             return null;
         } catch (IOException e) {
             logger.error("NonGovtUserBulkUploadServiceImpl:: validateExcelStructure: Failed to parse excel file", e);
             return Constants.NON_GOVT_BULK_UPLOAD_XLSX_PARSE_ERROR + " " + e.getMessage();
         }
-    }
-
-    private boolean isExcelRowEntirelyBlank(Row row, DataFormatter dataFormatter) {
-        if (ObjectUtils.isEmpty(row)) {
-            return true;
-        }
-        for (Cell cell : row) {
-            if (StringUtils.isNotBlank(dataFormatter.formatCellValue(cell))) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    private String getExcelCellValue(Row row, int columnIndex, DataFormatter dataFormatter) {
-        Cell cell = row.getCell(columnIndex);
-        return cell == null ? StringUtils.EMPTY : dataFormatter.formatCellValue(cell).trim();
     }
 
     /**
@@ -281,21 +254,6 @@ public class NonGovtUserBulkUploadServiceImpl implements NonGovtUserBulkUploadSe
             }
         }
         return null;
-    }
-
-    /**
-     * Returns a comma-separated list of the mandatory column names that are blank for
-     * this row, or null when both are present.
-     */
-    private String findMissingMandatoryFields(String fullName, String mobileNumber) {
-        List<String> missingFields = new ArrayList<>();
-        if (StringUtils.isBlank(fullName)) {
-            missingFields.add(Constants.NON_GOVT_CSV_COLUMN_FULL_NAME);
-        }
-        if (StringUtils.isBlank(mobileNumber)) {
-            missingFields.add(Constants.NON_GOVT_CSV_COLUMN_MOBILE_NUMBER);
-        }
-        return missingFields.isEmpty() ? null : String.join(", ", missingFields);
     }
 
     /**
@@ -347,17 +305,30 @@ public class NonGovtUserBulkUploadServiceImpl implements NonGovtUserBulkUploadSe
      * trackingRecord, since that map is also used to populate the HTTP response.
      */
     private void triggerBulkUploadKafkaEvent(Map<String, Object> trackingRecord, String orgId,
-                                              String orgName, String userAuthToken) {
+                                              String orgName, String userAuthToken, String targetOrgId) {
         Map<String, Object> kafkaPayload = new HashMap<>(trackingRecord);
         kafkaPayload.put(Constants.ORG_NAME, orgName);
         kafkaPayload.put(Constants.X_AUTH_TOKEN, userAuthToken);
         kafkaPayload.put(Constants.X_AUTH_USER_ORG_ID, orgId);
-        kafkaProducer.pushWithKey(serverProperties.getNonGovtUserBulkUploadTopic(), kafkaPayload, orgId);
+        kafkaProducer.pushWithKey(serverProperties.getNonGovtUserBulkUploadTopic(), kafkaPayload, targetOrgId);
     }
 
     private void markResponseFailed(SBApiResponse response, String errMsg, HttpStatus status) {
         response.getParams().setStatus(Constants.FAILED_UPPERCASE);
         response.getParams().setErrmsg(errMsg);
         response.setResponseCode(status);
+    }
+
+    /**
+     * Reads the target org's row directly from Cassandra by identifier — used to
+     * validate ministry/state ownership and to resolve the org's canonical name, both
+     * from this single read (no second lookup later in the consumer).
+     */
+    private Map<String, Object> readTargetOrgDetails(String targetOrgId) {
+        Map<String, Object> propertyMap = new HashMap<>();
+        propertyMap.put(Constants.ID, targetOrgId);
+        List<Map<String, Object>> orgRecords = cassandraOperation.getRecordsByPropertiesWithoutFiltering(
+                Constants.KEYSPACE_SUNBIRD, Constants.TABLE_ORGANIZATION, propertyMap, null);
+        return CollectionUtils.isEmpty(orgRecords) ? null : orgRecords.get(0);
     }
 }

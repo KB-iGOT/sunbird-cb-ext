@@ -1312,8 +1312,8 @@ public class CbExtServerProperties {
 	@Value("${kafka.topics.nongovt.user.bulk.upload}")
 	private String nonGovtUserBulkUploadTopic;
 
-	@Value("${nongovt.user.organisation.type:Volunteer}")
-	private String nonGovtUserOrganisationType;
+	@Value("${nongovt.user.default.designation:Volunteer}")
+	private String nonGovtUserDefaultDesignation;
 
 	@Value("${nongovt.bulk.upload.max.rows:10000}")
 	private int nonGovtBulkUploadMaxRows;
@@ -1348,8 +1348,13 @@ public class CbExtServerProperties {
 	@Value("${bp.report.profile.survey.es.page.size:100}")
 	private int bpReportProfileSurveyEsPageSize;
 
+	@Value("${sb.service.assign.public.role.path}")
+	private String sbAssignPublicRolePath;
 	@Value("${sb.service.bulk.ngo.user.create.path}")
 	private String lmsBulkNgoUserCreatePath;
+
+	@Value("${nongovt.user.bulk.upload.result.headers}")
+	private String nonGovtUserBulkUploadResultHeaders;
 
 	public int getUserSearchLimit() {
 		return userSearchLimit;
@@ -4497,12 +4502,12 @@ public class CbExtServerProperties {
 		this.nonGovtUserDefaultRole = nonGovtUserDefaultRole;
 	}
 	
-	public String getNonGovtUserOrganisationType() {
-		return nonGovtUserOrganisationType;
+	public String getNonGovtUserDefaultDesignation() {
+		return nonGovtUserDefaultDesignation;
 	}
 
-	public void setNonGovtUserOrganisationType(String nonGovtUserOrganisationType) {
-		this.nonGovtUserOrganisationType = nonGovtUserOrganisationType;
+	public void setNonGovtUserDefaultDesignation(String nonGovtUserDefaultDesignation) {
+		this.nonGovtUserDefaultDesignation = nonGovtUserDefaultDesignation;
 	}
 
 	public void setJwtPrivateKeyPath(String jwtPrivateKeyPath) {
@@ -4563,6 +4568,14 @@ public class CbExtServerProperties {
 		this.bpReportProfileSurveyEsPageSize = bpReportProfileSurveyEsPageSize;
 	}
 
+	public String getSbAssignPublicRolePath() {
+		return sbAssignPublicRolePath;
+	}
+
+	public void setSbAssignPublicRolePath(String sbAssignPublicRolePath) {
+		this.sbAssignPublicRolePath = sbAssignPublicRolePath;
+	}
+
 	public String getOrgEligibilityIndex() {
     	return orgEligibilityIndex;
 	}
@@ -4578,5 +4591,13 @@ public class CbExtServerProperties {
 
 	public void setOrgEligibilityIndexType(String orgEligibilityIndexType) {
 		this.orgEligibilityIndexType = orgEligibilityIndexType;
+	}
+
+	public String getNonGovtUserBulkUploadResultHeaders() {
+		return nonGovtUserBulkUploadResultHeaders;
+	}
+
+	public void setNonGovtUserBulkUploadResultHeaders(String nonGovtUserBulkUploadResultHeaders) {
+		this.nonGovtUserBulkUploadResultHeaders = nonGovtUserBulkUploadResultHeaders;
 	}
 }
