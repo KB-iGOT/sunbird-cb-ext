@@ -461,6 +461,7 @@ public class NonGovtUserBulkUploadProcessingServiceImpl implements NonGovtUserBu
         String category = rawRow.get(Constants.NON_GOVT_CSV_COLUMN_CATEGORY);
         String motherTongue = rawRow.get(Constants.NON_GOVT_CSV_COLUMN_MOTHER_TONGUE);
         String dob = rawRow.get(Constants.NON_GOVT_CSV_COLUMN_DOB);
+        String officePincode = rawRow.get(Constants.NON_GOVT_CSV_COLUMN_OFFICE_PINCODE);
         if (isRowCompletelyEmpty(fullName, mobileNumber, email, externalId, rawRow)) {
             logger.debug("NonGovtUserBulkUploadProcessingServiceImpl:: processSingleRow: "
                     + "Skipping completely empty row at index: {}", rowIndex);
@@ -468,7 +469,7 @@ public class NonGovtUserBulkUploadProcessingServiceImpl implements NonGovtUserBu
         }
         Map<String, String> updatedRecord = new HashMap<>(rawRow);
         try {
-            UserRowData rowData = new UserRowData(fullName, mobileNumber, email, externalId, gender, category, motherTongue, dob);
+            UserRowData rowData = new UserRowData(fullName, mobileNumber, email, externalId, gender, category, motherTongue, dob, officePincode);
             List<String> rowErrors = validateRow(rowData, seenMobileNumbers);
             if (!rowErrors.isEmpty()) {
                 logger.debug("NonGovtUserBulkUploadProcessingServiceImpl:: processSingleRow: "
@@ -517,6 +518,7 @@ public class NonGovtUserBulkUploadProcessingServiceImpl implements NonGovtUserBu
      * Gender and Category are validated separately as they require whitelist validation against allowed values.
      * Mother Tongue is validated against database list and checked for special characters.
      * Date of Birth is validated for dd-MM-yyyy format.
+     * Office Pincode is validated for 6-digit numeric format.
      */
     private List<String> validateRow(UserRowData rowData, Set<String> seenMobileNumbers) {
         List<String> errors = new ArrayList<>();
@@ -1087,7 +1089,7 @@ public class NonGovtUserBulkUploadProcessingServiceImpl implements NonGovtUserBu
     }
 
     /**
-     * Validates optional fields (Gender, Category, Mother Tongue, Date of Birth).
+     * Validates optional fields (Gender, Category, Mother Tongue, Date of Birth, Office Pincode).
      * Each field is validated only if present (non-blank).
      *
      * @param rowData User row data containing all field values
@@ -1098,6 +1100,7 @@ public class NonGovtUserBulkUploadProcessingServiceImpl implements NonGovtUserBu
         validateCategoryField(rowData.getCategory(), errors);
         validateMotherTongueField(rowData.getMotherTongue(), errors);
         validateDateOfBirthField(rowData.getDob(), errors);
+        validateOfficePincodeField(rowData.getOfficePincode(), errors);
     }
 
     /**
@@ -1170,6 +1173,25 @@ public class NonGovtUserBulkUploadProcessingServiceImpl implements NonGovtUserBu
 
         if (isInvalidFormat || hasNewLineCharacters) {
             errors.add(Constants.NON_GOVT_BULK_UPLOAD_INVALID_DOB_ERROR);
+        }
+    }
+
+    /**
+     * Validates office pincode field for 6-digit numeric format and checks for newline characters.
+     * Blank values are allowed (optional field).
+     *
+     * @param officePincode Office pincode value from CSV/Excel row
+     * @param errors List to collect validation error if pincode format is invalid
+     */
+    private void validateOfficePincodeField(String officePincode, List<String> errors) {
+        if (StringUtils.isBlank(officePincode)) {
+            return;
+        }
+        boolean isInvalidFormat = !ProjectUtil.validatePinCode(officePincode);
+        boolean hasNewLineCharacters = ProjectUtil.validatesNewLine(officePincode);
+
+        if (isInvalidFormat || hasNewLineCharacters) {
+            errors.add(Constants.NON_GOVT_BULK_UPLOAD_INVALID_OFFICE_PINCODE_ERROR);
         }
     }
 }

@@ -18,4 +18,5 @@ public class UserRowData {
     private final String category;
     private final String motherTongue;
     private final String dob;
+    private final String officePincode;
 }

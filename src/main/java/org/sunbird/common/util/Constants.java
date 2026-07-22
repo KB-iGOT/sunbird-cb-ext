@@ -1701,5 +1701,6 @@ public class Constants {
 	public static final String NON_GOVT_BULK_UPLOAD_INVALID_MOTHER_TONGUE_ERROR = "Invalid Mother Tongue: Mother Tongue should be added from default list and/or cannot contain special character.";
 	public static final String NON_GOVT_BULK_UPLOAD_INVALID_DOB_ERROR = "Invalid format for Date of Birth type. Expecting in dd-mm-yyyy format.";
 	public static final String CONTEXT_NAME_LOWERCASE = "contextname";
+	public static final String NON_GOVT_BULK_UPLOAD_INVALID_OFFICE_PINCODE_ERROR = "Invalid Office Pin Code : Office Pin Code should be numeric and is of 6 digit.";
 
 }
