@@ -11,18 +11,19 @@ import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.sql.Timestamp;
-import java.text.SimpleDateFormat;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.TimeZone;
 import java.util.function.Function;
 
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -54,6 +55,7 @@ import org.sunbird.common.util.CbExtServerProperties;
 import org.sunbird.common.util.Constants;
 import org.sunbird.nongovtuser.model.CsvRowData;
 import org.sunbird.nongovtuser.model.RowProcessingSummary;
+import org.sunbird.nongovtuser.model.UserRowData;
 import org.sunbird.nongovtuser.model.VolunteerUserRequest;
 import org.sunbird.common.util.ProjectUtil;
 import org.sunbird.storage.service.StorageService;
@@ -466,7 +468,8 @@ public class NonGovtUserBulkUploadProcessingServiceImpl implements NonGovtUserBu
         }
         Map<String, String> updatedRecord = new HashMap<>(rawRow);
         try {
-            List<String> rowErrors = validateRow(fullName, mobileNumber, email, externalId, gender, category, motherTongue, dob, seenMobileNumbers);
+            UserRowData rowData = new UserRowData(fullName, mobileNumber, email, externalId, gender, category, motherTongue, dob);
+            List<String> rowErrors = validateRow(rowData, seenMobileNumbers);
             if (!rowErrors.isEmpty()) {
                 logger.debug("NonGovtUserBulkUploadProcessingServiceImpl:: processSingleRow: "
                         + "Validation failed for row: {}, errors: {}", rowIndex, rowErrors);
@@ -515,46 +518,10 @@ public class NonGovtUserBulkUploadProcessingServiceImpl implements NonGovtUserBu
      * Mother Tongue is validated against database list and checked for special characters.
      * Date of Birth is validated for dd-MM-yyyy format.
      */
-    private List<String> validateRow(String fullName, String mobileNumber, String email, String externalId,
-                                     String gender, String category, String motherTongue, String dob, Set<String> seenMobileNumbers) {
+    private List<String> validateRow(UserRowData rowData, Set<String> seenMobileNumbers) {
         List<String> errors = new ArrayList<>();
-        List<FieldValidationRule> rules = Arrays.asList(
-                new FieldValidationRule(Constants.NON_GOVT_CSV_COLUMN_FULL_NAME, fullName, true,
-                        ProjectUtil::validateFullName, Constants.NON_GOVT_BULK_UPLOAD_INVALID_FULL_NAME_ERROR),
-                new FieldValidationRule(Constants.NON_GOVT_CSV_COLUMN_MOBILE_NUMBER, mobileNumber, true,
-                        ProjectUtil::validateContactPattern, Constants.NON_GOVT_BULK_UPLOAD_INVALID_MOBILE_ERROR),
-                new FieldValidationRule(Constants.NON_GOVT_CSV_COLUMN_EMAIL, email, true,
-                        ProjectUtil::validateEmailPattern, Constants.NON_GOVT_BULK_UPLOAD_INVALID_EMAIL_ERROR),
-                new FieldValidationRule(Constants.NON_GOVT_CSV_COLUMN_EXTERNAL_ID, externalId, false,
-                        ProjectUtil::validateExternalSystemId, Constants.NON_GOVT_BULK_UPLOAD_INVALID_EXTERNAL_ID_ERROR));
-
-        for (FieldValidationRule rule : rules) {
-            List<String> fieldErrors = applyFieldValidationRule(rule);
-            errors.addAll(fieldErrors);
-            if (fieldErrors.isEmpty() && Constants.NON_GOVT_CSV_COLUMN_MOBILE_NUMBER.equals(rule.columnName)
-                    && seenMobileNumbers.contains(rule.value)) {
-                errors.add(Constants.NON_GOVT_BULK_UPLOAD_DUPLICATE_MOBILE_ERROR);
-            }
-        }
-        if (StringUtils.isNotBlank(gender) && !normalizeGender(gender).isPresent()) {
-            errors.add(Constants.NON_GOVT_BULK_UPLOAD_INVALID_GENDER_ERROR);
-        }
-        if (StringUtils.isNotBlank(category) && !normalizeCategory(category).isPresent()) {
-            errors.add(Constants.NON_GOVT_BULK_UPLOAD_INVALID_CATEGORY_ERROR);
-        }
-        if (StringUtils.isNotBlank(motherTongue)) {
-            if (!ProjectUtil.validateRegexPatternWithNoSpecialCharacter(motherTongue)
-                    || validateFieldValue(motherTongue)) {
-                errors.add(Constants.NON_GOVT_BULK_UPLOAD_INVALID_MOTHER_TONGUE_ERROR);
-            }
-        }
-        if (StringUtils.isNotBlank(dob)) {
-            if (!ProjectUtil.validateDate(dob)) {
-                errors.add(Constants.NON_GOVT_BULK_UPLOAD_INVALID_DOB_ERROR);
-            } else if (ProjectUtil.validatesNewLine(dob)) {
-                errors.add(Constants.NON_GOVT_BULK_UPLOAD_INVALID_DOB_ERROR);
-            }
-        }
+        validateMandatoryFields(rowData, seenMobileNumbers, errors);
+        validateOptionalFields(rowData, errors);
         return errors;
     }
 
@@ -750,7 +717,7 @@ public class NonGovtUserBulkUploadProcessingServiceImpl implements NonGovtUserBu
             if (failedRecordsCount >= 0) {
                 fieldsToBeUpdated.put(Constants.FAILED_RECORDS_COUNT, failedRecordsCount);
             }
-            fieldsToBeUpdated.put(Constants.DATE_UPDATE_ON, new Timestamp(System.currentTimeMillis()));
+            fieldsToBeUpdated.put(Constants.DATE_UPDATE_ON, Timestamp.from(Instant.now()));
 
             cassandraOperation.updateRecord(Constants.KEYSPACE_SUNBIRD, Constants.TABLE_USER_BULK_UPLOAD,
                     fieldsToBeUpdated, compositeKeys);
@@ -902,10 +869,16 @@ public class NonGovtUserBulkUploadProcessingServiceImpl implements NonGovtUserBu
         return additionalProperties;
     }
 
+    /**
+     * Returns current timestamp formatted in IST timezone.
+     * Uses java.time API for thread-safe date formatting.
+     *
+     * @return Current timestamp as formatted string in IST timezone
+     */
     private String currentIstTimestamp() {
-        SimpleDateFormat sdf = new SimpleDateFormat(Constants.PROFILE_STATUS_DATE_FORMAT);
-        sdf.setTimeZone(TimeZone.getTimeZone(Constants.IST_TIMEZONE));
-        return sdf.format(new Date());
+        ZoneId istZone = ZoneId.of(Constants.IST_TIMEZONE);
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern(Constants.PROFILE_STATUS_DATE_FORMAT);
+        return ZonedDateTime.now(istZone).format(formatter);
     }
 
     /**
@@ -1062,5 +1035,141 @@ public class NonGovtUserBulkUploadProcessingServiceImpl implements NonGovtUserBu
      */
     private void cacheValidValues(Set<String> validValues) {
         redisCacheMgr.putCacheAsStringArray(Constants.LANGUAGES, validValues.toArray(new String[0]), null);
+    }
+
+
+    /**
+     * Validates mandatory fields (Full Name, Mobile Number, Email, External ID) using
+     * FieldValidationRule pipeline. Also checks for duplicate mobile numbers within the
+     * same upload file.
+     *
+     * @param rowData User row data containing all field values
+     * @param seenMobileNumbers Set of mobile numbers already processed in this upload
+     * @param errors List to collect validation error messages
+     */
+    private void validateMandatoryFields(UserRowData rowData, Set<String> seenMobileNumbers, List<String> errors) {
+        List<FieldValidationRule> rules = Arrays.asList(
+                new FieldValidationRule(Constants.NON_GOVT_CSV_COLUMN_FULL_NAME, rowData.getFullName(), true,
+                        ProjectUtil::validateFullName, Constants.NON_GOVT_BULK_UPLOAD_INVALID_FULL_NAME_ERROR),
+                new FieldValidationRule(Constants.NON_GOVT_CSV_COLUMN_MOBILE_NUMBER, rowData.getMobileNumber(), true,
+                        ProjectUtil::validateContactPattern, Constants.NON_GOVT_BULK_UPLOAD_INVALID_MOBILE_ERROR),
+                new FieldValidationRule(Constants.NON_GOVT_CSV_COLUMN_EMAIL, rowData.getEmail(), true,
+                        ProjectUtil::validateEmailPattern, Constants.NON_GOVT_BULK_UPLOAD_INVALID_EMAIL_ERROR),
+                new FieldValidationRule(Constants.NON_GOVT_CSV_COLUMN_EXTERNAL_ID, rowData.getExternalId(), false,
+                        ProjectUtil::validateExternalSystemId, Constants.NON_GOVT_BULK_UPLOAD_INVALID_EXTERNAL_ID_ERROR));
+
+        for (FieldValidationRule rule : rules) {
+            List<String> fieldErrors = applyFieldValidationRule(rule);
+            errors.addAll(fieldErrors);
+            checkForDuplicateMobileNumber(rule, fieldErrors, seenMobileNumbers, errors);
+        }
+    }
+
+    /**
+     * Checks if the current field is a mobile number and if it's a duplicate within
+     * the same upload file. Only adds duplicate error if the mobile number itself
+     * passed validation (no previous errors for this field).
+     *
+     * @param rule Field validation rule being processed
+     * @param fieldErrors Validation errors for the current field
+     * @param seenMobileNumbers Set of mobile numbers already seen in this upload
+     * @param errors List to collect duplicate mobile error if found
+     */
+    private void checkForDuplicateMobileNumber(FieldValidationRule rule, List<String> fieldErrors,
+                                               Set<String> seenMobileNumbers, List<String> errors) {
+        boolean isMobileNumberField = Constants.NON_GOVT_CSV_COLUMN_MOBILE_NUMBER.equals(rule.columnName);
+        boolean hasNoPreviousErrors = fieldErrors.isEmpty();
+        boolean isDuplicate = seenMobileNumbers.contains(rule.value);
+
+        if (isMobileNumberField && hasNoPreviousErrors && isDuplicate) {
+            errors.add(Constants.NON_GOVT_BULK_UPLOAD_DUPLICATE_MOBILE_ERROR);
+        }
+    }
+
+    /**
+     * Validates optional fields (Gender, Category, Mother Tongue, Date of Birth).
+     * Each field is validated only if present (non-blank).
+     *
+     * @param rowData User row data containing all field values
+     * @param errors List to collect validation error messages
+     */
+    private void validateOptionalFields(UserRowData rowData, List<String> errors) {
+        validateGenderField(rowData.getGender(), errors);
+        validateCategoryField(rowData.getCategory(), errors);
+        validateMotherTongueField(rowData.getMotherTongue(), errors);
+        validateDateOfBirthField(rowData.getDob(), errors);
+    }
+
+    /**
+     * Validates gender field against allowed values (Male, Female, Others).
+     * Case-insensitive validation - accepts any case but must match one of the allowed values.
+     * Blank values are allowed (optional field).
+     *
+     * @param gender Gender value from CSV/Excel row
+     * @param errors List to collect validation error if gender is invalid
+     */
+    private void validateGenderField(String gender, List<String> errors) {
+        if (StringUtils.isBlank(gender)) {
+            return;
+        }
+        if (!normalizeGender(gender).isPresent()) {
+            errors.add(Constants.NON_GOVT_BULK_UPLOAD_INVALID_GENDER_ERROR);
+        }
+    }
+
+    /**
+     * Validates category field against allowed values (General, OBC, SC, ST).
+     * Case-insensitive validation - accepts any case but must match one of the allowed values.
+     * Blank values are allowed (optional field).
+     *
+     * @param category Category value from CSV/Excel row
+     * @param errors List to collect validation error if category is invalid
+     */
+    private void validateCategoryField(String category, List<String> errors) {
+        if (StringUtils.isBlank(category)) {
+            return;
+        }
+        if (!normalizeCategory(category).isPresent()) {
+            errors.add(Constants.NON_GOVT_BULK_UPLOAD_INVALID_CATEGORY_ERROR);
+        }
+    }
+
+    /**
+     * Validates mother tongue field against database master data list (LANGUAGES context).
+     * Checks for special characters and validates against database list with Redis caching.
+     * Blank values are allowed (optional field).
+     *
+     * @param motherTongue Mother tongue value from CSV/Excel row
+     * @param errors List to collect validation error if mother tongue is invalid
+     */
+    private void validateMotherTongueField(String motherTongue, List<String> errors) {
+        if (StringUtils.isBlank(motherTongue)) {
+            return;
+        }
+        boolean hasSpecialCharacters = !ProjectUtil.validateRegexPatternWithNoSpecialCharacter(motherTongue);
+        boolean isNotInValidList = validateFieldValue(motherTongue);
+
+        if (hasSpecialCharacters || isNotInValidList) {
+            errors.add(Constants.NON_GOVT_BULK_UPLOAD_INVALID_MOTHER_TONGUE_ERROR);
+        }
+    }
+
+    /**
+     * Validates date of birth field for dd-MM-yyyy format and checks for newline characters.
+     * Blank values are allowed (optional field).
+     *
+     * @param dob Date of birth value from CSV/Excel row
+     * @param errors List to collect validation error if date format is invalid
+     */
+    private void validateDateOfBirthField(String dob, List<String> errors) {
+        if (StringUtils.isBlank(dob)) {
+            return;
+        }
+        boolean isInvalidFormat = !ProjectUtil.validateDate(dob);
+        boolean hasNewLineCharacters = ProjectUtil.validatesNewLine(dob);
+
+        if (isInvalidFormat || hasNewLineCharacters) {
+            errors.add(Constants.NON_GOVT_BULK_UPLOAD_INVALID_DOB_ERROR);
+        }
     }
 }
