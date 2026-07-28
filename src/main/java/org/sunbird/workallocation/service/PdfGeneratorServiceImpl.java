@@ -27,6 +27,7 @@ import org.sunbird.workallocation.model.PdfGeneratorRequest;
 import org.sunbird.workallocation.util.WorkAllocationConstants;
 
 import java.io.*;
+import java.nio.file.Files;
 import java.text.SimpleDateFormat;
 import java.util.*;
 
@@ -79,6 +80,9 @@ public class PdfGeneratorServiceImpl implements PdfGeneratorService {
 
 	@Value("${img.store.path}")
 	public String imgFolderPath;
+
+	@Value("${self.enrolment.qr.base.url}")
+	public String selfEnrolQrBaseUrl;
 
 	public byte[] generatePdf(PdfGeneratorRequest request) throws Exception {
 		if (StringUtils.isEmpty(request.getTemplateId())) {
@@ -748,7 +752,6 @@ public class PdfGeneratorServiceImpl implements PdfGeneratorService {
 			throw new BadRequestException("Batch not exist for the passed CourseId : " + courseId + " & BatchId : " + batchId);
 		}
 		Map<String, Object> batch = batches.get(0);
-		String batchName = (String) batch.get(Constants.NAME);
 
 		Map<String, Object> compositeSearchRes = fetchCourseName(authUserToken, courseId);
 		Map<String, Object> compositeSearchResult = (Map<String, Object>) compositeSearchRes.get(Constants.RESULT);
@@ -757,35 +760,18 @@ public class PdfGeneratorServiceImpl implements PdfGeneratorService {
 			throw new BadRequestException("Blended Program not found for CourseId : " + courseId);
 		}
 		Map<String, Object> programContent = content.get(0);
-		String blendedProgramName = (String) programContent.get(Constants.NAME);
 
 		String selfEnrolment = (String) programContent.get("selfEnrolment");
-		boolean selfEnrolmentEnabled = "Yes".equalsIgnoreCase(selfEnrolment);
-		if (!selfEnrolmentEnabled) {
+		if (!"Yes".equalsIgnoreCase(selfEnrolment)) {
 			throw new BadRequestException("Self-enrollment is not enabled for this Blended Program. Cannot generate QR code.");
 		}
 
-		HashMap<String,Object> qrBody = new HashMap<>();
-		qrBody.put(Constants.COURSE_ID, courseId);
-		qrBody.put(Constants.BATCH_ID, batchId);
-		ObjectMapper objectMapper = new ObjectMapper();
-		String qrCodeBody = objectMapper.writeValueAsString(qrBody);
-		File qrCodeFile = QRCode.from(qrCodeBody).to(ImageType.PNG).file(batchId);
-
-		HashMap<String,HashMap<String,String>> pdfDetails = populatePDFTemplateDetails();
-		HashMap<String,HashMap> pdfParams = populatePDFParams();
-		HashMap<String,String> sessionBlock = new HashMap<>();
-		sessionBlock.put(Constants.BLENDED_PROGRAM_NAME, blendedProgramName);
-		sessionBlock.put(Constants.BATCH_NAME, batchName);
-		sessionBlock.put(Constants.START_DATE, (String) batch.get(Constants.START_DATE));
-		sessionBlock.put(Constants.QR_CODE_URL, qrCodeFile.getAbsolutePath());
-		pdfParams.put(Constants.SESSION + "0", sessionBlock);
-
-		byte[] pdfBytes = generatePdf(pdfDetails, pdfParams);
+		String deepLink = selfEnrolQrBaseUrl + "/app/toc/" + courseId + "?batchId=" + batchId + "&selfEnrol=true";
+		File qrCodeFile = QRCode.from(deepLink).to(ImageType.PNG).file(batchId);
 
 		updateBatchAttribute(courseId, batchId, "selfEnrolQrGenerated", true);
 
-		return pdfBytes;
+		return Files.readAllBytes(qrCodeFile.toPath());
 	}
 
 	private void updateBatchAttribute(String courseId, String batchId, String key, Object value) {
