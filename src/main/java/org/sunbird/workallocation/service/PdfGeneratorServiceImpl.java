@@ -530,6 +530,7 @@ public class PdfGeneratorServiceImpl implements PdfGeneratorService {
 		HashMap<String, Object> req = new HashMap<>();
 		List<String> fields = new ArrayList<>();
 		fields.add("name");
+		fields.add("selfEnrollment");
 		req.put(Constants.FIELDS,fields);
 		Map<String, Object> filters = new HashMap<>();
 		filters.put(Constants.IDENTIFIER, courseId);
@@ -701,6 +702,133 @@ public class PdfGeneratorServiceImpl implements PdfGeneratorService {
 			log.info("Failed to create PNG file for filename ===> {}", htmlFilePath);
 		}
 		return jpgFilePath;
+	}
+
+	@Override
+	public Map<String, Object> getQRStatus(String courseId, String batchId) {
+		HashMap propertyMap = new HashMap();
+		propertyMap.put(Constants.COURSE_ID, courseId);
+		propertyMap.put(Constants.BATCH_ID, batchId);
+
+		List<Map<String, Object>> batches = cassandraOperation.getRecordsByProperties(
+				Constants.KEYSPACE_SUNBIRD_COURSES, Constants.TABLE_COURSE_BATCH, propertyMap, ListUtils.EMPTY_LIST);
+		if (batches == null || batches.isEmpty()) {
+			throw new BadRequestException("Batch not exist for the passed CourseId : " + courseId + " & BatchId : " + batchId);
+		}
+
+		Map<String, Object> batch = batches.get(0);
+		boolean generated = false;
+		try {
+			ObjectMapper objectMapper = new ObjectMapper();
+			Map<String, Object> batchAttributes = objectMapper.readValue(
+					(String) batch.get(Constants.TABLE_COURSE_BATCH_ATTRIBUTES), Map.class);
+			generated = Boolean.TRUE.equals(batchAttributes.get("selfEnrolQrGenerated"));
+		} catch (Exception e) {
+			log.error("Failed to parse batchAttributes for CourseId: " + courseId + ", BatchId: " + batchId, e);
+		}
+
+		Map<String, Object> response = new HashMap<>();
+		response.put("selfEnrolQrGenerated", generated);
+		return response;
+	}
+
+	@Override
+	public byte[] getBatchEnrollmentQRPdf(String authUserToken, String courseId, String batchId) throws IOException {
+		if (StringUtils.isEmpty(courseId) || StringUtils.isEmpty(batchId)) {
+			throw new BadRequestException("CourseId & BatchId should be passed!");
+		}
+
+		HashMap propertyMap = new HashMap();
+		propertyMap.put(Constants.COURSE_ID, courseId);
+		propertyMap.put(Constants.BATCH_ID, batchId);
+
+		List<Map<String, Object>> batches = cassandraOperation.getRecordsByProperties(
+				Constants.KEYSPACE_SUNBIRD_COURSES, Constants.TABLE_COURSE_BATCH, propertyMap, ListUtils.EMPTY_LIST);
+		if (batches == null || batches.isEmpty()) {
+			throw new BadRequestException("Batch not exist for the passed CourseId : " + courseId + " & BatchId : " + batchId);
+		}
+		Map<String, Object> batch = batches.get(0);
+		String batchName = (String) batch.get(Constants.NAME);
+
+		Map<String, Object> compositeSearchRes = fetchCourseName(authUserToken, courseId);
+		Map<String, Object> compositeSearchResult = (Map<String, Object>) compositeSearchRes.get(Constants.RESULT);
+		List<Map<String, Object>> content = (List<Map<String, Object>>) compositeSearchResult.get(Constants.CONTENT);
+		if (content == null || content.isEmpty()) {
+			throw new BadRequestException("Blended Program not found for CourseId : " + courseId);
+		}
+		Map<String, Object> programContent = content.get(0);
+		String blendedProgramName = (String) programContent.get(Constants.NAME);
+
+		String selfEnrolment = (String) programContent.get("selfEnrolment");
+		boolean selfEnrolmentEnabled = "Yes".equalsIgnoreCase(selfEnrolment);
+		if (!selfEnrolmentEnabled) {
+			throw new BadRequestException("Self-enrollment is not enabled for this Blended Program. Cannot generate QR code.");
+		}
+
+		HashMap<String,Object> qrBody = new HashMap<>();
+		qrBody.put(Constants.COURSE_ID, courseId);
+		qrBody.put(Constants.BATCH_ID, batchId);
+		ObjectMapper objectMapper = new ObjectMapper();
+		String qrCodeBody = objectMapper.writeValueAsString(qrBody);
+		File qrCodeFile = QRCode.from(qrCodeBody).to(ImageType.PNG).file(batchId);
+
+		HashMap<String,HashMap<String,String>> pdfDetails = populatePDFTemplateDetails();
+		HashMap<String,HashMap> pdfParams = populatePDFParams();
+		HashMap<String,String> sessionBlock = new HashMap<>();
+		sessionBlock.put(Constants.BLENDED_PROGRAM_NAME, blendedProgramName);
+		sessionBlock.put(Constants.BATCH_NAME, batchName);
+		sessionBlock.put(Constants.START_DATE, (String) batch.get(Constants.START_DATE));
+		sessionBlock.put(Constants.QR_CODE_URL, qrCodeFile.getAbsolutePath());
+		pdfParams.put(Constants.SESSION + "0", sessionBlock);
+
+		byte[] pdfBytes = generatePdf(pdfDetails, pdfParams);
+
+		updateBatchAttribute(courseId, batchId, "selfEnrolQrGenerated", true);
+
+		return pdfBytes;
+	}
+
+	private void updateBatchAttribute(String courseId, String batchId, String key, Object value) {
+		HashMap propertyMap = new HashMap();
+		propertyMap.put(Constants.COURSE_ID, courseId);
+		propertyMap.put(Constants.BATCH_ID, batchId);
+
+		List<Map<String, Object>> batches = cassandraOperation.getRecordsByProperties(
+				Constants.KEYSPACE_SUNBIRD_COURSES, Constants.TABLE_COURSE_BATCH, propertyMap, ListUtils.EMPTY_LIST);
+		if (batches == null || batches.isEmpty()) {
+			throw new BadRequestException("Batch not exist for the passed CourseId : " + courseId + " & BatchId : " + batchId);
+		}
+		Map<String, Object> batch = batches.get(0);
+
+		try {
+			ObjectMapper objectMapper = new ObjectMapper();
+			Map<String, Object> batchAttributes;
+			Object existingAttrs = batch.get(Constants.TABLE_COURSE_BATCH_ATTRIBUTES);
+			if (existingAttrs != null && !StringUtils.isEmpty((String) existingAttrs)) {
+				batchAttributes = objectMapper.readValue((String) existingAttrs, Map.class);
+			} else {
+				batchAttributes = new HashMap<>();
+			}
+
+			batchAttributes.put(key, value);
+			String updatedAttrsJson = objectMapper.writeValueAsString(batchAttributes);
+
+			Map<String, Object> updateFields = new HashMap<>();
+			updateFields.put(Constants.TABLE_COURSE_BATCH_ATTRIBUTES, updatedAttrsJson);
+
+			Map<String, Object> primaryKey = new HashMap<>();
+			primaryKey.put(Constants.COURSE_ID, courseId);
+			primaryKey.put(Constants.BATCH_ID, batchId);
+
+			cassandraOperation.updateRecord(
+					Constants.KEYSPACE_SUNBIRD_COURSES,
+					Constants.TABLE_COURSE_BATCH,
+					updateFields,
+					primaryKey
+			);
+		} catch (IOException e) {
+			throw new RuntimeException("Failed to parse/update batchAttributes for CourseId: " + courseId + ", BatchId: " + batchId, e);
+		}
 	}
 
 }

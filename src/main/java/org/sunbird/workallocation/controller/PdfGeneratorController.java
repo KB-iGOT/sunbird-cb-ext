@@ -10,6 +10,7 @@ import org.sunbird.workallocation.model.PdfGeneratorRequest;
 import org.sunbird.workallocation.service.PdfGeneratorService;
 
 import java.io.IOException;
+import java.util.Map;
 
 @RestController
 public class PdfGeneratorController {
@@ -50,6 +51,25 @@ public class PdfGeneratorController {
 	@GetMapping(value = "/getBatchSessionQRPdf/{courseId}/{batchId}", produces = MediaType.APPLICATION_PDF_VALUE)
 	public ResponseEntity<?> getBatchSessionQRPdf(@RequestHeader("x-authenticated-user-token") String authUserToken, @PathVariable("courseId") String courseId, @PathVariable("batchId") String batchId) throws IOException {
 		return new ResponseEntity<>(pdfGeneratorService.getBatchSessionQRPdf(authUserToken,courseId,batchId), HttpStatus.OK);
+	}
+
+	@GetMapping(value = "/v1/batch/enrollment/qrcode/status/{courseId}/{batchId}")
+	public ResponseEntity<Map<String, Object>> getQRStatus(
+			@PathVariable("courseId") String courseId,
+			@PathVariable("batchId") String batchId) {
+		return new ResponseEntity<>(pdfGeneratorService.getQRStatus(courseId, batchId), HttpStatus.OK);
+	}
+
+	@GetMapping(value = "/v1/batch/enrollment/qrcode/download/{courseId}/{batchId}", produces = MediaType.APPLICATION_PDF_VALUE)
+	public ResponseEntity<?> downloadEnrollmentQR(
+			@RequestHeader("x-authenticated-user-token") String authUserToken,
+			@PathVariable("courseId") String courseId,
+			@PathVariable("batchId") String batchId) throws IOException {
+		byte[] pdfBytes = pdfGeneratorService.getBatchEnrollmentQRPdf(authUserToken, courseId, batchId);
+		HttpHeaders headers = new HttpHeaders();
+		headers.setContentType(MediaType.APPLICATION_PDF);
+		headers.add("Content-Disposition", "attachment; filename=enrollment_qr_" + batchId + ".pdf");
+		return new ResponseEntity<>(pdfBytes, headers, HttpStatus.OK);
 	}
 
 }
