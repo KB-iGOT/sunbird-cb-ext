@@ -737,41 +737,93 @@ public class PdfGeneratorServiceImpl implements PdfGeneratorService {
 	}
 
 	@Override
-	public byte[] getBatchEnrollmentQRPdf(String authUserToken, String courseId, String batchId) throws IOException {
+	public byte[] getBatchEnrollmentQRPdf(String authUserToken,
+	                                      String courseId,
+	                                      String batchId) throws IOException {
+
 		if (StringUtils.isEmpty(courseId) || StringUtils.isEmpty(batchId)) {
 			throw new BadRequestException("CourseId & BatchId should be passed!");
 		}
 
+		HashMap<String, HashMap<String, String>> pdfDetails = populatePDFTemplateDetails();
+		HashMap<String, HashMap> pdfParams = populatePDFParams();
+		log.info("Generating enrollment QR PDF for courseId: {}, batchId: {}", courseId, batchId);
 		HashMap propertyMap = new HashMap();
 		propertyMap.put(Constants.COURSE_ID, courseId);
 		propertyMap.put(Constants.BATCH_ID, batchId);
 
 		List<Map<String, Object>> batches = cassandraOperation.getRecordsByProperties(
-				Constants.KEYSPACE_SUNBIRD_COURSES, Constants.TABLE_COURSE_BATCH, propertyMap, ListUtils.EMPTY_LIST);
-		if (batches == null || batches.isEmpty()) {
-			throw new BadRequestException("Batch not exist for the passed CourseId : " + courseId + " & BatchId : " + batchId);
-		}
-		Map<String, Object> batch = batches.get(0);
+				Constants.KEYSPACE_SUNBIRD_COURSES,
+				Constants.TABLE_COURSE_BATCH,
+				propertyMap,
+				ListUtils.EMPTY_LIST);
 
-		Map<String, Object> compositeSearchRes = fetchCourseName(authUserToken, courseId);
-		Map<String, Object> compositeSearchResult = (Map<String, Object>) compositeSearchRes.get(Constants.RESULT);
-		List<Map<String, Object>> content = (List<Map<String, Object>>) compositeSearchResult.get(Constants.CONTENT);
-		if (content == null || content.isEmpty()) {
-			throw new BadRequestException("Blended Program not found for CourseId : " + courseId);
+		if (batches == null || batches.isEmpty()) {
+			throw new BadRequestException(
+					"Batch not exist for the passed CourseId : "
+							+ courseId + " & BatchId : " + batchId);
 		}
+
+		Map<String, Object> batch = batches.get(0);
+		String batchName = (String) batch.get(Constants.NAME);
+		log.info("Batch found. Batch Name: {}", batchName);
+		Map<String, Object> compositeSearchRes =
+				fetchCourseName(authUserToken, courseId);
+
+		Map<String, Object> compositeSearchResult =
+				(Map<String, Object>) compositeSearchRes.get(Constants.RESULT);
+
+		List<Map<String, Object>> content =
+				(List<Map<String, Object>>) compositeSearchResult.get(Constants.CONTENT);
+
+		if (content == null || content.isEmpty()) {
+			throw new BadRequestException(
+					"Blended Program not found for CourseId : " + courseId);
+		}
+
 		Map<String, Object> programContent = content.get(0);
 
-		String selfEnrolment = (String) programContent.get("selfEnrolment");
+		String blendedProgramName =
+				(String) programContent.get(Constants.NAME);
+
+		String selfEnrolment =
+				(String) programContent.get("selfEnrolment");
+		log.info("Blended Program: {}, Self Enrollment: {}", blendedProgramName, selfEnrolment);
 		if (!"Yes".equalsIgnoreCase(selfEnrolment)) {
-			throw new BadRequestException("Self-enrollment is not enabled for this Blended Program. Cannot generate QR code.");
+			throw new BadRequestException(
+					"Self-enrollment is not enabled for this Blended Program.");
 		}
 
-		String deepLink = selfEnrolQrBaseUrl + "/app/toc/" + courseId + "?batchId=" + batchId + "&selfEnrol=true";
-		File qrCodeFile = QRCode.from(deepLink).to(ImageType.PNG).file(batchId);
+		String deepLink =
+				selfEnrolQrBaseUrl
+						+ "/app/toc/"
+						+ courseId
+						+ "?batchId="
+						+ batchId
+						+ "&selfEnrol=true";
 
-		updateBatchAttribute(courseId, batchId, "selfEnrolQrGenerated", true);
+		File qrCodeFile = QRCode.from(deepLink)
+				.to(ImageType.PNG)
+				.file(batchId);
+		log.info("QR Code generated at: {}", qrCodeFile.getAbsolutePath());
+		HashMap<String, String> enrollment = new HashMap<>();
+		enrollment.put(Constants.BLENDED_PROGRAM_NAME, blendedProgramName);
+		enrollment.put(Constants.BATCH_NAME, batchName);
+		enrollment.put(Constants.START_DATE, "");
+		enrollment.put(Constants.START_TIME_KEY, "");
+		enrollment.put(Constants.END_TIME_KEY, "");
+		enrollment.put(Constants.SESSION_NAME, "Enrollment QR");
+		enrollment.put(Constants.QR_CODE_URL, qrCodeFile.getAbsolutePath());
 
-		return Files.readAllBytes(qrCodeFile.toPath());
+		pdfParams.put(Constants.SESSION + "0", enrollment);
+
+		updateBatchAttribute(
+				courseId,
+				batchId,
+				"selfEnrolQrGenerated",
+				true);
+		log.info("Generating PDF for enrollment QR.");
+		return generatePdf(pdfDetails, pdfParams);
 	}
 
 	private void updateBatchAttribute(String courseId, String batchId, String key, Object value) {
