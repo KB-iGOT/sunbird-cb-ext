@@ -67,7 +67,7 @@ public class PdfGeneratorController {
 			@PathVariable("batchId") String batchId) throws IOException {
 		byte[] pdfBytes = pdfGeneratorService.getBatchEnrollmentQRPdf(authUserToken, courseId, batchId);
 		HttpHeaders headers = new HttpHeaders();
-		headers.setContentType(MediaType.APPLICATION_PDF);
+		headers.setContentType(MediaType.IMAGE_PNG);
 		headers.add("Content-Disposition", "attachment; filename=enrollment_qr_" + batchId + ".png");
 		return new ResponseEntity<>(pdfBytes, headers, HttpStatus.OK);
 	}
