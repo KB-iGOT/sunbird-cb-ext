@@ -765,11 +765,10 @@ public class PdfGeneratorServiceImpl implements PdfGeneratorService {
 		}
 
 		Map<String, Object> batch = batches.get(0);
-		String batchName = (String) batch.get(Constants.NAME);
-		log.info("Batch found. Batch Name: {}", batchName);
-		Map<String, Object> compositeSearchRes =
-				fetchCourseName(authUserToken, courseId);
 
+		String batchName = (String) batch.get(Constants.NAME);
+
+		Map<String, Object> compositeSearchRes = fetchCourseName(authUserToken, courseId);
 		Map<String, Object> compositeSearchResult =
 				(Map<String, Object>) compositeSearchRes.get(Constants.RESULT);
 
@@ -783,29 +782,16 @@ public class PdfGeneratorServiceImpl implements PdfGeneratorService {
 
 		Map<String, Object> programContent = content.get(0);
 
-		String blendedProgramName =
-				(String) programContent.get(Constants.NAME);
+		String blendedProgramName = (String) programContent.get(Constants.NAME);
 
-		String selfEnrolment =
-				(String) programContent.get("selfEnrolment");
-		log.info("Blended Program: {}, Self Enrollment: {}", blendedProgramName, selfEnrolment);
+		String selfEnrolment = (String) programContent.get("selfEnrolment");
 		if (!"Yes".equalsIgnoreCase(selfEnrolment)) {
 			throw new BadRequestException(
 					"Self-enrollment is not enabled for this Blended Program.");
 		}
 
-		String deepLink =
-				selfEnrolQrBaseUrl
-						+ "/app/toc/"
-						+ courseId
-						+ "?batchId="
-						+ batchId
-						+ "&selfEnrol=true";
+		String qrCodePath = generateBatchEnrollmentQRCode(courseId, batchId);
 
-		File qrCodeFile = QRCode.from(deepLink)
-				.to(ImageType.PNG)
-				.file(batchId);
-		log.info("QR Code generated at: {}", qrCodeFile.getAbsolutePath());
 		HashMap<String, String> enrollment = new HashMap<>();
 		enrollment.put(Constants.BLENDED_PROGRAM_NAME, blendedProgramName);
 		enrollment.put(Constants.BATCH_NAME, batchName);
@@ -813,16 +799,12 @@ public class PdfGeneratorServiceImpl implements PdfGeneratorService {
 		enrollment.put(Constants.START_TIME_KEY, "");
 		enrollment.put(Constants.END_TIME_KEY, "");
 		enrollment.put(Constants.SESSION_NAME, "Enrollment QR");
-		enrollment.put(Constants.QR_CODE_URL, qrCodeFile.getAbsolutePath());
+		enrollment.put(Constants.QR_CODE_URL, qrCodePath);
 
 		pdfParams.put(Constants.SESSION + "0", enrollment);
 
-		updateBatchAttribute(
-				courseId,
-				batchId,
-				"selfEnrolQrGenerated",
-				true);
-		log.info("Generating PDF for enrollment QR.");
+		updateBatchAttribute(courseId, batchId, "selfEnrolQrGenerated", true);
+
 		return generatePdf(pdfDetails, pdfParams);
 	}
 
@@ -866,6 +848,23 @@ public class PdfGeneratorServiceImpl implements PdfGeneratorService {
 			);
 		} catch (IOException e) {
 			throw new RuntimeException("Failed to parse/update batchAttributes for CourseId: " + courseId + ", BatchId: " + batchId, e);
+		}
+	}
+
+	private String generateBatchEnrollmentQRCode(String courseId, String batchId) {
+		HashMap<String, Object> qrBody = new HashMap<>();
+		qrBody.put(Constants.COURSE_ID, courseId);
+		qrBody.put(Constants.BATCH_ID, batchId);
+		qrBody.put("selfEnrol", true);
+
+		try {
+			String qrCodeBody = mapper.writeValueAsString(qrBody);
+			File qrCodeFile = QRCode.from(qrCodeBody)
+					.to(ImageType.PNG)
+					.file(batchId);
+			return qrCodeFile.getAbsolutePath();
+		} catch (JsonProcessingException e) {
+			throw new RuntimeException(e);
 		}
 	}
 
