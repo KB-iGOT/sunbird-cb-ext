@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import net.glxn.qrgen.core.image.ImageType;
 import net.glxn.qrgen.javase.QRCode;
 import org.apache.commons.collections.ListUtils;
+import org.apache.commons.collections.MapUtils;
 import org.apache.commons.io.IOUtils;
 import org.apache.velocity.Template;
 import org.apache.velocity.VelocityContext;
@@ -19,6 +20,7 @@ import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestTemplate;
 import org.sunbird.cassandra.utils.CassandraOperation;
+import org.sunbird.common.service.ContentService;
 import org.sunbird.common.service.OutboundRequestHandlerServiceImpl;
 import org.sunbird.common.util.CbExtServerProperties;
 import org.sunbird.common.util.Constants;
@@ -83,6 +85,9 @@ public class PdfGeneratorServiceImpl implements PdfGeneratorService {
 
 	@Value("${self.enrolment.qr.base.url}")
 	public String selfEnrolQrBaseUrl;
+
+	@Autowired
+	private ContentService contentService;
 
 	public byte[] generatePdf(PdfGeneratorRequest request) throws Exception {
 		if (StringUtils.isEmpty(request.getTemplateId())) {
@@ -768,24 +773,19 @@ public class PdfGeneratorServiceImpl implements PdfGeneratorService {
 
 		String batchName = (String) batch.get(Constants.NAME);
 
-		Map<String, Object> compositeSearchRes = fetchCourseName(authUserToken, courseId);
-		Map<String, Object> compositeSearchResult =
-				(Map<String, Object>) compositeSearchRes.get(Constants.RESULT);
+		Map<String, Object> programContent = contentService.readContentFromCache(
+				courseId,
+				Arrays.asList(Constants.NAME, "selfEnrollment")
+		);
 
-		List<Map<String, Object>> content =
-				(List<Map<String, Object>>) compositeSearchResult.get(Constants.CONTENT);
-
-		if (content == null || content.isEmpty()) {
+		if (MapUtils.isEmpty(programContent)) {
 			throw new BadRequestException(
 					"Blended Program not found for CourseId : " + courseId);
 		}
 
-		Map<String, Object> programContent = content.get(0);
-
 		String blendedProgramName = (String) programContent.get(Constants.NAME);
-
-		String selfEnrolment = (String) programContent.get("selfEnrolment");
-		if (!"Yes".equalsIgnoreCase(selfEnrolment)) {
+		String selfEnrollment = (String) programContent.get("selfEnrollment");
+		if (!"Yes".equalsIgnoreCase(selfEnrollment)) {
 			throw new BadRequestException(
 					"Self-enrollment is not enabled for this Blended Program.");
 		}
