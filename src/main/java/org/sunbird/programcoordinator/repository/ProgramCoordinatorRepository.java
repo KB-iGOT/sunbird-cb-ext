@@ -1,5 +1,6 @@
 package org.sunbird.programcoordinator.repository;
 
+import java.util.List;
 import java.util.UUID;
 
 import javax.transaction.Transactional;
@@ -12,6 +13,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.sunbird.programcoordinator.entity.ProgramCoordinatorEntity;
 import org.sunbird.programcoordinator.entity.ProgramCoordinatorId;
+import org.sunbird.programcoordinator.entity.UserProgramProjection;
 
 public interface ProgramCoordinatorRepository extends JpaRepository<ProgramCoordinatorEntity, ProgramCoordinatorId> {
 
@@ -48,10 +50,34 @@ public interface ProgramCoordinatorRepository extends JpaRepository<ProgramCoord
      * idx_pc_program_role_active (the only index able to satisfy this WHERE) happens to walk in,
      * without this query ever declaring that as a contract.
      */
-    @Query(value = "SELECT pc.user_id AS userId, pc.role_id AS roleId, r.role_name AS roleName "
-            + "FROM program_coordinator pc JOIN program_coordinator_role r ON r.id = pc.role_id "
-            + "WHERE pc.program_id = :programId AND pc.status = 1",
-            countQuery = "SELECT count(*) FROM program_coordinator WHERE program_id = :programId AND status = 1",
-            nativeQuery = true)
-    Page<ProgramCoordinatorListItem> findCoordinators(@Param("programId") String programId, Pageable pageable);
+    @Query("SELECT new org.sunbird.programcoordinator.repository.ProgramCoordinatorListDto(" +
+            "pc.userId, pc.roleId, r.roleName) " +
+            "FROM ProgramCoordinatorEntity pc, ProgramCoordinatorRoleEntity r " +
+            "WHERE pc.roleId = r.id " +
+            "AND pc.programId = :programId " +
+            "AND pc.status = 1")
+    Page<ProgramCoordinatorListDto> findCoordinators(
+            @Param("programId") String programId,
+            Pageable pageable);
+
+    @Query(
+            "select pc.programId " +
+                    "from ProgramCoordinatorEntity pc " +
+                    "where pc.userId = :userId " +
+                    "and pc.status = 1"
+    )
+    List<String> findActiveProgramIdsByUserId(@Param("userId") UUID userId);
+
+    @Query("SELECT pc FROM ProgramCoordinatorEntity pc " +
+            "WHERE pc.programId = :programId " +
+            "AND pc.status = 1")
+    List<ProgramCoordinatorEntity> findActiveByProgramId(
+            @Param("programId") String programId);
+
+    @Query("select pc.userId as userId, pc.programId as programId " +
+            "from ProgramCoordinatorEntity pc " +
+            "where pc.status = 1 " +
+            "and pc.userId in :userIds")
+    List<UserProgramProjection> findActiveProgramsByUserIds(
+            @Param("userIds") List<UUID> userIds);
 }
