@@ -142,6 +142,8 @@ public class Constants {
 	public static final String API_BUDGET_SCHEME_READ = "api.budget.scheme.read";
 	public static final String API_BUDGET_SCHEME_DELETE = "api.budget.scheme.delete";
 	public static final String API_BUDGET_SCHEME_HISTORY_READ = "api.budget.scheme.history.read";
+	public static final String API_PROGRAM_COORDINATOR_UPSERT = "api.program.coordinator.upsert";
+	public static final String API_PROGRAM_COORDINATOR_LIST = "api.program.coordinator.list";
 	public static final String API_FILE_UPLOAD = "api.file.upload";
 	public static final String API_FILE_DELETE = "api.file.delete";
 	public static final String API_PROFILE_UPDATE = "api.profile.update";
@@ -675,6 +677,7 @@ public class Constants {
 	public static final String PHONE_VERIFIED = "phoneVerified";
 	public static final String QUERY = "query";
 	public static final String SORT_BY_KEYWORD = "sortBy";
+	public static final String SORT_DIRECTION = "sortDirection";
 	public static final String SUCCESSFUL_UPPERCASE = "SUCCESSFUL";
 	public static final String FAILED_UPPERCASE = "FAILED";
 	public static final String STATUS_IN_PROGRESS_UPPERCASE = "IN-PROGRESS";
