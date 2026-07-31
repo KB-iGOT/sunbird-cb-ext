@@ -142,6 +142,8 @@ public class Constants {
 	public static final String API_BUDGET_SCHEME_READ = "api.budget.scheme.read";
 	public static final String API_BUDGET_SCHEME_DELETE = "api.budget.scheme.delete";
 	public static final String API_BUDGET_SCHEME_HISTORY_READ = "api.budget.scheme.history.read";
+	public static final String API_PROGRAM_COORDINATOR_UPSERT = "api.program.coordinator.upsert";
+	public static final String API_PROGRAM_COORDINATOR_LIST = "api.program.coordinator.list";
 	public static final String API_FILE_UPLOAD = "api.file.upload";
 	public static final String API_FILE_DELETE = "api.file.delete";
 	public static final String API_PROFILE_UPDATE = "api.profile.update";
@@ -675,6 +677,7 @@ public class Constants {
 	public static final String PHONE_VERIFIED = "phoneVerified";
 	public static final String QUERY = "query";
 	public static final String SORT_BY_KEYWORD = "sortBy";
+	public static final String SORT_DIRECTION = "sortDirection";
 	public static final String SUCCESSFUL_UPPERCASE = "SUCCESSFUL";
 	public static final String FAILED_UPPERCASE = "FAILED";
 	public static final String STATUS_IN_PROGRESS_UPPERCASE = "IN-PROGRESS";
@@ -1702,5 +1705,30 @@ public class Constants {
 	public static final String NON_GOVT_BULK_UPLOAD_INVALID_DOB_ERROR = "Invalid format for Date of Birth type. Expecting in dd-mm-yyyy format.";
 	public static final String CONTEXT_NAME_LOWERCASE = "contextname";
 	public static final String NON_GOVT_BULK_UPLOAD_INVALID_OFFICE_PINCODE_ERROR = "Invalid Office Pin Code : Office Pin Code should be numeric and is of 6 digit.";
+
+	public static final String PROGRAM_ID_REQUIRED = "Program Id is required.";
+	public static final String COORDINATOR_LIST_REQUIRED = "Coordinator list cannot be empty.";
+	public static final String USER_ID_REQUIRED = "User Id is required.";
+	public static final String ROLE_ID_REQUIRED = "Role Id is required.";
+	public static final String INVALID_ROLE_ID = "Invalid role id : ";
+	public static final String DUPLICATE_COORDINATOR = "Duplicate coordinator : ";
+	public static final String INTERNAL_SERVER_ERROR = "Internal server error.";
+	public static final String ADDED_OR_UPDATED = "added_or_updated";
+	public static final String REMOVED = "removed";
+	public static final String PROGRAM_ID = "programId";
+	public static final String ERROR_REQUIRED_ROLE_PREFIX = "User does not have required role: ";
+	public static final Short ACTIVE_STATUS_PC = 1;
+	public static final Short INACTIVE_STATUS_PC = 0;
+	public static final String EVENT_TYPE_COORDINATOR_LIST_SYNCED = "COORDINATOR_LIST_SYNCED";
+	public static final String TRAINER_TYPE = "trainerType";
+	public static final String COORDINATORS = "coordinators";
+	public static final String PC_USER_PROFILE_CACHE_KEY = "pc:user:profile:";
+	public static final String API_PROGRAM_COORDINATOR_READ = "program-coordinator-read";
+	public static final String ROLE_ID = "roleId";
+	public static final String ROLE_NAME = "roleName";
+	public static final String API_PROGRAM_COORDINATOR_ROLES = "api.program.coordinator.roles";
+
+	public static final String INVALID_STATUS =
+			"Status should be either 0 (remove) or 1 (add/update).";
 
 }
