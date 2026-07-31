@@ -144,12 +144,15 @@ public class ProgramCoordinatorServiceImpl implements ProgramCoordinatorService 
                 }
             }
 
-            Map<String, Object> event = new HashMap<>();
-            event.put(Constants.EVENT_TYPE, Constants.EVENT_TYPE_COORDINATOR_LIST_SYNCED);
-            event.put(Constants.USER_IDS, affectedUsers);
-            event.put(Constants.TIMESTAMP, Instant.now().toString());
+            if (CollectionUtils.isNotEmpty(addedOrUpdated) || CollectionUtils.isNotEmpty(removed)) {
 
-            kafkaProducer.push(coordinatorSyncTopic, event);
+                Map<String, Object> event = new HashMap<>();
+                event.put(Constants.EVENT_TYPE, Constants.EVENT_TYPE_COORDINATOR_LIST_SYNCED);
+                event.put(Constants.USER_IDS, affectedUsers);
+                event.put(Constants.TIMESTAMP, Instant.now().toString());
+
+                kafkaProducer.push(coordinatorSyncTopic, event);
+            }
 
             Map<String, Object> result = new HashMap<>();
             result.put(Constants.PROGRAM_ID, programId);
