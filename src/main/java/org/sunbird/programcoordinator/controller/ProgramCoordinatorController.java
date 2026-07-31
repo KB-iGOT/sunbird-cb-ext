@@ -31,7 +31,7 @@ public class ProgramCoordinatorController {
     /**
      * Adds/reactivates a coordinator (status = 1) or soft-removes one (status = 0) on a programme.
      */
-    @PutMapping("/program/{programId}/coordinator")
+    @PutMapping("/program/coordinator/{programId}")
     public ResponseEntity<?> upsertCoordinator(@PathVariable(PROGRAM_ID) String programId,
             @RequestHeader(X_AUTH_TOKEN) String token,
             @Valid @RequestBody List<ProgramCoordinatorUpsertRequest> requestBody) {
@@ -43,7 +43,7 @@ public class ProgramCoordinatorController {
      * Paginated list of active coordinators for a programme. sortBy/sortDirection are optional;
      * when omitted (or sortBy isn't a supported field), no sort is applied to the query.
      */
-    @GetMapping("/program/{programId}/coordinator")
+    @GetMapping("/program/coordinator/list/{programId}")
     public ResponseEntity<?> listCoordinators(@PathVariable(PROGRAM_ID) String programId,
             @RequestParam(name = "limit", defaultValue = "20") int limit,
             @RequestParam(name = "offset", defaultValue = "0") int offset,
