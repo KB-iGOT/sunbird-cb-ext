@@ -20,6 +20,7 @@ import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestTemplate;
 import org.sunbird.cassandra.utils.CassandraOperation;
+import org.sunbird.common.model.SBApiResponse;
 import org.sunbird.common.service.ContentService;
 import org.sunbird.common.service.OutboundRequestHandlerServiceImpl;
 import org.sunbird.common.util.CbExtServerProperties;
@@ -714,7 +715,8 @@ public class PdfGeneratorServiceImpl implements PdfGeneratorService {
 	}
 
 	@Override
-	public Map<String, Object> getQRStatus(String courseId, String batchId) {
+	public SBApiResponse getQRStatus(String courseId, String batchId) {
+		SBApiResponse response = new SBApiResponse();
 		HashMap propertyMap = new HashMap();
 		propertyMap.put(Constants.COURSE_ID, courseId);
 		propertyMap.put(Constants.BATCH_ID, batchId);
@@ -736,7 +738,6 @@ public class PdfGeneratorServiceImpl implements PdfGeneratorService {
 			log.error("Failed to parse batchAttributes for CourseId: " + courseId + ", BatchId: " + batchId, e);
 		}
 
-		Map<String, Object> response = new HashMap<>();
 		response.put("selfEnrolQrGenerated", generated);
 		return response;
 	}
