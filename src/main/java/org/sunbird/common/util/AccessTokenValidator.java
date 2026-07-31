@@ -13,6 +13,7 @@ import org.sunbird.common.model.SBApiResponse;
 
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 @Component
 public class AccessTokenValidator {
@@ -146,6 +147,20 @@ public class AccessTokenValidator {
             logger.error("Exception in extractTokenPayload: ", ex);
         }
         return tokenPayload;
+    }
+
+    public List<String> fetchUserRolesFromToken(String accessToken) {
+        try {
+            Map<String, Object> tokenBody = validateToken(accessToken);
+            if (MapUtils.isEmpty(tokenBody)) {
+                return Collections.emptyList();
+            }
+            List<String> roles = (List<String>) tokenBody.get("user_roles");
+            return roles != null ? roles : Collections.emptyList();
+        } catch (Exception ex) {
+            logger.error("Exception while fetching roles from token: {}", ex.getMessage());
+            return Collections.emptyList();
+        }
     }
 
 }
