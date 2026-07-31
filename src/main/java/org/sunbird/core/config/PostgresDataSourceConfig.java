@@ -17,7 +17,7 @@ import org.springframework.transaction.PlatformTransactionManager;
 
 @Configuration
 @EnableJpaRepositories(
-        basePackages = {"org.sunbird.org.repository", "org.sunbird.insights.repository","org.sunbird.walloffame.repository", "org.sunbird.orghierarchyreport.repository"}, // Packages for the sunbird DB repositories
+        basePackages = {"org.sunbird.org.repository", "org.sunbird.insights.repository","org.sunbird.walloffame.repository", "org.sunbird.orghierarchyreport.repository", "org.sunbird.programcoordinator.repository"}, // Packages for the sunbird DB repositories
         entityManagerFactoryRef = "sunbirdEntityManagerFactory",
         transactionManagerRef = "sunbirdTransactionManager"
 )
@@ -37,7 +37,7 @@ public class PostgresDataSourceConfig {
             @Qualifier("sunbirdDataSource") DataSource dataSource) {
         return builder
                 .dataSource(dataSource)
-                .packages("org.sunbird.org", "org.sunbird.insights","org.sunbird.walloffame","org.sunbird.orghierarchyreport.entity")
+                .packages("org.sunbird.org", "org.sunbird.insights","org.sunbird.walloffame","org.sunbird.orghierarchyreport.entity","org.sunbird.programcoordinator.entity")
                 .persistenceUnit("sunbird")
                 .build();
     }
