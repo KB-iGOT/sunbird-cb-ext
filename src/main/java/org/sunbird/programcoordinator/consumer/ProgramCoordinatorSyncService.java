@@ -3,6 +3,8 @@ package org.sunbird.programcoordinator.consumer;
 import lombok.extern.slf4j.Slf4j;
 import org.elasticsearch.action.bulk.BulkRequest;
 import org.elasticsearch.action.bulk.BulkResponse;
+import org.elasticsearch.action.get.GetRequest;
+import org.elasticsearch.action.get.GetResponse;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestHighLevelClient;
@@ -34,64 +36,65 @@ public class ProgramCoordinatorSyncService {
     }
 
     public void syncUserProgramLookup(List<String> userIds) {
-
         try {
+            List<UUID> uuidList = userIds.stream().map(UUID::fromString).collect(Collectors.toList());
+            List<UserProgramProjection> records = programCoordinatorRepository.findActiveProgramsByUserIds(uuidList);
 
-            List<UUID> uuidList = userIds.stream()
-                    .map(UUID::fromString)
-                    .collect(Collectors.toList());
-
-            List<UserProgramProjection> records =
-                    programCoordinatorRepository.findActiveProgramsByUserIds(uuidList);
-
-            Map<UUID, List<String>> userProgramMap =
-                    records.stream()
-                            .collect(Collectors.groupingBy(
-                                    UserProgramProjection::getUserId,
-                                    Collectors.mapping(
-                                            UserProgramProjection::getProgramId,
-                                            Collectors.toList())));
+            Map<UUID, List<String>> userProgramMap = records.stream()
+                    .collect(Collectors.groupingBy(
+                            UserProgramProjection::getUserId,
+                            Collectors.mapping(UserProgramProjection::getProgramId, Collectors.toList())));
 
             BulkRequest bulkRequest = new BulkRequest();
-
             for (String userId : userIds) {
-
                 try {
+                    List<String> dbProgramIds = userProgramMap.getOrDefault(
+                            UUID.fromString(userId), Collections.emptyList());
 
-                    List<String> programIds = userProgramMap.getOrDefault(
-                            UUID.fromString(userId),
-                            Collections.emptyList());
+                    Set<String> mergedProgramIds = new HashSet<>(dbProgramIds);
+                    Map<String, Object> existingDoc = fetchExistingDoc(userId);
+                    if (existingDoc != null) {
+                        List<String> existingIds = (List<String>) existingDoc.get("programIds");
+                        if (existingIds != null) {
+                            mergedProgramIds.addAll(existingIds);
+                        }
+                    }
 
                     Map<String, Object> document = new HashMap<>();
                     document.put("userId", userId);
-                    document.put("programIds", programIds);
+                    document.put("programIds", new ArrayList<>(mergedProgramIds));
                     document.put("updatedOn", Instant.now().toString());
 
-                    bulkRequest.add(
-                            new IndexRequest(userProgramLookupIndex, "_doc")
-                                    .id(userId)
-                                    .source(document)
-                    );
-
+                    bulkRequest.add(new IndexRequest(userProgramLookupIndex, "_doc")
+                            .id(userId).source(document));
                 } catch (Exception e) {
                     log.error("Error preparing lookup document for user {}", userId, e);
                 }
             }
 
-            if (bulkRequest.numberOfActions() == 0) {
-                return;
-            }
+            if (bulkRequest.numberOfActions() > 0) {
+                BulkResponse response = sbEsClient.bulk(bulkRequest, RequestOptions.DEFAULT);
 
-            BulkResponse response = sbEsClient.bulk(bulkRequest, RequestOptions.DEFAULT);
-
-            if (response.hasFailures()) {
-                log.error("Bulk indexing completed with failures: {}", response.buildFailureMessage());
-            } else {
-                log.info("Successfully synced lookup index for {} users", bulkRequest.numberOfActions());
+                if (response.hasFailures()) {
+                    log.error("Bulk sync failures: {}", response.buildFailureMessage());
+                } else {
+                    log.info("Successfully synced {} documents", bulkRequest.numberOfActions());
+                }
             }
 
         } catch (Exception e) {
             log.error("Error syncing lookup index", e);
+        }
+    }
+
+    private Map<String, Object> fetchExistingDoc(String userId) {
+        try {
+            GetRequest getRequest = new GetRequest(userProgramLookupIndex, "_doc", userId);
+            GetResponse response = sbEsClient.get(getRequest, RequestOptions.DEFAULT);
+            return response.isExists() ? response.getSourceAsMap() : null;
+        } catch (Exception e) {
+            log.warn("Could not fetch existing doc for user {}", userId, e);
+            return null;
         }
     }
 
