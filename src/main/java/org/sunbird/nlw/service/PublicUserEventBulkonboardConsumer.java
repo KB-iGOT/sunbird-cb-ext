@@ -9,6 +9,7 @@ import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVPrinter;
 import org.apache.commons.csv.CSVRecord;
+import org.apache.commons.csv.QuoteMode;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.slf4j.Logger;
@@ -134,7 +135,7 @@ public class PublicUserEventBulkonboardConsumer {
         List<String> headers;
 
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream(file), StandardCharsets.UTF_8));
-             CSVParser csvParser = new CSVParser(reader, CSVFormat.newFormat(serverProperties.getCsvDelimiter()).withFirstRecordAsHeader())) {
+             CSVParser csvParser = new CSVParser(reader, buildCsvFormat())) {
 
             headers = new ArrayList<>(csvParser.getHeaderNames());
             cleanHeaders(headers);
@@ -149,7 +150,7 @@ public class PublicUserEventBulkonboardConsumer {
             getEventDetails(eventId, batchId, eventDetails);
 
             try (CSVParser csvParser2 = new CSVParser(new BufferedReader(new InputStreamReader(new FileInputStream(file), StandardCharsets.UTF_8)),
-                    CSVFormat.newFormat(serverProperties.getCsvDelimiter()).withFirstRecordAsHeader())) {
+                    buildCsvFormat())) {
                 for (CSVRecord record : csvParser2.getRecords()) {
                     totalRecordsCount++;
                     Map<String, String> updatedRecord = processRecord(record, expectedFieldCount, eventId, batchId, emailUserIdMap, eventDetails, publicCert, reIssue);
@@ -216,6 +217,18 @@ public class PublicUserEventBulkonboardConsumer {
      */
     private void cleanHeaders(List<String> headers) {
         headers.replaceAll(header -> header.replaceAll("^\"|\"$", ""));
+    }
+
+    // RFC 4180 compliant format to properly handle quoted fields containing the delimiter character
+    private CSVFormat buildCsvFormat() {
+        return CSVFormat.RFC4180.builder()
+                .setDelimiter(serverProperties.getCsvDelimiter())
+                .setHeader()
+                .setSkipHeaderRecord(true)
+                .setQuote('"')
+                .setIgnoreSurroundingSpaces(true)
+                .setTrim(true)
+                .build();
     }
 
     /**
@@ -298,11 +311,16 @@ public class PublicUserEventBulkonboardConsumer {
      * Writes the updated records to the CSV file.
      */
     private void writeUpdatedCSV(File file, List<String> headers, List<Map<String, String>> updatedRecords) throws IOException {
+        CSVFormat outputFormat = CSVFormat.RFC4180.builder()
+                .setDelimiter(serverProperties.getCsvDelimiter())
+                .setHeader(headers.toArray(new String[0]))
+                .setRecordSeparator(System.lineSeparator())
+                .setQuote('"')
+                .setQuoteMode(QuoteMode.MINIMAL)
+                .build();
         try (FileWriter fileWriter = new FileWriter(file);
              BufferedWriter bufferedWriter = new BufferedWriter(fileWriter);
-             CSVPrinter csvPrinter = new CSVPrinter(bufferedWriter, CSVFormat.newFormat(serverProperties.getCsvDelimiter())
-                     .withHeader(headers.toArray(new String[0]))
-                     .withRecordSeparator(System.lineSeparator()))) {
+             CSVPrinter csvPrinter = new CSVPrinter(bufferedWriter, outputFormat)) {
 
             for (Map<String, String> record : updatedRecords) {
                 csvPrinter.printRecord(record.values());

@@ -7,6 +7,7 @@ import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVPrinter;
 import org.apache.commons.csv.CSVRecord;
+import org.apache.commons.csv.QuoteMode;
 import org.apache.commons.lang.StringUtils;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellType;
@@ -494,7 +495,16 @@ public class UserBulkUploadService {
                 BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream(file), StandardCharsets.UTF_8));
                 char csvDelimiter = serverProperties.getCsvDelimiter();
                 String tagsDelimiter =  serverProperties.getTagsDelimiter();
-                csvParser = new CSVParser(reader,CSVFormat.newFormat(csvDelimiter).withFirstRecordAsHeader());
+                // RFC 4180 compliant format to properly handle quoted fields containing the delimiter character
+                CSVFormat csvFormat = CSVFormat.RFC4180.builder()
+                        .setDelimiter(csvDelimiter)
+                        .setHeader()
+                        .setSkipHeaderRecord(true)
+                        .setQuote('"')
+                        .setIgnoreSurroundingSpaces(true)
+                        .setTrim(true)
+                        .build();
+                csvParser = new CSVParser(reader, csvFormat);
 
                 List<CSVRecord> csvRecords = csvParser.getRecords();
                 List<Map<String, String>> updatedRecords = new ArrayList<>();
@@ -713,7 +723,14 @@ public class UserBulkUploadService {
                 // Write back updated records to the same CSV file
                 fileWriter = new FileWriter(file);
                 bufferedWriter = new BufferedWriter(fileWriter);
-                csvPrinter = new CSVPrinter(bufferedWriter,CSVFormat.newFormat(csvDelimiter).withHeader(headers.toArray(new String[0])).withRecordSeparator(System.lineSeparator()));
+                CSVFormat outputFormat = CSVFormat.RFC4180.builder()
+                        .setDelimiter(csvDelimiter)
+                        .setHeader(headers.toArray(new String[0]))
+                        .setRecordSeparator(System.lineSeparator())
+                        .setQuote('"')
+                        .setQuoteMode(QuoteMode.MINIMAL)
+                        .build();
+                csvPrinter = new CSVPrinter(bufferedWriter, outputFormat);
 
 
                 for (Map<String, String> record : updatedRecords) {
