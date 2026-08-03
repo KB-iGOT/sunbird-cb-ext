@@ -60,7 +60,7 @@ public class UserEventPostConsumptionServiceImpl implements UserEventPostConsump
         SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.USER_EVENT_CONSUMPTION);
         List<String> headers;
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(multipartFile.getInputStream(), StandardCharsets.UTF_8));
-             CSVParser csvParser = new CSVParser(reader, CSVFormat.newFormat(serverProperties.getCsvDelimiter()).withFirstRecordAsHeader())) {
+             CSVParser csvParser = new CSVParser(reader, buildCsvFormat())) {
              headers = new ArrayList<>(csvParser.getHeaderNames());
              cleanHeaders(headers);
                 for (CSVRecord record : csvParser.getRecords()) {
@@ -86,7 +86,7 @@ public class UserEventPostConsumptionServiceImpl implements UserEventPostConsump
         SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.USER_EVENT_CONSUMPTION);
         List<String> headers;
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(multipartFile.getInputStream(), StandardCharsets.UTF_8));
-             CSVParser csvParser = new CSVParser(reader, CSVFormat.newFormat(serverProperties.getCsvDelimiter()).withFirstRecordAsHeader())) {
+             CSVParser csvParser = new CSVParser(reader, buildCsvFormat())) {
              headers = new ArrayList<>(csvParser.getHeaderNames());
              cleanHeaders(headers);
                 for (CSVRecord record : csvParser.getRecords()) {
@@ -150,6 +150,18 @@ public class UserEventPostConsumptionServiceImpl implements UserEventPostConsump
 
     private void cleanHeaders(List<String> headers) {
         headers.replaceAll(header -> header.replaceAll("^\"|\"$", ""));
+    }
+
+    // RFC 4180 compliant format to properly handle quoted fields containing the delimiter character
+    private CSVFormat buildCsvFormat() {
+        return CSVFormat.RFC4180.builder()
+                .setDelimiter(serverProperties.getCsvDelimiter())
+                .setHeader()
+                .setSkipHeaderRecord(true)
+                .setQuote('"')
+                .setIgnoreSurroundingSpaces(true)
+                .setTrim(true)
+                .build();
     }
 
     public void generateKarmaPointEventAndPushToKafka(String userId, String eventId, String batchId, Date completedon) {

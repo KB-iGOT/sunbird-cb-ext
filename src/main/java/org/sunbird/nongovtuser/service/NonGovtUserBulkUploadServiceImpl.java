@@ -173,9 +173,14 @@ public class NonGovtUserBulkUploadServiceImpl implements NonGovtUserBulkUploadSe
         try (BufferedReader reader = new BufferedReader(
                 new InputStreamReader(mFile.getInputStream(), StandardCharsets.UTF_8))) {
             char csvDelimiter = serverProperties.getCsvDelimiter();
-            CSVFormat csvFormat = CSVFormat.newFormat(csvDelimiter).builder()
+            // RFC 4180 compliant format to properly handle quoted fields containing the delimiter character
+            CSVFormat csvFormat = CSVFormat.RFC4180.builder()
+                    .setDelimiter(csvDelimiter)
                     .setHeader()
                     .setSkipHeaderRecord(true)
+                    .setQuote('"')
+                    .setIgnoreSurroundingSpaces(true)
+                    .setTrim(true)
                     .build();
             try (CSVParser csvParser = new CSVParser(reader, csvFormat)) {
                 List<String> headers = csvParser.getHeaderNames();
