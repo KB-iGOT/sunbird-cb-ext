@@ -6,6 +6,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.sunbird.common.model.SBApiResponse;
 import org.sunbird.workallocation.model.PdfGeneratorRequest;
 import org.sunbird.workallocation.service.PdfGeneratorService;
 
@@ -54,7 +55,7 @@ public class PdfGeneratorController {
 	}
 
 	@GetMapping(value = "/v1/batch/enrollment/qrcode/status/{courseId}/{batchId}")
-	public ResponseEntity<Map<String, Object>> getQRStatus(
+	public ResponseEntity<SBApiResponse> getQRStatus(
 			@PathVariable("courseId") String courseId,
 			@PathVariable("batchId") String batchId) {
 		return new ResponseEntity<>(pdfGeneratorService.getQRStatus(courseId, batchId), HttpStatus.OK);
