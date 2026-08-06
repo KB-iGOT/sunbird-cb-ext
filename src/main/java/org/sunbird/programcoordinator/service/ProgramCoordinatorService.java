@@ -4,6 +4,7 @@ import org.sunbird.common.model.SBApiResponse;
 import org.sunbird.programcoordinator.dto.ProgramCoordinatorUpsertRequest;
 
 import java.util.List;
+import java.util.Map;
 
 public interface ProgramCoordinatorService {
 
@@ -17,9 +18,13 @@ public interface ProgramCoordinatorService {
      * Paginated list of active coordinators for a programme. sortBy/sortDirection are optional;
      * when sortBy is absent or not one of the supported fields, no sort is applied.
      */
-    SBApiResponse list(String programId, int limit, int offset, String sortBy, String sortDirection, String token);
+    SBApiResponse list(String programId, Map<String, Object> request, String token);
 
     SBApiResponse getProgramCoordinator(String programId, String authUserToken);
 
     SBApiResponse getCoordinatorRoles(String authUserToken) ;
+
+    SBApiResponse upsertByAdmin(String programId,
+                                       List<ProgramCoordinatorUpsertRequest> requests,
+                                       String token);
 }

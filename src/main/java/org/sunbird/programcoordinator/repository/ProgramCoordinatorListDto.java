@@ -7,11 +7,13 @@ public class ProgramCoordinatorListDto {
     private UUID userId;
     private Short roleId;
     private String roleName;
+    private UUID createdBy;
 
-    public ProgramCoordinatorListDto(UUID userId, Short roleId, String roleName) {
+    public ProgramCoordinatorListDto(UUID userId, Short roleId, String roleName, UUID createdBy) {
         this.userId = userId;
         this.roleId = roleId;
         this.roleName = roleName;
+        this.createdBy = createdBy;
     }
 
     public UUID getUserId() {
@@ -26,4 +28,8 @@ public class ProgramCoordinatorListDto {
         return roleName;
     }
 
+
+    public UUID getCreatedBy() {
+        return createdBy;
+    }
 }

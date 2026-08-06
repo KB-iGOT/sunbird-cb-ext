@@ -44,8 +44,9 @@ public class ProgramCoordinatorServiceImpl implements ProgramCoordinatorService 
 
     private static final Map<String, String> SORTABLE_FIELDS = new HashMap<>();
     static {
-        SORTABLE_FIELDS.put("roleId", "role_id");
-        SORTABLE_FIELDS.put("userId", "user_id");
+        SORTABLE_FIELDS.put("roleId", "roleId");
+        SORTABLE_FIELDS.put("createdBy", "createdBy");
+        SORTABLE_FIELDS.put("userId", "userId");
     }
 
     @Value("#{'${program.coordinator.allowed.roles}'.split(',')}")
@@ -58,6 +59,11 @@ public class ProgramCoordinatorServiceImpl implements ProgramCoordinatorService 
     private String coordinatorSyncTopic;
 
     private Map<Short, String> roleMap;
+
+    @Value("#{'${program.coordinator.admin.allowed.roles}'.split(',')}")
+    private List<String> adminAllowedRoles;
+
+    private Short defaultProgramCoordinatorRoleId;
 
 
     private ProgramCoordinatorRepository programCoordinatorRepository;
@@ -85,6 +91,13 @@ public class ProgramCoordinatorServiceImpl implements ProgramCoordinatorService 
                 .collect(Collectors.toMap(
                         ProgramCoordinatorRoleEntity::getId,
                         ProgramCoordinatorRoleEntity::getRoleName));
+
+        defaultProgramCoordinatorRoleId = roleMap.entrySet()
+                .stream()
+                .filter(entry -> Constants.PROGRAM_COORDINATOR_KEY.equalsIgnoreCase(entry.getValue()))
+                .map(Map.Entry::getKey)
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("Program Coordinator role not found"));
     }
 
     @Override
@@ -109,7 +122,7 @@ public class ProgramCoordinatorServiceImpl implements ProgramCoordinatorService 
                 return response;
             }
 
-            UUID actorUuid = UUID.randomUUID();
+            UUID actorUuid = UUID.fromString(accessTokenValidator.fetchUserIdFromAccessToken(token));
 
             List<String> addedOrUpdated = new ArrayList<>();
             List<String> removed = new ArrayList<>();
@@ -174,9 +187,28 @@ public class ProgramCoordinatorServiceImpl implements ProgramCoordinatorService 
     }
 
     @Override
-    public SBApiResponse list(String programId, int limit, int offset, String sortBy, String sortDirection, String token) {
+    public SBApiResponse list(String programId, Map<String, Object> requestMap, String token) {
         SBApiResponse response = new SBApiResponse(Constants.API_PROGRAM_COORDINATOR_LIST);
         try {
+            Map<String, Object> request = (Map<String, Object>) requestMap.get("request");
+
+            if (requestMap == null || requestMap.get("request") == null) {
+                response.getParams().setErrmsg("Request payload is required");
+                response.setResponseCode(HttpStatus.BAD_REQUEST);
+                return response;
+            }
+
+            int limit = request.get("limit") != null
+                    ? (Integer) request.get("limit")
+                    : 20;
+
+            int offset = request.get("offset") != null
+                    ? (Integer) request.get("offset")
+                    : 0;
+
+            String sortBy = (String) request.get("sortBy");
+            String sortDirection = (String) request.get("sortDirection");
+            List<String> roleNames = (List<String>) request.get("roleName");
             if (StringUtils.isEmpty(programId)) {
                 response.getParams().setErrmsg("programId is required");
                 response.setResponseCode(HttpStatus.BAD_REQUEST);
@@ -197,8 +229,13 @@ public class ProgramCoordinatorServiceImpl implements ProgramCoordinatorService 
                 pageable = PageRequest.of(page, safeLimit);
             }
 
-            Page<ProgramCoordinatorListDto> result = programCoordinatorRepository.findCoordinators(programId,
-                    pageable);
+            Page<ProgramCoordinatorListDto> result;
+
+            if (CollectionUtils.isEmpty(roleNames)) {
+                result = programCoordinatorRepository.findCoordinators(programId, pageable);
+            } else {
+                result = programCoordinatorRepository.findCoordinators(programId, roleNames, pageable);
+            }
 
             List<ProgramCoordinatorListDto> coordinators = result.getContent();
             List<String> userIds = coordinators.stream()
@@ -215,6 +252,7 @@ public class ProgramCoordinatorServiceImpl implements ProgramCoordinatorService 
                 coordinatorMap.put(Constants.USER_ID, item.getUserId());
                 coordinatorMap.put(Constants.ROLE_ID, item.getRoleId());
                 coordinatorMap.put(Constants.ROLE_NAME, item.getRoleName());
+                coordinatorMap.put(Constants.CREATED_BY, item.getCreatedBy());
 
                 SearchUserApiContent profile = userProfiles.get(item.getUserId().toString());
 
@@ -319,6 +357,11 @@ public class ProgramCoordinatorServiceImpl implements ProgramCoordinatorService 
             List<Map<String, Object>> roles = new ArrayList<>();
 
             roleMap.forEach((roleId, roleName) -> {
+
+                if (Constants.PROGRAM_COORDINATOR_KEY.equalsIgnoreCase(roleName)) {
+                    return;
+                }
+
                 Map<String, Object> role = new HashMap<>();
                 role.put(Constants.ROLE_ID, roleId);
                 role.put(Constants.ROLE_NAME, roleName);
@@ -469,5 +512,159 @@ public class ProgramCoordinatorServiceImpl implements ProgramCoordinatorService 
         }
 
         return userProfiles;
+    }
+
+    @Override
+    public SBApiResponse upsertByAdmin(String programId,
+                                       List<ProgramCoordinatorUpsertRequest> requests,
+                                       String token) {
+
+        SBApiResponse response = new SBApiResponse(Constants.API_PROGRAM_COORDINATOR_ADMIN_UPSERT);
+
+        try {
+
+            List<String> userRoles = accessTokenValidator.fetchUserRolesFromToken(token);
+
+            boolean hasAccess = userRoles.stream().anyMatch(adminAllowedRoles::contains);
+
+            if (!hasAccess) {
+                response.getParams().setErrmsg(
+                        ERROR_REQUIRED_ROLE_PREFIX + String.join(", ", adminAllowedRoles));
+                response.setResponseCode(HttpStatus.FORBIDDEN);
+                return response;
+            }
+
+            if (!validateAdminUpsertRequest(requests, response)) {
+                return response;
+            }
+
+            return processAdminUpsert(programId, requests, token);
+
+        } catch (Exception ex) {
+            logger.error("Error while upserting coordinators through admin API", ex);
+            response.getParams().setErrmsg(Constants.INTERNAL_SERVER_ERROR);
+            response.setResponseCode(HttpStatus.INTERNAL_SERVER_ERROR);
+            return response;
+        }
+    }
+
+    private boolean validateAdminUpsertRequest(List<ProgramCoordinatorUpsertRequest> requests,
+                                               SBApiResponse response) {
+
+        if (CollectionUtils.isEmpty(requests)) {
+            response.getParams().setErrmsg(Constants.COORDINATOR_LIST_REQUIRED);
+            response.setResponseCode(HttpStatus.BAD_REQUEST);
+            return false;
+        }
+
+        Set<UUID> userIds = new HashSet<>();
+
+        for (ProgramCoordinatorUpsertRequest request : requests) {
+
+            if (request.getUserId() == null) {
+                response.getParams().setErrmsg(Constants.USER_ID_REQUIRED);
+                response.setResponseCode(HttpStatus.BAD_REQUEST);
+                return false;
+            }
+
+            if (request.getRoleId() != null
+                    && !programCoordinatorRoleRepository.existsById(request.getRoleId())) {
+
+                response.getParams().setErrmsg(
+                        Constants.INVALID_ROLE_ID + request.getRoleId());
+                response.setResponseCode(HttpStatus.BAD_REQUEST);
+                return false;
+            }
+
+            if (!userIds.add(request.getUserId())) {
+                response.getParams().setErrmsg(
+                        Constants.DUPLICATE_COORDINATOR + request.getUserId());
+                response.setResponseCode(HttpStatus.BAD_REQUEST);
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private SBApiResponse processAdminUpsert(String programId,
+                                             List<ProgramCoordinatorUpsertRequest> requests, String token) {
+
+        SBApiResponse response = new SBApiResponse(Constants.API_PROGRAM_COORDINATOR_ADMIN_UPSERT);
+
+        try {
+
+            UUID actorUuid =  UUID.fromString(accessTokenValidator.fetchUserIdFromAccessToken(token));
+
+            List<String> addedOrUpdated = new ArrayList<>();
+            List<String> removed = new ArrayList<>();
+            Set<String> affectedUsers = new HashSet<>();
+
+            for (ProgramCoordinatorUpsertRequest request : requests) {
+
+                affectedUsers.add(request.getUserId().toString());
+
+                Short status = request.getStatus();
+                if (status == null) {
+                    status = Constants.ACTIVE_STATUS_PC;
+                }
+
+                if (status.equals(Constants.ACTIVE_STATUS_PC)) {
+
+                    Short roleId = request.getRoleId();
+                    if (roleId == null) {
+                        roleId = defaultProgramCoordinatorRoleId;
+                    }
+
+                    int rows = programCoordinatorRepository.addOrResurrect(
+                            programId,
+                            request.getUserId(),
+                            roleId,
+                            actorUuid);
+
+                    if (rows > 0) {
+                        addedOrUpdated.add(request.getUserId().toString());
+                    }
+
+                } else {
+
+                    int rows = programCoordinatorRepository.softRemove(
+                            programId,
+                            request.getUserId(),
+                            actorUuid);
+
+                    if (rows > 0) {
+                        removed.add(request.getUserId().toString());
+                    }
+                }
+            }
+
+            if (CollectionUtils.isNotEmpty(addedOrUpdated)
+                    || CollectionUtils.isNotEmpty(removed)) {
+
+                Map<String, Object> event = new HashMap<>();
+                event.put(Constants.EVENT_TYPE, Constants.EVENT_TYPE_COORDINATOR_LIST_SYNCED);
+                event.put(Constants.USER_IDS, affectedUsers);
+                event.put(Constants.TIMESTAMP, Instant.now().toString());
+
+                kafkaProducer.push(coordinatorSyncTopic, event);
+            }
+
+            Map<String, Object> result = new HashMap<>();
+            result.put(Constants.PROGRAM_ID, programId);
+            result.put(Constants.ADDED_OR_UPDATED, addedOrUpdated);
+            result.put(Constants.REMOVED, removed);
+
+            response.put(Constants.RESPONSE, result);
+            response.getParams().setStatus(Constants.SUCCESSFUL);
+            response.setResponseCode(HttpStatus.OK);
+
+        } catch (Exception ex) {
+            logger.error("Error while processing admin upsert", ex);
+            response.getParams().setErrmsg(Constants.INTERNAL_SERVER_ERROR);
+            response.setResponseCode(HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+
+        return response;
     }
 }
