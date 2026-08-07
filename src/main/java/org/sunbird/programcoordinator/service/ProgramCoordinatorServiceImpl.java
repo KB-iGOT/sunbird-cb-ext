@@ -6,6 +6,7 @@ import java.util.stream.Collectors;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.collections.CollectionUtils;
+import org.apache.commons.collections4.MapUtils;
 import org.apache.commons.lang.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,8 +35,7 @@ import org.sunbird.user.service.UserUtilityService;
 
 import javax.annotation.PostConstruct;
 
-import static org.sunbird.common.util.Constants.ERROR_REQUIRED_ROLE_PREFIX;
-import static org.sunbird.common.util.Constants.PC_USER_PROFILE_CACHE_KEY;
+import static org.sunbird.common.util.Constants.*;
 
 @Service
 public class ProgramCoordinatorServiceImpl implements ProgramCoordinatorService {
@@ -62,6 +62,9 @@ public class ProgramCoordinatorServiceImpl implements ProgramCoordinatorService 
 
     @Value("#{'${program.coordinator.admin.allowed.roles}'.split(',')}")
     private List<String> adminAllowedRoles;
+
+    @Value("${program.coordinator.default.limit}")
+    private int defaultLimit;
 
     private Short defaultProgramCoordinatorRoleId;
 
@@ -122,7 +125,7 @@ public class ProgramCoordinatorServiceImpl implements ProgramCoordinatorService 
                 return response;
             }
 
-            UUID actorUuid = UUID.fromString(accessTokenValidator.fetchUserIdFromAccessToken(token));
+            UUID actorUuid = java.util.UUID.fromString(accessTokenValidator.fetchUserIdFromAccessToken(token));
 
             List<String> addedOrUpdated = new ArrayList<>();
             List<String> removed = new ArrayList<>();
@@ -190,39 +193,34 @@ public class ProgramCoordinatorServiceImpl implements ProgramCoordinatorService 
     public SBApiResponse list(String programId, Map<String, Object> requestMap, String token) {
         SBApiResponse response = new SBApiResponse(Constants.API_PROGRAM_COORDINATOR_LIST);
         try {
-            Map<String, Object> request = (Map<String, Object>) requestMap.get("request");
+            Map<String, Object> request = (Map<String, Object>) requestMap.get(REQUEST);
 
-            if (requestMap == null || requestMap.get("request") == null) {
-                response.getParams().setErrmsg("Request payload is required");
+            if(MapUtils.isEmpty(request)) {
+                response.getParams().setErrmsg(REQUEST_PAYLOAD_EMPTY);
                 response.setResponseCode(HttpStatus.BAD_REQUEST);
                 return response;
             }
 
-            int limit = request.get("limit") != null
-                    ? (Integer) request.get("limit")
-                    : 20;
+            int limit = request.get(LIMIT) != null
+                    ? (Integer) request.get(LIMIT)
+                    : defaultLimit;
 
-            int offset = request.get("offset") != null
-                    ? (Integer) request.get("offset")
-                    : 0;
+            int offset = request.get(OFFSET) != null
+                    ? (Integer) request.get(OFFSET)
+                    : DEFAULT_OFFSET;
 
-            String sortBy = (String) request.get("sortBy");
-            String sortDirection = (String) request.get("sortDirection");
-            List<String> roleNames = (List<String>) request.get("roleName");
-            if (StringUtils.isEmpty(programId)) {
-                response.getParams().setErrmsg("programId is required");
-                response.setResponseCode(HttpStatus.BAD_REQUEST);
-                return response;
-            }
+            String sortBy = (String) request.get(SORT_BY_KEYWORD);
+            String sortDirection = (String) request.get(SORT_DIRECTION);
+            List<String> roleNames = (List<String>) request.get(ROLE_NAME);
 
-            int safeLimit = limit > 0 ? limit : 20;
-            int safeOffset = offset >= 0 ? offset : 0;
+            int safeLimit = limit > 0 ? limit : defaultLimit;
+            int safeOffset = offset >= 0 ? offset : DEFAULT_OFFSET;
             int page = safeOffset / safeLimit;
             String sortColumn = SORTABLE_FIELDS.get(sortBy);
 
             Pageable pageable;
             if (sortColumn != null) {
-                Sort.Direction direction = "desc".equalsIgnoreCase(sortDirection) ? Sort.Direction.DESC
+                Sort.Direction direction = DESCENDING_ORDER.equalsIgnoreCase(sortDirection) ? Sort.Direction.DESC
                         : Sort.Direction.ASC;
                 pageable = PageRequest.of(page, safeLimit, Sort.by(direction, sortColumn));
             } else {
@@ -272,7 +270,7 @@ public class ProgramCoordinatorServiceImpl implements ProgramCoordinatorService 
             response.getParams().setStatus(Constants.SUCCESSFUL);
             response.setResponseCode(HttpStatus.OK);
         } catch (Exception ex) {
-            String errMsg = "Exception occurred while listing program coordinators. Exception: " + ex.getMessage();
+            String errMsg = PROGRAM_COORDINATOR_LIST_EXCEPTION + ex.getMessage();
             logger.error(errMsg, ex);
             response.getParams().setErrmsg(errMsg);
             response.setResponseCode(HttpStatus.INTERNAL_SERVER_ERROR);
@@ -594,7 +592,7 @@ public class ProgramCoordinatorServiceImpl implements ProgramCoordinatorService 
 
         try {
 
-            UUID actorUuid =  UUID.fromString(accessTokenValidator.fetchUserIdFromAccessToken(token));
+            UUID actorUuid =  java.util.UUID.fromString(accessTokenValidator.fetchUserIdFromAccessToken(token));
 
             List<String> addedOrUpdated = new ArrayList<>();
             List<String> removed = new ArrayList<>();

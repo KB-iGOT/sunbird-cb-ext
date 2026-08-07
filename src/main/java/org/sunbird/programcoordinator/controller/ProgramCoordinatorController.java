@@ -50,7 +50,7 @@ public class ProgramCoordinatorController {
 
 
     @GetMapping("/v1/program/{programId}/coordinators")
-    public ResponseEntity<?> getProgramCoordinators(
+    public ResponseEntity<SBApiResponse> getProgramCoordinators(
             @PathVariable("programId") String programId, @RequestHeader(X_AUTH_TOKEN) String authUserToken) {
 
         SBApiResponse response = programCoordinatorService.getProgramCoordinator(programId, authUserToken);
@@ -58,14 +58,14 @@ public class ProgramCoordinatorController {
     }
 
     @GetMapping("/program/coordinator/roles")
-    public ResponseEntity<?> getCoordinatorRoles(@RequestHeader(X_AUTH_TOKEN) String authUserToken) {
+    public ResponseEntity<SBApiResponse> getCoordinatorRoles(@RequestHeader(X_AUTH_TOKEN) String authUserToken) {
 
         SBApiResponse response = programCoordinatorService.getCoordinatorRoles(authUserToken);
         return new ResponseEntity<>(response, response.getResponseCode());
     }
 
     @PutMapping("/admin/program/coordinator/upsert/{programId}")
-    public ResponseEntity<?> upsertByAdmin(
+    public ResponseEntity<SBApiResponse> upsertByAdmin(
             @PathVariable(PROGRAM_ID) String programId,
             @RequestBody List<ProgramCoordinatorUpsertRequest> requests,
             @RequestHeader(X_AUTH_TOKEN) String token) {
