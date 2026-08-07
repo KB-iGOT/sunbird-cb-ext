@@ -4,17 +4,12 @@ import javax.validation.Valid;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import org.sunbird.common.model.SBApiResponse;
 import org.sunbird.programcoordinator.dto.ProgramCoordinatorUpsertRequest;
 import org.sunbird.programcoordinator.service.ProgramCoordinatorService;
 import java.util.List;
+import java.util.Map;
 
 import static org.sunbird.common.util.Constants.PROGRAM_ID;
 import static org.sunbird.common.util.Constants.X_AUTH_TOKEN;
@@ -39,23 +34,23 @@ public class ProgramCoordinatorController {
         return new ResponseEntity<>(response, response.getResponseCode());
     }
 
-    /**
-     * Paginated list of active coordinators for a programme. sortBy/sortDirection are optional;
-     * when omitted (or sortBy isn't a supported field), no sort is applied to the query.
-     */
-    @GetMapping("/program/coordinator/list/{programId}")
-    public ResponseEntity<?> listCoordinators(@PathVariable(PROGRAM_ID) String programId,
-            @RequestParam(name = "limit", defaultValue = "20") int limit,
-            @RequestParam(name = "offset", defaultValue = "0") int offset,
-            @RequestParam(name = "sortBy", required = false) String sortBy,
-            @RequestParam(name = "sortDirection", required = false) String sortDirection, @RequestHeader(X_AUTH_TOKEN) String token) {
-        SBApiResponse response = programCoordinatorService.list(programId, limit, offset, sortBy, sortDirection, token);
+    @PostMapping("/program/coordinator/list/{programId}")
+    public ResponseEntity<?> listCoordinators(
+            @PathVariable(PROGRAM_ID) String programId,
+            @RequestBody Map<String, Object> request,
+            @RequestHeader(X_AUTH_TOKEN) String token) {
+
+        SBApiResponse response = programCoordinatorService.list(
+                programId,
+                request,
+                token);
+
         return new ResponseEntity<>(response, response.getResponseCode());
     }
 
 
     @GetMapping("/v1/program/{programId}/coordinators")
-    public ResponseEntity<?> getProgramCoordinators(
+    public ResponseEntity<SBApiResponse> getProgramCoordinators(
             @PathVariable("programId") String programId, @RequestHeader(X_AUTH_TOKEN) String authUserToken) {
 
         SBApiResponse response = programCoordinatorService.getProgramCoordinator(programId, authUserToken);
@@ -63,9 +58,19 @@ public class ProgramCoordinatorController {
     }
 
     @GetMapping("/program/coordinator/roles")
-    public ResponseEntity<?> getCoordinatorRoles(@RequestHeader(X_AUTH_TOKEN) String authUserToken) {
+    public ResponseEntity<SBApiResponse> getCoordinatorRoles(@RequestHeader(X_AUTH_TOKEN) String authUserToken) {
 
         SBApiResponse response = programCoordinatorService.getCoordinatorRoles(authUserToken);
+        return new ResponseEntity<>(response, response.getResponseCode());
+    }
+
+    @PutMapping("/admin/program/coordinator/upsert/{programId}")
+    public ResponseEntity<SBApiResponse> upsertByAdmin(
+            @PathVariable(PROGRAM_ID) String programId,
+            @RequestBody List<ProgramCoordinatorUpsertRequest> requests,
+            @RequestHeader(X_AUTH_TOKEN) String token) {
+
+        SBApiResponse response = programCoordinatorService.upsertByAdmin(programId, requests, token);
         return new ResponseEntity<>(response, response.getResponseCode());
     }
 

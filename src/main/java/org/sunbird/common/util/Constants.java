@@ -1727,6 +1727,13 @@ public class Constants {
 	public static final String ROLE_ID = "roleId";
 	public static final String ROLE_NAME = "roleName";
 	public static final String API_PROGRAM_COORDINATOR_ROLES = "api.program.coordinator.roles";
+	public static final String API_PROGRAM_COORDINATOR_ADMIN_UPSERT = "program.coordinator.admin.upsert";
+	public static final String PROGRAM_COORDINATOR_KEY= "Program Coordinator";
+	public static final String BATCH_ENROLLMENT_BODY = "pdf-batch-enrollment-body";
+	public static final String PROGRAM_ID_REQURIED = "programId is required";
+	public static final String REQUEST_PAYLOAD_EMPTY = "Request payload is required";
+	public static final int DEFAULT_OFFSET = 0;
+	public static final String PROGRAM_COORDINATOR_LIST_EXCEPTION = "Exception occurred while listing program coordinators. Exception: ";
 
 	public static final String INVALID_STATUS =
 			"Status should be either 0 (remove) or 1 (add/update).";
