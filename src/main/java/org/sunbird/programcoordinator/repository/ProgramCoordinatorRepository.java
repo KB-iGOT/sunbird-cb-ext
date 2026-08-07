@@ -51,7 +51,7 @@ public interface ProgramCoordinatorRepository extends JpaRepository<ProgramCoord
      * without this query ever declaring that as a contract.
      */
     @Query("SELECT new org.sunbird.programcoordinator.repository.ProgramCoordinatorListDto(" +
-            "pc.userId, pc.roleId, r.roleName) " +
+            "pc.userId, pc.roleId, r.roleName, pc.createdBy) " +
             "FROM ProgramCoordinatorEntity pc, ProgramCoordinatorRoleEntity r " +
             "WHERE pc.roleId = r.id " +
             "AND pc.programId = :programId " +
@@ -79,5 +79,24 @@ public interface ProgramCoordinatorRepository extends JpaRepository<ProgramCoord
             "where pc.status = 1 " +
             "and pc.userId in :userIds")
     List<UserProgramProjection> findActiveProgramsByUserIds(
+            @Param("userIds") List<UUID> userIds);
+
+    @Query("SELECT new org.sunbird.programcoordinator.repository.ProgramCoordinatorListDto(" +
+            "pc.userId, pc.roleId, r.roleName, pc.createdBy) " +
+            "FROM ProgramCoordinatorEntity pc, ProgramCoordinatorRoleEntity r " +
+            "WHERE pc.roleId = r.id " +
+            "AND pc.programId = :programId " +
+            "AND pc.status = 1 " +
+            "AND r.roleName IN :roleNames")
+    Page<ProgramCoordinatorListDto> findCoordinators(
+            @Param("programId") String programId,
+            @Param("roleNames") List<String> roleNames,
+            Pageable pageable);
+    @Query("select pc.userId as userId, " +
+            "pc.programId as programId " +
+            "from ProgramCoordinatorEntity pc " +
+            "where pc.userId in :userIds " +
+            "and pc.status = 0")
+    List<UserProgramProjection> findInactiveProgramsByUserIds(
             @Param("userIds") List<UUID> userIds);
 }
