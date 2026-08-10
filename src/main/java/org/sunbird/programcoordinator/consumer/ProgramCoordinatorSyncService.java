@@ -1,6 +1,5 @@
 package org.sunbird.programcoordinator.consumer;
 
-import lombok.extern.slf4j.Slf4j;
 import org.elasticsearch.action.bulk.BulkRequest;
 import org.elasticsearch.action.bulk.BulkResponse;
 import org.elasticsearch.action.get.GetRequest;
@@ -8,6 +7,8 @@ import org.elasticsearch.action.get.GetResponse;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestHighLevelClient;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -18,9 +19,10 @@ import java.time.Instant;
 import java.util.*;
 import java.util.stream.Collectors;
 
-@Slf4j
 @Service
 public class ProgramCoordinatorSyncService {
+
+    private static final Logger log = LoggerFactory.getLogger(ProgramCoordinatorSyncService.class);
 
     private final RestHighLevelClient sbEsClient;
     private final ProgramCoordinatorRepository programCoordinatorRepository;

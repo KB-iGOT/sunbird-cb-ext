@@ -508,6 +508,9 @@ public class PdfGeneratorServiceImpl implements PdfGeneratorService {
 		return createHTMLFile(vmFName, message);
 	}
 	private HashMap<String,HashMap<String,String>> populatePDFTemplateDetails(){
+		return populatePDFTemplateDetails(Constants.BATCH_SESSION_BODY);
+	}
+	private HashMap<String,HashMap<String,String>> populatePDFTemplateDetails(String bodyFileName){
 		HashMap<String,HashMap<String,String>> pdfDetails = new HashMap<>();
 		HashMap<String,String> headerDetails = new HashMap<>();
 		headerDetails.put(Constants.BUDGET_DOC_FILE_TYPE,Constants.VM);
@@ -515,7 +518,7 @@ public class PdfGeneratorServiceImpl implements PdfGeneratorService {
 		pdfDetails.put(Constants.HEADER,headerDetails);
 		HashMap<String,String> bodyDetails = new HashMap<>();
 		bodyDetails.put(Constants.BUDGET_DOC_FILE_TYPE,Constants.VM);
-		bodyDetails.put(Constants.BUDGET_DOC_FILE_NAME,Constants.BATCH_SESSION_BODY);
+		bodyDetails.put(Constants.BUDGET_DOC_FILE_NAME,bodyFileName);
 		pdfDetails.put(Constants.BODY,bodyDetails);
 		HashMap<String,String> footerDetails = new HashMap<>();
 		footerDetails.put(Constants.BUDGET_DOC_FILE_TYPE,Constants.VM);
@@ -754,7 +757,7 @@ public class PdfGeneratorServiceImpl implements PdfGeneratorService {
 			throw new BadRequestException("CourseId & BatchId should be passed!");
 		}
 
-		HashMap<String, HashMap<String, String>> pdfDetails = populatePDFTemplateDetails();
+		HashMap<String, HashMap<String, String>> pdfDetails = populatePDFTemplateDetails(Constants.BATCH_ENROLLMENT_BODY);
 		HashMap<String, HashMap> pdfParams = populatePDFParams();
 		log.info("Generating enrollment QR PDF for courseId: {}, batchId: {}", courseId, batchId);
 		HashMap propertyMap = new HashMap();
@@ -799,9 +802,6 @@ public class PdfGeneratorServiceImpl implements PdfGeneratorService {
 		HashMap<String, String> enrollment = new HashMap<>();
 		enrollment.put(Constants.BLENDED_PROGRAM_NAME, blendedProgramName);
 		enrollment.put(Constants.BATCH_NAME, batchName);
-		enrollment.put(Constants.START_DATE, "");
-		enrollment.put(Constants.START_TIME_KEY, "");
-		enrollment.put(Constants.END_TIME_KEY, "");
 		enrollment.put(Constants.SESSION_NAME, "Enrollment QR");
 		enrollment.put(Constants.QR_CODE_URL, qrCodePath);
 
