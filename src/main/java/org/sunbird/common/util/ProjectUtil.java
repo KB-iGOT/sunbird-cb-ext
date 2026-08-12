@@ -210,8 +210,8 @@ public class ProjectUtil {
 		return regex.matches("^[a-zA-Z0-9 \\-()]*$");
 	}
 
-	public static Boolean validateRegexPatternWithSpecialCharacter(String regex) {
-		return regex.matches("^[a-zA-Z0-9 \\-()&/,]*$");
+	public static Boolean validateRegexPatternWithSpecialCharacter(String value, String validationRegex) {
+		return value.matches(validationRegex);
 	}
 
 	public static Boolean validatePinCode(String regex) {
