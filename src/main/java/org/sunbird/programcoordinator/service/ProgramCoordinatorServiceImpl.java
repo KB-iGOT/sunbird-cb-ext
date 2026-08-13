@@ -42,12 +42,8 @@ public class ProgramCoordinatorServiceImpl implements ProgramCoordinatorService 
 
     private final Logger logger = LoggerFactory.getLogger(getClass().getName());
 
-    private static final Map<String, String> SORTABLE_FIELDS = new HashMap<>();
-    static {
-        SORTABLE_FIELDS.put("roleId", "roleId");
-        SORTABLE_FIELDS.put("createdBy", "createdBy");
-        SORTABLE_FIELDS.put("userId", "userId");
-    }
+    @Value("#{'${program.coordinator.sortable.fields}'.split(',')}")
+    private List<String> sortableFields;
 
     @Value("#{'${program.coordinator.allowed.roles}'.split(',')}")
     private List<String> allowedRoles;
@@ -216,7 +212,7 @@ public class ProgramCoordinatorServiceImpl implements ProgramCoordinatorService 
             int safeLimit = limit > 0 ? limit : defaultLimit;
             int safeOffset = offset >= 0 ? offset : DEFAULT_OFFSET;
             int page = safeOffset / safeLimit;
-            String sortColumn = SORTABLE_FIELDS.get(sortBy);
+            String sortColumn = sortableFields.contains(sortBy) ? sortBy : null;
 
             Pageable pageable;
             if (sortColumn != null) {
@@ -251,6 +247,8 @@ public class ProgramCoordinatorServiceImpl implements ProgramCoordinatorService 
                 coordinatorMap.put(Constants.ROLE_ID, item.getRoleId());
                 coordinatorMap.put(Constants.ROLE_NAME, item.getRoleName());
                 coordinatorMap.put(Constants.CREATED_BY, item.getCreatedBy());
+                coordinatorMap.put(Constants.CREATED_ON, item.getCreatedOn());
+                coordinatorMap.put(Constants.UPDATED_ON, item.getUpdatedOn());
 
                 SearchUserApiContent profile = userProfiles.get(item.getUserId().toString());
 
