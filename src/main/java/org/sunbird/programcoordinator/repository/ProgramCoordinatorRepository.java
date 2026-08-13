@@ -51,7 +51,7 @@ public interface ProgramCoordinatorRepository extends JpaRepository<ProgramCoord
      * without this query ever declaring that as a contract.
      */
     @Query("SELECT new org.sunbird.programcoordinator.repository.ProgramCoordinatorListDto(" +
-            "pc.userId, pc.roleId, r.roleName, pc.createdBy) " +
+            "pc.userId, pc.roleId, r.roleName, pc.createdBy, pc.createdOn, pc.updatedOn) " +
             "FROM ProgramCoordinatorEntity pc, ProgramCoordinatorRoleEntity r " +
             "WHERE pc.roleId = r.id " +
             "AND pc.programId = :programId " +
@@ -82,7 +82,7 @@ public interface ProgramCoordinatorRepository extends JpaRepository<ProgramCoord
             @Param("userIds") List<UUID> userIds);
 
     @Query("SELECT new org.sunbird.programcoordinator.repository.ProgramCoordinatorListDto(" +
-            "pc.userId, pc.roleId, r.roleName, pc.createdBy) " +
+            "pc.userId, pc.roleId, r.roleName, pc.createdBy, pc.createdOn, pc.updatedOn) " +
             "FROM ProgramCoordinatorEntity pc, ProgramCoordinatorRoleEntity r " +
             "WHERE pc.roleId = r.id " +
             "AND pc.programId = :programId " +
