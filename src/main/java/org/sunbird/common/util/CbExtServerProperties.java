@@ -1359,6 +1359,21 @@ public class CbExtServerProperties {
 	@Value("${nongovt.user.bulk.upload.result.headers}")
 	private String nonGovtUserBulkUploadResultHeaders;
 
+	@Value("${sb.service.user.migrate.v2.path}")
+	private String lmsUserMigrateV2Path;
+
+	@Value("${kafka.topics.org.user.bulk.transfer.v2.event}")
+	private String orgHierarchyUserBulkTransferTopicV2;
+
+	@Value("${bulk.user.migration.strict.forwardPath.allowed.roles}")
+	private String bulkUserMigrationStrictForwardPathAllowedRoles;
+
+	@Value("${bulk.user.migration.restriction.roles}")
+	private String bulkUserMigrationRestrictionRoles;
+
+	@Value("${bulk.user.migration.no.restriction.roles}")
+	private String bulkUserMigrationNoRestrictionRoles;
+
 	public int getUserSearchLimit() {
 		return userSearchLimit;
 	}
@@ -4610,5 +4625,45 @@ public class CbExtServerProperties {
 
 	public void setNonGovtUserBulkUploadResultHeaders(String nonGovtUserBulkUploadResultHeaders) {
 		this.nonGovtUserBulkUploadResultHeaders = nonGovtUserBulkUploadResultHeaders;
+	}
+
+	public String getLmsUserMigrateV2Path() {
+		return lmsUserMigrateV2Path;
+	}
+
+	public void setLmsUserMigrateV2Path(String lmsUserMigrateV2Path) {
+		this.lmsUserMigrateV2Path = lmsUserMigrateV2Path;
+	}
+
+	public String getOrgHierarchyUserBulkTransferTopicV2() {
+		return orgHierarchyUserBulkTransferTopicV2;
+	}
+
+	public String getBulkUserMigrationNoRestrictionRoles() {
+		return bulkUserMigrationNoRestrictionRoles;
+	}
+
+	public void setBulkUserMigrationNoRestrictionRoles(String bulkUserMigrationNoRestrictionRoles) {
+		this.bulkUserMigrationNoRestrictionRoles = bulkUserMigrationNoRestrictionRoles;
+	}
+
+	public String getBulkUserMigrationRestrictionRoles() {
+		return bulkUserMigrationRestrictionRoles;
+	}
+
+	public void setBulkUserMigrationRestrictionRoles(String bulkUserMigrationRestrictionRoles) {
+		this.bulkUserMigrationRestrictionRoles = bulkUserMigrationRestrictionRoles;
+	}
+
+	public String getBulkUserMigrationStrictForwardPathAllowedRoles() {
+		return bulkUserMigrationStrictForwardPathAllowedRoles;
+	}
+
+	public void setBulkUserMigrationStrictForwardPathAllowedRoles(String bulkUserMigrationStrictForwardPathAllowedRoles) {
+		this.bulkUserMigrationStrictForwardPathAllowedRoles = bulkUserMigrationStrictForwardPathAllowedRoles;
+	}
+
+	public void setOrgHierarchyUserBulkTransferTopicV2(String orgHierarchyUserBulkTransferTopicV2) {
+		this.orgHierarchyUserBulkTransferTopicV2 = orgHierarchyUserBulkTransferTopicV2;
 	}
 }
