@@ -2602,7 +2602,16 @@ public class ProfileServiceImpl implements ProfileService {
 			}
 			try (BufferedReader reader = new BufferedReader(new InputStreamReader(mFile.getInputStream(), StandardCharsets.UTF_8))) {
 				char csvDelimiter = serverProperties.getCsvDelimiter();
-				CSVParser csvParser = new CSVParser(reader, CSVFormat.newFormat(csvDelimiter).withFirstRecordAsHeader());
+				// RFC 4180 compliant format to properly handle quoted fields containing the delimiter character
+				CSVFormat csvFormat = CSVFormat.RFC4180.builder()
+						.setDelimiter(csvDelimiter)
+						.setHeader()
+						.setSkipHeaderRecord(true)
+						.setQuote('"')
+						.setIgnoreSurroundingSpaces(true)
+						.setTrim(true)
+						.build();
+				CSVParser csvParser = new CSVParser(reader, csvFormat);
 				log.info("userBulkUpload::System successfully parsed the uploaded CSV file for orgId: {}", orgId);
 			} catch (Exception e) {
 				log.error("userBulkUpload::Failed to parse the uploaded csv file for orgId: {}, Error: ", orgId, e);
