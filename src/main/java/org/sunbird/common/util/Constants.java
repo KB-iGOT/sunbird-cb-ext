@@ -1738,4 +1738,6 @@ public class Constants {
 	public static final String INVALID_STATUS =
 			"Status should be either 0 (remove) or 1 (add/update).";
 	public static final String TARGET_ORG_ID_KEY = "targetOrgId";
+	public static final String API_VERSION = "apiVersion";
+	public static final String USER_MIGRATE_V2 = "userMigrateV2";
 }

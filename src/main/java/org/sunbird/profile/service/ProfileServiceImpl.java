@@ -121,19 +121,19 @@ public class ProfileServiceImpl implements ProfileService {
 	DataCacheMgr dataCacheMgr;
 
 	@Autowired
-    AccessTokenValidator accessTokenValidator;
+	AccessTokenValidator accessTokenValidator;
 
 	@Autowired
 	CbExtServerProperties serverProperties;
 
-  @Autowired
-  WfStatusEntityRepository wfStatusEntityRepository;
+	@Autowired
+	WfStatusEntityRepository wfStatusEntityRepository;
 
-  @Autowired
-  RedisCacheMgr redisCacheMgr;
+	@Autowired
+	RedisCacheMgr redisCacheMgr;
 
-  @Autowired
-  private OTPValidator otpValidator;
+	@Autowired
+	private OTPValidator otpValidator;
 
 	private Logger log = LoggerFactory.getLogger(getClass().getName());
 
@@ -284,7 +284,7 @@ public class ProfileServiceImpl implements ProfileService {
 							.equalsIgnoreCase((String) updateResponse.get(Constants.RESPONSE_CODE))) {
 						response.setResponseCode(HttpStatus.BAD_REQUEST);
 						response.getParams().setErrmsg((String) ((Map<String, Object>) updateResponse.get(Constants.PARAMS))
-							.get(Constants.ERROR_MESSAGE));
+								.get(Constants.ERROR_MESSAGE));
 					} else {
 						response.setResponseCode(HttpStatus.INTERNAL_SERVER_ERROR);
 					}
@@ -658,11 +658,15 @@ public class ProfileServiceImpl implements ProfileService {
 		headerValues.put(Constants.CONTENT_TYPE, Constants.APPLICATION_JSON);
 
 		Map<String, Object> requestBody = (Map<String, Object>) request.get(Constants.REQUEST);
+		if (requestBody != null) {
+			requestBody.putIfAbsent(Constants.FORCE_MIGRATION, true);
+			requestBody.putIfAbsent(Constants.SOFT_DELETE_OLD_ORG, false);
+		}
+
 		String userId = (String) requestBody.get(Constants.USER_ID);
 		String orgName = (String) requestBody.get(Constants.CHANNEL);
 
-		Map<String, Object> migrateErrorResponse =
-				executeMigrateUser(getUserMigrateRequest(userId, orgName, false), headerValues);
+		Map<String, Object> migrateErrorResponse = executeMigrateUser(request, headerValues);
 
 		if (!migrateErrorResponse.isEmpty()) {
 			setErrorDataWithStatus(response, migrateErrorResponse);
@@ -777,177 +781,8 @@ public class ProfileServiceImpl implements ProfileService {
 		response.setResponseCode(HttpStatus.OK);
 		response.getResult().put(Constants.RESPONSE, Constants.SUCCESS);
 		response.getParams().setStatus(Constants.SUCCESS);
-		return response;
-	}
-
-	@Override
-	public SBApiResponse migrateUserV2(Map<String, Object> request, String targetChannel, String userToken, String authToken) {
-		SBApiResponse response = new SBApiResponse(Constants.ORG_PROFILE_UPDATE);
-
-		// Step 1: Execute LMS V2 External Migration API
-		Map<String, Object> migrateErrorResponse = executeMigrateUserV2(request, userToken, authToken);
-		if (!migrateErrorResponse.isEmpty()) {
-			setErrorDataWithStatus(response, migrateErrorResponse);
-			return response;
-		}
-
-		// Step 2: Post-migration User Profile DB & Cache Update + Workflow Migration Service
-		Map<String, Object> requestBody = (Map<String, Object>) request.get(Constants.REQUEST);
-
-		return updateUserProfilePostMigrationV2((String) requestBody.get(Constants.USER_ID), targetChannel);
-	}
-
-	private Map<String, Object> executeMigrateUserV2(Map<String, Object> request, String userToken, String authToken) {
-		HashMap<String, String> headerValues = new HashMap<>();
-		headerValues.put(Constants.AUTH_TOKEN, authToken);
-		headerValues.put(Constants.X_AUTH_TOKEN, userToken);
-		headerValues.put(Constants.CONTENT_TYPE, Constants.APPLICATION_JSON);
-
-		Map<String, Object> migrateResponse = Optional.ofNullable(
-				(Map<String, Object>) outboundRequestHandlerService.fetchResultUsingPatch(
-						serverConfig.getSbUrl() + serverConfig.getLmsUserMigrateV2Path(),
-						request, headerValues)).orElse(Collections.emptyMap());
-
-		if (!Constants.OK.equalsIgnoreCase((String) migrateResponse.get(Constants.RESPONSE_CODE))) {
-			return migrateResponse;
-		}
-
-		return Collections.emptyMap();
-	}
-
-	private SBApiResponse updateUserProfilePostMigrationV2(String userId, String targetChannel) {
-		SBApiResponse response = new SBApiResponse(Constants.ORG_PROFILE_UPDATE);
-
-		Map<String, Object> userData = getUserDetailsForId(userId);
-
-		if (ObjectUtils.isEmpty(userData)) {
-			response.getParams().setStatus(Constants.FAILED);
-			response.setResponseCode(HttpStatus.INTERNAL_SERVER_ERROR);
-			response.getParams().setErrmsg(String.format("Failed to get User record from DB. UserId: %s", userId));
-			return response;
-		}
-
-		try {
-			updateProfileDetails(userId, userData, targetChannel);
-
-			String cacheKey = Constants.USER_BASIC_PROFILE_REDIS_KEY_PREFIX + userId;
-
-			redisCacheMgr.deleteKeyByNameV2(cacheKey);
-
-			boolean assignValue = userUtilityService.assignRole((String) userData.get(Constants.ROOT_ORG_ID), userId, StringUtils.EMPTY);
-
-			if (assignValue) {
-				String syncErrMsg = syncUserData(userId);
-				if (StringUtils.isNotBlank(syncErrMsg)) {
-					log.error("Failed to call syncUserData for userId: {}. Error: {}", userId, syncErrMsg);
-					response.getParams().setErrmsg(syncErrMsg);
-					return response;
-				}
-			} else {
-				response.getParams().setErrmsg("Failed to assign PUBLIC role to user. UserId: " + userId);
-				return response;
-			}
-
-			// Workflow Service Call to transfer pending approval requests to new MDO
-			HashMap<String, String> wfHeaders = new HashMap<>();
-			wfHeaders.put(Constants.CONTENT_TYPE, Constants.APPLICATION_JSON);
-			wfHeaders.put(Constants.ROOT_ORG_CONSTANT, Constants.IGOT);
-			wfHeaders.put(Constants.ORG_CONSTANT, Constants.DOPT);
-
-			Map<String, Object> wfRequestBody = new HashMap<>();
-			wfRequestBody.put(Constants.USER_ID, userId);
-			wfRequestBody.put(Constants.DEPARTMENTNAME, targetChannel);
-			wfRequestBody.put(Constants.FORCE_MIGRATION, true);
-
-			Map<String, Object> wfRequest = new HashMap<>();
-			wfRequest.put(Constants.REQUEST, wfRequestBody);
-
-			Map<String, Object> workflowResponse = outboundRequestHandlerService.fetchResultUsingPost(
-					serverConfig.getWfServiceHost() + serverConfig.getPendingRequestsToNewMDOPath(),
-					wfRequest, wfHeaders);
-
-			if (!ObjectUtils.isEmpty(workflowResponse)) {
-				Map<String, Object> result = (Map<String, Object>) workflowResponse.get(Constants.RESULT);
-				if (result != null && !Constants.OK.equalsIgnoreCase((String) result.get(Constants.STATUS))) {
-					log.error("Failed to transfer pending approval requests to new MDO for userId: {}, targetChannel: {}", userId, targetChannel);
-					response.getParams().setErrmsg((String) workflowResponse.get(Constants.ERROR_MESSAGE));
-					return response;
-				}
-			}
-			log.debug("Successfully transferred pending approval requests to new MDO for userId: {}, targetChannel: {}", userId, targetChannel);
-
-			response.setResponseCode(HttpStatus.OK);
-			response.getResult().put(Constants.RESPONSE, Constants.SUCCESS);
-			response.getParams().setStatus(Constants.SUCCESS);
-
-		} catch (Exception e) {
-			log.error("Failed to complete post migration update for userId: {}", userId, e);
-
-			response.getParams().setStatus(Constants.FAILED);
-			response.setResponseCode(HttpStatus.INTERNAL_SERVER_ERROR);
-			response.getParams().setErrmsg(String.format("Failed to update user profile. UserId: %s", userId));
-		}
-
-		return response;
-	}
-
-	private void updateProfileDetails(String userId, Map<String, Object> userData, String targetChannel) throws Exception {
-
-		String profileDetailsStr = (String) userData.get(Constants.PROFILE_DETAILS_LOWER);
-
-		if (StringUtils.isEmpty(profileDetailsStr)) {
-			return;
-		}
-
-		Map<String, Object> profileDetails = mapper.readValue(profileDetailsStr, new TypeReference<Map<String, Object>>() {});
-
-		Map<String, Object> employmentDetails = (Map<String, Object>) profileDetails.get(Constants.EMPLOYMENT_DETAILS);
-
-		if (employmentDetails != null) {
-			employmentDetails.put(Constants.DEPARTMENTNAME, targetChannel);
-
-			employmentDetails.put(Constants.DEPARTMENT_ID, (String) userData.get(Constants.ROOT_ORG_ID_LOWER));
-		}
-
-		List<Map<String, Object>> professionalDetails = (List<Map<String, Object>>) profileDetails.get(
-				Constants.PROFESSIONAL_DETAILS);
-
-		if (CollectionUtils.isNotEmpty(professionalDetails)) {
-
-			Map<String, Object> professionalDetail = professionalDetails.get(0);
-
-			professionalDetail.put(Constants.NAME, targetChannel);
-
-			professionalDetail.put(Constants.ID, (String) userData.get(Constants.ROOT_ORG_ID_LOWER));
-
-			if (!professionalDetail.containsKey(Constants.OSID) || professionalDetail.get(Constants.OSID) == null) {
-
-				professionalDetail.put(Constants.OSID, UUID.randomUUID().toString());
-			}
-
-		} else {
-			Map<String, Object> professionalDetail = new HashMap<>();
-
-			professionalDetail.put(Constants.OSID, UUID.randomUUID().toString());
-			professionalDetail.put(Constants.NAME, targetChannel);
-			professionalDetail.put(Constants.ID, (String) userData.get(Constants.ROOT_ORG_ID_LOWER));
-
-			professionalDetails = new ArrayList<>();
-			professionalDetails.add(professionalDetail);
-
-			profileDetails.put(Constants.PROFESSIONAL_DETAILS, professionalDetails);
-		}
-
-		Map<String, Object> updateDBRequest = new HashMap<>();
-
-		updateDBRequest.put(Constants.CHANNEL, targetChannel);
-
-		updateDBRequest.put(Constants.PROFILE_DETAILS_LOWER, mapper.writeValueAsString(profileDetails));
-
-		cassandraOperation.updateRecord(Constants.KEYSPACE_SUNBIRD, Constants.TABLE_USER,
-				updateDBRequest, Collections.singletonMap(Constants.ID, userId));
-	}
-
+        return response;
+    }
 	@Override
 	public SBApiResponse orgProfileRead(String orgId) throws Exception {
 		SBApiResponse response = createDefaultResponse(Constants.ORG_ONBOARDING_PROFILE_RETRIEVE_API);

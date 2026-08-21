@@ -25,8 +25,6 @@ public interface ProfileService {
 
 	SBApiResponse migrateUser(Map<String, Object> request, String userToken, String authToken);
 
-	SBApiResponse migrateUserV2(Map<String, Object> request, String targetChannel, String userToken, String authToken);
-
 	SBApiResponse userSignup(Map<String, Object> request);
 
 	SBApiResponse bulkUpload(MultipartFile mFile, String orgId, String orgName, String userId, String userAuthToken);

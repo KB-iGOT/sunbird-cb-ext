@@ -888,7 +888,7 @@ public class UserMigrationBulkConsumer {
                 return false;
             }
 
-            boolean success = processUserTransferV2(userId, targetOrgId, targetChannel, Constants.TRUE.equalsIgnoreCase(notifyUser), userAuthToken);
+            boolean success = processUserTransfer(userId, targetOrgId, targetChannel, Constants.TRUE.equalsIgnoreCase(notifyUser), userAuthToken);
 
             if (success) {
                 updateRowStatus(row, statusColumnIndex, errorColumnIndex, Constants.SUCCESS_UPPERCASE, "");
@@ -984,12 +984,13 @@ public class UserMigrationBulkConsumer {
         return Collections.emptyList();
     }
 
-    private boolean processUserTransferV2(String userId, String targetOrgId, String targetChannel, boolean notifyUser, String userAuthToken) {
-
+    private boolean processUserTransfer(String userId, String targetOrgId, String targetChannel, boolean notifyUser, String userAuthToken) {
         try {
             Map<String, Object> requestBody = new HashMap<>();
             requestBody.put(Constants.USER_ID_CONSTANT, userId);
             requestBody.put(Constants.TARGET_ORG_ID_KEY, targetOrgId);
+            requestBody.put(Constants.CHANNEL, targetChannel);
+            requestBody.put(Constants.API_VERSION, Constants.USER_MIGRATE_V2);
             requestBody.put(Constants.FORCE_MIGRATION, true);
             requestBody.put(Constants.SOFT_DELETE_OLD_ORG, false);
             requestBody.put(Constants.NOTIFY_MIGRATION, notifyUser);
@@ -997,19 +998,18 @@ public class UserMigrationBulkConsumer {
             Map<String, Object> request = new HashMap<>();
             request.put(Constants.REQUEST, requestBody);
 
-            SBApiResponse migrateResponse = profileService.migrateUserV2(request, targetChannel, userAuthToken, serverProperties.getSbApiKey());
+            SBApiResponse migrateResponse = profileService.migrateUser(request, userAuthToken, serverProperties.getSbApiKey());
 
             if (migrateResponse != null && Constants.SUCCESS.equalsIgnoreCase((String) migrateResponse.get(Constants.RESPONSE))) {
-
-                logger.info("User migration V2 successful: userId={}, targetOrgId={}", userId, targetOrgId);
+                logger.info("User migration successful: userId={}, targetOrgId={}, targetChannel={}", userId, targetOrgId, targetChannel);
                 return true;
             }
 
-            logger.error("User migration V2 failed: userId={}, response={}", userId, migrateResponse);
+            logger.error("User migration failed: userId={}, response={}", userId, migrateResponse);
             return false;
 
         } catch (Exception e) {
-            logger.error("Error in user transfer V2: userId={}, targetOrgId={}", userId, targetOrgId, e);
+            logger.error("Error in user transfer: userId={}, targetOrgId={}", userId, targetOrgId, e);
             return false;
         }
     }
