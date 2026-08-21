@@ -658,15 +658,22 @@ public class ProfileServiceImpl implements ProfileService {
 		headerValues.put(Constants.CONTENT_TYPE, Constants.APPLICATION_JSON);
 
 		Map<String, Object> requestBody = (Map<String, Object>) request.get(Constants.REQUEST);
-		if (requestBody != null) {
-			requestBody.putIfAbsent(Constants.FORCE_MIGRATION, true);
-			requestBody.putIfAbsent(Constants.SOFT_DELETE_OLD_ORG, false);
-		}
-
 		String userId = (String) requestBody.get(Constants.USER_ID);
 		String orgName = (String) requestBody.get(Constants.CHANNEL);
+		String targetOrgId = (String) requestBody.get(Constants.TARGET_ORG_ID_KEY);
+		boolean isV2 = Constants.USER_MIGRATE_V2.equalsIgnoreCase((String) requestBody.get(Constants.API_VERSION));
 
-		Map<String, Object> migrateErrorResponse = executeMigrateUser(request, headerValues);
+		if (isV2 && StringUtils.isBlank(orgName)) {
+			Map<String, Object> orgRecord = getOrgDetailsById(targetOrgId);
+			if (MapUtils.isEmpty(orgRecord)) {
+				response.getParams().setErrmsg("Target organisation details not found for targetOrgId: " + targetOrgId);
+				response.setResponseCode(HttpStatus.BAD_REQUEST);
+				return response;
+			}
+			orgName = (String) orgRecord.get(Constants.CHANNEL);
+		}
+		Map<String, Object> migrateErrorResponse = isV2 ? executeMigrateUserV2(request, headerValues)
+				: executeMigrateUser(getUserMigrateRequest(userId, orgName, false), headerValues);
 
 		if (!migrateErrorResponse.isEmpty()) {
 			setErrorDataWithStatus(response, migrateErrorResponse);
@@ -783,6 +790,12 @@ public class ProfileServiceImpl implements ProfileService {
 		response.getParams().setStatus(Constants.SUCCESS);
         return response;
     }
+
+	public SBApiResponse migrateUserV2(Map<String, Object> request, String userToken, String authToken) {
+		request.put(Constants.API_VERSION, Constants.USER_MIGRATE_V2);
+		return migrateUser(request, userToken, authToken);
+	}
+
 	@Override
 	public SBApiResponse orgProfileRead(String orgId) throws Exception {
 		SBApiResponse response = createDefaultResponse(Constants.ORG_ONBOARDING_PROFILE_RETRIEVE_API);
@@ -1462,8 +1475,11 @@ public class ProfileServiceImpl implements ProfileService {
 		if (StringUtils.isEmpty((String) request.get(Constants.USER_ID))) {
 			errObjList.add(Constants.USER_ID);
 		}
-		if (StringUtils.isEmpty((String) request.get(Constants.CHANNEL))) {
-			errObjList.add(Constants.CHANNEL);
+
+		boolean isV2 = Constants.USER_MIGRATE_V2.equalsIgnoreCase((String) request.get(Constants.API_VERSION));
+		String requiredOrgParam = isV2 ? Constants.TARGET_ORG_ID_KEY : Constants.CHANNEL;
+		if (StringUtils.isBlank((String) request.get(requiredOrgParam))) {
+			errObjList.add(requiredOrgParam);
 		}
 
 		if (!errObjList.isEmpty()) {
@@ -1484,6 +1500,19 @@ public class ProfileServiceImpl implements ProfileService {
 		Map<String, Object> migrateResponse = Optional.ofNullable(
 						(Map<String, Object>) outboundRequestHandlerService.fetchResultUsingPatch(
 								serverConfig.getSbUrl() + serverConfig.getLmsUserMigratePath(),
+								request, headers)).orElse(Collections.emptyMap());
+
+		if (!Constants.OK.equalsIgnoreCase((String) migrateResponse.get(Constants.RESPONSE_CODE))) {
+			return migrateResponse;
+		}
+		return Collections.emptyMap();
+	}
+
+	private Map<String, Object> executeMigrateUserV2(Map<String, Object> request, Map<String, String> headers) {
+
+		Map<String, Object> migrateResponse = Optional.ofNullable(
+						(Map<String, Object>) outboundRequestHandlerService.fetchResultUsingPatch(
+								serverConfig.getSbUrl() + serverConfig.getLmsUserMigrateV2Path(),
 								request, headers)).orElse(Collections.emptyMap());
 
 		if (!Constants.OK.equalsIgnoreCase((String) migrateResponse.get(Constants.RESPONSE_CODE))) {

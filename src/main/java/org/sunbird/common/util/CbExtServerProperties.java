@@ -1359,6 +1359,9 @@ public class CbExtServerProperties {
 	@Value("${nongovt.user.bulk.upload.result.headers}")
 	private String nonGovtUserBulkUploadResultHeaders;
 
+	@Value("${sb.service.user.migrate.v2.path}")
+	private String lmsUserMigrateV2Path;
+
 	@Value("${kafka.topics.org.user.bulk.transfer.v2.event}")
 	private String orgHierarchyUserBulkTransferTopicV2;
 
@@ -4624,6 +4627,13 @@ public class CbExtServerProperties {
 		this.nonGovtUserBulkUploadResultHeaders = nonGovtUserBulkUploadResultHeaders;
 	}
 
+	public String getLmsUserMigrateV2Path() {
+		return lmsUserMigrateV2Path;
+	}
+
+	public void setLmsUserMigrateV2Path(String lmsUserMigrateV2Path) {
+		this.lmsUserMigrateV2Path = lmsUserMigrateV2Path;
+	}
 
 	public String getOrgHierarchyUserBulkTransferTopicV2() {
 		return orgHierarchyUserBulkTransferTopicV2;

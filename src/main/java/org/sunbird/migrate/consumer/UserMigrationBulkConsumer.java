@@ -990,7 +990,6 @@ public class UserMigrationBulkConsumer {
             requestBody.put(Constants.USER_ID_CONSTANT, userId);
             requestBody.put(Constants.TARGET_ORG_ID_KEY, targetOrgId);
             requestBody.put(Constants.CHANNEL, targetChannel);
-            requestBody.put(Constants.API_VERSION, Constants.USER_MIGRATE_V2);
             requestBody.put(Constants.FORCE_MIGRATION, true);
             requestBody.put(Constants.SOFT_DELETE_OLD_ORG, false);
             requestBody.put(Constants.NOTIFY_MIGRATION, notifyUser);
