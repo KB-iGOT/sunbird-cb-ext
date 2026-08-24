@@ -1140,7 +1140,7 @@ public class AssessmentUtilServiceV2Impl implements AssessmentUtilServiceV2 {
 		propertyMap.put(Constants.USER_ID_CONSTANT, userId);
 		propertyMap.put(Constants.COURSE_ID, courseIds);
 		List<Map<String, Object>> enrolments = cassandraOperation.getRecordsByPropertiesWithoutFiltering(
-				Constants.KEYSPACE_SUNBIRD_COURSES, Constants.TABLE_USER_ENROLMENT, propertyMap,
+				Constants.KEYSPACE_SUNBIRD_COURSES, Constants.TABLE_USER_ENROLMENT_V2, propertyMap,
 				Arrays.asList(Constants.USER_ID_CONSTANT, Constants.COURSE_ID, Constants.STATUS));
 		if (CollectionUtils.isEmpty(enrolments) || enrolments.size() < courseIds.size()) {
 			logger.info(
