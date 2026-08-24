@@ -792,7 +792,8 @@ public class ProfileServiceImpl implements ProfileService {
     }
 
 	public SBApiResponse migrateUserV2(Map<String, Object> request, String userToken, String authToken) {
-		request.put(Constants.API_VERSION, Constants.USER_MIGRATE_V2);
+		Map<String, Object> innerRequest = (Map<String, Object>) request.get(Constants.REQUEST);
+		innerRequest.put(Constants.API_VERSION, Constants.USER_MIGRATE_V2);
 		return migrateUser(request, userToken, authToken);
 	}
 
