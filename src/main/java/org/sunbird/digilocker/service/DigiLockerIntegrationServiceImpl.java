@@ -97,7 +97,7 @@ public class DigiLockerIntegrationServiceImpl implements DigiLockerIntegrationSe
                     Map<String, Object> userInfo = new HashMap<>();
                     userInfo.put(Constants.USER_ID, userId);
                     List<Map<String, Object>> userEnrollmentInfo = cassandraOperation.getRecordsByPropertiesWithoutFiltering(
-                            Constants.KEYSPACE_SUNBIRD_COURSES, Constants.TABLE_USER_ENROLMENT, userInfo, Arrays.asList(Constants.USER_ID, Constants.COURSE_ID, Constants.ISSUED_CERTIFICATES));
+                            Constants.KEYSPACE_SUNBIRD_COURSES, Constants.TABLE_USER_ENROLMENT_V2, userInfo, Arrays.asList(Constants.USER_ID, Constants.COURSE_ID, Constants.ISSUED_CERTIFICATES));
                     if (CollectionUtils.isNotEmpty(userEnrollmentInfo)) {
                         userEnrollmentInfo = userEnrollmentInfo.stream()
                                 .filter(enrollment -> {
