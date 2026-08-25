@@ -981,5 +981,88 @@ public class UserMigrationServiceImpl implements UserMigrationService {
         }
     }
 
+    @Override
+    public SBApiResponse bulkUploadUserTransferV2(MultipartFile file, String rootOrgId, String userAuthToken, String frameworkId, String orgId) {
+        SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.API_BULK_TRANSFER_UPLOAD);
+        try {
+            Map<String, Object> tokenPayload = accessTokenValidator.extractTokenPayload(userAuthToken);
+            String userId = (String) tokenPayload.get(Constants.SUB);
+            if (StringUtils.isNotBlank(userId)) {
+                int pos = userId.lastIndexOf(":");
+                userId = userId.substring(pos + 1);
+            }
+            List<String> userRoles = (List<String>) tokenPayload.get(Constants.USER_ROLES_KEY);
+
+            if (StringUtils.isBlank(userId)) {
+                setErrorData(response, Constants.USER_ID_DOESNT_EXIST, HttpStatus.BAD_REQUEST);
+                return response;
+            }
+
+            Map<String, Object> propertyMap = new HashMap<>();
+            propertyMap.put(Constants.ID, orgId);
+            List<Map<String, Object>> orgDetailsList = cassandraOperation.getRecordsByProperties(Constants.DATABASE,
+                    Constants.ORGANISATION, propertyMap, null);
+
+            if (CollectionUtils.isEmpty(orgDetailsList)) {
+                setErrorData(response, "Organization not found", HttpStatus.FORBIDDEN);
+                return response;
+            }
+
+            Map<String, Object> orgRecord = orgDetailsList.get(0);
+            String sbOrgType = (String) orgRecord.get(serverConfig.getOrgTypeFieldName());
+            if (StringUtils.isEmpty(sbOrgType)) {
+                setErrorData(response, "Organization type not found", HttpStatus.FORBIDDEN);
+                return response;
+            }
+
+            if (!Arrays.asList(Constants.SPV_LOWER_CASE, Constants.MINISTRY, Constants.STATE).contains(sbOrgType.toLowerCase())) {
+                setErrorData(response, "Only SPV and MDO (Ministry/State) organizations can access the Bulk Transfer feature", HttpStatus.FORBIDDEN);
+                return response;
+            }
+
+            List<String> allowedRoles = serverConfig.getBulkTransferAuthorizedRoles();
+            if ((Constants.MINISTRY.equalsIgnoreCase(sbOrgType) || Constants.STATE.equalsIgnoreCase(sbOrgType)) &&
+                    userRoles.stream().noneMatch(allowedRoles::contains)) {
+                setErrorData(response, "Only MDO Admins and Leaders can access the Bulk Transfer feature", HttpStatus.FORBIDDEN);
+                return response;
+            }
+
+            SBApiResponse uploadResponse = storageService.uploadFile(file, serverConfig.getOrgHierarchyBulkUploadContainerName());
+            if (!HttpStatus.OK.equals(uploadResponse.getResponseCode())) {
+                setErrorData(response, "Failed to upload file: " + uploadResponse.getParams().getErrmsg(), HttpStatus.INTERNAL_SERVER_ERROR);
+                return response;
+            }
+
+            String identifier = UUID.randomUUID().toString();
+            Map<String, Object> uploadedFile = new HashMap<>();
+            uploadedFile.put(Constants.ROOT_ORG_ID, orgId);
+            uploadedFile.put(Constants.IDENTIFIER, identifier);
+            uploadedFile.put(Constants.FILE_NAME, uploadResponse.getResult().get(Constants.NAME));
+            uploadedFile.put(Constants.FILE_PATH, uploadResponse.getResult().get(Constants.URL));
+            uploadedFile.put(Constants.DATE_CREATED_ON, new Timestamp(System.currentTimeMillis()));
+            uploadedFile.put(Constants.STATUS, Constants.INITIATED_CAPITAL);
+            uploadedFile.put(Constants.CREATED_BY, userId);
+
+            SBApiResponse insertResponse = cassandraOperation.insertRecord(Constants.DATABASE,
+                    Constants.ORG_USER_BULK_TRANSFER_TABLE, uploadedFile);
+
+            if (!Constants.SUCCESS.equalsIgnoreCase((String) insertResponse.get(Constants.RESPONSE))) {
+                setErrorData(response, "Failed to update database with bulk transfer details", HttpStatus.INTERNAL_SERVER_ERROR);
+                return response;
+            }
+
+            response.getParams().setStatus(Constants.SUCCESSFUL);
+            response.setResponseCode(HttpStatus.OK);
+            response.getResult().putAll(uploadedFile);
+            uploadedFile.put(Constants.X_AUTH_TOKEN, userAuthToken);
+            uploadedFile.put(Constants.FRAMEWORK_ID, frameworkId);
+            kafkaProducer.pushWithKey(serverConfig.getOrgHierarchyUserBulkTransferTopicV2(), uploadedFile, rootOrgId);
+
+        } catch (Exception e) {
+            log.error("Error in bulk transfer upload V2: ", e);
+            setErrorData(response, "Failed to process bulk transfer request V2: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+        return response;
+    }
 
 }

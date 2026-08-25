@@ -91,6 +91,13 @@ public class ProfileController {
 		return new ResponseEntity<>(response, response.getResponseCode());
 	}
 
+	@PatchMapping("/user/v2/migrate")
+	private ResponseEntity<?> adminMigrateUserV2(@RequestHeader(Constants.X_AUTH_TOKEN) String userToken,
+				@RequestHeader(Constants.AUTH_TOKEN) String authToken, @RequestBody Map<String, Object> request) {
+		SBApiResponse response = profileService.migrateUserV2(request, userToken, authToken);
+		return new ResponseEntity<>(response, response.getResponseCode());
+	}
+
 	@PostMapping("/user/v1/ext/signup")
 	public ResponseEntity<?> userSignup(@RequestBody Map<String, Object> request) {
 		SBApiResponse response = profileService.userSignup(request);

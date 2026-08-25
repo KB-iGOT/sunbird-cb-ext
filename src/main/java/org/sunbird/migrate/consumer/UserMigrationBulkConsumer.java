@@ -708,4 +708,308 @@ public class UserMigrationBulkConsumer {
             }
         }
     }
+
+    @KafkaListener(topics = "${kafka.topics.org.user.bulk.transfer.v2.event}", groupId = "${kafka.topics.org.user.bulk.transfer.v2.event.group}")
+    public void processBulkUserTransferMessageV2(ConsumerRecord<String, String> data) {
+        logger.info("UserMigrationBulkConsumer::processBulkUserTransferMessageV2: Received V2 event to initiate Bulk User Transfer Process...");
+        logger.info("Received V2 message:: " + data.value());
+        try {
+            if (StringUtils.isNoneBlank(data.value())) {
+                synchronized (messageBuffer) {
+                    messageBuffer.add(data.value());
+                }
+                CompletableFuture.runAsync(() -> {
+                    initiateBulkUserTransferProcessV2(data.value());
+                    synchronized (messageBuffer) {
+                        messageBuffer.remove(data.value());
+                    }
+                });
+            } else {
+                logger.error("Error in Bulk User Transfer V2 Consumer: Invalid Kafka Msg");
+            }
+        } catch (Exception e) {
+            logger.error(String.format("Error in Bulk User Transfer V2 Consumer: Error Msg :%s", e.getMessage()), e);
+        }
+    }
+
+    public void initiateBulkUserTransferProcessV2(String message) {
+        String identifier = null;
+        String rootOrgId = null;
+
+        try {
+            Map<String, Object> messageData = objectMapper.readValue(message, Map.class);
+
+            identifier = (String) messageData.get(Constants.IDENTIFIER);
+            rootOrgId = (String) messageData.get(Constants.ROOT_ORG_ID);
+            String fileName = (String) messageData.get(Constants.FILE_NAME);
+            String userAuthToken = (String) messageData.get(Constants.X_AUTH_TOKEN);
+            String frameworkId = (String) messageData.get(Constants.FRAMEWORK_ID);
+
+            logger.info("Processing bulk transfer V2 for identifier: {}, rootOrgId: {}", identifier, rootOrgId);
+
+            updateBulkTransferStatus(rootOrgId, identifier, Constants.STATUS_IN_PROGRESS_UPPERCASE, null);
+
+            processExcelWithStatusUpdateV2(fileName, frameworkId, rootOrgId, userAuthToken, identifier);
+
+        } catch (Exception e) {
+            logger.error("Error processing bulk user transfer V2 message: {}", e.getMessage(), e);
+            if (StringUtils.isNotEmpty(identifier) && StringUtils.isNotEmpty(rootOrgId)) {
+                updateBulkTransferStatus(rootOrgId, identifier, Constants.FAILED_UPPERCASE, e.getMessage());
+            }
+        }
+    }
+
+    private void processExcelWithStatusUpdateV2(String fileName, String frameworkId, String rootOrgId, String userAuthToken, String identifier) throws Exception {
+
+        Map<String, Object> frameworkData = userMigrationService.getCompleteFrameworkDataFromUtil(frameworkId);
+        Map<String, Set<String>> orgHierarchyMap = buildOrgHierarchyMap(frameworkData);
+        Map<String, String> orgIdToChannelMap = buildOrgIdToChannelMap(frameworkData);
+
+        List<String> userRoles = getUserRolesFromToken(userAuthToken);
+
+        storageService.downloadFile(fileName, serverProperties.getOrgHierarchyBulkUploadContainerName());
+        File file = new File(Constants.LOCAL_BASE_PATH + fileName);
+
+        if (!file.exists() || file.length() == 0) {
+            logger.error("Error processing bulk user transfer V2:");
+            updateBulkTransferFilePathAndStatus(rootOrgId, identifier, null,
+                    Constants.FAILED_UPPERCASE, 0, 0, 0, Constants.EMPTY_FILE);
+            return;
+        }
+
+        int totalRecords = 0;
+        int successCount = 0;
+        int failedCount = 0;
+
+        FileInputStream fis = null;
+        XSSFWorkbook wb = null;
+
+        try {
+            fis = new FileInputStream(file);
+            wb = new XSSFWorkbook(fis);
+            XSSFSheet sheet = wb.getSheetAt(0);
+
+            Row headerRow = sheet.getRow(0);
+            if (headerRow == null) {
+                logger.error("Error processing bulk user transfer V2: {}", Constants.HEADER_ROW_NOT_FOUND);
+                updateBulkTransferFilePathAndStatus(rootOrgId, identifier, null, Constants.FAILED_UPPERCASE, totalRecords, successCount, failedCount, Constants.HEADER_ROW_NOT_FOUND);
+                return;
+            }
+
+            int statusColumnIndex = findOrAddColumn(headerRow, Constants.PASCALCASESTATUS);
+            int errorColumnIndex = findOrAddColumn(headerRow, Constants.ERRORMESSAGE);
+
+            Map<String, Map<String, Object>> orgCache = new HashMap<>();
+
+            Iterator<Row> rowIterator = sheet.iterator();
+            rowIterator.next();
+
+            while (rowIterator.hasNext()) {
+                Row row = rowIterator.next();
+
+                if (isEmptyRow(row)) {
+                    continue;
+                }
+
+                totalRecords++;
+                boolean success = processRowWithStatusUpdateV2(row, orgHierarchyMap, orgIdToChannelMap, rootOrgId, userAuthToken, userRoles, statusColumnIndex, errorColumnIndex, orgCache);
+                if (success) {
+                    successCount++;
+                } else {
+                    failedCount++;
+                }
+            }
+
+            uploadTheUpdatedFile(file, wb);
+            String finalStatus = failedCount > 0 ? Constants.FAILED_UPPERCASE : Constants.COMPLETED;
+            updateBulkTransferFilePathAndStatus(rootOrgId, identifier, null, finalStatus, totalRecords, successCount, failedCount);
+
+        } finally {
+            if (wb != null) {
+                wb.close();
+            }
+            if (fis != null) {
+                fis.close();
+            }
+            if (file != null && file.exists()) {
+                file.delete();
+            }
+        }
+
+        logger.debug("Bulk transfer V2 completed for identifier: {}. Total: {}, Success: {}, Failed: {}", identifier, totalRecords, successCount, failedCount);
+    }
+
+    private boolean processRowWithStatusUpdateV2(Row row, Map<String, Set<String>> orgHierarchyMap, Map<String, String> orgIdToChannelMap, String rootOrgId, String userAuthToken, List<String> userRoles, int statusColumnIndex, int errorColumnIndex, Map<String, Map<String, Object>> orgCache) {
+        String emailId = "";
+        String currentOrgName = "";
+        String targetOrgName = "";
+        String notifyUser = "";
+
+        try {
+            emailId = getCellStringValue(row.getCell(0));
+            currentOrgName = getCellStringValue(row.getCell(1));
+            targetOrgName = getCellStringValue(row.getCell(2));
+            notifyUser = getCellStringValue(row.getCell(3));
+
+            String currentOrgId = extractOrgIdFromName(currentOrgName);
+            String targetOrgId = extractOrgIdFromName(targetOrgName);
+
+            if (StringUtils.isAnyBlank(emailId, currentOrgId, targetOrgId)) {
+                updateRowStatus(row, statusColumnIndex, errorColumnIndex, Constants.FAILED_UPPERCASE, Constants.MISSING_REQUIRED_FIELDS);
+                return false;
+            }
+
+            if (!currentOrgId.equalsIgnoreCase(rootOrgId)) {
+                updateRowStatus(row, statusColumnIndex, errorColumnIndex, Constants.FAILED_UPPERCASE, Constants.ORGANIZATION_MISMATCH);
+                return false;
+            }
+
+            if (!orgIdToChannelMap.containsKey(currentOrgId)) {
+                updateRowStatus(row, statusColumnIndex, errorColumnIndex, Constants.FAILED_UPPERCASE, Constants.CURRENT_ORG_NOT_FOUND);
+                return false;
+            }
+
+            if (!isValidTransferBasedOnRoleV2(userRoles, currentOrgId, targetOrgId, orgHierarchyMap, orgCache)) {
+                updateRowStatus(row, statusColumnIndex, errorColumnIndex, Constants.FAILED_UPPERCASE, Constants.TRANSFER_NOT_ALLOWED);
+                return false;
+            }
+
+            Map<String, Object> userDetails = getUserByEmailAndOrg(emailId, currentOrgId);
+            if (MapUtils.isEmpty(userDetails)) {
+                updateRowStatus(row, statusColumnIndex, errorColumnIndex, Constants.FAILED_UPPERCASE, Constants.USER_NOT_FOUND_IN_CURRENT_ORG);
+                return false;
+            }
+
+            String userId = (String) userDetails.get(Constants.USER_ID);
+
+            String targetChannel = resolveTargetChannel(targetOrgId, orgIdToChannelMap, orgCache);
+            if (StringUtils.isBlank(targetChannel)) {
+                updateRowStatus(row, statusColumnIndex, errorColumnIndex, Constants.FAILED_UPPERCASE, Constants.TARGET_ORG_NOT_FOUND);
+                return false;
+            }
+
+            boolean success = processUserTransfer(userId, targetOrgId, targetChannel, Constants.TRUE.equalsIgnoreCase(notifyUser), userAuthToken);
+
+            if (success) {
+                updateRowStatus(row, statusColumnIndex, errorColumnIndex, Constants.SUCCESS_UPPERCASE, "");
+                return true;
+            } else {
+                updateRowStatus(row, statusColumnIndex, errorColumnIndex, Constants.FAILED_UPPERCASE, Constants.USER_TRANSFER_FAILED);
+                return false;
+            }
+
+        } catch (Exception e) {
+            String errorMessage = String.format(Constants.ERROR_PROCESSING_TRANSFER, emailId, e.getMessage());
+            logger.error(errorMessage, e);
+            updateRowStatus(row, statusColumnIndex, errorColumnIndex, Constants.FAILED_UPPERCASE, errorMessage);
+            return false;
+        }
+    }
+
+    private boolean isValidTransferBasedOnRoleV2(List<String> userRoles, String currentOrgId, String targetOrgId, Map<String, Set<String>> orgHierarchyMap, Map<String, Map<String, Object>> orgCache) {
+        if (CollectionUtils.isEmpty(userRoles) || MapUtils.isEmpty(orgHierarchyMap)) {
+            return false;
+        }
+
+        List<String> noRestrictionRoles = parseConfiguredRoles(serverProperties.getBulkUserMigrationNoRestrictionRoles());
+        List<String> restrictionRoles = parseConfiguredRoles(serverProperties.getBulkUserMigrationRestrictionRoles());
+        List<String> forwardPathRoles = parseConfiguredRoles(serverProperties.getBulkUserMigrationStrictForwardPathAllowedRoles());
+
+        // No Restriction
+        if (userRoles.stream().anyMatch(noRestrictionRoles::contains)) {
+            return isValidOrgInFramework(targetOrgId, orgHierarchyMap) || MapUtils.isNotEmpty(getOrgDetails(targetOrgId, orgCache));
+        }
+
+        // Restriction
+        if (userRoles.stream().anyMatch(restrictionRoles::contains)) {
+            return isValidOrgInFramework(targetOrgId, orgHierarchyMap);
+        }
+
+        // within department hierarchy (L1 to Ln forward path).
+        if (userRoles.stream().anyMatch(forwardPathRoles::contains)) {
+            return isForwardPathInHierarchy(currentOrgId, targetOrgId, orgHierarchyMap);
+        }
+
+        return false;
+    }
+
+    private Map<String, Object> getOrgDetails(String orgId, Map<String, Map<String, Object>> orgCache) {
+
+        if (orgCache.containsKey(orgId)) {
+            return orgCache.get(orgId);
+        }
+
+        Map<String, Object> orgRecord = Collections.emptyMap();
+
+        try {
+            Map<String, Object> propertyMap = Collections.singletonMap(Constants.ID, orgId);
+            List<Map<String, Object>> orgList = cassandraOperation.getRecordsByProperties(
+                    Constants.DATABASE, Constants.ORGANISATION, propertyMap, null);
+            if (CollectionUtils.isNotEmpty(orgList)) {
+                orgRecord = orgList.get(0);
+            }
+        } catch (Exception e) {
+            logger.error("Cassandra DB org lookup failed for orgId={}: {}", orgId, e.getMessage());
+        }
+
+        if (MapUtils.isNotEmpty(orgRecord)) {
+            orgCache.put(orgId, orgRecord);
+        }
+
+        return orgRecord;
+    }
+
+    private String resolveTargetChannel(String targetOrgId, Map<String, String> orgIdToChannelMap, Map<String, Map<String, Object>> orgCache) {
+        if (orgIdToChannelMap.containsKey(targetOrgId)) {
+            return orgIdToChannelMap.get(targetOrgId);
+        }
+        Map<String, Object> orgRecord = getOrgDetails(targetOrgId, orgCache);
+        if (MapUtils.isNotEmpty(orgRecord)) {
+            return (String) orgRecord.get(Constants.CHANNEL);
+        }
+        return null;
+    }
+
+    private List<String> parseConfiguredRoles(String rolesString) {
+        if (StringUtils.isNotBlank(rolesString)) {
+            String[] roles = rolesString.split(",");
+            List<String> roleList = new ArrayList<>();
+            for (String r : roles) {
+                if (StringUtils.isNotBlank(r)) {
+                    roleList.add(r.trim());
+                }
+            }
+            return roleList;
+        }
+        return Collections.emptyList();
+    }
+
+    private boolean processUserTransfer(String userId, String targetOrgId, String targetChannel, boolean notifyUser, String userAuthToken) {
+        try {
+            Map<String, Object> requestBody = new HashMap<>();
+            requestBody.put(Constants.USER_ID_CONSTANT, userId);
+            requestBody.put(Constants.TARGET_ORG_ID_KEY, targetOrgId);
+            requestBody.put(Constants.CHANNEL, targetChannel);
+            requestBody.put(Constants.FORCE_MIGRATION, true);
+            requestBody.put(Constants.SOFT_DELETE_OLD_ORG, false);
+            requestBody.put(Constants.NOTIFY_MIGRATION, notifyUser);
+
+            Map<String, Object> request = new HashMap<>();
+            request.put(Constants.REQUEST, requestBody);
+
+            SBApiResponse migrateResponse = profileService.migrateUser(request, userAuthToken, serverProperties.getSbApiKey());
+
+            if (migrateResponse != null && Constants.SUCCESS.equalsIgnoreCase((String) migrateResponse.get(Constants.RESPONSE))) {
+                logger.info("User migration successful: userId={}, targetOrgId={}, targetChannel={}", userId, targetOrgId, targetChannel);
+                return true;
+            }
+
+            logger.error("User migration failed: userId={}, response={}", userId, migrateResponse);
+            return false;
+
+        } catch (Exception e) {
+            logger.error("Error in user transfer: userId={}, targetOrgId={}", userId, targetOrgId, e);
+            return false;
+        }
+    }
 }
