@@ -1359,6 +1359,12 @@ public class CbExtServerProperties {
 	@Value("${nongovt.user.bulk.upload.result.headers}")
 	private String nonGovtUserBulkUploadResultHeaders;
 
+	@Value("${certificate-generator-service-host}")
+	private String certificateGeneratorServiceHost;
+
+	@Value("${certificate-generator-download-url}")
+	private String certificateGeneratorDownloadUrl;
+
 	public int getUserSearchLimit() {
 		return userSearchLimit;
 	}
@@ -4610,5 +4616,21 @@ public class CbExtServerProperties {
 
 	public void setNonGovtUserBulkUploadResultHeaders(String nonGovtUserBulkUploadResultHeaders) {
 		this.nonGovtUserBulkUploadResultHeaders = nonGovtUserBulkUploadResultHeaders;
+	}
+
+    public String getCertificateGeneratorServiceHost() {
+        return certificateGeneratorServiceHost;
+    }
+
+    public void setCertificateGeneratorServiceHost(String certificateGeneratorServiceHost) {
+        this.certificateGeneratorServiceHost = certificateGeneratorServiceHost;
+    }
+
+	public String getCertificateGeneratorDownloadUrl() {
+		return certificateGeneratorDownloadUrl;
+	}
+
+	public void setCertificateGeneratorDownloadUrl(String certificateGeneratorDownloadUrl) {
+		this.certificateGeneratorDownloadUrl = certificateGeneratorDownloadUrl;
 	}
 }
