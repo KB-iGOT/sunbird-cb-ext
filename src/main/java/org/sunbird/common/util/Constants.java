@@ -982,6 +982,30 @@ public class Constants {
 	public static final String COMPETENCY_DETAILS_MISSING = "Competency details missing for content request";
 
 	public static final String TABLE_USER_KARMA_POINTS_SUMMARY ="user_karma_points_summary";
+
+	// Karma Coin Wallet - tables
+	public static final String TABLE_USER_KARMA_COIN_WALLET = "user_karma_coin_wallet";
+	public static final String TABLE_USER_KARMA_COIN_MONTHLY_SUMMARY = "user_karma_coin_monthly_summary";
+	public static final String TOTAL_EARNED = "total_earned";
+	public static final String TOTAL_REDEEMED = "total_redeemed";
+	public static final String YEAR_MONTH = "year_month";
+	public static final String POINTS_CONVERTED = "points_converted";
+	public static final String REDIS_KEY_KARMA_COINS = "user:karmaCoins:";
+	public static final String API_KARMA_WALLET_SUMMARY = "api.karma.wallet.summary";
+	// Karma Coin Wallet - summary response fields
+	public static final String WALLET_BALANCE = "walletBalance";
+	public static final String TOTAL_EARNED_TILL_DATE = "totalEarnedTillDate";
+	public static final String TOTAL_KARMA_POINTS = "totalKarmaPoints";
+	public static final String UNREDEEMED_KARMA_POINTS = "unredeemedKarmaPoints";
+	public static final String YEAR_MONTH_CAMEL = "yearMonth";
+	public static final String MONTHLY_CAP = "monthlyCap";
+	public static final String CONVERTED_THIS_MONTH = "convertedThisMonth";
+	public static final String CONVERTIBLE_THIS_MONTH = "convertibleThisMonth";
+	public static final String CAP_RESETS_ON = "capResetsOn";
+	public static final String REDEEM_ENABLED = "redeemEnabled";
+	public static final String TOTAL_EARNED_CAMEL = "totalEarned";
+	public static final String TOTAL_REDEEMED_CAMEL = "totalRedeemed";
+
     public static final String REQUEST_CONTENT_SUBJECT = "New Content Request for Capacity Building Plan Development";
 	public static final String COMPETENCY_THEMES = "competencyThemes";
 	public static final String COMPETENCY_SUB_THEMES = "competencySubThemes";
