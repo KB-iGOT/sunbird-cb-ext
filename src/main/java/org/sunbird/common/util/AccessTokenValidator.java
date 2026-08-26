@@ -149,6 +149,38 @@ public class AccessTokenValidator {
         return tokenPayload;
     }
 
+    /**
+     * Extracts the userId from an already-validated token payload (see {@link #extractTokenPayload(String)}),
+     * mirroring the {@code sub}-claim handling in {@link #verifyUserToken(String)}. Use this to avoid
+     * validating the same token more than once when both the userId and roles are needed.
+     */
+    public String getUserIdFromPayload(Map<String, Object> tokenPayload) {
+        if (MapUtils.isEmpty(tokenPayload)) {
+            return null;
+        }
+        String userId = (String) tokenPayload.get(Constants.SUB);
+        if (StringUtils.isNotBlank(userId)) {
+            userId = userId.substring(userId.lastIndexOf(":") + 1);
+        }
+        return userId;
+    }
+
+    /**
+     * Extracts the user roles from an already-validated token payload (see
+     * {@link #extractTokenPayload(String)}). Returns an empty list when no roles are present.
+     */
+    @SuppressWarnings("unchecked")
+    public List<String> getUserRolesFromPayload(Map<String, Object> tokenPayload) {
+        if (MapUtils.isEmpty(tokenPayload)) {
+            return Collections.emptyList();
+        }
+        Object rolesClaim = tokenPayload.get(Constants.USER_ROLES_KEY);
+        if (!(rolesClaim instanceof List)) {
+            return Collections.emptyList();
+        }
+        return (List<String>) rolesClaim;
+    }
+
     public List<String> fetchUserRolesFromToken(String accessToken) {
         try {
             Map<String, Object> tokenBody = validateToken(accessToken);
