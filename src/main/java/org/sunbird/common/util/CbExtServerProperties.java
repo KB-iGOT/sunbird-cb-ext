@@ -1374,6 +1374,12 @@ public class CbExtServerProperties {
 	@Value("${bulk.user.migration.no.restriction.roles}")
 	private String bulkUserMigrationNoRestrictionRoles;
 
+	@Value("${certificate-generator-service-host}")
+	private String certificateGeneratorServiceHost;
+
+	@Value("${certificate-generator-download-url}")
+	private String certificateGeneratorDownloadUrl;
+
 	public int getUserSearchLimit() {
 		return userSearchLimit;
 	}
@@ -4665,5 +4671,21 @@ public class CbExtServerProperties {
 
 	public void setOrgHierarchyUserBulkTransferTopicV2(String orgHierarchyUserBulkTransferTopicV2) {
 		this.orgHierarchyUserBulkTransferTopicV2 = orgHierarchyUserBulkTransferTopicV2;
+	}
+
+    public String getCertificateGeneratorServiceHost() {
+        return certificateGeneratorServiceHost;
+    }
+
+    public void setCertificateGeneratorServiceHost(String certificateGeneratorServiceHost) {
+        this.certificateGeneratorServiceHost = certificateGeneratorServiceHost;
+    }
+
+	public String getCertificateGeneratorDownloadUrl() {
+		return certificateGeneratorDownloadUrl;
+	}
+
+	public void setCertificateGeneratorDownloadUrl(String certificateGeneratorDownloadUrl) {
+		this.certificateGeneratorDownloadUrl = certificateGeneratorDownloadUrl;
 	}
 }

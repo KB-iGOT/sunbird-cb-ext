@@ -274,8 +274,8 @@ public class DigiLockerIntegrationServiceImpl implements DigiLockerIntegrationSe
     }
 
     private String getCertificate(String certificateId) {
-        Map<String, Object> response = (Map<String, Object>) outboundRequestHandlerService.fetchResult(serverProperties.getCertRegistryServiceBaseUrl() +
-                serverProperties.getCertRegistryCertificateDownloadUrl() + certificateId);
+        Map<String, Object> response = (Map<String, Object>) outboundRequestHandlerService.fetchResult(serverProperties.getCertificateGeneratorServiceHost() +
+                serverProperties.getCertificateGeneratorDownloadUrl() + certificateId);
         if (null != response && Constants.OK.equalsIgnoreCase((String) response.get(Constants.RESPONSE_CODE))) {
             Map<String, Object> certificateInfo = (Map<String, Object>) response.get(Constants.RESULT);
             if (MapUtils.isNotEmpty(certificateInfo)) {
