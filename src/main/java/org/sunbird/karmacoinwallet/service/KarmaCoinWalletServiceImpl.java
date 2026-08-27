@@ -1,9 +1,12 @@
 package org.sunbird.karmacoinwallet.service;
 
+import java.time.LocalDate;
 import java.time.YearMonth;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 import org.apache.commons.collections.CollectionUtils;
@@ -110,6 +113,126 @@ public class KarmaCoinWalletServiceImpl implements KarmaCoinWalletService {
             response.setResponseCode(HttpStatus.INTERNAL_SERVER_ERROR);
         }
         return response;
+    }
+
+    @Override
+    public SBApiResponse getTransactions(String token, Map<String, Object> requestBody) {
+        SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.API_KARMA_WALLET_TRANSACTIONS);
+        Map<String, Object> tokenPayload = accessTokenValidator.extractTokenPayload(token);
+        String userId = accessTokenValidator.getUserIdFromPayload(tokenPayload);
+        if (StringUtils.isBlank(userId)) {
+            response.getParams().setStatus(Constants.FAILED);
+            response.getParams().setErrmsg(Constants.USER_ID_DOESNT_EXIST);
+            response.setResponseCode(HttpStatus.UNAUTHORIZED);
+            return response;
+        }
+
+        List<String> userRoles = accessTokenValidator.getUserRolesFromPayload(tokenPayload);
+        List<String> authorizedRoles = serverProperties.getKarmaCoinWalletAuthorizedRoles();
+        if (CollectionUtils.isEmpty(userRoles) || userRoles.stream().noneMatch(authorizedRoles::contains)) {
+            response.getParams().setStatus(Constants.FAILED);
+            response.getParams().setErrmsg(Constants.UNAUTHORIZED_USER);
+            response.setResponseCode(HttpStatus.FORBIDDEN);
+            return response;
+        }
+
+
+        Object requestObj = (requestBody == null) ? null : requestBody.get(Constants.REQUEST);
+        if (!(requestObj instanceof Map)) {
+            setError(response, Constants.INVALID_REQUEST, HttpStatus.BAD_REQUEST);
+            return response;
+        }
+        Map<?, ?> request = (Map<?, ?>) requestObj;
+
+        long startDate;
+        long endDate;
+        try {
+            LocalDate fromDate = LocalDate.parse(String.valueOf(request.get(Constants.START_DATE)));
+            LocalDate toDate = LocalDate.parse(String.valueOf(request.get(Constants.END_DATE)));
+            if (toDate.isBefore(fromDate)) {
+                setError(response, Constants.INVALID_REQUEST, HttpStatus.BAD_REQUEST);
+                return response;
+            }
+            ZoneId zoneId = ZoneId.of(Constants.ASIA_KOLKATA_TIMEZONE);
+            startDate = fromDate.atStartOfDay(zoneId).toInstant().toEpochMilli();
+            endDate = toDate.plusDays(1).atStartOfDay(zoneId).toInstant().toEpochMilli() - 1;
+        } catch (Exception e) {
+            logger.debug("Invalid date range in karma coin transactions request", e);
+            setError(response, Constants.INVALID_REQUEST, HttpStatus.BAD_REQUEST);
+            return response;
+        }
+
+        String type = resolveType(request.get(Constants.TYPE));
+        if (type == null) {
+            setError(response, Constants.INVALID_REQUEST, HttpStatus.BAD_REQUEST);
+            return response;
+        }
+
+        try {
+            Map<String, Object> propertyMap = new HashMap<>();
+            propertyMap.put(Constants.KARMA_POINTS_USER_ID, userId);
+            List<Map<String, Object>> rows = cassandraOperation.getRecordsByPropertiesWithClusteringRange(
+                    Constants.KEYSPACE_SUNBIRD, Constants.TABLE_USER_KARMA_COIN_TRANSACTIONS, propertyMap,
+                    new ArrayList<>(), Constants.DB_COLUMN_TXN_CREATED_AT, startDate, endDate);
+
+            List<Map<String, Object>> transactions = new ArrayList<>();
+            for (Map<String, Object> row : rows) {
+                String rowType = (String) row.get(Constants.TYPE);
+                if (!Constants.TXN_TYPE_ALL.equals(type) && !type.equals(rowType)) {
+                    continue;
+                }
+                transactions.add(toTransactionView(row));
+            }
+
+            Map<String, Object> result = new HashMap<>();
+            result.put(Constants.TRANSACTIONS, transactions);
+            response.setResult(result);
+            response.getParams().setStatus(Constants.SUCCESS);
+            response.setResponseCode(HttpStatus.OK);
+        } catch (Exception e) {
+            logger.error("Failed to fetch karma coin wallet transactions for user: " + userId, e);
+            setError(response, "Failed to fetch karma coin wallet transactions", HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+        return response;
+    }
+
+    /**
+     * Normalises the request {@code type} to one of {@code ALL} (default), {@code CREDIT} or
+     * {@code DEBIT}. Returns {@code null} for any unrecognised value so the caller can reject it.
+     */
+    private String resolveType(Object typeValue) {
+        String type = (typeValue == null || StringUtils.isBlank(typeValue.toString()))
+                ? Constants.TXN_TYPE_ALL
+                : typeValue.toString().toUpperCase(Locale.ENGLISH);
+        if (Constants.TXN_TYPE_ALL.equals(type) || Constants.TXN_TYPE_CREDIT.equals(type)
+                || Constants.TXN_TYPE_DEBIT.equals(type)) {
+            return type;
+        }
+        return null;
+    }
+
+    private void setError(SBApiResponse response, String errMsg, HttpStatus status) {
+        response.getParams().setStatus(Constants.FAILED);
+        response.getParams().setErrmsg(errMsg);
+        response.setResponseCode(status);
+    }
+
+    /**
+     * Maps a raw {@code user_karma_coin_transactions} row (keyed by DB column names) to the
+     * camelCase view the UI consumes. {@code addinfo} is passed through as the stored JSON string.
+     */
+    private Map<String, Object> toTransactionView(Map<String, Object> row) {
+        Map<String, Object> txn = new HashMap<>();
+        txn.put(Constants.TRANSACTION_ID_CAMEL, row.get(Constants.DB_COLUMN_TRANSACTION_ID));
+        txn.put(Constants.DATE_CAMEL, row.get(Constants.DB_COLUMN_TXN_CREATED_AT));
+        txn.put(Constants.TYPE, row.get(Constants.TYPE));
+        txn.put(Constants.AMOUNT_CAMEL, row.get(Constants.DB_COLUMN_AMOUNT));
+        txn.put(Constants.BALANCE_AFTER_CAMEL, row.get(Constants.DB_COLUMN_BALANCE_AFTER));
+        txn.put(Constants.ACTION_TYPE_CAMEL, row.get(Constants.DB_COLUMN_ACTION_TYPE));
+        txn.put(Constants.CONTEXT_TYPE_CAMEL, row.get(Constants.DB_CLOUMN_CONTEXT_TYPE));
+        txn.put(Constants.CONTEXT_ID_CAMEL, row.get(Constants.DB_COLUMN_CONTEXT_ID));
+        txn.put(Constants.ADDINFO_CAMEL, row.get(Constants.DB_COLUMN_ADDINFO));
+        return txn;
     }
 
     /**

@@ -1006,6 +1006,27 @@ public class Constants {
 	public static final String TOTAL_EARNED_CAMEL = "totalEarned";
 	public static final String TOTAL_REDEEMED_CAMEL = "totalRedeemed";
 
+	// Karma Coin Wallet - transactions
+	public static final String TABLE_USER_KARMA_COIN_TRANSACTIONS = "user_karma_coin_transactions";
+	public static final String DB_COLUMN_TXN_CREATED_AT = "created_at";
+	public static final String DB_COLUMN_TRANSACTION_ID = "transaction_id";
+	public static final String DB_COLUMN_AMOUNT = "amount";
+	public static final String DB_COLUMN_BALANCE_AFTER = "balance_after";
+	public static final String DB_COLUMN_ACTION_TYPE = "action_type";
+	public static final String DB_COLUMN_ADDINFO = "addinfo";
+	public static final String API_KARMA_WALLET_TRANSACTIONS = "api.karma.wallet.transactions";
+	public static final String TXN_TYPE_ALL = "ALL";
+	public static final String TXN_TYPE_CREDIT = "CREDIT";
+	public static final String TXN_TYPE_DEBIT = "DEBIT";
+	public static final String TRANSACTIONS = "transactions";
+	public static final String TRANSACTION_ID_CAMEL = "transactionId";
+	public static final String DATE_CAMEL = "date";
+	public static final String AMOUNT_CAMEL = "amount";
+	public static final String BALANCE_AFTER_CAMEL = "balanceAfter";
+	public static final String ACTION_TYPE_CAMEL = "actionType";
+	public static final String ADDINFO_CAMEL = "addinfo";
+	public static final String ASIA_KOLKATA_TIMEZONE = "Asia/Kolkata";
+
     public static final String REQUEST_CONTENT_SUBJECT = "New Content Request for Capacity Building Plan Development";
 	public static final String COMPETENCY_THEMES = "competencyThemes";
 	public static final String COMPETENCY_SUB_THEMES = "competencySubThemes";
