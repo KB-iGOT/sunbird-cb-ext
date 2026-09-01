@@ -35,4 +35,10 @@ public class KarmaCoinWalletController {
         SBApiResponse response = karmaCoinWalletService.getTransactions(token, requestBody);
         return new ResponseEntity<>(response, response.getResponseCode());
     }
+
+    @PostMapping("/redeem")
+    public ResponseEntity<SBApiResponse> redeem(@RequestHeader(Constants.X_AUTH_TOKEN) String token, @RequestBody Map<String, Object> requestBody) {
+        SBApiResponse response = karmaCoinWalletService.redeem(token, requestBody);
+        return new ResponseEntity<>(response, response.getResponseCode());
+    }
 }

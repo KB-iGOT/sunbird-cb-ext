@@ -24,6 +24,7 @@ import org.sunbird.common.util.Constants;
 import org.sunbird.common.util.ProjectUtil;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.sunbird.consumer.KafkaProducer;
 
 @Service
 public class KarmaCoinWalletServiceImpl implements KarmaCoinWalletService {
@@ -36,16 +37,19 @@ public class KarmaCoinWalletServiceImpl implements KarmaCoinWalletService {
 
     private final AccessTokenValidator accessTokenValidator;
 
+    private final KafkaProducer kafkaProducer;
+
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     private final Logger logger = LoggerFactory.getLogger(getClass().getName());
 
     public KarmaCoinWalletServiceImpl(CassandraOperation cassandraOperation, RedisCacheMgr redisCacheMgr,
-            CbExtServerProperties serverProperties, AccessTokenValidator accessTokenValidator) {
+                                      CbExtServerProperties serverProperties, AccessTokenValidator accessTokenValidator, KafkaProducer kafkaProducer) {
         this.cassandraOperation = cassandraOperation;
         this.redisCacheMgr = redisCacheMgr;
         this.serverProperties = serverProperties;
         this.accessTokenValidator = accessTokenValidator;
+        this.kafkaProducer = kafkaProducer;
     }
 
     @Override
@@ -330,5 +334,86 @@ public class KarmaCoinWalletServiceImpl implements KarmaCoinWalletService {
             return ((Number) value).intValue();
         }
         return 0;
+    }
+
+    @Override
+    public SBApiResponse redeem(String token, Map<String, Object> requestBody) {
+        SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.API_KARMA_WALLET_REDEEM);
+        Map<String, Object> tokenPayload = accessTokenValidator.extractTokenPayload(token);
+        String userId = accessTokenValidator.getUserIdFromPayload(tokenPayload);
+        if (StringUtils.isBlank(userId)) {
+            setError(response, Constants.USER_ID_DOESNT_EXIST, HttpStatus.UNAUTHORIZED);
+            return response;
+        }
+        List<String> userRoles = accessTokenValidator.getUserRolesFromPayload(tokenPayload);
+        List<String> authorizedRoles = serverProperties.getKarmaCoinWalletAuthorizedRoles();
+        if (CollectionUtils.isEmpty(userRoles) || userRoles.stream().noneMatch(authorizedRoles::contains)) {
+            setError(response, Constants.UNAUTHORIZED_USER, HttpStatus.FORBIDDEN);
+            return response;
+        }
+        Object requestObj = (requestBody == null) ? null : requestBody.get(Constants.REQUEST);
+        if (!(requestObj instanceof Map)) {
+            setError(response, Constants.INVALID_REQUEST, HttpStatus.BAD_REQUEST);
+            return response;
+        }
+        Map<?, ?> request = (Map<?, ?>) requestObj;
+        Object pointsValue = request.get(Constants.POINTS_TO_CONVERT);
+        if (!(pointsValue instanceof Number)) {
+            setError(response, Constants.INVALID_REQUEST, HttpStatus.BAD_REQUEST);
+            return response;
+        }
+        int pointsToConvert = ((Number) pointsValue).intValue();
+        if (pointsToConvert <= 0) {
+            setError(response, Constants.INVALID_REQUEST, HttpStatus.BAD_REQUEST);
+            return response;
+        }
+        Object requestIdValue = request.get(Constants.REQUEST_ID);
+        String requestId = requestIdValue == null ? null : requestIdValue.toString().trim();
+        if (StringUtils.isBlank(requestId)) {
+            setError(response, Constants.INVALID_REQUEST, HttpStatus.BAD_REQUEST);
+            return response;
+        }
+        try {
+            String currentYearMonth = YearMonth.now().toString();
+            WalletSnapshot snapshot = loadWalletAndMonthly(userId, currentYearMonth);
+            int totalEarned = snapshot.totalEarned;
+            int convertedThisMonth = snapshot.convertedThisMonth;
+            int totalKarmaPoints = fetchTotalKarmaPoints(userId);
+            int monthlyCap = serverProperties.getKarmaCoinMonthlyCap();
+            int unredeemedKarmaPoints = Math.max(
+                            0,
+                            totalKarmaPoints - totalEarned);
+            int remainingCap = Math.max(
+                            0,
+                            monthlyCap - convertedThisMonth);
+            int convertibleThisMonth = Math.min(
+                            remainingCap,
+                            unredeemedKarmaPoints);
+            if (pointsToConvert > convertibleThisMonth) {
+                setError(response, Constants.MONTHLY_CAP_EXCEEDED, HttpStatus.BAD_REQUEST);
+                return response;
+            }
+            Map<String, Object> event = new HashMap<>();
+            event.put(Constants.EVENT_EID, Constants.KARMA_COIN_CREDIT_EID);
+            event.put(Constants.EVENT_ETS, System.currentTimeMillis());
+            event.put(Constants.USER_ID, userId);
+            event.put(Constants.REQUEST_ID, requestId);
+            event.put(Constants.OPERATION, Constants.TXN_TYPE_CREDIT);
+            event.put(Constants.ACTION_TYPE_CAMEL, Constants.POINTS_CONVERSION);
+            event.put(Constants.POINTS_TO_CONVERT, pointsToConvert);
+            event.put(Constants.CONTEXT_TYPE, Constants.POINTS_CONVERSION);
+            event.put(Constants.CONTEXT_ID_CAMEL, StringUtils.EMPTY);
+            kafkaProducer.push(serverProperties.getKarmaCoinWalletRedeemTopic(), userId, event);
+            Map<String, Object> result = new HashMap<>();
+            result.put(Constants.REQUEST_ID, requestId);
+            result.put(Constants.STATUS, Constants.PROCESSING);
+            response.setResult(result);
+            response.getParams().setStatus(Constants.ACCEPTED);
+            response.setResponseCode(HttpStatus.ACCEPTED);
+        } catch (Exception e) {
+            logger.error("Failed to process karma coin redemption for user: " + userId, e);
+            setError(response, "Failed to process karma coin redemption", HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+        return response;
     }
 }

@@ -1785,4 +1785,16 @@ public class Constants {
 	public static final String TARGET_ORG_ID_KEY = "targetOrgId";
 	public static final String API_VERSION = "apiVersion";
 	public static final String USER_MIGRATE_V2 = "userMigrateV2";
+	public static final String API_KARMA_WALLET_REDEEM = "api.karma.wallet.redeem";
+	public static final String REQUEST_ID = "requestId";
+	public static final String POINTS_TO_CONVERT = "pointsToConvert";
+	public static final String POINTS_REDEMPTION = "POINTS_REDEMPTION";
+	public static final String POINTS_CONVERSION = "POINTS_CONVERSION";
+	public static final String PROCESSING = "PROCESSING";
+	public static final String ACCEPTED = "ACCEPTED";
+	public static final String MONTHLY_CAP_EXCEEDED = "MONTHLY_CAP_EXCEEDED";
+	public static final String EVENT_EID = "eid";
+	public static final String EVENT_ETS = "ets";
+	public static final String OPERATION = "operation";
+	public static final String KARMA_COIN_CREDIT_EID = "KARMA_COIN_CREDIT";
 }

@@ -1386,6 +1386,9 @@ public class CbExtServerProperties {
 	@Value("${certificate-generator-download-url}")
 	private String certificateGeneratorDownloadUrl;
 
+	@Value("${karma.coin.wallet.redeem.topic}")
+	private String karmaCoinWalletRedeemTopic;
+
 	public int getUserSearchLimit() {
 		return userSearchLimit;
 	}
@@ -4717,5 +4720,9 @@ public class CbExtServerProperties {
 
 	public void setCertificateGeneratorDownloadUrl(String certificateGeneratorDownloadUrl) {
 		this.certificateGeneratorDownloadUrl = certificateGeneratorDownloadUrl;
+	}
+
+	public String getKarmaCoinWalletRedeemTopic() {
+		return karmaCoinWalletRedeemTopic;
 	}
 }
