@@ -1797,4 +1797,5 @@ public class Constants {
 	public static final String EVENT_ETS = "ets";
 	public static final String OPERATION = "operation";
 	public static final String KARMA_COIN_CREDIT_EID = "KARMA_COIN_CREDIT";
+	public static final String CONVERSION_PERIOD = "conversionPeriod";
 }

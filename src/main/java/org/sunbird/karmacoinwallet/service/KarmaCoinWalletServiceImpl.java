@@ -393,16 +393,21 @@ public class KarmaCoinWalletServiceImpl implements KarmaCoinWalletService {
                 setError(response, Constants.MONTHLY_CAP_EXCEEDED, HttpStatus.BAD_REQUEST);
                 return response;
             }
+            Map<String, Object> data = new HashMap<>();
+            data.put(Constants.EVENT_EID, Constants.KARMA_COIN_CREDIT_EID);
+            data.put(Constants.EVENT_ETS, System.currentTimeMillis());
+            data.put(Constants.USER_ID, userId);
+            data.put(Constants.REQUEST_ID, requestId);
+            data.put(Constants.OPERATION, Constants.TXN_TYPE_CREDIT);
+            data.put(Constants.ACTION_TYPE_CAMEL, Constants.POINTS_CONVERSION);
+            data.put(Constants.POINTS_TO_CONVERT, pointsToConvert);
+            data.put(Constants.CONTEXT_TYPE, Constants.POINTS_CONVERSION);
+            data.put(Constants.CONTEXT_ID_CAMEL, requestId);
+            data.put(Constants.CONVERSION_PERIOD, currentYearMonth);
+
             Map<String, Object> event = new HashMap<>();
-            event.put(Constants.EVENT_EID, Constants.KARMA_COIN_CREDIT_EID);
-            event.put(Constants.EVENT_ETS, System.currentTimeMillis());
-            event.put(Constants.USER_ID, userId);
-            event.put(Constants.REQUEST_ID, requestId);
-            event.put(Constants.OPERATION, Constants.TXN_TYPE_CREDIT);
-            event.put(Constants.ACTION_TYPE_CAMEL, Constants.POINTS_CONVERSION);
-            event.put(Constants.POINTS_TO_CONVERT, pointsToConvert);
-            event.put(Constants.CONTEXT_TYPE, Constants.POINTS_CONVERSION);
-            event.put(Constants.CONTEXT_ID_CAMEL, StringUtils.EMPTY);
+            event.put(Constants.EVENT_TYPE, Constants.POINTS_CONVERSION);
+            event.put(Constants.DATA, data);
             kafkaProducer.push(serverProperties.getKarmaCoinWalletRedeemTopic(), userId, event);
             Map<String, Object> result = new HashMap<>();
             result.put(Constants.REQUEST_ID, requestId);

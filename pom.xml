@@ -19,6 +19,9 @@
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <java.version>1.8</java.version>
         <log4j2.version>2.16.0</log4j2.version>
+        <mockito.version>3.3.3</mockito.version>
+        <byte-buddy.version>1.10.14</byte-buddy.version>
+        <objenesis.version>3.0.1</objenesis.version>
     </properties>
 
     <repositories>
@@ -85,6 +88,12 @@
                     <artifactId>junit</artifactId>
                 </exclusion>
             </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-api</artifactId>
+            <version>5.2.0-M1</version>
+            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
