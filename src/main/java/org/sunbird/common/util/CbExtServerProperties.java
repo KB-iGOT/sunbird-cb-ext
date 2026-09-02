@@ -615,6 +615,12 @@ public class CbExtServerProperties {
 	private int KarmaPointsLimit;
 	@Value("${kafka.topics.claim.acbp.karma.points}")
 	private String claimKarmaPointsTopic;
+	@Value("${karma.coin.monthly.cap}")
+	private int karmaCoinMonthlyCap;
+	@Value("${karma.coin.wallet.redis.ttl}")
+	private int karmaCoinWalletRedisTtl;
+	@Value("${karma.coin.wallet.authorized.roles}")
+	private String karmaCoinWalletAuthorizedRoles;
 
 	@Value("#{${report.property.map}}")
 	private Map<String, String> reportMap;
@@ -1379,6 +1385,9 @@ public class CbExtServerProperties {
 
 	@Value("${certificate-generator-download-url}")
 	private String certificateGeneratorDownloadUrl;
+
+	@Value("${karma.coin.wallet.redeem.topic}")
+	private String karmaCoinWalletRedeemTopic;
 
 	public int getUserSearchLimit() {
 		return userSearchLimit;
@@ -2976,6 +2985,30 @@ public class CbExtServerProperties {
 
 	public String getClaimKarmaPointsTopic() {
 		return claimKarmaPointsTopic;
+	}
+
+	public int getKarmaCoinMonthlyCap() {
+		return karmaCoinMonthlyCap;
+	}
+
+	public void setKarmaCoinMonthlyCap(int karmaCoinMonthlyCap) {
+		this.karmaCoinMonthlyCap = karmaCoinMonthlyCap;
+	}
+
+	public int getKarmaCoinWalletRedisTtl() {
+		return karmaCoinWalletRedisTtl;
+	}
+
+	public void setKarmaCoinWalletRedisTtl(int karmaCoinWalletRedisTtl) {
+		this.karmaCoinWalletRedisTtl = karmaCoinWalletRedisTtl;
+	}
+
+	public List<String> getKarmaCoinWalletAuthorizedRoles() {
+		return Arrays.asList(karmaCoinWalletAuthorizedRoles.trim().split("\\s*,\\s*"));
+	}
+
+	public void setKarmaCoinWalletAuthorizedRoles(String karmaCoinWalletAuthorizedRoles) {
+		this.karmaCoinWalletAuthorizedRoles = karmaCoinWalletAuthorizedRoles;
 	}
 
 	public void setClaimKarmaPointsTopic(String claimKarmaPointsTopic) {
@@ -4687,5 +4720,9 @@ public class CbExtServerProperties {
 
 	public void setCertificateGeneratorDownloadUrl(String certificateGeneratorDownloadUrl) {
 		this.certificateGeneratorDownloadUrl = certificateGeneratorDownloadUrl;
+	}
+
+	public String getKarmaCoinWalletRedeemTopic() {
+		return karmaCoinWalletRedeemTopic;
 	}
 }

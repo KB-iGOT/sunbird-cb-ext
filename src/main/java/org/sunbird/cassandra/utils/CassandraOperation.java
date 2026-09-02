@@ -142,4 +142,17 @@ public interface CassandraOperation {
 	public Map<String, Object> updateRecordWithTTL(String keyspaceName, String tableName, Map<String, Object> updateAttributes,
 	                                               Map<String, Object> compositeKey, int ttlInSeconds);
 
+	/**
+	 * Fetches records for a single partition (defined by {@code propertyMap}) filtered by an
+	 * inclusive range on a clustering column. Rows are returned in the table's clustering order.
+	 * Used by the karma coin transactions history, which ranges over {@code created_at}.
+	 *
+	 * @param rangeColumn clustering column to range over (e.g. {@code created_at})
+	 * @param rangeStart  inclusive lower bound; skipped when {@code null}
+	 * @param rangeEnd    inclusive upper bound; skipped when {@code null}
+	 */
+	List<Map<String, Object>> getRecordsByPropertiesWithClusteringRange(String keyspaceName, String tableName,
+			Map<String, Object> propertyMap, List<String> fields, String rangeColumn, Object rangeStart,
+			Object rangeEnd);
+
 }

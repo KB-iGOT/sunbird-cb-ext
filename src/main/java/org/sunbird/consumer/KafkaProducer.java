@@ -29,4 +29,19 @@ public class KafkaProducer {
 
     }
 
+    public void push(String topic, String key, Object data) {
+        try {
+            String message = objectMapper.writeValueAsString(data);
+            logger.info("KafkaProducer::push: topic: {}, key: {}", topic, key);
+            kafkaTemplate.send(topic, key, message);
+            logger.info(
+                    "Data sent to kafka topic {} with key {} and message {}",
+                    topic, key, message);
+        } catch (Exception e) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    e.getMessage());
+        }
+    }
+
 }
