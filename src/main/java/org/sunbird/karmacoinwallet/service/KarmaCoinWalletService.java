@@ -11,4 +11,6 @@ public interface KarmaCoinWalletService {
     SBApiResponse getTransactions(String token, Map<String, Object> requestBody);
 
     SBApiResponse redeem(String token, Map<String, Object> requestBody);
+
+    SBApiResponse getRedeemStatus(String token, String requestId);
 }

@@ -24,6 +24,18 @@ public interface CassandraOperation {
 	public SBApiResponse insertRecord(String keyspaceName, String tableName, Map<String, Object> request);
 
 	/**
+	 * Inserts a record only if a row with the same primary key does not already exist
+	 * (CQL {@code IF NOT EXISTS}). Used as an idempotency/claim guard.
+	 *
+	 * @param keyspaceName Keyspace name
+	 * @param tableName    Table name
+	 * @param request      Map<String,Object> (column name -> value)
+	 * @return {@code true} if the row was newly written; {@code false} if a row with the same
+	 *         primary key already existed (nothing was changed)
+	 */
+	public boolean insertRecordIfNotExists(String keyspaceName, String tableName, Map<String, Object> request);
+
+	/**
 	 * Insert bulk data using batch
 	 *
 	 * @param keyspaceName String
