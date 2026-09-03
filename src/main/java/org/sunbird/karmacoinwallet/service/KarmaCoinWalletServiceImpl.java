@@ -10,6 +10,7 @@ import java.util.Locale;
 import java.util.Map;
 
 import org.apache.commons.collections.CollectionUtils;
+import org.apache.commons.collections4.MapUtils;
 import org.apache.commons.lang.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -373,6 +374,7 @@ public class KarmaCoinWalletServiceImpl implements KarmaCoinWalletService {
             setError(response, Constants.INVALID_REQUEST, HttpStatus.BAD_REQUEST);
             return response;
         }
+        boolean claimApplied = false;
         try {
             String currentYearMonth = YearMonth.now().toString();
             WalletSnapshot snapshot = loadWalletAndMonthly(userId, currentYearMonth);
@@ -393,6 +395,28 @@ public class KarmaCoinWalletServiceImpl implements KarmaCoinWalletService {
                 setError(response, Constants.MONTHLY_CAP_EXCEEDED, HttpStatus.BAD_REQUEST);
                 return response;
             }
+
+            String lookupKey = buildLookupKey(userId, requestId);
+            Map<String, Object> lookupRow = new HashMap<>();
+            lookupRow.put(Constants.USER_KARMA_COIN_KEY, lookupKey);
+            lookupRow.put(Constants.DB_COLUMN_OPERATION_TYPE, Constants.TXN_TYPE_CREDIT);
+            lookupRow.put(Constants.DB_COLUMN_CREDIT_DATE, System.currentTimeMillis());
+            Map<String, Object> claimAddInfo = new HashMap<>();
+            claimAddInfo.put(Constants.STATUS, Constants.PROCESSING);
+            lookupRow.put(Constants.ADDINFO, objectMapper.writeValueAsString(claimAddInfo));
+
+            claimApplied = cassandraOperation.insertRecordIfNotExists(Constants.KEYSPACE_SUNBIRD, Constants.USER_KARMA_COIN_LOOKUP, lookupRow);
+            if (!claimApplied) {
+                Map<String, Object> existing = readLookupStatus(userId, requestId);
+                Map<String, Object> result = (existing != null) ? existing : new HashMap<>();
+                result.putIfAbsent(Constants.REQUEST_ID, requestId);
+                result.putIfAbsent(Constants.STATUS, Constants.PROCESSING);
+                response.setResult(result);
+                response.getParams().setStatus(Constants.OK);
+                response.setResponseCode(HttpStatus.OK);
+                return response;
+            }
+
             Map<String, Object> data = new HashMap<>();
             data.put(Constants.EVENT_EID, Constants.KARMA_COIN_CREDIT_EID);
             data.put(Constants.EVENT_ETS, System.currentTimeMillis());
@@ -416,8 +440,98 @@ public class KarmaCoinWalletServiceImpl implements KarmaCoinWalletService {
             response.getParams().setStatus(Constants.ACCEPTED);
             response.setResponseCode(HttpStatus.ACCEPTED);
         } catch (Exception e) {
-            logger.error("Failed to process karma coin redemption for user: " + userId, e);
-            setError(response, "Failed to process karma coin redemption", HttpStatus.INTERNAL_SERVER_ERROR);
+            logger.error("Failed to process karma coin redemption for user: {}", userId, e);
+            if (claimApplied) {
+                markRedeemFailed(userId, requestId, Constants.FAILED_TO_PROCESS_KARMA_COIN_REDEMPTION);
+            }
+            setError(response, Constants.FAILED_TO_PROCESS_KARMA_COIN_REDEMPTION, HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+        return response;
+    }
+
+    private String buildLookupKey(String userId, String requestId) {
+        return userId + "|" + Constants.POINTS_CONVERSION + "|" + requestId;
+    }
+
+    /**
+     * Reads the current redeem status from {@code user_karma_coin_lookup} for the given request.
+     * Returns {@code null} when no row exists, otherwise a result map seeded with {@code requestId}
+     * and populated from the stored {@code addinfo} JSON (falling back to {@code PROCESSING}).
+     */
+    private Map<String, Object> readLookupStatus(String userId, String requestId) throws java.io.IOException {
+        Map<String, Object> properties = new HashMap<>();
+        properties.put(Constants.USER_KARMA_COIN_KEY, buildLookupKey(userId, requestId));
+        properties.put(Constants.DB_COLUMN_OPERATION_TYPE, Constants.TXN_TYPE_CREDIT);
+        List<Map<String, Object>> records = cassandraOperation.getRecordsByProperties(
+                Constants.KEYSPACE_SUNBIRD, Constants.USER_KARMA_COIN_LOOKUP, properties, null);
+        if (CollectionUtils.isEmpty(records)) {
+            return null;
+        }
+        Map<String, Object> result = new HashMap<>();
+        result.put(Constants.REQUEST_ID, requestId);
+        String addInfo = (String) records.get(0).get(Constants.ADDINFO);
+        if (StringUtils.isBlank(addInfo)) {
+            result.put(Constants.STATUS, Constants.PROCESSING);
+        } else {
+            Map<String, Object> statusData = objectMapper.readValue(addInfo, Map.class);
+            result.putAll(statusData);
+        }
+        return result;
+    }
+
+    /**
+     * Best-effort overwrite of the lookup row to a FAILED terminal state. Used when the API claimed
+     * the request but could not publish the event, so polling clients get a terminal answer.
+     */
+    private void markRedeemFailed(String userId, String requestId, String errorMessage) {
+        try {
+            Map<String, Object> row = new HashMap<>();
+            row.put(Constants.USER_KARMA_COIN_KEY, buildLookupKey(userId, requestId));
+            row.put(Constants.DB_COLUMN_OPERATION_TYPE, Constants.TXN_TYPE_CREDIT);
+            row.put(Constants.DB_COLUMN_CREDIT_DATE, System.currentTimeMillis());
+            Map<String, Object> addInfo = new HashMap<>();
+            addInfo.put(Constants.STATUS, Constants.FAILED_UPPERCASE);
+            addInfo.put(Constants.REQUEST_ID, requestId);
+            addInfo.put(Constants.ERROR_MESSAGE_CAMEL, errorMessage);
+            row.put(Constants.ADDINFO, objectMapper.writeValueAsString(addInfo));
+            cassandraOperation.insertRecord(Constants.KEYSPACE_SUNBIRD, Constants.USER_KARMA_COIN_LOOKUP, row);
+        } catch (Exception ex) {
+            logger.error("Failed to mark karma coin redemption FAILED for requestId: {}", requestId, ex);
+        }
+    }
+
+    @Override
+    public SBApiResponse getRedeemStatus(String token, String requestId) {
+        SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.API_KARMA_WALLET_REDEEM_STATUS);
+        try {
+            Map<String, Object> tokenPayload = accessTokenValidator.extractTokenPayload(token);
+            String userId = accessTokenValidator.getUserIdFromPayload(tokenPayload);
+            if (StringUtils.isBlank(userId)) {
+                setError(response, Constants.USER_ID_DOESNT_EXIST, HttpStatus.UNAUTHORIZED);
+                return response;
+            }
+            List<String> userRoles = accessTokenValidator.getUserRolesFromPayload(tokenPayload);
+            List<String> authorizedRoles = serverProperties.getKarmaCoinWalletAuthorizedRoles();
+            if (CollectionUtils.isEmpty(userRoles) || userRoles.stream().noneMatch(authorizedRoles::contains)) {
+                setError(response, Constants.UNAUTHORIZED_USER, HttpStatus.FORBIDDEN);
+                return response;
+            }
+            if (StringUtils.isBlank(requestId)) {
+                setError(response, Constants.INVALID_REQUEST, HttpStatus.BAD_REQUEST);
+                return response;
+            }
+
+            Map<String, Object> result = readLookupStatus(userId, requestId);
+            if (MapUtils.isEmpty(result)) {
+                setError(response, Constants.REDEEM_REQUEST_NOT_FOUND, HttpStatus.NOT_FOUND);
+                return response;
+            }
+            response.setResult(result);
+            response.getParams().setStatus(Constants.OK);
+            response.setResponseCode(HttpStatus.OK);
+        } catch (Exception e) {
+            logger.error("Failed to fetch karma coin redemption status for requestId: {}", requestId, e);
+            setError(response, "Failed to fetch karma coin redemption status", HttpStatus.INTERNAL_SERVER_ERROR);
         }
         return response;
     }

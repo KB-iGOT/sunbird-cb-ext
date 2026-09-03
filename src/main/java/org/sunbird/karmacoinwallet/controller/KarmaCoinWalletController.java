@@ -3,12 +3,7 @@ package org.sunbird.karmacoinwallet.controller;
 import java.util.Map;
 
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import org.sunbird.common.model.SBApiResponse;
 import org.sunbird.common.util.Constants;
 import org.sunbird.karmacoinwallet.service.KarmaCoinWalletService;
@@ -39,6 +34,12 @@ public class KarmaCoinWalletController {
     @PostMapping("/redeem")
     public ResponseEntity<SBApiResponse> redeem(@RequestHeader(Constants.X_AUTH_TOKEN) String token, @RequestBody Map<String, Object> requestBody) {
         SBApiResponse response = karmaCoinWalletService.redeem(token, requestBody);
+        return new ResponseEntity<>(response, response.getResponseCode());
+    }
+
+    @GetMapping("/redeem/status/{requestId}")
+    public ResponseEntity<SBApiResponse> getRedeemStatus(@RequestHeader(Constants.X_AUTH_TOKEN) String token, @PathVariable String requestId) {
+        SBApiResponse response = karmaCoinWalletService.getRedeemStatus(token, requestId);
         return new ResponseEntity<>(response, response.getResponseCode());
     }
 }

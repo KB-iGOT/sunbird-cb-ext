@@ -53,6 +53,25 @@ public class CassandraOperationImpl implements CassandraOperation {
 	}
 
 	@Override
+	public boolean insertRecordIfNotExists(String keyspaceName, String tableName, Map<String, Object> request) {
+		String baseQuery = CassandraUtil.getPreparedStatement(keyspaceName, tableName, request).trim();
+		if (baseQuery.endsWith(Constants.SEMICOLON)) {
+			baseQuery = baseQuery.substring(0, baseQuery.length() - 1);
+		}
+		String query = baseQuery + Constants.IF_NOT_EXISTS;
+		PreparedStatement statement = connectionManager.getSession(keyspaceName).prepare(query);
+		BoundStatement boundStatement = new BoundStatement(statement);
+		Iterator<Object> iterator = request.values().iterator();
+		Object[] array = new Object[request.keySet().size()];
+		int i = 0;
+		while (iterator.hasNext()) {
+			array[i++] = iterator.next();
+		}
+		ResultSet resultSet = connectionManager.getSession(keyspaceName).execute(boundStatement.bind(array));
+		return resultSet.wasApplied();
+	}
+
+	@Override
 	public SBApiResponse insertBulkRecord(String keyspaceName, String tableName, List<Map<String, Object>> request) {
 		SBApiResponse response = new SBApiResponse();
 		try {

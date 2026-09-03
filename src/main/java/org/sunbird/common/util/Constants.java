@@ -221,6 +221,7 @@ public class Constants {
 	public static final String QUE_MARK = "?";
 	public static final String COMMA = ",";
 	public static final String CLOSING_BRACE = ");";
+	public static final String SEMICOLON = ";";
 	public static final String SUCCESS = "success";
 	public static final String UNKNOWN_IDENTIFIER = "Unknown identifier ";
 	public static final String UNDEFINED_IDENTIFIER = "Undefined column name ";
@@ -1798,4 +1799,13 @@ public class Constants {
 	public static final String OPERATION = "operation";
 	public static final String KARMA_COIN_CREDIT_EID = "KARMA_COIN_CREDIT";
 	public static final String CONVERSION_PERIOD = "conversionPeriod";
+	public static final String API_KARMA_WALLET_REDEEM_STATUS = "api.karma.wallet.redeem.status";
+	public static final String USER_KARMA_COIN_KEY = "user_karma_coin_key";
+	public static final String ADDINFO = "addinfo";
+	public static final String USER_KARMA_COIN_LOOKUP = "user_karma_coin_lookup";
+	public static final String IF_NOT_EXISTS = " IF NOT EXISTS";
+	public static final String ERROR_CODE_CAMEL = "errorCode";
+	public static final String ERROR_MESSAGE_CAMEL = "errorMessage";
+	public static final String REDEEM_REQUEST_NOT_FOUND = "Redeem request not found";
+	public static final String FAILED_TO_PROCESS_KARMA_COIN_REDEMPTION = "Failed to process karma coin redemption";
 }
