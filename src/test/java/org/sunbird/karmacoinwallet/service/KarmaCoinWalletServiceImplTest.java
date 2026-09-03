@@ -453,11 +453,17 @@ public class KarmaCoinWalletServiceImplTest {
         mockAuthenticatedAndAuthorized();
         mockCassandraWallet(40, 10, 20, 100);
         when(serverProperties.getKarmaCoinWalletRedeemTopic()).thenReturn("karma-redeem-topic");
+        // claim applied => first time seeing this request
+        when(cassandraOperation.insertRecordIfNotExists(eq(Constants.KEYSPACE_SUNBIRD),
+                eq(Constants.USER_KARMA_COIN_LOOKUP), anyMap())).thenReturn(true);
 
         SBApiResponse response = service.redeem(TOKEN, redeemRequest(50, "req-1"));
 
         assertEquals(HttpStatus.ACCEPTED, response.getResponseCode());
         assertEquals(Constants.ACCEPTED, response.getParams().getStatus());
+        // the PROCESSING claim row must be written before publishing
+        verify(cassandraOperation).insertRecordIfNotExists(eq(Constants.KEYSPACE_SUNBIRD),
+                eq(Constants.USER_KARMA_COIN_LOOKUP), anyMap());
         Map<String, Object> result = response.getResult();
         assertEquals("req-1", result.get(Constants.REQUEST_ID));
         assertEquals(Constants.PROCESSING, result.get(Constants.STATUS));
@@ -483,10 +489,12 @@ public class KarmaCoinWalletServiceImplTest {
     }
 
     @Test
-    public void redeem_kafkaThrows_returnsInternalServerError() {
+    public void redeem_kafkaThrows_marksFailedAndReturnsInternalServerError() {
         mockAuthenticatedAndAuthorized();
         mockCassandraWallet(40, 10, 20, 100);
         when(serverProperties.getKarmaCoinWalletRedeemTopic()).thenReturn("karma-redeem-topic");
+        when(cassandraOperation.insertRecordIfNotExists(eq(Constants.KEYSPACE_SUNBIRD),
+                eq(Constants.USER_KARMA_COIN_LOOKUP), anyMap())).thenReturn(true);
         org.mockito.Mockito.doThrow(new RuntimeException("kafka down"))
                 .when(kafkaProducer).push(anyString(), anyString(), any());
 
@@ -494,5 +502,125 @@ public class KarmaCoinWalletServiceImplTest {
 
         assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getResponseCode());
         assertEquals(Constants.FAILED, response.getParams().getStatus());
+        // claim was applied, so the row is overwritten to a FAILED terminal state (plain insert)
+        verify(cassandraOperation).insertRecord(eq(Constants.KEYSPACE_SUNBIRD),
+                eq(Constants.USER_KARMA_COIN_LOOKUP), anyMap());
+    }
+
+    @Test
+    public void redeem_duplicateRequestId_returnsExistingStatusWithoutPublishing() {
+        mockAuthenticatedAndAuthorized();
+        mockCassandraWallet(40, 10, 20, 100);
+        // claim NOT applied => duplicate requestId already seen
+        when(cassandraOperation.insertRecordIfNotExists(eq(Constants.KEYSPACE_SUNBIRD),
+                eq(Constants.USER_KARMA_COIN_LOOKUP), anyMap())).thenReturn(false);
+        // existing lookup row already SUCCESS
+        Map<String, Object> lookupRow = new HashMap<>();
+        lookupRow.put(Constants.ADDINFO,
+                "{\"status\":\"SUCCESS\",\"transactionId\":\"TXN-1\",\"pointsConverted\":50}");
+        when(cassandraOperation.getRecordsByProperties(eq(Constants.KEYSPACE_SUNBIRD),
+                eq(Constants.USER_KARMA_COIN_LOOKUP), anyMap(), any()))
+                .thenReturn(Collections.singletonList(lookupRow));
+
+        SBApiResponse response = service.redeem(TOKEN, redeemRequest(50, "req-1"));
+
+        assertEquals(HttpStatus.OK, response.getResponseCode());
+        Map<String, Object> result = response.getResult();
+        assertEquals("req-1", result.get(Constants.REQUEST_ID));
+        assertEquals("SUCCESS", result.get(Constants.STATUS));
+        // must NOT republish the event on a duplicate
+        verify(kafkaProducer, never()).push(anyString(), anyString(), any());
+    }
+
+    // ------------------------------------------------------------------
+    // getRedeemStatus
+    // ------------------------------------------------------------------
+
+    @Test
+    public void getRedeemStatus_blankUser_returnsUnauthorized() {
+        mockBlankUser();
+
+        SBApiResponse response = service.getRedeemStatus(TOKEN, "req-1");
+
+        assertEquals(HttpStatus.UNAUTHORIZED, response.getResponseCode());
+    }
+
+    @Test
+    public void getRedeemStatus_unauthorizedRole_returnsForbidden() {
+        mockUnauthorizedRole();
+
+        SBApiResponse response = service.getRedeemStatus(TOKEN, "req-1");
+
+        assertEquals(HttpStatus.FORBIDDEN, response.getResponseCode());
+    }
+
+    @Test
+    public void getRedeemStatus_blankRequestId_returnsBadRequest() {
+        mockAuthenticatedAndAuthorized();
+
+        SBApiResponse response = service.getRedeemStatus(TOKEN, "   ");
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getResponseCode());
+        assertEquals(Constants.INVALID_REQUEST, response.getParams().getErrmsg());
+    }
+
+    @Test
+    public void getRedeemStatus_noRecord_returnsNotFound() {
+        mockAuthenticatedAndAuthorized();
+        when(cassandraOperation.getRecordsByProperties(eq(Constants.KEYSPACE_SUNBIRD),
+                eq(Constants.USER_KARMA_COIN_LOOKUP), anyMap(), any()))
+                .thenReturn(Collections.emptyList());
+
+        SBApiResponse response = service.getRedeemStatus(TOKEN, "req-1");
+
+        assertEquals(HttpStatus.NOT_FOUND, response.getResponseCode());
+        assertEquals(Constants.REDEEM_REQUEST_NOT_FOUND, response.getParams().getErrmsg());
+    }
+
+    @Test
+    public void getRedeemStatus_recordExists_returnsStatusFromAddInfo() {
+        mockAuthenticatedAndAuthorized();
+        Map<String, Object> lookupRow = new HashMap<>();
+        lookupRow.put(Constants.ADDINFO,
+                "{\"status\":\"SUCCESS\",\"transactionId\":\"TXN-9\",\"pointsConverted\":30}");
+        when(cassandraOperation.getRecordsByProperties(eq(Constants.KEYSPACE_SUNBIRD),
+                eq(Constants.USER_KARMA_COIN_LOOKUP), anyMap(), any()))
+                .thenReturn(Collections.singletonList(lookupRow));
+
+        SBApiResponse response = service.getRedeemStatus(TOKEN, "req-1");
+
+        assertEquals(HttpStatus.OK, response.getResponseCode());
+        Map<String, Object> result = response.getResult();
+        assertEquals("req-1", result.get(Constants.REQUEST_ID));
+        assertEquals("SUCCESS", result.get(Constants.STATUS));
+        assertEquals("TXN-9", result.get("transactionId"));
+        assertEquals(30, result.get("pointsConverted"));
+    }
+
+    @Test
+    public void getRedeemStatus_blankAddInfo_returnsProcessing() {
+        mockAuthenticatedAndAuthorized();
+        Map<String, Object> lookupRow = new HashMap<>();
+        lookupRow.put(Constants.ADDINFO, "");
+        when(cassandraOperation.getRecordsByProperties(eq(Constants.KEYSPACE_SUNBIRD),
+                eq(Constants.USER_KARMA_COIN_LOOKUP), anyMap(), any()))
+                .thenReturn(Collections.singletonList(lookupRow));
+
+        SBApiResponse response = service.getRedeemStatus(TOKEN, "req-1");
+
+        assertEquals(HttpStatus.OK, response.getResponseCode());
+        assertEquals(Constants.PROCESSING, response.getResult().get(Constants.STATUS));
+    }
+
+    @Test
+    public void getRedeemStatus_cassandraThrows_returnsInternalServerError() {
+        mockAuthenticatedAndAuthorized();
+        when(cassandraOperation.getRecordsByProperties(eq(Constants.KEYSPACE_SUNBIRD),
+                eq(Constants.USER_KARMA_COIN_LOOKUP), anyMap(), any()))
+                .thenThrow(new RuntimeException("cassandra down"));
+
+        SBApiResponse response = service.getRedeemStatus(TOKEN, "req-1");
+
+        assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getResponseCode());
     }
 }
