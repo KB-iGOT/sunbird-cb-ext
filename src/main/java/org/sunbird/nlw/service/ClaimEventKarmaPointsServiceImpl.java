@@ -28,7 +28,12 @@ public class ClaimEventKarmaPointsServiceImpl {
         objectMap.put("event_id", eventId);
         objectMap.put("batch_id", batchId);
 
-        producer.pushWithKey(serverProperties.getUserEventKarmaPointTopic(), objectMap, userId);
+        Map<String, Object> envelopedMap = new HashMap<>();
+        envelopedMap.put("eventType", "EVENT_ATTENDED");
+        envelopedMap.put("data", objectMap);
+        envelopedMap.put("version", 2);
+
+        producer.pushWithKey(serverProperties.getUserEventKarmaPointTopic(), envelopedMap, userId);
 
     }
 }
