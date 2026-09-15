@@ -625,6 +625,8 @@ public class CbExtServerProperties {
 	private int karmaCoinWalletRedeemEventVersion;
 	@Value("${karma.coin.wallet.authorized.roles}")
 	private String karmaCoinWalletAuthorizedRoles;
+	@Value("${karma.coin.conversion.rate}")
+	private int karmaCoinConversionRate;
 
 	@Value("#{${report.property.map}}")
 	private Map<String, String> reportMap;
@@ -4758,5 +4760,9 @@ public class CbExtServerProperties {
 
 	public String getKarmaCoinConvertLockKeyPattern() {
 		return karmaCoinConvertLockKeyPattern;
+	}
+
+	public int getKarmaCoinConversionRate() {
+		return karmaCoinConversionRate;
 	}
 }

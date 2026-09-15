@@ -186,8 +186,9 @@ public class KarmaCoinWalletServiceImpl implements KarmaCoinWalletService {
                 transactions.add(toTransactionView(row));
             }
             String userLockKey = buildConvertLockKey(userId);
-            if (redisCacheMgr.keyExists(userLockKey)) {
-                transactions.add(0, buildPendingTransactionView());
+            String pendingPointsValue = redisCacheMgr.getCache(userLockKey);
+            if (StringUtils.isNotBlank(pendingPointsValue) && StringUtils.isNumeric(pendingPointsValue.trim())) {
+                transactions.add(0, buildPendingTransactionView(Integer.parseInt(pendingPointsValue.trim())));
             }
 
             Map<String, Object> result = new HashMap<>();
@@ -221,6 +222,13 @@ public class KarmaCoinWalletServiceImpl implements KarmaCoinWalletService {
         response.getParams().setStatus(Constants.FAILED);
         response.getParams().setErrmsg(errMsg);
         response.setResponseCode(status);
+    }
+
+    private void putConversionRateInfo(Map<String, Object> result) {
+        int conversionRate = serverProperties.getKarmaCoinConversionRate();
+        result.put(Constants.CONVERSION_RATE_CAMEL, conversionRate);
+        result.put(Constants.CONVERSION_MESSAGE_CAMEL,
+                "1 Karma Point = " + conversionRate + " Karma Coin" + (conversionRate == 1 ? "" : "s"));
     }
 
     /**
@@ -345,7 +353,7 @@ public class KarmaCoinWalletServiceImpl implements KarmaCoinWalletService {
         }
         try {
             String inProgressKey = buildConvertLockKey(userId);
-            boolean requestClaimed = redisCacheMgr.setIfAbsent(inProgressKey, Constants.IN_PROGRESS, serverProperties.getKarmaCoinConvertLockTtl());
+            boolean requestClaimed = redisCacheMgr.setIfAbsent(inProgressKey, String.valueOf(pointsToConvert), serverProperties.getKarmaCoinConvertLockTtl());
             if (!requestClaimed) {
                 setError(response, Constants.CONVERSION_REQUEST_IN_PROGRESS, HttpStatus.CONFLICT);
                 return response;
@@ -503,13 +511,16 @@ public class KarmaCoinWalletServiceImpl implements KarmaCoinWalletService {
      * Synthetic view for a conversion that is queued but not yet committed. Not backed by any
      * Cassandra row — the ledger stays append-only and receives only completed transactions.
      */
-    private Map<String, Object> buildPendingTransactionView() {
+    private Map<String, Object> buildPendingTransactionView(int pointsToConvert) {
         Map<String, Object> txn = new HashMap<>();
         txn.put(Constants.STATUS, Constants.TXN_STATUS_IN_PROGRESS);
         txn.put(Constants.TYPE, Constants.TXN_TYPE_CREDIT);
         txn.put(Constants.ACTION_TYPE_CAMEL, Constants.POINTS_CONVERSION);
         txn.put(Constants.CONTEXT_TYPE_CAMEL, Constants.POINTS_CONVERSION);
         txn.put(Constants.DATE_CAMEL, System.currentTimeMillis());
+        txn.put(Constants.POINTS_TO_CONVERT, pointsToConvert);
+        txn.put(Constants.AMOUNT_CAMEL, pointsToConvert * serverProperties.getKarmaCoinConversionRate());
+        putConversionRateInfo(txn);
         return txn;
     }
 }

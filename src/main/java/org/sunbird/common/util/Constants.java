@@ -1007,6 +1007,8 @@ public class Constants {
 	public static final String REDEEM_ENABLED = "redeemEnabled";
 	public static final String TOTAL_EARNED_CAMEL = "totalEarned";
 	public static final String TOTAL_REDEEMED_CAMEL = "totalRedeemed";
+	public static final String CONVERSION_RATE_CAMEL = "conversionRate";
+	public static final String CONVERSION_MESSAGE_CAMEL = "conversionMessage";
 
 	// Karma Coin Wallet - transactions
 	public static final String TABLE_USER_KARMA_COIN_TRANSACTIONS = "user_karma_coin_transactions";
