@@ -2,6 +2,7 @@ package org.sunbird.karmacoinwallet.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyMap;
@@ -126,12 +127,13 @@ public class KarmaCoinWalletServiceImplTest {
 
     /**
      * Stubs the conversion in-progress lock (Redis {@code SET NX EX}, keyed by userId only) to
-     * either grant or deny the claim.
+     * either grant or deny the claim. The lock value is the points being converted (so
+     * {@code getTransactions} can later read it back), not a fixed marker, hence {@code anyString()}.
      */
     private void mockDedupGuard(boolean claimed) {
         when(serverProperties.getKarmaCoinConvertLockTtl()).thenReturn(DEDUP_TTL);
         when(redisCacheMgr.setIfAbsent(eq("karmaCoinConvertLock:" + USER_ID),
-                eq(Constants.IN_PROGRESS), eq(DEDUP_TTL))).thenReturn(claimed);
+                anyString(), eq(DEDUP_TTL))).thenReturn(claimed);
     }
 
     // ------------------------------------------------------------------
@@ -363,6 +365,66 @@ public class KarmaCoinWalletServiceImplTest {
         return row;
     }
 
+    @Test
+    @SuppressWarnings("unchecked")
+    public void getTransactions_pendingConversionInRedis_prependsInProgressItem() {
+        mockAuthenticatedAndAuthorized();
+        when(cassandraOperation.getRecordsByPropertiesWithClusteringRange(anyString(), anyString(), anyMap(),
+                anyList(), anyString(), any(), any()))
+                .thenReturn(Collections.singletonList(row(Constants.TXN_TYPE_CREDIT)));
+        when(redisCacheMgr.getCache("karmaCoinConvertLock:" + USER_ID)).thenReturn("50");
+        when(serverProperties.getKarmaCoinConversionRate()).thenReturn(2);
+
+        SBApiResponse response = service.getTransactions(TOKEN, transactionRequest("2026-01-01", "2026-01-31", "ALL"));
+
+        assertEquals(HttpStatus.OK, response.getResponseCode());
+        List<Map<String, Object>> txns = (List<Map<String, Object>>) response.getResult().get(Constants.TRANSACTIONS);
+        assertEquals(2, txns.size());
+        Map<String, Object> pending = txns.get(0);
+        assertEquals(Constants.TXN_STATUS_IN_PROGRESS, pending.get(Constants.STATUS));
+        assertEquals(50, pending.get(Constants.POINTS_TO_CONVERT));
+        assertEquals(100, pending.get(Constants.AMOUNT_CAMEL));
+        assertEquals(2, pending.get(Constants.CONVERSION_RATE_CAMEL));
+        assertEquals("1 Karma Point = 2 Karma Coins", pending.get(Constants.CONVERSION_MESSAGE_CAMEL));
+        // completed rows are untouched: no conversion fields leak onto them
+        Map<String, Object> completed = txns.get(1);
+        assertEquals("txn-CREDIT", completed.get(Constants.TRANSACTION_ID_CAMEL));
+        assertNull(completed.get(Constants.CONVERSION_RATE_CAMEL));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    public void getTransactions_noPendingLock_noInProgressItem() {
+        mockAuthenticatedAndAuthorized();
+        when(cassandraOperation.getRecordsByPropertiesWithClusteringRange(anyString(), anyString(), anyMap(),
+                anyList(), anyString(), any(), any()))
+                .thenReturn(Collections.singletonList(row(Constants.TXN_TYPE_CREDIT)));
+        when(redisCacheMgr.getCache("karmaCoinConvertLock:" + USER_ID)).thenReturn(null);
+
+        SBApiResponse response = service.getTransactions(TOKEN, transactionRequest("2026-01-01", "2026-01-31", "ALL"));
+
+        List<Map<String, Object>> txns = (List<Map<String, Object>>) response.getResult().get(Constants.TRANSACTIONS);
+        assertEquals(1, txns.size());
+        assertEquals(Constants.TXN_TYPE_CREDIT, txns.get(0).get(Constants.TYPE));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    public void getTransactions_pendingLockValueNonNumeric_noInProgressItem() {
+        mockAuthenticatedAndAuthorized();
+        when(cassandraOperation.getRecordsByPropertiesWithClusteringRange(anyString(), anyString(), anyMap(),
+                anyList(), anyString(), any(), any()))
+                .thenReturn(Collections.emptyList());
+        // stale/corrupt lock value (e.g. legacy "IN_PROGRESS" marker) should not blow up the endpoint
+        when(redisCacheMgr.getCache("karmaCoinConvertLock:" + USER_ID)).thenReturn(Constants.IN_PROGRESS);
+
+        SBApiResponse response = service.getTransactions(TOKEN, transactionRequest("2026-01-01", "2026-01-31", "ALL"));
+
+        assertEquals(HttpStatus.OK, response.getResponseCode());
+        List<Map<String, Object>> txns = (List<Map<String, Object>>) response.getResult().get(Constants.TRANSACTIONS);
+        assertEquals(0, txns.size());
+    }
+
     // ------------------------------------------------------------------
     // redeem
     // ------------------------------------------------------------------
@@ -501,6 +563,9 @@ public class KarmaCoinWalletServiceImplTest {
         assertEquals("req-1", data.get(Constants.CONTEXT_ID_CAMEL));
         assertEquals(YearMonth.now().toString(), data.get(Constants.CONVERSION_PERIOD));
         assertNotNull(data.get(Constants.EVENT_ETS));
+
+        // lock value is the points being converted, so getTransactions can read it back later
+        verify(redisCacheMgr).setIfAbsent(eq("karmaCoinConvertLock:" + USER_ID), eq("50"), eq(DEDUP_TTL));
     }
 
     @Test
