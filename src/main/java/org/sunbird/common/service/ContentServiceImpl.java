@@ -461,6 +461,37 @@ public class ContentServiceImpl implements ContentService {
 		return responseData;
 	}
 
+	public Map<String, Object> readContentFromRedisCache(String contentId, List<String> fields) {
+		if (CollectionUtils.isEmpty(fields)) {
+			fields = serverConfig.getDefaultContentProperties();
+		}
+		Map<String, Object> responseData = null;
+
+		String contentString = redisCacheMgr.getContentFromCache(contentId);
+		if (StringUtils.isBlank(contentString)) {
+			responseData = readContent(contentId, fields);
+		} else {
+			try {
+				responseData = new HashMap<String, Object>();
+				Map<String, Object> contentData = mapper.readValue(contentString,
+						new TypeReference<Map<String, Object>>() {
+						});
+				if (MapUtils.isNotEmpty(contentData)) {
+					for (String field : fields) {
+						if (contentData.containsKey(field)) {
+							responseData.put(field, contentData.get(field));
+						}
+					}
+				}
+			} catch (Exception e) {
+				logger.error("Failed to parse content info from redis. Exception: " + e.getMessage(), e);
+				responseData = readContent(contentId, fields);
+			}
+		}
+
+		return responseData;
+	}
+
 	public String updateContentProgress(String userAuthToken, Map<String, Object> reqBody, String userId, SBApiResponse outgoingResponse) {
 		String response = "";
 		try {

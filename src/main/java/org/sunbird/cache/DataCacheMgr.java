@@ -2,36 +2,16 @@ package org.sunbird.cache;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
 
-import javax.annotation.PostConstruct;
-
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
-import org.sunbird.common.util.CbExtServerProperties;
-
-import com.github.benmanes.caffeine.cache.Cache;
-import com.github.benmanes.caffeine.cache.Caffeine;
 
 @Component
 public class DataCacheMgr {
-
-    @Autowired
-    private CbExtServerProperties cbExtServerProperties;
-
     private Map<String, String> strCacheMap = new HashMap<String, String>();
 
     private Map<String, Object> objCacheMap = new HashMap<String, Object>();
 
-    private Cache<String, Map<String, Object>> contentCacheMap;
-
-    @PostConstruct
-    public void init() {
-        contentCacheMap = Caffeine.newBuilder()
-                .expireAfterWrite(cbExtServerProperties.getContentInMemoryCacheTtlSeconds(), TimeUnit.SECONDS)
-                .maximumSize(cbExtServerProperties.getContentInMemoryCacheMaxSize())
-                .build();
-    }
+    private Map<String, Map<String, Object>> contentCacheMap = new HashMap<String, Map<String, Object>>();
 
     public void putStringInCache(String key, String value) {
         strCacheMap.put(key, value);
@@ -60,6 +40,9 @@ public class DataCacheMgr {
     }
 
     public Map<String, Object> getContentFromCache(String key) {
-        return contentCacheMap.getIfPresent(key);
+        if (contentCacheMap.containsKey(key)) {
+            return contentCacheMap.get(key);
+        }
+        return null;
     }
 }

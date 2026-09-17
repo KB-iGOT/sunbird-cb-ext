@@ -229,12 +229,6 @@ public class CbExtServerProperties {
 	@Value("${redis.timeout}")
 	private String redisTimeout;
 
-	@Value("${content.inmemory.cache.ttl.seconds:86400}")
-	private int contentInMemoryCacheTtlSeconds;
-
-	@Value("${content.inmemory.cache.max.size:5000}")
-	private int contentInMemoryCacheMaxSize;
-
 	@Value("${kafka.topics.userutility.telemetry.event}")
 	private String userUtilityTopic;
 
@@ -1821,22 +1815,6 @@ public class CbExtServerProperties {
 
 	public void setRedisTimeout(String redisTimeout) {
 		this.redisTimeout = redisTimeout;
-	}
-
-	public int getContentInMemoryCacheTtlSeconds() {
-		return contentInMemoryCacheTtlSeconds;
-	}
-
-	public void setContentInMemoryCacheTtlSeconds(int contentInMemoryCacheTtlSeconds) {
-		this.contentInMemoryCacheTtlSeconds = contentInMemoryCacheTtlSeconds;
-	}
-
-	public int getContentInMemoryCacheMaxSize() {
-		return contentInMemoryCacheMaxSize;
-	}
-
-	public void setContentInMemoryCacheMaxSize(int contentInMemoryCacheMaxSize) {
-		this.contentInMemoryCacheMaxSize = contentInMemoryCacheMaxSize;
 	}
 
 	@Override

@@ -48,6 +48,8 @@ public interface ContentService {
 
 	public Map<String, Object> readContentFromCache(String contentId, List<String> fields);
 
+	public Map<String, Object> readContentFromRedisCache(String contentId, List<String> fields);
+
 	public String updateContentProgress(String userAuthToken, Map<String, Object> reqBody, String userId, SBApiResponse outgoingResponse);
 
 	public Set<String> readChildCoursesFromCache(String parentDoId);

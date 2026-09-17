@@ -780,7 +780,7 @@ public class PdfGeneratorServiceImpl implements PdfGeneratorService {
 
 		String batchName = (String) batch.get(Constants.NAME);
 
-		Map<String, Object> programContent = contentService.readContentFromCache(
+		Map<String, Object> programContent = contentService.readContentFromRedisCache(
 				courseId,
 				Arrays.asList(Constants.NAME, "selfEnrollment")
 		);
