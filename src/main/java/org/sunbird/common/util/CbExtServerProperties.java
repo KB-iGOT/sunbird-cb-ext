@@ -4755,6 +4755,7 @@ public class CbExtServerProperties {
 
 	public Integer getKafkaEventEnvelopeVersion() {
 		return kafkaEventEnvelopeVersion;
+	}
     
 	public String getKarmaCoinWalletRedeemTopic() {
 		return karmaCoinWalletRedeemTopic;
