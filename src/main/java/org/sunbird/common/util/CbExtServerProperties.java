@@ -1380,6 +1380,9 @@ public class CbExtServerProperties {
 	@Value("${certificate-generator-download-url}")
 	private String certificateGeneratorDownloadUrl;
 
+	@Value("${bulk.user.migration.allowed.organisation.types}")
+	private String bulkUserMigrationAllowedOrganisationTypes;
+
 	public int getUserSearchLimit() {
 		return userSearchLimit;
 	}
@@ -4687,5 +4690,12 @@ public class CbExtServerProperties {
 
 	public void setCertificateGeneratorDownloadUrl(String certificateGeneratorDownloadUrl) {
 		this.certificateGeneratorDownloadUrl = certificateGeneratorDownloadUrl;
+	}
+
+	public List<String> getBulkUserMigrationAllowedOrganisationTypes() {
+		if (StringUtils.isBlank(bulkUserMigrationAllowedOrganisationTypes)) {
+			return Collections.emptyList();
+		}
+		return Arrays.asList(bulkUserMigrationAllowedOrganisationTypes.split(","));
 	}
 }

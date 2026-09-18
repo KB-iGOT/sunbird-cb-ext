@@ -611,23 +611,14 @@ public class UserMigrationServiceImpl implements UserMigrationService {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
         Map<String, Object> orgRecord = orgDetailsList.get(0);
-        String sbOrgType = (String) orgRecord.get(serverConfig.getOrgTypeFieldName());
-        if (StringUtils.isEmpty(sbOrgType)) {
-            log.error("ERR_ORG_TYPE_NOT_FOUND: Organization type not found. Cannot determine access permissions for rootOrgId {}", rootOrgId);
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
-        }
-
-        if (!Arrays.asList(Constants.SPV_LOWER_CASE, Constants.MINISTRY, Constants.STATE)
-                .contains(sbOrgType.toLowerCase())) {
-            log.error("ERR_BULK_TRANSFER_ACCESS_DENIED: Only SPV and MDO (Ministry/State) organizations can access the Bulk Transfer feature. OrgType: {}", sbOrgType);
+        if (!isOrgAllowedForBulkUserTransfer(orgRecord)) {
+            log.error("ERR_BULK_TRANSFER_ACCESS_DENIED: Only SPV and MDO (Ministry/State) organizations can access the Bulk Transfer feature.");
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
         Map<String, Object> payload = accessTokenValidator.extractTokenPayload(userAuthToken);
         List<String> allowedRoles = serverConfig.getBulkTransferAuthorizedRoles();
         List<String> userRoles = (List<String>) payload.get(Constants.USER_ROLES_KEY);
-        if ((Constants.MINISTRY.equalsIgnoreCase(sbOrgType) ||
-                Constants.STATE.equalsIgnoreCase(sbOrgType)) &&
-                userRoles.stream().noneMatch(allowedRoles::contains)) {
+        if (userRoles.stream().noneMatch(allowedRoles::contains)) {
             log.error("ERR_BULK_TRANSFER_ROLE_DENIED: Only MDO Admins and Leaders can access the Bulk Transfer feature. UserRoles: {}", userRoles);
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
@@ -824,23 +815,14 @@ public class UserMigrationServiceImpl implements UserMigrationService {
             }
 
             Map<String, Object> orgRecord = orgDetailsList.get(0);
-            String sbOrgType = (String) orgRecord.get(serverConfig.getOrgTypeFieldName());
-            if (StringUtils.isEmpty(sbOrgType)) {
-                setErrorData(response, "Organization type not found", HttpStatus.FORBIDDEN);
-                return response;
-            }
-
-            if (!Arrays.asList(Constants.SPV_LOWER_CASE, Constants.MINISTRY, Constants.STATE)
-                    .contains(sbOrgType.toLowerCase())) {
+            if (!isOrgAllowedForBulkUserTransfer(orgRecord)) {
                 setErrorData(response, "Only SPV and MDO (Ministry/State) organizations can access the Bulk Transfer feature",
                         HttpStatus.FORBIDDEN);
                 return response;
             }
 
             List<String> allowedRoles = serverConfig.getBulkTransferAuthorizedRoles();
-            if ((Constants.MINISTRY.equalsIgnoreCase(sbOrgType) ||
-                    Constants.STATE.equalsIgnoreCase(sbOrgType)) &&
-                    userRoles.stream().noneMatch(allowedRoles::contains)) {
+            if (userRoles.stream().noneMatch(allowedRoles::contains)) {
                 setErrorData(response, "Only MDO Admins and Leaders can access the Bulk Transfer feature",
                         HttpStatus.FORBIDDEN);
                 return response;
@@ -1009,20 +991,13 @@ public class UserMigrationServiceImpl implements UserMigrationService {
             }
 
             Map<String, Object> orgRecord = orgDetailsList.get(0);
-            String sbOrgType = (String) orgRecord.get(serverConfig.getOrgTypeFieldName());
-            if (StringUtils.isEmpty(sbOrgType)) {
-                setErrorData(response, "Organization type not found", HttpStatus.FORBIDDEN);
-                return response;
-            }
-
-            if (!Arrays.asList(Constants.SPV_LOWER_CASE, Constants.MINISTRY, Constants.STATE).contains(sbOrgType.toLowerCase())) {
+            if (!isOrgAllowedForBulkUserTransfer(orgRecord)) {
                 setErrorData(response, "Only SPV and MDO (Ministry/State) organizations can access the Bulk Transfer feature", HttpStatus.FORBIDDEN);
                 return response;
             }
 
             List<String> allowedRoles = serverConfig.getBulkTransferAuthorizedRoles();
-            if ((Constants.MINISTRY.equalsIgnoreCase(sbOrgType) || Constants.STATE.equalsIgnoreCase(sbOrgType)) &&
-                    userRoles.stream().noneMatch(allowedRoles::contains)) {
+            if (userRoles.stream().noneMatch(allowedRoles::contains)) {
                 setErrorData(response, "Only MDO Admins and Leaders can access the Bulk Transfer feature", HttpStatus.FORBIDDEN);
                 return response;
             }
@@ -1065,4 +1040,21 @@ public class UserMigrationServiceImpl implements UserMigrationService {
         return response;
     }
 
+    private boolean isOrgAllowedForBulkUserTransfer(Map<String, Object> orgRecord) {
+        if (MapUtils.isEmpty(orgRecord)) {
+            return false;
+        }
+
+        String sbOrgType = (String) orgRecord.get(serverConfig.getOrgTypeFieldName());
+
+        if (StringUtils.isNotBlank(sbOrgType) && Arrays.asList(Constants.SPV_LOWER_CASE, Constants.MINISTRY, Constants.STATE) .contains(sbOrgType.trim().toLowerCase())) {
+            return true;
+        }
+
+        String organisationType = String.valueOf(orgRecord.get(Constants.ORGANIZATION_TYPE.toLowerCase())).trim();
+
+        List<String> allowedOrgTypes = serverConfig.getBulkUserMigrationAllowedOrganisationTypes();
+
+        return CollectionUtils.isNotEmpty(allowedOrgTypes) && allowedOrgTypes.contains(organisationType);
+    }
 }
