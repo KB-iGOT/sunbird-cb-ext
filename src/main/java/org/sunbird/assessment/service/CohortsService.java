@@ -13,4 +13,6 @@ public interface CohortsService {
 			throws Exception;
 
 	SBApiResponse autoEnrollmentInCourseV2(String authUserToken, String rootOrgId, String rootOrg, String contentId, String userUUID, String language)throws Exception;
+
+	SBApiResponse autoEnrollmentInComprehensiveAssessment(String authUserToken, String rootOrgId, String rootOrg, String contentId, String userUUID, String language)throws Exception;
 }

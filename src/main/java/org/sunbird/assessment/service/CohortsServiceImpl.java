@@ -333,6 +333,36 @@ public class CohortsServiceImpl implements CohortsService {
 		return activeUserCollection;
 	}
 
+	// Dedicated entry point for Comprehensive Assessment auto-enrollment: validates the
+	// content is actually tagged with the configured Comprehensive Assessment category and
+	// that the user has completed its mandatory prerequisite courses, THEN delegates to the
+	// existing autoEnrollmentInCourseV2 for batch resolution, active-enrollment check, and
+	// the actual enroll call. autoEnrollmentInCourseV2 itself is unmodified by this check -
+	// its own callers (e.g. the generic /v1/autoenrollment endpoint) never hit this gate.
+	@Override
+	public SBApiResponse autoEnrollmentInComprehensiveAssessment(String authUserToken, String rootOrgId, String rootOrg, String contentId, String userUUID, String language) throws Exception {
+		SBApiResponse finalResponse = ProjectUtil.createDefaultResponse(Constants.API_USER_ENROLMENT);
+		Map<String, Object> contentResponse = contentService.readContent(contentId);
+		if (ObjectUtils.isEmpty(contentResponse)) {
+			ProjectUtil.updateErrorDetails(finalResponse, String.format(Constants.CONTENT_NOT_AVAILABLE, contentId), HttpStatus.BAD_REQUEST);
+			return finalResponse;
+		}
+		String courseCategory = (String) contentResponse.get(Constants.COURSE_CATEGORY);
+		if (!cbExtServerProperties.getComprehensiveAssessmentCategory().equalsIgnoreCase(courseCategory)) {
+			ProjectUtil.updateErrorDetails(finalResponse, String.format(Constants.AUTO_ENROLL_PRIMARY_CATEGORY_ERROR_MSG, courseCategory), HttpStatus.BAD_REQUEST);
+			return finalResponse;
+		}
+		Map<String, String> headers = new HashMap<>();
+		headers.put(Constants.X_AUTH_TOKEN, authUserToken);
+		headers.put(Constants.AUTHORIZATION, cbExtServerProperties.getSbApiKey());
+		headers.put(Constants.X_AUTH_USER_ORG_ID, rootOrgId);
+		if (!isMandatoryCourseCompletionValidated(contentId, headers)) {
+			ProjectUtil.updateErrorDetails(finalResponse, Constants.MANDATORY_COURSE_NOT_COMPLETED_ERROR_MSG, HttpStatus.BAD_REQUEST);
+			return finalResponse;
+		}
+		return autoEnrollmentInCourseV2(authUserToken, rootOrgId, rootOrg, contentId, userUUID, language);
+	}
+
 	@Override
 	public SBApiResponse autoEnrollmentInCourseV2(String authUserToken, String rootOrgId, String rootOrg, String contentId, String userUUID, String language) throws Exception {
 		SBApiResponse finalResponse = ProjectUtil.createDefaultResponse(Constants.API_USER_ENROLMENT);
@@ -397,15 +427,6 @@ public class CohortsServiceImpl implements CohortsService {
 			SBApiResponse errResponse = isActiveEnrollmentExistsForUser(userUUID, contentId, batchDetail);
 			if (!ObjectUtils.isEmpty(errResponse)) {
 				return errResponse;
-			}
-			// Only applies to content explicitly tagged with the configured Comprehensive
-			// Assessment category - a no-op for plain Course/Standalone Assessment, which is
-			// everything this endpoint enrolled into before this check existed.
-			String courseCategory = (String) contentResponse.get(Constants.COURSE_CATEGORY);
-			if (cbExtServerProperties.getComprehensiveAssessmentCategory().equalsIgnoreCase(courseCategory)
-					&& !isMandatoryCourseCompletionValidated(contentId, headers)) {
-				ProjectUtil.updateErrorDetails(finalResponse, Constants.MANDATORY_COURSE_NOT_COMPLETED_ERROR_MSG, HttpStatus.BAD_REQUEST);
-				return finalResponse;
 			}
 			//Enroll for the 1st batch for the course, Standalone Assessment
 			logger.info("Enrolling user with contentId: " + contentId + ", language: " + language);
