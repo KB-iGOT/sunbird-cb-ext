@@ -180,26 +180,4 @@ public class CohortsController {
 		return new ResponseEntity<>(response, response.getResponseCode());
 
 	}
-
-	/**
-	 * Kong-routed variant of the Comprehensive Assessment auto-enrollment entry point.
-	 * userId is derived server-side from authUserToken, never taken from caller input.
-	 *
-	 * @param authUserToken
-	 * @param contentId
-	 * @param rootOrg
-	 * @return
-	 * @throws Exception
-	 */
-	@GetMapping("/v1/comprehensiveassessment/autoenrollment")
-	public ResponseEntity<SBApiResponse> userAutoEnrollmentInComprehensiveAssessment(@RequestHeader("x-authenticated-user-token") String authUserToken,
-															@RequestHeader(name = Constants.X_AUTH_USER_ORG_ID, required = false) String rootOrgId,
-															@RequestHeader("courseId") String contentId,
-															@RequestHeader("rootOrg") String rootOrg,
-															@RequestParam(name = Constants.LANGUAGE,required = false) String language)throws Exception {
-
-		SBApiResponse response = cohortsServ.autoEnrollmentInComprehensiveAssessment(authUserToken, rootOrgId, rootOrg, contentId, language);
-		return new ResponseEntity<>(response, response.getResponseCode());
-
-	}
 }
