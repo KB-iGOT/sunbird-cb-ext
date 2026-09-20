@@ -26,6 +26,7 @@ import org.sunbird.cassandra.utils.CassandraOperation;
 import org.sunbird.common.model.*;
 import org.sunbird.common.service.ContentService;
 import org.sunbird.common.service.OutboundRequestHandlerServiceImpl;
+import org.sunbird.common.util.AccessTokenValidator;
 import org.sunbird.common.util.CbExtServerProperties;
 import org.sunbird.common.util.Constants;
 import org.sunbird.common.util.IndexerService;
@@ -62,6 +63,9 @@ public class CohortsServiceImpl implements CohortsService {
 
 	@Autowired
 	IndexerService indexerService;
+
+	@Autowired
+	AccessTokenValidator accessTokenValidator;
 
 	@Override
 	public List<CohortUsers> getTopPerformers(String rootOrg, String contentId, String userId, int count) {
@@ -340,8 +344,12 @@ public class CohortsServiceImpl implements CohortsService {
 	// the actual enroll call. autoEnrollmentInCourseV2 itself is unmodified by this check -
 	// its own callers (e.g. the generic /v1/autoenrollment endpoint) never hit this gate.
 	@Override
-	public SBApiResponse autoEnrollmentInComprehensiveAssessment(String authUserToken, String rootOrgId, String rootOrg, String contentId, String userUUID, String language) throws Exception {
+	public SBApiResponse autoEnrollmentInComprehensiveAssessment(String authUserToken, String rootOrgId, String rootOrg, String contentId, String language) throws Exception {
 		SBApiResponse finalResponse = ProjectUtil.createDefaultResponse(Constants.API_USER_ENROLMENT);
+		String userUUID = accessTokenValidator.fetchUserIdFromAccessToken(authUserToken, finalResponse);
+		if (StringUtils.isEmpty(userUUID)) {
+			return finalResponse;
+		}
 		Map<String, Object> contentResponse = contentService.readContent(contentId);
 		if (ObjectUtils.isEmpty(contentResponse)) {
 			ProjectUtil.updateErrorDetails(finalResponse, String.format(Constants.CONTENT_NOT_AVAILABLE, contentId), HttpStatus.BAD_REQUEST);

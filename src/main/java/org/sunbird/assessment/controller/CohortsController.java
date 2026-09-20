@@ -92,25 +92,24 @@ public class CohortsController {
 	/**
 	 * Dedicated Comprehensive Assessment auto-enrollment entry point - validates CA
 	 * eligibility/mandatory-course completion before delegating to the standard enroll flow.
+	 * userId is derived server-side from authUserToken, never taken from caller input.
 	 *
 	 * @param authUserToken
 	 * @param contentId
 	 * @param rootOrg
-	 * @param userUUID
 	 * @return
 	 * @throws Exception
 	 */
-	@GetMapping("/v1/comprehensiveassessment/autoenrollment/{userUUID}/{courseId}")
+	@GetMapping("/v1/comprehensiveassessment/autoenrollment/{courseId}")
 	public ResponseEntity<SBApiResponse> autoEnrollmentInComprehensiveAssessment(@RequestHeader("Authorization") String authUserToken,
 																	@RequestHeader(name = Constants.X_AUTH_USER_ORG_ID, required = false) String rootOrgId,
 																	@PathVariable("courseId") String contentId,
 																	@RequestHeader("rootOrg") String rootOrg,
-																	@PathVariable("userUUID") String userUUID,
 																	@RequestParam(name = Constants.LANGUAGE,required = false) String language) throws Exception {
 		if (authUserToken.contains(" ")) {
 			authUserToken = authUserToken.split(" ")[1];
 		}
-		SBApiResponse response = cohortsServ.autoEnrollmentInComprehensiveAssessment(authUserToken, rootOrgId, rootOrg, contentId, userUUID, language);
+		SBApiResponse response = cohortsServ.autoEnrollmentInComprehensiveAssessment(authUserToken, rootOrgId, rootOrg, contentId, language);
 		return new ResponseEntity<>(response, response.getResponseCode());
 	}
 
@@ -184,11 +183,11 @@ public class CohortsController {
 
 	/**
 	 * Kong-routed variant of the Comprehensive Assessment auto-enrollment entry point.
+	 * userId is derived server-side from authUserToken, never taken from caller input.
 	 *
 	 * @param authUserToken
 	 * @param contentId
 	 * @param rootOrg
-	 * @param userUUID
 	 * @return
 	 * @throws Exception
 	 */
@@ -197,10 +196,9 @@ public class CohortsController {
 															@RequestHeader(name = Constants.X_AUTH_USER_ORG_ID, required = false) String rootOrgId,
 															@RequestHeader("courseId") String contentId,
 															@RequestHeader("rootOrg") String rootOrg,
-															@RequestHeader("userUUID") String userUUID,
 															@RequestParam(name = Constants.LANGUAGE,required = false) String language)throws Exception {
 
-		SBApiResponse response = cohortsServ.autoEnrollmentInComprehensiveAssessment(authUserToken, rootOrgId, rootOrg, contentId, userUUID, language);
+		SBApiResponse response = cohortsServ.autoEnrollmentInComprehensiveAssessment(authUserToken, rootOrgId, rootOrg, contentId, language);
 		return new ResponseEntity<>(response, response.getResponseCode());
 
 	}
