@@ -532,6 +532,12 @@ public class CbExtServerProperties {
 	@Value("${content.type.auto.enroll.accepted}")
 	private String contentTypeAutoEnrollAccepted;
 
+	@Value("${comprehensive.assessment.category}")
+	private String comprehensiveAssessmentCategory;
+
+	@Value("${mandatory.course.completion.check}")
+	private String mandatoryCourseCompletionCheck;
+
 	@Value("${content-read-endpoint-fields}")
 	private String contentReadEndPointFields;
 
@@ -2846,6 +2852,14 @@ public class CbExtServerProperties {
 
 	public void setContentTypeAutoEnrollAccepted(String contentTypeAutoEnrollAccepted) {
 		this.contentTypeAutoEnrollAccepted = contentTypeAutoEnrollAccepted;
+	}
+
+	public String getComprehensiveAssessmentCategory() {
+		return comprehensiveAssessmentCategory;
+	}
+
+	public String getMandatoryCourseCompletionCheck() {
+		return mandatoryCourseCompletionCheck;
 	}
 
 	public String getContentReadEndPointFields() {

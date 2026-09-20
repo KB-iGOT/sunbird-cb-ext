@@ -186,6 +186,23 @@ public class CohortsServiceImpl implements CohortsService {
 		return enrollMentResponse;
 	}
 
+	// Calls sunbird-course-service to check whether the user has completed all mandatory
+	// prerequisite courses for this Comprehensive Assessment do_id. Fails closed (returns
+	// false) on any network/parse error, same as any other new capability with no prior
+	// working baseline - this only gates the newly-accepted "Comprehensive Assessment"
+	// category, never the pre-existing Course/Standalone Assessment auto-enroll flow.
+	private boolean isMandatoryCourseCompletionValidated(String contentId, Map<String, String> headers) {
+		try {
+			String uri = cbExtServerProperties.getCourseServiceHost()
+					+ cbExtServerProperties.getMandatoryCourseCompletionCheck() + contentId;
+			Map<String, Object> response = outboundRequestHandlerService.fetchResultUsingGet(uri, headers);
+			return !MapUtils.isEmpty(response) && Constants.OK.equals(response.get(Constants.RESPONSE_CODE));
+		} catch (Exception e) {
+			logger.error("Failed to validate mandatory course completion for contentId: " + contentId, e);
+			return false;
+		}
+	}
+
 	private void processChildContentId(String givenContentId, List<String> assessmentIdList) {
 		try {
 			SunbirdApiResp contentHierarchy = contentService.getHeirarchyResponse(givenContentId);
@@ -380,6 +397,15 @@ public class CohortsServiceImpl implements CohortsService {
 			SBApiResponse errResponse = isActiveEnrollmentExistsForUser(userUUID, contentId, batchDetail);
 			if (!ObjectUtils.isEmpty(errResponse)) {
 				return errResponse;
+			}
+			// Only applies to content explicitly tagged with the configured Comprehensive
+			// Assessment category - a no-op for plain Course/Standalone Assessment, which is
+			// everything this endpoint enrolled into before this check existed.
+			String courseCategory = (String) contentResponse.get(Constants.COURSE_CATEGORY);
+			if (cbExtServerProperties.getComprehensiveAssessmentCategory().equalsIgnoreCase(courseCategory)
+					&& !isMandatoryCourseCompletionValidated(contentId, headers)) {
+				ProjectUtil.updateErrorDetails(finalResponse, Constants.MANDATORY_COURSE_NOT_COMPLETED_ERROR_MSG, HttpStatus.BAD_REQUEST);
+				return finalResponse;
 			}
 			//Enroll for the 1st batch for the course, Standalone Assessment
 			logger.info("Enrolling user with contentId: " + contentId + ", language: " + language);
