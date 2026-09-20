@@ -92,7 +92,10 @@ public class CohortsController {
 	/**
 	 * Dedicated Comprehensive Assessment auto-enrollment entry point - validates CA
 	 * eligibility/mandatory-course completion before delegating to the standard enroll flow.
-	 * userId is derived server-side from authUserToken, never taken from caller input.
+	 * userId is derived server-side from x-authenticated-user-token, never taken from caller
+	 * input. This route is reached via Kong (uri prefix /ca/v1/autoenrollment, strip_uri) whose
+	 * jwt plugin authenticates the Kong-consumer Authorization header separately - that header
+	 * is NOT the end-user's identity, so it must not be used here.
 	 *
 	 * @param authUserToken
 	 * @param contentId
@@ -101,14 +104,11 @@ public class CohortsController {
 	 * @throws Exception
 	 */
 	@GetMapping("/v1/comprehensiveassessment/autoenrollment/{courseId}")
-	public ResponseEntity<SBApiResponse> autoEnrollmentInComprehensiveAssessment(@RequestHeader("Authorization") String authUserToken,
+	public ResponseEntity<SBApiResponse> autoEnrollmentInComprehensiveAssessment(@RequestHeader("x-authenticated-user-token") String authUserToken,
 																	@RequestHeader(name = Constants.X_AUTH_USER_ORG_ID, required = false) String rootOrgId,
 																	@PathVariable("courseId") String contentId,
 																	@RequestHeader("rootOrg") String rootOrg,
 																	@RequestParam(name = Constants.LANGUAGE,required = false) String language) throws Exception {
-		if (authUserToken.contains(" ")) {
-			authUserToken = authUserToken.split(" ")[1];
-		}
 		SBApiResponse response = cohortsServ.autoEnrollmentInComprehensiveAssessment(authUserToken, rootOrgId, rootOrg, contentId, language);
 		return new ResponseEntity<>(response, response.getResponseCode());
 	}
