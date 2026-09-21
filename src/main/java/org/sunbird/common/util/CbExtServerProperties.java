@@ -535,8 +535,8 @@ public class CbExtServerProperties {
 	@Value("${comprehensive.assessment.category}")
 	private String comprehensiveAssessmentCategory;
 
-	@Value("${mandatory.course.completion.check}")
-	private String mandatoryCourseCompletionCheck;
+	@Value("${comprehensive.assessment.autoenroll.endpoint}")
+	private String comprehensiveAssessmentAutoEnrollEndpoint;
 
 	@Value("${content-read-endpoint-fields}")
 	private String contentReadEndPointFields;
@@ -2858,8 +2858,16 @@ public class CbExtServerProperties {
 		return comprehensiveAssessmentCategory;
 	}
 
-	public String getMandatoryCourseCompletionCheck() {
-		return mandatoryCourseCompletionCheck;
+	public void setComprehensiveAssessmentCategory(String comprehensiveAssessmentCategory) {
+		this.comprehensiveAssessmentCategory = comprehensiveAssessmentCategory;
+	}
+
+	public String getComprehensiveAssessmentAutoEnrollEndpoint() {
+		return comprehensiveAssessmentAutoEnrollEndpoint;
+	}
+
+	public void setComprehensiveAssessmentAutoEnrollEndpoint(String comprehensiveAssessmentAutoEnrollEndpoint) {
+		this.comprehensiveAssessmentAutoEnrollEndpoint = comprehensiveAssessmentAutoEnrollEndpoint;
 	}
 
 	public String getContentReadEndPointFields() {

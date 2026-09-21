@@ -764,7 +764,6 @@ public class Constants {
 	public static final String BATCH_AUTO_ENROLL_ERROR_MSG = "Failed to auto enrol user in batch.";
 	public static final String BATCH_NOT_AVAILABLE_ERROR_MSG = "No Batch Available.";
 	public static final String AUTO_ENROLL_PRIMARY_CATEGORY_ERROR_MSG = "Auto enrolment is not allowed for '%s' course.";
-	public static final String MANDATORY_COURSE_NOT_COMPLETED_ERROR_MSG = "Please complete all mandatory courses before attempting this assessment.";
 	public static final String CONTENT_NOT_AVAILABLE = "Content Search failed for Content: %s.";
 	public static final String SIGNIN_LINK = "signinLink";
 	public static final String DISCOVER_LINK = "discoverLink";
