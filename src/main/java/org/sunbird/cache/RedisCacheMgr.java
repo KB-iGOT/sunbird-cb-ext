@@ -18,6 +18,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPool;
+import redis.clients.jedis.ScanParams;
+import redis.clients.jedis.ScanResult;
 import javax.annotation.PostConstruct;
 
 @Component
@@ -139,6 +141,50 @@ public class RedisCacheMgr {
             logger.error(e);
             return null;
         }
+    }
+
+    /**
+     * Finds every key matching {@code pattern} (glob syntax, e.g. {@code "karmaCoinConvertLock:user1:*"})
+     * under the standard {@code CB_EXT_} namespace via {@code SCAN} and returns their values, keyed
+     * by the un-prefixed key name. Uses a cursor loop rather than {@code KEYS} so it never blocks the
+     * whole Redis instance, but it still walks the keyspace and runs on the calling thread, so it is
+     * only safe for patterns expected to match a small, bounded number of keys (e.g. per-user locks),
+     * not for cache-wide sweeps.
+     */
+    public Map<String, String> getValuesByPattern(String pattern) {
+        return scanValues(Constants.REDIS_COMMON_KEY + pattern, Constants.REDIS_COMMON_KEY);
+    }
+
+    /**
+     * Same as {@link #getValuesByPattern(String)} but against the raw keyspace, with no {@code CB_EXT_}
+     * prefix applied - for keys written by other services that talk to this Redis instance directly
+     * (e.g. Flink jobs using jobs-core's {@code DataCache}, which does not use the {@code CB_EXT_}
+     * convention).
+     */
+    public Map<String, String> getValuesByRawPattern(String pattern) {
+        return scanValues(pattern, "");
+    }
+
+    private Map<String, String> scanValues(String fullPattern, String keyPrefixToStrip) {
+        Map<String, String> result = new HashMap<>();
+        try (Jedis jedis = jedisPool.getResource()) {
+            ScanParams scanParams = new ScanParams().match(fullPattern).count(100);
+            String cursor = ScanParams.SCAN_POINTER_START;
+            do {
+                ScanResult<String> scanResult = jedis.scan(cursor, scanParams);
+                for (String key : scanResult.getResult()) {
+                    String value = jedis.get(key);
+                    if (value != null) {
+                        String resultKey = key.startsWith(keyPrefixToStrip) ? key.substring(keyPrefixToStrip.length()) : key;
+                        result.put(resultKey, value);
+                    }
+                }
+                cursor = scanResult.getStringCursor();
+            } while (!ScanParams.SCAN_POINTER_START.equals(cursor));
+        } catch (Exception e) {
+            logger.error(e);
+        }
+        return result;
     }
 
     public List<String> mget(List<String> fields) {
