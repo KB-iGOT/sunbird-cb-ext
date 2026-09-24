@@ -2126,6 +2126,7 @@ public class ProfileServiceImpl implements ProfileService {
 			Map<String, Object> responseMap = userUtilityService.getUsersReadData(userId, StringUtils.EMPTY,
 					StringUtils.EMPTY);
 			Map<String, Object> existingProfileDetails = (Map<String, Object>) responseMap.get(Constants.PROFILE_DETAILS);
+			boolean isMovingToVerified = false;
 			String updatedProfileStatus = null;
 			String updatedGroupVal = null;
 			String updatedDesignationVal = null;
@@ -2290,6 +2291,7 @@ public class ProfileServiceImpl implements ProfileService {
 							Constants.VERIFIED.equalsIgnoreCase((String) existingProfileDetails
 									.get(Constants.PROFILE_DESIGNATION_STATUS))) {
 						existingProfileDetails.put(Constants.PROFILE_STATUS, Constants.VERIFIED);
+					isMovingToVerified = true;
 					} else {
 						existingProfileDetails.put(Constants.PROFILE_STATUS, Constants.NOT_VERIFIED);
 					}
@@ -2318,6 +2320,9 @@ public class ProfileServiceImpl implements ProfileService {
 				Map<String, Object> updateResponse = outboundRequestHandlerService.fetchResultUsingPatch(updatedUrl, updateRequest, headerValue);
 
 				if (Constants.OK.equalsIgnoreCase((String) updateResponse.get(Constants.RESPONSE_CODE))) {
+					if (isMovingToVerified) {
+						raiseVerifiedProfileKarmaEventIfEligible(userId);
+					}
 					String cacheKey = Constants.USER_BASIC_PROFILE_REDIS_KEY_PREFIX + userId;
 					redisCacheMgr.deleteKeyByNameV2(cacheKey);
 					response.setResponseCode(HttpStatus.OK);
@@ -2906,8 +2911,21 @@ public class ProfileServiceImpl implements ProfileService {
 		}
 		return "";
 	}
+
+	private void raiseVerifiedProfileKarmaEventIfEligible(String userId) {
+		try {
+			Map<String, Object> edata = new HashMap<>();
+			edata.put(Constants.USER_ID, userId);
+			Map<String, Object> data = new HashMap<>();
+			data.put(Constants.EDATA, edata);
+			Map<String, Object> event = new HashMap<>();
+			event.put(Constants.EVENT_TYPE, Constants.EVENT_TYPE_VERIFIED_PROFILE);
+			event.put(Constants.DATA, data);
+			event.put(Constants.KAFKA_EVENT_VERSION_KEY, Constants.KARMA_POINTS_EVENT_VERSION);
+			kafkaProducer.pushWithKey(serverConfig.getKarmaPointsUnifiedEventTopic(), event, userId);
+			log.info("[KARMA_POINTS][VERIFIED_PROFILE][published] userId={}", userId);
+		} catch (Exception e) {
+			log.error("[KARMA_POINTS][VERIFIED_PROFILE][failed] Could not publish event for userId=" + userId, e);
+		}
+	}
 }
-
-
-
-
