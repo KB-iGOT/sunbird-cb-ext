@@ -375,81 +375,88 @@ public class CohortsServiceImpl implements CohortsService {
 	}
 
 	private SBApiResponse enrollInAvailableBatch(Map<String, Object> contentResponse, String authUserToken, String rootOrgId, String contentId, String userUUID, String language) throws Exception {
+
 		SBApiResponse finalResponse = ProjectUtil.createDefaultResponse(Constants.API_USER_ENROLMENT);
-		if (!cbExtServerProperties.getContentTypeAutoEnrollAccepted().contains(contentResponse.get(Constants.PRIMARY_CATEGORY))) {
-			ProjectUtil.updateErrorDetails(finalResponse, String.format(Constants.AUTO_ENROLL_PRIMARY_CATEGORY_ERROR_MSG,
-					contentResponse.get(Constants.PRIMARY_CATEGORY)), HttpStatus.BAD_REQUEST);
-			return finalResponse;
-		}
-		List<Map<String, Object>> batches = (List<Map<String, Object>>) contentResponse.get(Constants.BATCHES);
-		if (CollectionUtils.isEmpty(batches)) {
-			ProjectUtil.updateErrorDetails(finalResponse, Constants.BATCH_NOT_AVAILABLE_ERROR_MSG, HttpStatus.BAD_REQUEST);
-			return finalResponse;
-		}
-		List<SunbirdApiBatchResp> batchDetails = new ArrayList<>();
-		ObjectMapper mapper = new ObjectMapper();
-		batchDetails.addAll(batches.stream().filter(batch -> (Integer) batch.get(Constants.STATUS) != 2).map(batchMap -> {
-			try {
-				return mapper.convertValue(batchMap, SunbirdApiBatchResp.class);
-			} catch (IllegalArgumentException e) {
-				return null;
-			}
-		}).filter(sunbirdClass -> sunbirdClass != null).collect(Collectors.toList()));
-		if (CollectionUtils.isEmpty(batchDetails)) {
-			ProjectUtil.updateErrorDetails(finalResponse, Constants.BATCH_NOT_AVAILABLE_ERROR_MSG, HttpStatus.BAD_REQUEST);
-			return finalResponse;
-		}
-
-		List<String> batchIds = batchDetails.stream().map(SunbirdApiBatchResp::getBatchId).collect(Collectors.toList());
-		logger.info("Batches available for the courseId: " + contentId + " are : " + batchIds);
-		SunbirdApiBatchResp batchDetail = batchDetails.get(0);
-		if (batchDetails.size() > 1) {
-			SunbirdApiBatchResp activeBatch = batchDetails.stream()
-					.filter(batch -> {
-						Map<String, Object> batchAttributes = batch.getBatchAttributes();
-						return MapUtils.isNotEmpty(batchAttributes) &&
-								Boolean.TRUE.equals(batchAttributes.get("isActiveBatch"));
-					})
-					.findFirst()
-					.orElse(null);
-
-			if (activeBatch != null) {
-				batchDetail = activeBatch;
-				logger.info("Selected active batch for enrolment is: " + activeBatch.getBatchId() + " for userId: " + userUUID + " and courseId: " + contentId);
-			} else {
-				logger.info("Multiple batches available for enrollment. No batch is marked as active (isActiveBatch=true) for courseId: " + contentId);
-				ProjectUtil.updateErrorDetails(finalResponse, Constants.ACTIVE_BATCH_NOT_AVAILABLE_ERROR_MSG, HttpStatus.INTERNAL_SERVER_ERROR);
+		try {
+			if (!cbExtServerProperties.getContentTypeAutoEnrollAccepted().contains(contentResponse.get(Constants.PRIMARY_CATEGORY))) {
+				ProjectUtil.updateErrorDetails(finalResponse, String.format(Constants.AUTO_ENROLL_PRIMARY_CATEGORY_ERROR_MSG,
+						contentResponse.get(Constants.PRIMARY_CATEGORY)), HttpStatus.BAD_REQUEST);
 				return finalResponse;
 			}
-		}
-		Map<String, String> headers = new HashMap<>();
-		headers.put(Constants.X_AUTH_TOKEN, authUserToken);
-		headers.put(Constants.AUTHORIZATION, cbExtServerProperties.getSbApiKey());
-		headers.put(Constants.X_AUTH_USER_ORG_ID, rootOrgId);
-		boolean isEnrolledWithBatch = false;
-		String errMsg = "";
-		SBApiResponse errResponse = isActiveEnrollmentExistsForUser(userUUID, contentId, batchDetail);
-		if (!ObjectUtils.isEmpty(errResponse)) {
-			return errResponse;
-		}
-		//Enroll for the 1st batch for the course, Standalone Assessment
-		logger.info("Enrolling user with contentId: " + contentId + ", language: " + language);
-		Map<String, Object> enrollResponse = enrollInCourse(contentId, userUUID, headers, batchDetail.getBatchId(), language);
-		if (!ObjectUtils.isEmpty(enrollResponse) && Constants.OK.equals(enrollResponse.get(Constants.RESPONSE_CODE))) {
-			finalResponse = constructAutoEnrollResponse(batchDetail);
-			isEnrolledWithBatch = true;
-		}
-		if (!isEnrolledWithBatch) {
-			Map<String, Object> errorParamsMap = (Map<String, Object>) enrollResponse.get(Constants.PARAMS);
-			if (!MapUtils.isEmpty(errorParamsMap)) {
-				errMsg = (String) errorParamsMap.get("errmsg");
-				if (StringUtils.isEmpty(errMsg)) {
-					errMsg = (String) errorParamsMap.get("errMsg");
+			List<Map<String, Object>> batches = (List<Map<String, Object>>) contentResponse.get(Constants.BATCHES);
+			if (CollectionUtils.isEmpty(batches)) {
+				ProjectUtil.updateErrorDetails(finalResponse, Constants.BATCH_NOT_AVAILABLE_ERROR_MSG, HttpStatus.BAD_REQUEST);
+				return finalResponse;
+			}
+			List<SunbirdApiBatchResp> batchDetails = new ArrayList<>();
+			ObjectMapper mapper = new ObjectMapper();
+			batchDetails.addAll(batches.stream().filter(batch -> (Integer) batch.get(Constants.STATUS) != 2).map(batchMap -> {
+				try {
+					return mapper.convertValue(batchMap, SunbirdApiBatchResp.class);
+				} catch (IllegalArgumentException e) {
+					return null;
+				}
+			}).filter(sunbirdClass -> sunbirdClass != null).collect(Collectors.toList()));
+			if (CollectionUtils.isEmpty(batchDetails)) {
+				ProjectUtil.updateErrorDetails(finalResponse, Constants.BATCH_NOT_AVAILABLE_ERROR_MSG, HttpStatus.BAD_REQUEST);
+				return finalResponse;
+			}
+
+			List<String> batchIds = batchDetails.stream().map(SunbirdApiBatchResp::getBatchId).collect(Collectors.toList());
+			logger.info("Batches available for the courseId: " + contentId + " are : " + batchIds);
+			SunbirdApiBatchResp batchDetail = batchDetails.get(0);
+			if (batchDetails.size() > 1) {
+				SunbirdApiBatchResp activeBatch = batchDetails.stream()
+						.filter(batch -> {
+							Map<String, Object> batchAttributes = batch.getBatchAttributes();
+							return MapUtils.isNotEmpty(batchAttributes) &&
+									Boolean.TRUE.equals(batchAttributes.get("isActiveBatch"));
+						})
+						.findFirst()
+						.orElse(null);
+
+				if (activeBatch != null) {
+					batchDetail = activeBatch;
+					logger.info("Selected active batch for enrolment is: " + activeBatch.getBatchId() + " for userId: " + userUUID + " and courseId: " + contentId);
+				} else {
+					logger.info("Multiple batches available for enrollment. No batch is marked as active (isActiveBatch=true) for courseId: " + contentId);
+					ProjectUtil.updateErrorDetails(finalResponse, Constants.ACTIVE_BATCH_NOT_AVAILABLE_ERROR_MSG, HttpStatus.INTERNAL_SERVER_ERROR);
+					return finalResponse;
 				}
 			}
-			ProjectUtil.updateErrorDetails(finalResponse, (!StringUtils.isEmpty(errMsg)) ? errMsg : Constants.BATCH_AUTO_ENROLL_ERROR_MSG, HttpStatus.BAD_REQUEST);
+			Map<String, String> headers = new HashMap<>();
+			headers.put(Constants.X_AUTH_TOKEN, authUserToken);
+			headers.put(Constants.AUTHORIZATION, cbExtServerProperties.getSbApiKey());
+			headers.put(Constants.X_AUTH_USER_ORG_ID, rootOrgId);
+			boolean isEnrolledWithBatch = false;
+			String errMsg = "";
+			SBApiResponse errResponse = isActiveEnrollmentExistsForUser(userUUID, contentId, batchDetail);
+			if (!ObjectUtils.isEmpty(errResponse)) {
+				return errResponse;
+			}
+			//Enroll for the 1st batch for the course, Standalone Assessment
+			logger.info("Enrolling user with contentId: " + contentId + ", language: " + language);
+			Map<String, Object> enrollResponse = enrollInCourse(contentId, userUUID, headers, batchDetail.getBatchId(), language);
+			if (!ObjectUtils.isEmpty(enrollResponse) && Constants.OK.equals(enrollResponse.get(Constants.RESPONSE_CODE))) {
+				finalResponse = constructAutoEnrollResponse(batchDetail);
+				isEnrolledWithBatch = true;
+			}
+			if (!isEnrolledWithBatch) {
+				Map<String, Object> errorParamsMap = (Map<String, Object>) enrollResponse.get(Constants.PARAMS);
+				if (!MapUtils.isEmpty(errorParamsMap)) {
+					errMsg = (String) errorParamsMap.get("errmsg");
+					if (StringUtils.isEmpty(errMsg)) {
+						errMsg = (String) errorParamsMap.get("errMsg");
+					}
+				}
+				ProjectUtil.updateErrorDetails(finalResponse, (!StringUtils.isEmpty(errMsg)) ? errMsg : Constants.BATCH_AUTO_ENROLL_ERROR_MSG, HttpStatus.BAD_REQUEST);
+			}
+			return finalResponse;
+		} catch (Exception e) {
+			logger.error("Failed to auto enrol user. Exception: ", e);
+			ProjectUtil.updateErrorDetails(finalResponse, e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+			return finalResponse;
 		}
-		return finalResponse;
 	}
 
 	private List<Map<String, Object>> getActiveEnrollmentForUser(List<String> batchIds, String userId) {
