@@ -1827,4 +1827,7 @@ public class Constants {
 	public static final String IN_PROGRESS = "IN_PROGRESS";
 	public static final String PIPE_SEPARATOR = "|";
 	public static final String TXN_STATUS_IN_PROGRESS = "IN_PROGRESS";
+	public static final String EVENT_TYPE_VERIFIED_PROFILE = "VERIFIED_PROFILE";
+	public static final int KARMA_POINTS_EVENT_VERSION = 1;
+	public static final String EDATA = "edata";
 }
