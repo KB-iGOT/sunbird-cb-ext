@@ -1407,7 +1407,7 @@ public class CbExtServerProperties {
 	@Value("${karma.coin.convert.lock.ttl:900}")
 	private Integer karmaCoinConvertLockTtl;
 
-	@Value("${karma.coin.convert.lock.key.pattern:karmaCoinConvertLock:{userId}}")
+	@Value("${karma.coin.convert.lock.key.pattern:karmaCoinConvertLock:{userId}:{requestId}}")
 	private String karmaCoinConvertLockKeyPattern;
 
 	public int getUserSearchLimit() {

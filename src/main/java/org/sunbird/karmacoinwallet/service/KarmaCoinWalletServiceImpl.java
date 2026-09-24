@@ -71,7 +71,8 @@ public class KarmaCoinWalletServiceImpl implements KarmaCoinWalletService {
             return response;
         }
         try {
-            String currentYearMonth = YearMonth.now().toString();
+            YearMonth currentYearMonthValue = YearMonth.now(ZoneId.of(Constants.ASIA_KOLKATA_TIMEZONE));
+            String currentYearMonth = currentYearMonthValue.toString();
 
             WalletSnapshot snapshot = loadWalletAndMonthly(userId, currentYearMonth);
             int totalEarned = snapshot.totalEarned;
@@ -90,7 +91,7 @@ public class KarmaCoinWalletServiceImpl implements KarmaCoinWalletService {
             int unredeemedKarmaPoints = Math.max(0, totalKarmaPoints - totalEarned);
             int convertibleThisMonth = Math.max(0, Math.min(monthlyCap - convertedThisMonth, unredeemedKarmaPoints));
             boolean redeemEnabled = convertibleThisMonth > 0;
-            String capResetsOn = YearMonth.now().plusMonths(1).atDay(1).toString();
+            String capResetsOn = currentYearMonthValue.plusMonths(1).atDay(1).toString();
 
             Map<String, Object> result = new HashMap<>();
             result.put(Constants.WALLET_BALANCE, walletBalance);
@@ -149,13 +150,19 @@ public class KarmaCoinWalletServiceImpl implements KarmaCoinWalletService {
         long startDate;
         long endDate;
         try {
+            ZoneId zoneId = ZoneId.of(Constants.ASIA_KOLKATA_TIMEZONE);
             LocalDate fromDate = LocalDate.parse(String.valueOf(request.get(Constants.START_DATE)));
             LocalDate toDate = LocalDate.parse(String.valueOf(request.get(Constants.END_DATE)));
+            LocalDate today = LocalDate.now(zoneId);
+            LocalDate minimumDate = today.minusYears(1);
             if (toDate.isBefore(fromDate)) {
                 setError(response, Constants.INVALID_REQUEST, HttpStatus.BAD_REQUEST);
                 return response;
             }
-            ZoneId zoneId = ZoneId.of(Constants.ASIA_KOLKATA_TIMEZONE);
+            if (fromDate.isBefore(minimumDate) || toDate.isAfter(today)) {
+                setError(response, Constants.TRANSACTION_DATE_RANGE_EXCEEDED, HttpStatus.BAD_REQUEST);
+                return response;
+            }
             startDate = fromDate.atStartOfDay(zoneId).toInstant().toEpochMilli();
             endDate = toDate.plusDays(1).atStartOfDay(zoneId).toInstant().toEpochMilli() - 1;
         } catch (Exception e) {
@@ -185,10 +192,19 @@ public class KarmaCoinWalletServiceImpl implements KarmaCoinWalletService {
                 }
                 transactions.add(toTransactionView(row));
             }
-            String userLockKey = buildConvertLockKey(userId);
-            String pendingPointsValue = redisCacheMgr.getCache(userLockKey);
-            if (StringUtils.isNotBlank(pendingPointsValue) && StringUtils.isNumeric(pendingPointsValue.trim())) {
-                transactions.add(0, buildPendingTransactionView(Integer.parseInt(pendingPointsValue.trim())));
+            Map<String, String> pendingLocks = redisCacheMgr.getValuesByPattern(buildConvertLockPattern(userId));
+            for (String pendingPointsValue : pendingLocks.values()) {
+                if (StringUtils.isNotBlank(pendingPointsValue) && StringUtils.isNumeric(pendingPointsValue.trim())) {
+                    transactions.add(0, buildPendingTransactionView(Integer.parseInt(pendingPointsValue.trim())));
+                }
+            }
+
+            Map<String, String> pendingEnrolments = redisCacheMgr.getValuesByRawPattern(buildPendingEnrolmentPattern(userId));
+            for (String enrolmentValue : pendingEnrolments.values()) {
+                Map<String, Object> enrolmentInfo = parsePendingEnrolment(enrolmentValue);
+                if (enrolmentInfo != null) {
+                    transactions.add(0, buildPendingRedemptionView(enrolmentInfo));
+                }
             }
 
             Map<String, Object> result = new HashMap<>();
@@ -352,23 +368,28 @@ public class KarmaCoinWalletServiceImpl implements KarmaCoinWalletService {
             return response;
         }
         try {
-            String inProgressKey = buildConvertLockKey(userId);
-            boolean requestClaimed = redisCacheMgr.setIfAbsent(inProgressKey, String.valueOf(pointsToConvert), serverProperties.getKarmaCoinConvertLockTtl());
-            if (!requestClaimed) {
-                setError(response, Constants.CONVERSION_REQUEST_IN_PROGRESS, HttpStatus.CONFLICT);
-                return response;
-            }
-            String currentYearMonth = YearMonth.now().toString();
+            String currentYearMonth = YearMonth.now(ZoneId.of(Constants.ASIA_KOLKATA_TIMEZONE)).toString();
             WalletSnapshot snapshot = loadWalletAndMonthly(userId, currentYearMonth);
             int totalEarned = snapshot.totalEarned;
             int convertedThisMonth = snapshot.convertedThisMonth;
             int totalKarmaPoints = fetchTotalKarmaPoints(userId);
             int monthlyCap = serverProperties.getKarmaCoinMonthlyCap();
-            int unredeemedKarmaPoints = Math.max(0, totalKarmaPoints - totalEarned);
-            int remainingCap = Math.max(0, monthlyCap - convertedThisMonth);
+            String inProgressKey = buildConvertLockKey(userId, requestId);
+            int otherPendingPoints = sumOtherPendingPoints(userId, inProgressKey);
+            int unredeemedKarmaPoints = Math.max(0, totalKarmaPoints - totalEarned - otherPendingPoints);
+            int remainingCap = Math.max(0, monthlyCap - convertedThisMonth - otherPendingPoints);
             int convertibleThisMonth = Math.min(remainingCap, unredeemedKarmaPoints);
+            if (pointsToConvert > unredeemedKarmaPoints) {
+                setError(response, Constants.INSUFFICIENT_KARMA_POINTS, HttpStatus.BAD_REQUEST);
+                return response;
+            }
             if (pointsToConvert > convertibleThisMonth) {
                 setError(response, Constants.MONTHLY_CAP_EXCEEDED, HttpStatus.BAD_REQUEST);
+                return response;
+            }
+            boolean requestClaimed = redisCacheMgr.setIfAbsent(inProgressKey, String.valueOf(pointsToConvert), serverProperties.getKarmaCoinConvertLockTtl());
+            if (!requestClaimed) {
+                setError(response, Constants.CONVERSION_REQUEST_IN_PROGRESS, HttpStatus.CONFLICT);
                 return response;
             }
             String eventId = UUID.randomUUID().toString();
@@ -490,21 +511,51 @@ public class KarmaCoinWalletServiceImpl implements KarmaCoinWalletService {
     }
 
     /**
-     * Builds the Redis key for the per-user conversion in-progress lock from the configured
-     * pattern (default {@code karmaCoinConvertLock:{userId}}). Any {@code {token}} placeholder in
-     * the pattern is resolved from a fixed set of values that are always available wherever this
-     * key is built, so widening the key shape (e.g. to fold in context type) is a config change,
-     * not a code change.
+     * Builds the Redis key for a single in-flight conversion request from the configured pattern
+     * (default {@code karmaCoinConvertLock:{userId}:{requestId}}). Keying by {@code requestId} as
+     * well as {@code userId} means concurrent conversions from different tabs/requests each get
+     * their own lock instead of colliding on a single per-user key; {@link #buildConvertLockPattern}
+     * is what lets callers still discover every lock for a user.
      */
-    private String buildConvertLockKey(String userId) {
+    private String buildConvertLockKey(String userId, String requestId) {
         Map<String, String> tokens = new HashMap<>();
         tokens.put("userId", userId);
+        tokens.put("requestId", requestId);
         tokens.put("contextType", Constants.POINTS_CONVERSION);
         String key = serverProperties.getKarmaCoinConvertLockKeyPattern();
         for (Map.Entry<String, String> token : tokens.entrySet()) {
             key = key.replace("{" + token.getKey() + "}", token.getValue());
         }
         return key;
+    }
+
+    /**
+     * Builds the {@code SCAN} glob pattern that matches every in-flight conversion lock for a user,
+     * by substituting {@code {requestId}} with {@code *} in the same configured pattern used by
+     * {@link #buildConvertLockKey}, so the two never drift apart.
+     */
+    private String buildConvertLockPattern(String userId) {
+        return buildConvertLockKey(userId, "*");
+    }
+
+    /**
+     * Sums the points held by every other in-flight conversion lock for this user (i.e. excluding
+     * {@code ownKey}), so a new request's balance/cap validation accounts for amounts other
+     * concurrent requests have already claimed but not yet committed.
+     */
+    private int sumOtherPendingPoints(String userId, String ownKey) {
+        Map<String, String> pending = redisCacheMgr.getValuesByPattern(buildConvertLockPattern(userId));
+        int sum = 0;
+        for (Map.Entry<String, String> entry : pending.entrySet()) {
+            if (ownKey.equals(entry.getKey())) {
+                continue;
+            }
+            String value = entry.getValue();
+            if (StringUtils.isNotBlank(value) && StringUtils.isNumeric(value.trim())) {
+                sum += Integer.parseInt(value.trim());
+            }
+        }
+        return sum;
     }
 
     /**
@@ -521,6 +572,53 @@ public class KarmaCoinWalletServiceImpl implements KarmaCoinWalletService {
         txn.put(Constants.POINTS_TO_CONVERT, pointsToConvert);
         txn.put(Constants.AMOUNT_CAMEL, pointsToConvert * serverProperties.getKarmaCoinConversionRate());
         putConversionRateInfo(txn);
+        return txn;
+    }
+
+    /**
+     * Builds the raw {@code SCAN} glob pattern for every in-flight COINS_REDEMPTION (paid-course
+     * enrolment) request for a user. Keys are written directly by the upstream caller and updated
+     * by {@code karma-points-processor-v2}'s {@code RedisUtil.pendingEnrolmentKeyFor}, in the raw
+     * (non-{@code CB_EXT_}) keyspace those jobs share with this service - hence
+     * {@link RedisCacheMgr#getValuesByRawPattern}, not the prefixed variant used for our own locks.
+     */
+    private String buildPendingEnrolmentPattern(String userId) {
+        return Constants.PENDING_ENROLMENT_KEY_PREFIX + "_" + userId + "_*";
+    }
+
+    /**
+     * Parses a {@code pendingEnrolment_<userId>_<contextId>} value as the enrolment-info JSON object
+     * (e.g. {@code courseName}/{@code karmaCoins}) written before the redemption request was
+     * published. Once the redemption reaches a terminal state, {@code RedisUtil.setPendingEnrolmentStatus}
+     * overwrites the value with a bare status string ({@code SUCCESS}/{@code FAILED}) instead of JSON -
+     * that case (and any other malformed value) returns {@code null} so the caller skips it, since a
+     * completed redemption already has its own row in {@code user_karma_coin_transactions}.
+     */
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> parsePendingEnrolment(String value) {
+        if (StringUtils.isBlank(value)) {
+            return Collections.emptyMap();
+        }
+        try {
+            return objectMapper.readValue(value, Map.class);
+        } catch (Exception e) {
+            return Collections.emptyMap();
+        }
+    }
+
+    /**
+     * Synthetic view for a paid-course enrolment redemption that is queued but not yet committed,
+     * mirroring {@link #buildPendingTransactionView} for the DEBIT (COINS_REDEMPTION) side.
+     */
+    private Map<String, Object> buildPendingRedemptionView(Map<String, Object> enrolmentInfo) {
+        Map<String, Object> txn = new HashMap<>();
+        txn.put(Constants.STATUS, Constants.TXN_STATUS_IN_PROGRESS);
+        txn.put(Constants.TYPE, Constants.TXN_TYPE_DEBIT);
+        txn.put(Constants.ACTION_TYPE_CAMEL, Constants.POINTS_REDEMPTION);
+        txn.put(Constants.CONTEXT_TYPE_CAMEL, Constants.POINTS_REDEMPTION);
+        txn.put(Constants.DATE_CAMEL, System.currentTimeMillis());
+        txn.put(Constants.COURSE_NAME, enrolmentInfo.get(Constants.COURSE_NAME));
+        txn.put(Constants.AMOUNT_CAMEL, enrolmentInfo.get(Constants.KARMA_COINS_CAMEL));
         return txn;
     }
 }

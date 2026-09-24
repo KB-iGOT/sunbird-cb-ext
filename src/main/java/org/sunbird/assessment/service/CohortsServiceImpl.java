@@ -453,7 +453,7 @@ public class CohortsServiceImpl implements CohortsService {
 			}
 			return finalResponse;
 		} catch (Exception e) {
-			logger.error("Failed to enrol user in available batch for contentId: " + contentId + ". Exception: ", e);
+			logger.error("Failed to auto enrol user. Exception: ", e);
 			ProjectUtil.updateErrorDetails(finalResponse, e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
 			return finalResponse;
 		}
