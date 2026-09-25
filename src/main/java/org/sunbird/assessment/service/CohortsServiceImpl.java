@@ -343,34 +343,41 @@ public class CohortsServiceImpl implements CohortsService {
 	// to sunbird-course-service - this method never touches enrollInAvailableBatch's write path.
 	private SBApiResponse autoEnrollComprehensiveAssessmentViaCourseService(String authUserToken, String rootOrgId, String contentId, String language) {
 		SBApiResponse finalResponse = ProjectUtil.createDefaultResponse(Constants.API_USER_ENROLMENT);
-		Map<String, String> headers = new HashMap<>();
-		headers.put(Constants.X_AUTH_TOKEN, authUserToken);
-		headers.put(Constants.AUTHORIZATION, cbExtServerProperties.getSbApiKey());
-		headers.put(Constants.X_AUTH_USER_ORG_ID, rootOrgId);
-		StringBuilder uri = new StringBuilder(cbExtServerProperties.getCourseServiceHost())
-				.append(cbExtServerProperties.getComprehensiveAssessmentAutoEnrollEndpoint())
-				.append(contentId);
-		if (!StringUtils.isEmpty(language)) {
-			uri.append("?language=").append(language);
-		}
-		Map<String, Object> response = outboundRequestHandlerService.fetchResultUsingGet(uri.toString(), headers);
-		if (!ObjectUtils.isEmpty(response) && Constants.OK.equals(response.get(Constants.RESPONSE_CODE))) {
-			finalResponse.setResponseCode(HttpStatus.OK);
-			Object result = response.get(Constants.RESULT);
-			if (result instanceof Map) {
-				finalResponse.putAll((Map<String, Object>) result);
+		try {
+			Map<String, String> headers = new HashMap<>();
+			headers.put(Constants.X_AUTH_TOKEN, authUserToken);
+			headers.put(Constants.AUTHORIZATION, cbExtServerProperties.getSbApiKey());
+			headers.put(Constants.X_AUTH_USER_ORG_ID, rootOrgId);
+			StringBuilder uri = new StringBuilder(cbExtServerProperties.getCourseServiceHost())
+					.append(cbExtServerProperties.getComprehensiveAssessmentAutoEnrollEndpoint())
+					.append(contentId);
+			if (!StringUtils.isEmpty(language)) {
+				uri.append("?language=").append(language);
 			}
-			return finalResponse;
-		}
-		String errMsg = "";
-		if (!ObjectUtils.isEmpty(response)) {
-			Map<String, Object> errorParamsMap = (Map<String, Object>) response.get(Constants.PARAMS);
-			if (!MapUtils.isEmpty(errorParamsMap)) {
-				errMsg = (String) errorParamsMap.get("errmsg");
+			logger.info("autoEnrollComprehensiveAssessmentViaCourseService :: URL : " + uri);
+			Map<String, Object> response = outboundRequestHandlerService.fetchResultUsingGet(uri.toString(), headers);
+			logger.info("autoEnrollComprehensiveAssessmentViaCourseService :: response : " + response);
+			if (!ObjectUtils.isEmpty(response) && Constants.OK.equals(response.get(Constants.RESPONSE_CODE))) {
+				finalResponse.setResponseCode(HttpStatus.OK);
+				Object result = response.get(Constants.RESULT);
+				if (result instanceof Map) {
+					finalResponse.putAll((Map<String, Object>) result);
+				}
+				return finalResponse;
 			}
+			String errMsg = "";
+			if (!ObjectUtils.isEmpty(response)) {
+				Map<String, Object> errorParamsMap = (Map<String, Object>) response.get(Constants.PARAMS);
+				if (!MapUtils.isEmpty(errorParamsMap)) {
+					errMsg = (String) errorParamsMap.get("errmsg");
+				}
+			}
+			ProjectUtil.updateErrorDetails(finalResponse,
+					StringUtils.isEmpty(errMsg) ? Constants.BATCH_AUTO_ENROLL_ERROR_MSG : errMsg, HttpStatus.BAD_REQUEST);
+		}catch (Exception e) {
+			logger.error("Failed to auto enrol to CA. Exception: ", e);
+			ProjectUtil.updateErrorDetails(finalResponse, e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
 		}
-		ProjectUtil.updateErrorDetails(finalResponse,
-				StringUtils.isEmpty(errMsg) ? Constants.BATCH_AUTO_ENROLL_ERROR_MSG : errMsg, HttpStatus.BAD_REQUEST);
 		return finalResponse;
 	}
 
