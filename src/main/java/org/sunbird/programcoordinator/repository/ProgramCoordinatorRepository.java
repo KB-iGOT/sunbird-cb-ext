@@ -60,6 +60,21 @@ public interface ProgramCoordinatorRepository extends JpaRepository<ProgramCoord
             @Param("programId") String programId,
             Pageable pageable);
 
+    /**
+     * Lookup for the list API's optional userIds filter — returns just the requested
+     * coordinators (still scoped to this programme and active status), no pagination.
+     */
+    @Query("SELECT new org.sunbird.programcoordinator.repository.ProgramCoordinatorListDto(" +
+            "pc.userId, pc.roleId, r.roleName, pc.isCoTrainer, pc.createdBy, pc.createdOn, pc.updatedOn) " +
+            "FROM ProgramCoordinatorEntity pc, ProgramCoordinatorRoleEntity r " +
+            "WHERE pc.roleId = r.id " +
+            "AND pc.programId = :programId " +
+            "AND pc.userId IN :userIds " +
+            "AND pc.status = 1")
+    List<ProgramCoordinatorListDto> findCoordinatorsByUserIds(
+            @Param("programId") String programId,
+            @Param("userIds") List<UUID> userIds);
+
     @Query(
             "select pc.programId " +
                     "from ProgramCoordinatorEntity pc " +

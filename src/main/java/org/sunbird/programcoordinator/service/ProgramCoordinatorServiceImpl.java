@@ -219,6 +219,7 @@ public class ProgramCoordinatorServiceImpl implements ProgramCoordinatorService 
             String sortBy = (String) request.get(SORT_BY_KEYWORD);
             String sortDirection = (String) request.get(SORT_DIRECTION);
             List<String> roleNames = (List<String>) request.get(ROLE_NAME);
+            List<String> filterUserIds = (List<String>) request.get(Constants.USER_IDS);
 
             int safeLimit = limit > 0 ? limit : defaultLimit;
             int safeOffset = offset >= 0 ? offset : DEFAULT_OFFSET;
@@ -234,15 +235,39 @@ public class ProgramCoordinatorServiceImpl implements ProgramCoordinatorService 
                 pageable = PageRequest.of(page, safeLimit);
             }
 
-            Page<ProgramCoordinatorListDto> result;
+            List<ProgramCoordinatorListDto> coordinators;
+            long totalElements;
 
-            if (CollectionUtils.isEmpty(roleNames)) {
-                result = programCoordinatorRepository.findCoordinators(programId, pageable);
+            if (CollectionUtils.isNotEmpty(filterUserIds)) {
+
+                List<UUID> filterUserUuids = new ArrayList<>();
+                for (String filterUserId : filterUserIds) {
+                    try {
+                        filterUserUuids.add(java.util.UUID.fromString(filterUserId));
+                    } catch (IllegalArgumentException ex) {
+                        response.getParams().setErrmsg(Constants.INVALID_USER_ID + filterUserId);
+                        response.setResponseCode(HttpStatus.BAD_REQUEST);
+                        return response;
+                    }
+                }
+
+                coordinators = programCoordinatorRepository.findCoordinatorsByUserIds(programId, filterUserUuids);
+                totalElements = coordinators.size();
+
             } else {
-                result = programCoordinatorRepository.findCoordinators(programId, roleNames, pageable);
+
+                Page<ProgramCoordinatorListDto> result;
+
+                if (CollectionUtils.isEmpty(roleNames)) {
+                    result = programCoordinatorRepository.findCoordinators(programId, pageable);
+                } else {
+                    result = programCoordinatorRepository.findCoordinators(programId, roleNames, pageable);
+                }
+
+                coordinators = result.getContent();
+                totalElements = result.getTotalElements();
             }
 
-            List<ProgramCoordinatorListDto> coordinators = result.getContent();
             List<String> userIds = coordinators.stream()
                     .map(item -> item.getUserId().toString())
                     .distinct()
@@ -271,7 +296,7 @@ public class ProgramCoordinatorServiceImpl implements ProgramCoordinatorService 
 
             Map<String, Object> responseMap = new HashMap<>();
             responseMap.put(Constants.CONTENT, content);
-            responseMap.put(Constants.COUNT, result.getTotalElements());
+            responseMap.put(Constants.COUNT, totalElements);
             responseMap.put(Constants.LIMIT, safeLimit);
             responseMap.put(Constants.OFFSET, safeOffset);
 

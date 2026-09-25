@@ -300,6 +300,170 @@ public class ProgramCoordinatorServiceImplTest {
     }
 
     @Test
+    public void list_filtersToRequestedRecordsWhenUserIdsProvided() {
+        UUID targetUserId = UUID.randomUUID();
+
+        ProgramCoordinatorListDto dto = new ProgramCoordinatorListDto(
+                targetUserId, LEAD_TRAINER_ROLE_ID, "National Lead Trainer", true,
+                UUID.randomUUID(), null, null);
+
+        when(programCoordinatorRepository.findCoordinatorsByUserIds(
+                eq(PROGRAM_ID), eq(Collections.singletonList(targetUserId))))
+                .thenReturn(Collections.singletonList(dto));
+        when(redisCacheMgr.getCache(anyString())).thenReturn(null);
+        when(userUtilityService.getUsersDataFromUserIds(anyList(), anyList(), eq(TOKEN)))
+                .thenReturn(Collections.emptyMap());
+
+        Map<String, Object> requestBody = listRequestBody();
+        ((Map<String, Object>) requestBody.get(Constants.REQUEST))
+                .put(Constants.USER_IDS, Collections.singletonList(targetUserId.toString()));
+
+        SBApiResponse response = service.list(PROGRAM_ID, requestBody, TOKEN);
+
+        assertEquals(HttpStatus.OK, response.getResponseCode());
+        Map<String, Object> result = (Map<String, Object>) response.get(Constants.RESPONSE);
+        List<Map<String, Object>> content = (List<Map<String, Object>>) result.get(Constants.CONTENT);
+
+        assertEquals(1, content.size());
+        assertEquals(targetUserId, content.get(0).get(Constants.USER_ID));
+        assertEquals(Boolean.TRUE, content.get(0).get(Constants.IS_CO_TRAINER));
+        assertEquals(1L, result.get(Constants.COUNT));
+
+        verify(programCoordinatorRepository, never()).findCoordinators(anyString(), any(Pageable.class));
+    }
+
+    @Test
+    public void list_emptyContentWhenNoUserIdsMatch() {
+        UUID targetUserId = UUID.randomUUID();
+
+        when(programCoordinatorRepository.findCoordinatorsByUserIds(
+                eq(PROGRAM_ID), eq(Collections.singletonList(targetUserId))))
+                .thenReturn(Collections.emptyList());
+
+        Map<String, Object> requestBody = listRequestBody();
+        ((Map<String, Object>) requestBody.get(Constants.REQUEST))
+                .put(Constants.USER_IDS, Collections.singletonList(targetUserId.toString()));
+
+        SBApiResponse response = service.list(PROGRAM_ID, requestBody, TOKEN);
+
+        assertEquals(HttpStatus.OK, response.getResponseCode());
+        Map<String, Object> result = (Map<String, Object>) response.get(Constants.RESPONSE);
+        List<Map<String, Object>> content = (List<Map<String, Object>>) result.get(Constants.CONTENT);
+
+        assertTrue(content.isEmpty());
+        assertEquals(0L, result.get(Constants.COUNT));
+    }
+
+    @Test
+    public void list_badRequestWhenAUserIdIsNotAValidUuid() {
+        Map<String, Object> requestBody = listRequestBody();
+        ((Map<String, Object>) requestBody.get(Constants.REQUEST))
+                .put(Constants.USER_IDS, Collections.singletonList("not-a-uuid"));
+
+        SBApiResponse response = service.list(PROGRAM_ID, requestBody, TOKEN);
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getResponseCode());
+        verify(programCoordinatorRepository, never()).findCoordinatorsByUserIds(anyString(), anyList());
+    }
+
+    @Test
+    public void list_badRequestWhenAnyUserIdInTheListIsInvalid() {
+        Map<String, Object> requestBody = listRequestBody();
+        ((Map<String, Object>) requestBody.get(Constants.REQUEST))
+                .put(Constants.USER_IDS, Arrays.asList(UUID.randomUUID().toString(), "still-not-a-uuid"));
+
+        SBApiResponse response = service.list(PROGRAM_ID, requestBody, TOKEN);
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getResponseCode());
+        verify(programCoordinatorRepository, never()).findCoordinatorsByUserIds(anyString(), anyList());
+    }
+
+    @Test
+    public void list_returnsMultipleRecordsWhenMultipleUserIdsProvided() {
+        UUID firstUserId = UUID.randomUUID();
+        UUID secondUserId = UUID.randomUUID();
+
+        ProgramCoordinatorListDto first = new ProgramCoordinatorListDto(
+                firstUserId, LEAD_TRAINER_ROLE_ID, "National Lead Trainer", true,
+                UUID.randomUUID(), null, null);
+        ProgramCoordinatorListDto second = new ProgramCoordinatorListDto(
+                secondUserId, BASE_ROLE_ID, Constants.PROGRAM_COORDINATOR_KEY, false,
+                UUID.randomUUID(), null, null);
+
+        when(programCoordinatorRepository.findCoordinatorsByUserIds(
+                eq(PROGRAM_ID), eq(Arrays.asList(firstUserId, secondUserId))))
+                .thenReturn(Arrays.asList(first, second));
+        when(redisCacheMgr.getCache(anyString())).thenReturn(null);
+        when(userUtilityService.getUsersDataFromUserIds(anyList(), anyList(), eq(TOKEN)))
+                .thenReturn(Collections.emptyMap());
+
+        Map<String, Object> requestBody = listRequestBody();
+        ((Map<String, Object>) requestBody.get(Constants.REQUEST))
+                .put(Constants.USER_IDS, Arrays.asList(firstUserId.toString(), secondUserId.toString()));
+
+        SBApiResponse response = service.list(PROGRAM_ID, requestBody, TOKEN);
+
+        assertEquals(HttpStatus.OK, response.getResponseCode());
+        Map<String, Object> result = (Map<String, Object>) response.get(Constants.RESPONSE);
+        List<Map<String, Object>> content = (List<Map<String, Object>>) result.get(Constants.CONTENT);
+
+        assertEquals(2, content.size());
+        assertEquals(2L, result.get(Constants.COUNT));
+    }
+
+    @Test
+    public void list_emptyUserIdsListFallsBackToGeneralPaginatedList() {
+        ProgramCoordinatorListDto dto = new ProgramCoordinatorListDto(
+                UUID.randomUUID(), LEAD_TRAINER_ROLE_ID, "National Lead Trainer", false,
+                UUID.randomUUID(), null, null);
+
+        when(programCoordinatorRepository.findCoordinators(eq(PROGRAM_ID), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(Collections.singletonList(dto)));
+        when(redisCacheMgr.getCache(anyString())).thenReturn(null);
+        when(userUtilityService.getUsersDataFromUserIds(anyList(), anyList(), eq(TOKEN)))
+                .thenReturn(Collections.emptyMap());
+
+        Map<String, Object> requestBody = listRequestBody();
+        ((Map<String, Object>) requestBody.get(Constants.REQUEST))
+                .put(Constants.USER_IDS, Collections.emptyList());
+
+        SBApiResponse response = service.list(PROGRAM_ID, requestBody, TOKEN);
+
+        assertEquals(HttpStatus.OK, response.getResponseCode());
+        verify(programCoordinatorRepository).findCoordinators(eq(PROGRAM_ID), any(Pageable.class));
+        verify(programCoordinatorRepository, never()).findCoordinatorsByUserIds(anyString(), anyList());
+    }
+
+    @Test
+    public void list_userIdsFilterTakesPrecedenceOverRoleNames() {
+        UUID targetUserId = UUID.randomUUID();
+
+        ProgramCoordinatorListDto dto = new ProgramCoordinatorListDto(
+                targetUserId, LEAD_TRAINER_ROLE_ID, "National Lead Trainer", true,
+                UUID.randomUUID(), null, null);
+
+        when(programCoordinatorRepository.findCoordinatorsByUserIds(
+                eq(PROGRAM_ID), eq(Collections.singletonList(targetUserId))))
+                .thenReturn(Collections.singletonList(dto));
+        when(redisCacheMgr.getCache(anyString())).thenReturn(null);
+        when(userUtilityService.getUsersDataFromUserIds(anyList(), anyList(), eq(TOKEN)))
+                .thenReturn(Collections.emptyMap());
+
+        Map<String, Object> requestBody = listRequestBody();
+        Map<String, Object> innerRequest = (Map<String, Object>) requestBody.get(Constants.REQUEST);
+        innerRequest.put(Constants.USER_IDS, Collections.singletonList(targetUserId.toString()));
+        innerRequest.put(Constants.ROLE_NAME, Collections.singletonList("National Lead Trainer"));
+
+        SBApiResponse response = service.list(PROGRAM_ID, requestBody, TOKEN);
+
+        assertEquals(HttpStatus.OK, response.getResponseCode());
+        verify(programCoordinatorRepository).findCoordinatorsByUserIds(
+                PROGRAM_ID, Collections.singletonList(targetUserId));
+        verify(programCoordinatorRepository, never())
+                .findCoordinators(anyString(), anyList(), any(Pageable.class));
+    }
+
+    @Test
     public void getProgramCoordinator_mapsIsCoTrainerFromEntity() {
         ProgramCoordinatorEntity coordinator = ProgramCoordinatorEntity.builder()
                 .programId(PROGRAM_ID)
