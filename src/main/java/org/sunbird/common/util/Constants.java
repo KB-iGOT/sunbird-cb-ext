@@ -1801,6 +1801,7 @@ public class Constants {
 	public static final String POINTS_REDEMPTION = "POINTS_REDEMPTION";
 	public static final String POINTS_CONVERSION = "POINTS_CONVERSION";
 	public static final String PENDING_ENROLMENT_KEY_PREFIX = "pendingEnrolment";
+	public static final String PENDING_ENROLMENT_STATUS_PENDING = "Pending";
 	public static final String PROCESSING = "PROCESSING";
 	public static final String ACCEPTED = "ACCEPTED";
 	public static final String MONTHLY_CAP_EXCEEDED = "MONTHLY_CAP_EXCEEDED";

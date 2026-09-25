@@ -152,7 +152,7 @@ public class RedisCacheMgr {
      * not for cache-wide sweeps.
      */
     public Map<String, String> getValuesByPattern(String pattern) {
-        return scanValues(Constants.REDIS_COMMON_KEY + pattern, Constants.REDIS_COMMON_KEY);
+        return scanValues(Constants.REDIS_COMMON_KEY + pattern, Constants.REDIS_COMMON_KEY, null);
     }
 
     /**
@@ -162,12 +162,24 @@ public class RedisCacheMgr {
      * convention).
      */
     public Map<String, String> getValuesByRawPattern(String pattern) {
-        return scanValues(pattern, "");
+        return scanValues(pattern, "", null);
     }
 
-    private Map<String, String> scanValues(String fullPattern, String keyPrefixToStrip) {
+    /**
+     * Same as {@link #getValuesByRawPattern(String)} but selects the given Redis database
+     * {@code index} first - for keys written by services that share this Redis instance but use a
+     * non-default database (e.g. {@code karma-points-processor-v2}'s pending-enrolment keys).
+     */
+    public Map<String, String> getValuesByRawPattern(String pattern, int index) {
+        return scanValues(pattern, "", index);
+    }
+
+    private Map<String, String> scanValues(String fullPattern, String keyPrefixToStrip, Integer index) {
         Map<String, String> result = new HashMap<>();
         try (Jedis jedis = jedisPool.getResource()) {
+            if (index != null) {
+                jedis.select(index);
+            }
             ScanParams scanParams = new ScanParams().match(fullPattern).count(100);
             String cursor = ScanParams.SCAN_POINTER_START;
             do {

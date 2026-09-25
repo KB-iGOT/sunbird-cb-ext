@@ -199,7 +199,7 @@ public class KarmaCoinWalletServiceImpl implements KarmaCoinWalletService {
                 }
             }
 
-            Map<String, String> pendingEnrolments = redisCacheMgr.getValuesByRawPattern(buildPendingEnrolmentPattern(userId));
+            Map<String, String> pendingEnrolments = redisCacheMgr.getValuesByRawPattern(buildPendingEnrolmentPattern(userId), 1);
             for (String enrolmentValue : pendingEnrolments.values()) {
                 Map<String, Object> enrolmentInfo = parsePendingEnrolment(enrolmentValue);
                 if (enrolmentInfo != null) {
@@ -588,11 +588,13 @@ public class KarmaCoinWalletServiceImpl implements KarmaCoinWalletService {
 
     /**
      * Parses a {@code pendingEnrolment_<userId>_<contextId>} value as the enrolment-info JSON object
-     * (e.g. {@code courseName}/{@code karmaCoins}) written before the redemption request was
-     * published. Once the redemption reaches a terminal state, {@code RedisUtil.setPendingEnrolmentStatus}
-     * overwrites the value with a bare status string ({@code SUCCESS}/{@code FAILED}) instead of JSON -
-     * that case (and any other malformed value) returns {@code null} so the caller skips it, since a
-     * completed redemption already has its own row in {@code user_karma_coin_transactions}.
+     * (e.g. {@code courseName}/{@code karmaCoins}/{@code status}) written before the redemption request
+     * was published. Only a value whose {@code status} is still {@code Pending} is returned. Once the
+     * redemption reaches a terminal state, {@code RedisUtil.setPendingEnrolmentStatus} overwrites the
+     * value with a bare status string ({@code SUCCESS}/{@code FAILED}) instead of JSON - that case (and
+     * any other malformed or non-pending value) returns {@code null} so the caller skips it, since a
+     * completed redemption already has its own row in {@code user_karma_coin_transactions}. These keys
+     * have no TTL, so a terminal value can otherwise linger in Redis and be re-parsed on every call.
      */
     @SuppressWarnings("unchecked")
     private Map<String, Object> parsePendingEnrolment(String value) {
@@ -600,7 +602,12 @@ public class KarmaCoinWalletServiceImpl implements KarmaCoinWalletService {
             return Collections.emptyMap();
         }
         try {
-            return objectMapper.readValue(value, Map.class);
+            Map<String, Object> enrolmentInfo = objectMapper.readValue(value, Map.class);
+            Object status = enrolmentInfo.get(Constants.STATUS);
+            if (status != null && Constants.PENDING_ENROLMENT_STATUS_PENDING.equalsIgnoreCase(status.toString())) {
+                return enrolmentInfo;
+            }
+            return Collections.emptyMap();
         } catch (Exception e) {
             return Collections.emptyMap();
         }
