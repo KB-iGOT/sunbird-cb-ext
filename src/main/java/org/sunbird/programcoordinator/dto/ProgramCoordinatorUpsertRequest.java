@@ -13,7 +13,8 @@ import lombok.Setter;
  * compatibility with existing callers; new callers pass the human-readable roleName (e.g.
  * "National Lead Trainer") instead, which the service layer resolves against the
  * program_coordinator_role table. Validated in the service layer since these conditions can't be
- * expressed with plain bean-validation annotations.
+ * expressed with plain bean-validation annotations. isCoTrainer is optional and defaults to
+ * false when omitted.
  */
 @Getter
 @Setter
@@ -28,4 +29,6 @@ public class ProgramCoordinatorUpsertRequest {
 
     @NotNull
     private Short status;
+
+    private Boolean isCoTrainer;
 }

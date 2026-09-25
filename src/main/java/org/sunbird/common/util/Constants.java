@@ -1773,6 +1773,7 @@ public class Constants {
 	public static final Short INACTIVE_STATUS_PC = 0;
 	public static final String EVENT_TYPE_COORDINATOR_LIST_SYNCED = "COORDINATOR_LIST_SYNCED";
 	public static final String TRAINER_TYPE = "trainerType";
+	public static final String IS_CO_TRAINER = "isCoTrainer";
 	public static final String COORDINATORS = "coordinators";
 	public static final String PC_USER_PROFILE_CACHE_KEY = "pc:user:profile:";
 	public static final String API_PROGRAM_COORDINATOR_READ = "program-coordinator-read";

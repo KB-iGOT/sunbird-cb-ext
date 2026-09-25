@@ -18,21 +18,21 @@ import org.sunbird.programcoordinator.entity.UserProgramProjection;
 public interface ProgramCoordinatorRepository extends JpaRepository<ProgramCoordinatorEntity, ProgramCoordinatorId> {
 
     /**
-     * Insert a new active coordinator, or resurrect a previously soft-removed one (role_id is
-     * overwritten in that case). An already-active row is left untouched by the WHERE guard, which
-     * is how the caller tells "added" apart from "already a coordinator" — 0 rows affected means
-     * the latter.
+     * Insert a new active coordinator, resurrect a previously soft-removed one, or update an
+     * already-active one in place — role_id and is_co_trainer are always overwritten with the
+     * values passed in. created_on is only reset to now() on a fresh insert or a resurrect (prior
+     * status = 0); it's left untouched when merely updating an already-active row.
      */
     @Transactional
     @Modifying(clearAutomatically = true)
-    @Query(value = "INSERT INTO program_coordinator (program_id, user_id, role_id, status, created_by, created_on) "
-            + "VALUES (:programId, :userId, :roleId, 1, :actorId, now()) "
+    @Query(value = "INSERT INTO program_coordinator (program_id, user_id, role_id, status, is_co_trainer, created_by, created_on) "
+            + "VALUES (:programId, :userId, :roleId, 1, COALESCE(:isCoTrainer, false), :actorId, now()) "
             + "ON CONFLICT (program_id, user_id) DO UPDATE "
-            + "SET role_id = EXCLUDED.role_id, status = 1, created_on = now(), "
-            + "updated_by = EXCLUDED.created_by, updated_on = now() "
-            + "WHERE program_coordinator.status = 0", nativeQuery = true)
+            + "SET role_id = EXCLUDED.role_id, status = 1, is_co_trainer = EXCLUDED.is_co_trainer, "
+            + "created_on = CASE WHEN program_coordinator.status = 0 THEN now() ELSE program_coordinator.created_on END, "
+            + "updated_by = EXCLUDED.created_by, updated_on = now()", nativeQuery = true)
     int addOrResurrect(@Param("programId") String programId, @Param("userId") UUID userId,
-            @Param("roleId") Short roleId, @Param("actorId") UUID actorId);
+            @Param("roleId") Short roleId, @Param("isCoTrainer") Boolean isCoTrainer, @Param("actorId") UUID actorId);
 
     /**
      * Soft delete. 0 rows affected means the user wasn't an active coordinator to begin with.
@@ -51,7 +51,7 @@ public interface ProgramCoordinatorRepository extends JpaRepository<ProgramCoord
      * without this query ever declaring that as a contract.
      */
     @Query("SELECT new org.sunbird.programcoordinator.repository.ProgramCoordinatorListDto(" +
-            "pc.userId, pc.roleId, r.roleName, pc.createdBy, pc.createdOn, pc.updatedOn) " +
+            "pc.userId, pc.roleId, r.roleName, pc.isCoTrainer, pc.createdBy, pc.createdOn, pc.updatedOn) " +
             "FROM ProgramCoordinatorEntity pc, ProgramCoordinatorRoleEntity r " +
             "WHERE pc.roleId = r.id " +
             "AND pc.programId = :programId " +
@@ -82,7 +82,7 @@ public interface ProgramCoordinatorRepository extends JpaRepository<ProgramCoord
             @Param("userIds") List<UUID> userIds);
 
     @Query("SELECT new org.sunbird.programcoordinator.repository.ProgramCoordinatorListDto(" +
-            "pc.userId, pc.roleId, r.roleName, pc.createdBy, pc.createdOn, pc.updatedOn) " +
+            "pc.userId, pc.roleId, r.roleName, pc.isCoTrainer, pc.createdBy, pc.createdOn, pc.updatedOn) " +
             "FROM ProgramCoordinatorEntity pc, ProgramCoordinatorRoleEntity r " +
             "WHERE pc.roleId = r.id " +
             "AND pc.programId = :programId " +

@@ -139,10 +139,15 @@ public class ProgramCoordinatorServiceImpl implements ProgramCoordinatorService 
 
                 if (request.getStatus().equals(Constants.ACTIVE_STATUS_PC)) {
 
+                    Boolean isCoTrainer = request.getIsCoTrainer() != null
+                            ? request.getIsCoTrainer()
+                            : Boolean.FALSE;
+
                     int rows = programCoordinatorRepository.addOrResurrect(
                             programId,
                             request.getUserId(),
                             request.getRoleId(),
+                            isCoTrainer,
                             actorUuid);
 
                     if (rows > 0) {
@@ -252,6 +257,7 @@ public class ProgramCoordinatorServiceImpl implements ProgramCoordinatorService 
                 coordinatorMap.put(Constants.USER_ID, item.getUserId());
                 coordinatorMap.put(Constants.ROLE_ID, item.getRoleId());
                 coordinatorMap.put(Constants.ROLE_NAME, item.getRoleName());
+                coordinatorMap.put(Constants.IS_CO_TRAINER, Boolean.TRUE.equals(item.getIsCoTrainer()));
                 coordinatorMap.put(Constants.CREATED_BY, item.getCreatedBy());
                 coordinatorMap.put(Constants.CREATED_ON, item.getCreatedOn());
                 coordinatorMap.put(Constants.UPDATED_ON, item.getUpdatedOn());
@@ -316,6 +322,7 @@ public class ProgramCoordinatorServiceImpl implements ProgramCoordinatorService 
                 coordinatorMap.put(Constants.USER_ID, userId);
                 coordinatorMap.put(Constants.ROLE_ID, coordinator.getRoleId());
                 coordinatorMap.put(Constants.TRAINER_TYPE, roleMap.get(coordinator.getRoleId()));
+                coordinatorMap.put(Constants.IS_CO_TRAINER, Boolean.TRUE.equals(coordinator.getIsCoTrainer()));
 
                 populateCoordinatorProfile(
                         coordinatorMap,
@@ -639,10 +646,15 @@ public class ProgramCoordinatorServiceImpl implements ProgramCoordinatorService 
                         roleId = defaultProgramCoordinatorRoleId;
                     }
 
+                    Boolean isCoTrainer = request.getIsCoTrainer() != null
+                            ? request.getIsCoTrainer()
+                            : Boolean.FALSE;
+
                     int rows = programCoordinatorRepository.addOrResurrect(
                             programId,
                             request.getUserId(),
                             roleId,
+                            isCoTrainer,
                             actorUuid);
 
                     if (rows > 0) {
