@@ -1785,6 +1785,43 @@ public class Constants {
 	public static final int DEFAULT_OFFSET = 0;
 	public static final String PROGRAM_COORDINATOR_LIST_EXCEPTION = "Exception occurred while listing program coordinators. Exception: ";
 
+	// Program Coordinator bulk upload
+	public static final String API_PROGRAM_COORDINATOR_BULK_UPLOAD = "api.program.coordinator.bulk.upload";
+	public static final String API_PROGRAM_COORDINATOR_BULK_UPLOAD_STATUS = "api.program.coordinator.bulk.upload.status";
+	public static final String TABLE_PROGRAM_COORDINATOR_BULK_UPLOAD = "program_coordinator_bulk_upload";
+	public static final String RESULT_FILE_PATH = "resultFilePath";
+	public static final String BP_PROGRAM_TRAINER = "BP_PROGRAM_TRAINER";
+	public static final String BP_CO_TRAINER = "bpCoTrainer";
+	public static final String PC_BULK_UPLOAD_COLUMN_NAME = "Registered Name";
+	public static final String PC_BULK_UPLOAD_COLUMN_EMAIL = "Registered Email ID";
+	public static final String PC_BULK_UPLOAD_COLUMN_TRAINER_TYPE = "Trainer Type";
+	public static final String PC_BULK_UPLOAD_IN_PROGRESS_ERROR =
+			"Failed to upload for another request as previous request is in processing state, please try after some time.";
+	public static final String PC_BULK_UPLOAD_FILE_NOT_FOUND_ERROR = "Uploaded file not found or is empty.";
+	public static final String PC_BULK_UPLOAD_UNSUPPORTED_FILE_TYPE_ERROR =
+			"Unsupported file type. Please upload a .csv or .xlsx file.";
+	public static final String PC_BULK_UPLOAD_MANDATORY_COLUMNS_MISSING_ERROR =
+			"Uploaded file is missing mandatory columns: Registered Name, Registered Email ID and/or Trainer Type.";
+	public static final String PC_BULK_UPLOAD_NO_DATA_ROWS_ERROR =
+			"Uploaded file contains only headers with no data rows. Please add at least one coordinator to upload.";
+	public static final String PC_BULK_UPLOAD_TOO_MANY_ROWS_ERROR =
+			"Uploaded file exceeds the maximum allowed number of rows: %d.";
+	public static final String PC_BULK_UPLOAD_CSV_PARSE_ERROR = "Failed to parse the uploaded csv file of program coordinator bulk upload request.";
+	public static final String PC_BULK_UPLOAD_XLSX_PARSE_ERROR = "Failed to parse the uploaded excel file of program coordinator bulk upload request.";
+	public static final String PC_BULK_UPLOAD_FILE_UPLOAD_ERROR = "Failed to upload file for program coordinator bulk upload request.";
+	public static final String PC_BULK_UPLOAD_DB_INSERT_ERROR = "Failed to update database with program coordinator bulk upload file details.";
+	public static final String PC_BULK_UPLOAD_PROCESSING_ERROR = "Failed to process program coordinator bulk upload request.";
+	public static final String PC_BULK_UPLOAD_NOT_FOUND_ERROR = "No bulk upload request found for the given identifier.";
+	public static final String PC_BULK_UPLOAD_MANDATORY_VALUE_MISSING_ERROR = "Missing mandatory value(s): Registered Name, Registered Email ID and/or Trainer Type.";
+	public static final String PC_BULK_UPLOAD_DUPLICATE_EMAIL_ERROR = "Duplicate email within the uploaded file.";
+	public static final String PC_BULK_UPLOAD_INVALID_EMAIL_ERROR = "Invalid Email format.";
+	public static final String PC_BULK_UPLOAD_INVALID_TRAINER_TYPE_ERROR = "Invalid Trainer Type.";
+	public static final String PC_BULK_UPLOAD_USER_NOT_REGISTERED_ERROR = "User is not registered.";
+	public static final String PC_BULK_UPLOAD_NAME_MISMATCH_ERROR = "Registered Name does not match the registered user's name.";
+	public static final String PC_BULK_UPLOAD_ROW_PROCESSING_ERROR = "Failed to process this row.";
+	public static final String PC_BULK_UPLOAD_ROLE_ASSIGN_FAILED_ERROR = "Failed to assign BP_PROGRAM_TRAINER role to user.";
+	public static final String PC_BULK_UPLOAD_PROFILE_UPDATE_FAILED_ERROR = "Failed to update user profile details.";
+
 	public static final String INVALID_STATUS =
 			"Status should be either 0 (remove) or 1 (add/update).";
 	public static final String TARGET_ORG_ID_KEY = "targetOrgId";

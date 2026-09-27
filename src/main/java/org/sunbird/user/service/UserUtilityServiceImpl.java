@@ -795,6 +795,11 @@ public class UserUtilityServiceImpl implements UserUtilityService {
 
 	@Override
 	public Map<String, Object> getUsersDataFromLookup(String email, String authToken) {
+		return getUsersDataFromLookup(email, authToken, null);
+	}
+
+	@Override
+	public Map<String, Object> getUsersDataFromLookup(String email, String authToken, List<String> fields) {
 		Map<String, String> header = new HashMap<>();
 		if (StringUtils.isNotEmpty(authToken)) {
 			header.put(Constants.AUTH_TOKEN, authToken);
@@ -803,6 +808,7 @@ public class UserUtilityServiceImpl implements UserUtilityService {
 		Map<String, Object> requestBody = new HashMap<String, Object>();
 		requestBody.put(Constants.KEY, Constants.EMAIL);
 		requestBody.put(Constants.VALUE, email);
+		requestBody.put(Constants.FIELDS_CONSTANT, CollectionUtils.isEmpty(fields) ? new ArrayList<>() : fields);
 		request.put(Constants.REQUEST, requestBody);
 		Map<String, Object> readData = (Map<String, Object>) outboundRequestHandlerService.fetchResultUsingPost(
 				props.getSbUrl() + props.getLmsUserLookupPath(), request, ProjectUtil.getDefaultHeaders());

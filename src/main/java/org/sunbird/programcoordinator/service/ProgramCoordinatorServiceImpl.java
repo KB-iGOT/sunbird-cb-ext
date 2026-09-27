@@ -107,7 +107,6 @@ public class ProgramCoordinatorServiceImpl implements ProgramCoordinatorService 
         try {
 
             List<String> userRoles = accessTokenValidator.fetchUserRolesFromToken(token);
-
             boolean hasAccess = userRoles.stream().anyMatch(allowedRoles::contains);
 
             if (!hasAccess) {

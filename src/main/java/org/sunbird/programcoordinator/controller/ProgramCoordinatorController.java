@@ -5,8 +5,10 @@ import javax.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 import org.sunbird.common.model.SBApiResponse;
 import org.sunbird.programcoordinator.dto.ProgramCoordinatorUpsertRequest;
+import org.sunbird.programcoordinator.service.ProgramCoordinatorBulkUploadService;
 import org.sunbird.programcoordinator.service.ProgramCoordinatorService;
 import java.util.List;
 import java.util.Map;
@@ -18,9 +20,12 @@ import static org.sunbird.common.util.Constants.X_AUTH_TOKEN;
 public class ProgramCoordinatorController {
 
     private final ProgramCoordinatorService programCoordinatorService;
+    private final ProgramCoordinatorBulkUploadService programCoordinatorBulkUploadService;
 
-    public ProgramCoordinatorController(ProgramCoordinatorService programCoordinatorService) {
+    public ProgramCoordinatorController(ProgramCoordinatorService programCoordinatorService,
+            ProgramCoordinatorBulkUploadService programCoordinatorBulkUploadService) {
         this.programCoordinatorService = programCoordinatorService;
+        this.programCoordinatorBulkUploadService = programCoordinatorBulkUploadService;
     }
 
     /**
@@ -71,6 +76,31 @@ public class ProgramCoordinatorController {
             @RequestHeader(X_AUTH_TOKEN) String token) {
 
         SBApiResponse response = programCoordinatorService.upsertByAdmin(programId, requests, token);
+        return new ResponseEntity<>(response, response.getResponseCode());
+    }
+
+    /**
+     * Bulk "Program Coordinator" addition: uploads a CSV/Excel file of (Registered Name,
+     * Registered Email ID, Trainer Type) rows. Validates and queues the file for async
+     * processing; poll getBulkUploadStatus for the outcome.
+     */
+    @PostMapping("/program/coordinator/bulk-upload/{programId}")
+    public ResponseEntity<SBApiResponse> bulkUploadCoordinators(
+            @PathVariable(PROGRAM_ID) String programId,
+            @RequestParam("file") MultipartFile file,
+            @RequestHeader(X_AUTH_TOKEN) String token) {
+
+        SBApiResponse response = programCoordinatorBulkUploadService.bulkUpload(programId, file, token);
+        return new ResponseEntity<>(response, response.getResponseCode());
+    }
+
+    @GetMapping("/program/coordinator/bulk-upload/{programId}/status/{identifier}")
+    public ResponseEntity<SBApiResponse> getBulkUploadStatus(
+            @PathVariable(PROGRAM_ID) String programId,
+            @PathVariable("identifier") String identifier,
+            @RequestHeader(X_AUTH_TOKEN) String token) {
+
+        SBApiResponse response = programCoordinatorBulkUploadService.getStatus(programId, identifier, token);
         return new ResponseEntity<>(response, response.getResponseCode());
     }
 

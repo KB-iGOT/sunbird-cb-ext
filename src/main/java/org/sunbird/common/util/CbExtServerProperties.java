@@ -334,6 +334,9 @@ public class CbExtServerProperties {
 	@Value("${sb.service.assign.role.path}")
 	private String sbAssignRolePath;
 
+	@Value("${sb.service.assign.role.path.v2}")
+	private String sbAssignRolePathV2;
+
 	@Value("${user.registration.dept.master.list.file}")
 	private String masterOrgListFileName;
 
@@ -2314,6 +2317,14 @@ public class CbExtServerProperties {
 
 	public void setSbAssignRolePath(String sbAssignRolePath) {
 		this.sbAssignRolePath = sbAssignRolePath;
+	}
+
+	public String getSbAssignRolePathV2() {
+		return sbAssignRolePathV2;
+	}
+
+	public void setSbAssignRolePathV2(String sbAssignRolePathV2) {
+		this.sbAssignRolePathV2 = sbAssignRolePathV2;
 	}
 
 	public String getMasterOrgListFileName() {
