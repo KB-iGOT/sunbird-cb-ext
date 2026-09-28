@@ -51,7 +51,6 @@ import org.sunbird.common.service.OutboundRequestHandlerServiceImpl;
 import org.sunbird.common.util.CbExtServerProperties;
 import org.sunbird.common.util.Constants;
 import org.sunbird.programcoordinator.dto.ProgramCoordinatorUpsertRequest;
-import org.sunbird.programcoordinator.entity.ProgramCoordinatorRoleEntity;
 import org.sunbird.programcoordinator.model.ProgramCoordinatorBulkUploadRowSummary;
 import org.sunbird.programcoordinator.repository.ProgramCoordinatorRoleRepository;
 import org.sunbird.storage.service.StorageService;
@@ -218,8 +217,8 @@ public class ProgramCoordinatorBulkUploadProcessingServiceImpl implements Progra
             return;
         }
         String token = inputDataMap.get(Constants.X_AUTH_TOKEN);
-        Map<String, Short> roleCodeToId = loadActiveTrainerRoles();
-        ProgramCoordinatorBulkUploadRowSummary summary = processRows(rawRows, programId, token, roleCodeToId);
+        Set<String> validTrainerRoleCodes = loadActiveTrainerRoleCodes();
+        ProgramCoordinatorBulkUploadRowSummary summary = processRows(rawRows, programId, token, validTrainerRoleCodes);
         logger.info("ProgramCoordinatorBulkUploadProcessingServiceImpl:: processDownloadedFile: identifier: {}, "
                         + "total: {}, successful: {}, failed: {}",
                 identifier, summary.getTotalRecords(), summary.getSuccessfulRecords(), summary.getFailedRecords());
@@ -233,16 +232,23 @@ public class ProgramCoordinatorBulkUploadProcessingServiceImpl implements Progra
     }
 
     /**
-     * roleCode (upper-cased) -> roleId, sourced from program_coordinator_role, excluding the
-     * base "Program Coordinator" role - same filter ProgramCoordinatorServiceImpl.getCoordinatorRoles
+     * Active role codes (upper-cased), sourced from program_coordinator_role, excluding the base
+     * "Program Coordinator" role - same filter ProgramCoordinatorServiceImpl.getCoordinatorRoles
      * already applies. These are exactly the values a "Trainer Type" cell may contain.
+     * <p>
+     * Used only for per-row pre-validation so one bad Trainer Type fails just that row -
+     * ProgramCoordinatorUpsertRequest now carries roleName directly (not a resolved roleId), and
+     * ProgramCoordinatorServiceImpl.upsert() resolves it against this same table; if we let an
+     * invalid roleName reach upsert() unfiltered, it would reject the entire batch instead of
+     * just the offending row.
      */
-    private Map<String, Short> loadActiveTrainerRoles() {
+    private Set<String> loadActiveTrainerRoleCodes() {
         return programCoordinatorRoleRepository.findAll().stream()
                 .filter(role -> Boolean.TRUE.equals(role.getIsActive()))
                 .filter(role -> !Constants.PROGRAM_COORDINATOR_KEY.equalsIgnoreCase(role.getRoleName()))
                 .filter(role -> StringUtils.isNotBlank(role.getRoleCode()))
-                .collect(Collectors.toMap(role -> role.getRoleCode().toUpperCase(), ProgramCoordinatorRoleEntity::getId));
+                .map(role -> role.getRoleCode().toUpperCase())
+                .collect(Collectors.toSet());
     }
 
     // ---------------------------------------------------------------- row extraction (CSV/XLSX)
@@ -349,7 +355,7 @@ public class ProgramCoordinatorBulkUploadProcessingServiceImpl implements Progra
     // ---------------------------------------------------------------------------- row processing
 
     private ProgramCoordinatorBulkUploadRowSummary processRows(List<Map<String, String>> rawRows, String programId,
-                                                                String token, Map<String, Short> roleCodeToId) {
+                                                                String token, Set<String> validTrainerRoleCodes) {
         ProgramCoordinatorBulkUploadRowSummary summary = new ProgramCoordinatorBulkUploadRowSummary();
         Set<String> seenEmails = new HashSet<>();
         List<ProgramCoordinatorUpsertRequest> batch = new ArrayList<>();
@@ -364,7 +370,7 @@ public class ProgramCoordinatorBulkUploadProcessingServiceImpl implements Progra
                 continue;
             }
             try {
-                String userId = validateAndPrepareRow(rawRow, updatedRecord, seenEmails, programId, token, roleCodeToId, batch);
+                String userId = validateAndPrepareRow(rawRow, updatedRecord, seenEmails, programId, token, validTrainerRoleCodes, batch);
                 if (userId != null) {
                     rowByUserId.put(userId, updatedRecord);
                 }
@@ -397,7 +403,7 @@ public class ProgramCoordinatorBulkUploadProcessingServiceImpl implements Progra
      */
     private String validateAndPrepareRow(Map<String, String> rawRow, Map<String, String> updatedRecord,
                                           Set<String> seenEmails, String programId, String token,
-                                          Map<String, Short> roleCodeToId, List<ProgramCoordinatorUpsertRequest> batch) {
+                                          Set<String> validTrainerRoleCodes, List<ProgramCoordinatorUpsertRequest> batch) {
         String name = rawRow.get(Constants.PC_BULK_UPLOAD_COLUMN_NAME);
         String email = rawRow.get(Constants.PC_BULK_UPLOAD_COLUMN_EMAIL);
         String trainerType = rawRow.get(Constants.PC_BULK_UPLOAD_COLUMN_TRAINER_TYPE);
@@ -415,8 +421,8 @@ public class ProgramCoordinatorBulkUploadProcessingServiceImpl implements Progra
             markRowFailed(updatedRecord, Constants.PC_BULK_UPLOAD_DUPLICATE_EMAIL_ERROR);
             return null;
         }
-        Short roleId = roleCodeToId.get(trainerType.trim().toUpperCase());
-        if (roleId == null) {
+        String trainerTypeCode = trainerType.trim().toUpperCase();
+        if (!validTrainerRoleCodes.contains(trainerTypeCode)) {
             markRowFailed(updatedRecord, Constants.PC_BULK_UPLOAD_INVALID_TRAINER_TYPE_ERROR);
             return null;
         }
@@ -442,7 +448,6 @@ public class ProgramCoordinatorBulkUploadProcessingServiceImpl implements Progra
             return null;
         }
 
-        String trainerTypeCode = trainerType.trim().toUpperCase();
         if (!assignTrainerRole(userId, token)) {
             markRowFailed(updatedRecord, Constants.PC_BULK_UPLOAD_ROLE_ASSIGN_FAILED_ERROR);
             return null;
@@ -454,8 +459,11 @@ public class ProgramCoordinatorBulkUploadProcessingServiceImpl implements Progra
 
         ProgramCoordinatorUpsertRequest upsertRequest = new ProgramCoordinatorUpsertRequest();
         upsertRequest.setUserId(UUID.fromString(userId));
-        upsertRequest.setRoleId(roleId);
+        upsertRequest.setRoleName(trainerTypeCode);
         upsertRequest.setStatus(Constants.ACTIVE_STATUS_PC);
+        // This bulk-upload flow exists specifically to add co-trainers as program coordinators -
+        // every row it successfully processes is one, so this is always true here.
+        upsertRequest.setIsCoTrainer(Boolean.TRUE);
         batch.add(upsertRequest);
         return userId;
     }
