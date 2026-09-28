@@ -54,7 +54,7 @@ public class ProgramCoordinatorServiceImpl implements ProgramCoordinatorService 
 
     private Map<Short, String> roleMap;
 
-    private Map<String, Short> roleNameToIdMap;
+    private Map<String, Short> roleCodeToIdMap;
 
     @Value("#{'${program.coordinator.admin.allowed.roles}'.split(',')}")
     private List<String> adminAllowedRoles;
@@ -92,9 +92,9 @@ public class ProgramCoordinatorServiceImpl implements ProgramCoordinatorService 
                         ProgramCoordinatorRoleEntity::getId,
                         ProgramCoordinatorRoleEntity::getRoleName));
 
-        roleNameToIdMap = roles.stream()
+        roleCodeToIdMap = roles.stream()
                 .collect(Collectors.toMap(
-                        role -> role.getRoleName().trim().toLowerCase(Locale.ROOT),
+                        role -> role.getRoleCode().trim().toLowerCase(Locale.ROOT),
                         ProgramCoordinatorRoleEntity::getId));
 
         defaultProgramCoordinatorRoleId = roleMap.entrySet()
@@ -488,7 +488,8 @@ public class ProgramCoordinatorServiceImpl implements ProgramCoordinatorService 
             return true;
         }
 
-        Short roleId = roleNameToIdMap.get(request.getRoleName().trim().toLowerCase(Locale.ROOT));
+        String normalizedRoleName = request.getRoleName().trim().toLowerCase(Locale.ROOT);
+        Short roleId = roleCodeToIdMap.get(normalizedRoleName);
         if (roleId == null) {
             response.getParams().setErrmsg(Constants.INVALID_ROLE_NAME + request.getRoleName());
             response.setResponseCode(HttpStatus.BAD_REQUEST);

@@ -169,6 +169,40 @@ public class ProgramCoordinatorServiceImplTest {
     }
 
     @Test
+    public void upsert_resolvesRoleNameFromRoleCode() {
+        UUID userId = UUID.randomUUID();
+        ProgramCoordinatorUpsertRequest request = new ProgramCoordinatorUpsertRequest();
+        request.setUserId(userId);
+        request.setRoleName("NATIONAL_LEAD_TRAINER");
+        request.setStatus(Constants.ACTIVE_STATUS_PC);
+
+        when(programCoordinatorRepository.addOrResurrect(
+                eq(PROGRAM_ID), eq(userId), eq(LEAD_TRAINER_ROLE_ID), eq(Boolean.FALSE), any(UUID.class)))
+                .thenReturn(1);
+
+        SBApiResponse response = service.upsert(PROGRAM_ID, Collections.singletonList(request), TOKEN);
+
+        assertEquals(HttpStatus.OK, response.getResponseCode());
+        verify(programCoordinatorRepository).addOrResurrect(
+                eq(PROGRAM_ID), eq(userId), eq(LEAD_TRAINER_ROLE_ID), eq(Boolean.FALSE), any(UUID.class));
+    }
+
+    @Test
+    public void upsert_rejectsHumanReadableRoleName() {
+        UUID userId = UUID.randomUUID();
+        ProgramCoordinatorUpsertRequest request = new ProgramCoordinatorUpsertRequest();
+        request.setUserId(userId);
+        request.setRoleName("National Lead Trainer");
+        request.setStatus(Constants.ACTIVE_STATUS_PC);
+
+        SBApiResponse response = service.upsert(PROGRAM_ID, Collections.singletonList(request), TOKEN);
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getResponseCode());
+        verify(programCoordinatorRepository, never()).addOrResurrect(
+                anyString(), any(UUID.class), anyShort(), any(), any(UUID.class));
+    }
+
+    @Test
     public void upsert_softRemove_neverTouchesIsCoTrainer() {
         UUID userId = UUID.randomUUID();
         ProgramCoordinatorUpsertRequest request = new ProgramCoordinatorUpsertRequest();
