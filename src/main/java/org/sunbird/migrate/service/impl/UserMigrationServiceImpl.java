@@ -9,10 +9,22 @@ import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.ss.util.CellRangeAddressList;
 import org.apache.poi.ss.util.WorkbookUtil;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.elasticsearch.action.search.ClearScrollRequest;
+import org.elasticsearch.action.search.SearchRequest;
+import org.elasticsearch.action.search.SearchResponse;
+import org.elasticsearch.action.search.SearchScrollRequest;
+import org.elasticsearch.client.RequestOptions;
+import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.common.recycler.Recycler;
+import org.elasticsearch.common.unit.TimeValue;
+import org.elasticsearch.index.query.BoolQueryBuilder;
+import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.search.SearchHit;
+import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -60,6 +72,13 @@ public class UserMigrationServiceImpl implements UserMigrationService {
 
     private Logger log = LoggerFactory.getLogger(getClass().getName());
 
+    // Each batch makes several outbound calls per user, so keep the scroll context alive long enough between scrolls
+    private static final TimeValue USER_MIGRATION_SCROLL_KEEP_ALIVE = TimeValue.timeValueMinutes(10L);
+
+    @Autowired
+    @Qualifier("userEsClient")
+    private RestHighLevelClient userEsClient;
+
     @Autowired
     OutboundRequestHandlerServiceImpl outboundRequestHandlerService;
 
@@ -103,10 +122,6 @@ public class UserMigrationServiceImpl implements UserMigrationService {
     @Override
     public SBApiResponse migrateUsers() {
         SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.API_USER_MIGRATION);
-        StringBuilder url = new StringBuilder(propertiesConfig.getLmsServiceHost()).append(propertiesConfig.getLmsUserSearchEndPoint());
-        log.info("Printing user search URL: {}", url);
-
-        int offset = 0;
         int limit = 250;
         final int MAX_RETRIES = 3;
         int totalProcessed = 0;
@@ -116,94 +131,91 @@ public class UserMigrationServiceImpl implements UserMigrationService {
         boolean partialFailureOccurred = false;
         String custodianOrgName = serverConfig.getCustodianOrgName();
         String custodianOrgId = serverConfig.getCustodianOrgId();
+        String scrollId = null;
         try {
-            int searchUserFailedAttemptCount = 0;
-            while (true) {
-                if (searchUserFailedAttemptCount >= MAX_RETRIES) {
-                    log.error("Max retry limit ({}) reached. Exiting user fetch loop.", MAX_RETRIES);
-                    partialFailureOccurred = true; // mark for client awareness
-                    break;
-                }
-                Map<String, Object> request = userSearchRequestBody(offset, limit);
-                Map<String, Object> searchResponse = outboundRequestHandlerService.fetchResultUsingPost(url.toString(), request, null);
+            // User search API is capped at 10K records (ES max_result_window), so scroll the user index directly
+            SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
+            searchSourceBuilder.query(buildNotMyUserQuery(custodianOrgId));
+            searchSourceBuilder.fetchSource(new String[]{Constants.USER_ID, "profileDetails", "organisations", "rootOrgName"}, null);
+            searchSourceBuilder.size(limit);
 
-                if (MapUtils.isNotEmpty(searchResponse) && searchResponse.containsKey(Constants.RESPONSE_CODE) && Constants.OK.equalsIgnoreCase((String) searchResponse.get(Constants.RESPONSE_CODE))) {
-                    searchUserFailedAttemptCount = 0;
-                    Map<String, Object> result = (Map<String, Object>) searchResponse.get(Constants.RESULT);
-                    Map<String, Object> responseData = (Map<String, Object>) result.get(Constants.RESPONSE);
-                    List<Map<String, Object>> users = (List<Map<String, Object>>) responseData.get(Constants.CONTENT);
+            SearchRequest searchRequest = new SearchRequest(serverConfig.getSbEsUserProfileIndex());
+            searchRequest.source(searchSourceBuilder);
+            searchRequest.scroll(USER_MIGRATION_SCROLL_KEEP_ALIVE);
 
-                    if (users.isEmpty()) {
-                        log.info("No more users found. Exiting pagination.");
-                        break;
-                    }
+            SearchResponse searchResponse = userEsClient.search(searchRequest, RequestOptions.DEFAULT);
+            scrollId = searchResponse.getScrollId();
+            SearchHit[] searchHits = searchResponse.getHits().getHits();
+            log.info("Total users found in Elasticsearch for migration: {}", searchResponse.getHits().getTotalHits());
 
-                    for (Map<String, Object> user : users) {
-                        totalProcessed++;
-                        String userId = (String) user.get(Constants.USER_ID);
-                        boolean orgFound = false;
-                        String rootOrgName = (String) user.get("rootOrgName");
-                        if (rootOrgName != null) {
-                            orgFound = rootOrgName.equalsIgnoreCase(custodianOrgName);
-                            if (!orgFound) {
-                                log.info("Organization '{}' not found for user ID '{}'. Initiating migration API call.", custodianOrgName, userId);
-                                String errMsg = executeMigrateUser(getUserMigrateRequest(userId, custodianOrgName, false), null);
-                                if (StringUtils.isNotEmpty(errMsg)) {
-                                    log.info("Migration failed for user ID '{}'. Error: {}", userId, errMsg);
-                                    failedCount++;
-                                    partialFailureOccurred = true;
-                                } else {
-                                    log.info("Successfully migrated user ID '{}'.", userId);
-                                    SBApiResponse userPatchResponse = profileUpdateAfterNMUMigration(custodianOrgName, userId);
-                                    log.info("userPatchResponse for user ID '{}'.", userPatchResponse);
-                                    if (userPatchResponse.getResponseCode().is2xxSuccessful()) {
-                                        log.info("Successfully patched user ID '{}'. Response: {}", userId, userPatchResponse);
-                                        Map<String, Object> requestBody = new HashMap<String, Object>() {{
-                                            put(Constants.ORGANIZATION_ID, custodianOrgId);
-                                            put(Constants.USER_ID, userId);
-                                            put(Constants.ROLES, Arrays.asList(Constants.PUBLIC));
-                                        }};
-                                        Map<String, Object> roleRequest = new HashMap<String, Object>() {{
-                                            put("request", requestBody);
-                                        }};
-                                        StringBuilder assignRoleUrl = new StringBuilder(serverConfig.getSbUrl()).append(serverConfig.getSbAssignPublicRolePath());
-                                        log.info("printing assignRoleUrl: {}", assignRoleUrl);
-                                        Map<String, Object> assignRole = outboundRequestHandlerService.fetchResultUsingPost(assignRoleUrl.toString(), roleRequest, null);
+            while (searchHits != null && searchHits.length > 0) {
+                for (SearchHit hit : searchHits) {
+                    Map<String, Object> user = hit.getSourceAsMap();
+                    totalProcessed++;
+                    String userId = (String) user.get(Constants.USER_ID);
+                    boolean orgFound = false;
+                    String rootOrgName = (String) user.get("rootOrgName");
+                    if (rootOrgName != null) {
+                        orgFound = rootOrgName.equalsIgnoreCase(custodianOrgName);
+                        if (!orgFound) {
+                            log.info("Organization '{}' not found for user ID '{}'. Initiating migration API call.", custodianOrgName, userId);
+                            String errMsg = executeMigrateUser(getUserMigrateRequest(userId, custodianOrgName, false), null);
+                            if (StringUtils.isNotEmpty(errMsg)) {
+                                log.info("Migration failed for user ID '{}'. Error: {}", userId, errMsg);
+                                failedCount++;
+                                partialFailureOccurred = true;
+                            } else {
+                                log.info("Successfully migrated user ID '{}'.", userId);
+                                SBApiResponse userPatchResponse = profileUpdateAfterNMUMigration(custodianOrgName, userId);
+                                log.info("userPatchResponse for user ID '{}'.", userPatchResponse);
+                                if (userPatchResponse.getResponseCode().is2xxSuccessful()) {
+                                    log.info("Successfully patched user ID '{}'. Response: {}", userId, userPatchResponse);
+                                    Map<String, Object> requestBody = new HashMap<String, Object>() {{
+                                        put(Constants.ORGANIZATION_ID, custodianOrgId);
+                                        put(Constants.USER_ID, userId);
+                                        put(Constants.ROLES, Arrays.asList(Constants.PUBLIC));
+                                    }};
+                                    Map<String, Object> roleRequest = new HashMap<String, Object>() {{
+                                        put("request", requestBody);
+                                    }};
+                                    StringBuilder assignRoleUrl = new StringBuilder(serverConfig.getSbUrl()).append(serverConfig.getSbAssignPublicRolePath());
+                                    log.info("printing assignRoleUrl: {}", assignRoleUrl);
+                                    Map<String, Object> assignRole = outboundRequestHandlerService.fetchResultUsingPost(assignRoleUrl.toString(), roleRequest, null);
 
-                                        if (Constants.OK.equalsIgnoreCase((String) assignRole.get(Constants.RESPONSE_CODE))) {
-                                            log.info("Successfully assigned public role for user ID '{}'. Response: {}", userId, assignRole);
-                                            successCount++;
-                                        } else {
-                                            String assignRoleErrorMessage = (String) assignRole.get(Constants.ERROR_MESSAGE);
-                                            log.info("Failed to assign 'PUBLIC' role for user ID '{}'. Response: {}. Error: {}", userId, assignRole, assignRoleErrorMessage);
-                                            failedCount++;
-                                            partialFailureOccurred = true;
-                                        }
+                                    if (Constants.OK.equalsIgnoreCase((String) assignRole.get(Constants.RESPONSE_CODE))) {
+                                        log.info("Successfully assigned public role for user ID '{}'. Response: {}", userId, assignRole);
+                                        successCount++;
                                     } else {
-                                        log.info("Patch failed for user ID '{}'. Response: {}", userId, userPatchResponse);
+                                        String assignRoleErrorMessage = (String) assignRole.get(Constants.ERROR_MESSAGE);
+                                        log.info("Failed to assign 'PUBLIC' role for user ID '{}'. Response: {}. Error: {}", userId, assignRole, assignRoleErrorMessage);
                                         failedCount++;
                                         partialFailureOccurred = true;
                                     }
+                                } else {
+                                    log.info("Patch failed for user ID '{}'. Response: {}", userId, userPatchResponse);
+                                    failedCount++;
+                                    partialFailureOccurred = true;
                                 }
-                            } else {
-                                log.info("Organization '{}' found for user ID '{}'. No migration needed.", custodianOrgName, userId);
-                                alreadyMigratedUsers++;
                             }
+                        } else {
+                            log.info("Organization '{}' found for user ID '{}'. No migration needed.", custodianOrgName, userId);
+                            alreadyMigratedUsers++;
                         }
                     }
-
-                    offset += users.size();
-                } else {
-                    log.error("Malformed searchResponse (missing RESPONSE_CODE): {}", searchResponse);
-                    searchUserFailedAttemptCount++;
-                    try {
-                        Thread.sleep(1000); // 1-second delay before retrying to give the server a short break
-                    } catch (InterruptedException ie) {
-                        Thread.currentThread().interrupt(); // restore interrupt status
-                        log.warn("Thread sleep interrupted during retry delay", ie);
-                    }
                 }
+
+                log.info("Processed {} users so far using scroll API", totalProcessed);
+
+                searchResponse = scrollUsersWithRetry(scrollId, MAX_RETRIES);
+                if (searchResponse == null) {
+                    log.error("Max retry limit ({}) reached while scrolling users. Exiting user fetch loop.", MAX_RETRIES);
+                    partialFailureOccurred = true; // mark for client awareness
+                    break;
+                }
+                scrollId = searchResponse.getScrollId();
+                searchHits = searchResponse.getHits().getHits();
             }
+            log.info("No more users found. Exiting scroll.");
 
             // Always return SUCCESS unless exception occurs
             response.setResponseCode(HttpStatus.OK);
@@ -217,6 +229,8 @@ public class UserMigrationServiceImpl implements UserMigrationService {
             response.setResponseCode(HttpStatus.INTERNAL_SERVER_ERROR);
             response.getParams().setStatus(Constants.FAILED);
             response.getParams().setErrmsg(e.getMessage());
+        } finally {
+            clearUserScroll(scrollId);
         }
         response.getResult().put("totalUsersProcessed", totalProcessed);
         response.getResult().put("usersMigratedSuccessfully", successCount);
@@ -247,7 +261,7 @@ public class UserMigrationServiceImpl implements UserMigrationService {
         }
         log.error(errMsg, new Exception(errMsg));
     }
-    private Map<String, Object> userSearchRequestBody(int offset, int limit) {
+    private BoolQueryBuilder buildNotMyUserQuery(String custodianOrgId) {
         ZoneId zoneId = ZoneId.of("UTC");
 
         ZonedDateTime currentTime = ZonedDateTime.now(zoneId);
@@ -257,29 +271,48 @@ public class UserMigrationServiceImpl implements UserMigrationService {
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss:SSSZ");
         String formattedFortyEightHoursAgo = fortyEightHoursAgo.format(formatter);
 
-
-        // Construct the request body using Map
-        Map<String, Object> filters = new HashMap<>();
-        filters.put(Constants.PROFILE_DETAILS_PROFILE_STATUS, Constants.NOT_MY_USER);
-
         log.info("printing formattedFortyEightHoursAgo "+formattedFortyEightHoursAgo);
 
-        // Create a separate HashMap for the inner filter
-        Map<String, String> innerFilter = new HashMap<>();
-        innerFilter.put("<=", formattedFortyEightHoursAgo);
-        filters.put(Constants.PROFILE_DETAILS_UPDATEDAS_NOT_MY_USER_ON, innerFilter);
-        List<String> fields = Arrays.asList("userId", "profileDetails", "organisations", "rootOrgName");
+        BoolQueryBuilder query = QueryBuilders.boolQuery();
+        query.must(QueryBuilders.termQuery(Constants.PROFILE_DETAILS_PROFILE_STATUS + ".raw", Constants.NOT_MY_USER.toLowerCase()));
+        query.must(QueryBuilders.rangeQuery(Constants.PROFILE_DETAILS_UPDATEDAS_NOT_MY_USER_ON + ".raw").lte(formattedFortyEightHoursAgo));
+        // Exclude users already in the custodian (iGOT) organization, they don't need migration
+        query.mustNot(QueryBuilders.termQuery(Constants.ROOT_ORG_ID_RAW, custodianOrgId));
+        return query;
+    }
 
-        Map<String, Object> request = new HashMap<>();
-        request.put(Constants.FILTERS, filters);
-        request.put("offset", offset);
-        request.put("limit", limit);
-        request.put("fields", fields);
+    private SearchResponse scrollUsersWithRetry(String scrollId, int maxRetries) {
+        for (int attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                SearchScrollRequest scrollRequest = new SearchScrollRequest(scrollId);
+                scrollRequest.scroll(USER_MIGRATION_SCROLL_KEEP_ALIVE);
+                return userEsClient.scroll(scrollRequest, RequestOptions.DEFAULT);
+            } catch (Exception e) {
+                log.error("Failed to scroll users from Elasticsearch. Attempt {} of {}", attempt, maxRetries, e);
+                try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    log.warn("Thread sleep interrupted during retry delay", ie);
+                    return null;
+                }
+            }
+        }
+        return null;
+    }
 
-        Map<String, Object> body = new HashMap<>();
-        body.put(Constants.REQUEST, request);
-
-        return body;
+    private void clearUserScroll(String scrollId) {
+        if (StringUtils.isEmpty(scrollId)) {
+            return;
+        }
+        try {
+            ClearScrollRequest clearScrollRequest = new ClearScrollRequest();
+            clearScrollRequest.addScrollId(scrollId);
+            userEsClient.clearScroll(clearScrollRequest, RequestOptions.DEFAULT);
+            log.info("User migration scroll context cleared successfully");
+        } catch (Exception e) {
+            log.error("Error clearing user migration scroll context", e);
+        }
     }
 
     private Map<String, Object> getUserMigrateRequest(String userId, String channel, boolean isSelfMigrate) {
