@@ -676,13 +676,12 @@ public class ProgramCoordinatorBulkUploadProcessingServiceImpl implements Progra
             Map<String, Object> assignRoleReq = new HashMap<>();
             assignRoleReq.put(Constants.REQUEST, roleRequestBody);
 
-            // No x-authenticated-user-token here - /v1/user/assign/role is a system/private LMS
-            // endpoint and doesn't require the caller's token.
             Map<String, String> headers = new HashMap<>();
+            headers.put(Constants.X_AUTH_TOKEN, token);
             headers.put(Constants.CONTENT_TYPE, Constants.APPLICATION_JSON);
 
             Map<String, Object> assignRoleResp = outboundRequestHandlerService.fetchResultUsingPost(
-                    serverProperties.getSbUrl() + serverProperties.getSbAssignRolePathV2(), assignRoleReq, headers);
+                    serverProperties.getSbUrl() + serverProperties.getSbAssignRolePath(), assignRoleReq, headers);
             return Constants.OK.equalsIgnoreCase((String) assignRoleResp.get(Constants.RESPONSE_CODE));
         } catch (Exception e) {
             logger.error("ProgramCoordinatorBulkUploadProcessingServiceImpl:: assignTrainerRole: Failed for userId: {}", userId, e);

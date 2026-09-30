@@ -247,6 +247,20 @@ public class UserUtilityServiceImpl implements UserUtilityService {
 		requestBody.put(Constants.EMAIL_VERIFIED, true);
 		requestBody.put(Constants.PHONE, userRegistration.getPhone());
 		requestBody.put(Constants.PHONE_VERIFIED, true);
+		requestBody.put(Constants.ROLES, Collections.singletonList(Constants.PUBLIC));
+		try {
+			Map<String, Object> personalDetails = new HashMap<>();
+			personalDetails.put(Constants.FIRSTNAME.toLowerCase(), userRegistration.getFirstName());
+			personalDetails.put(Constants.PRIMARY_EMAIL, userRegistration.getEmail());
+			personalDetails.put(Constants.MOBILE, userRegistration.getPhone());
+			Map<String, Object> profileDetails = new HashMap<>();
+			profileDetails.put(Constants.PERSONAL_DETAILS, personalDetails);
+			profileDetails.put(Constants.PROFILE_STATUS, Constants.NOT_VERIFIED);
+			requestBody.put(Constants.PROFILE_DETAILS, objectMapper.writeValueAsString(profileDetails));
+		} catch (Exception e) {
+			logger.error("Failed to serialize profileDetails for create user. UserRegCode : "
+					+ userRegistration.getRegistrationCode(), e);
+		}
 		request.put(Constants.REQUEST, requestBody);
 		try {
 			Map<String, Object> readData = (Map<String, Object>) outboundRequestHandlerService.fetchResultUsingPost(
