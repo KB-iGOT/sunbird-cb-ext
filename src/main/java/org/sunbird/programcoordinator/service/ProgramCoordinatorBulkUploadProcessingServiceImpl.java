@@ -54,6 +54,7 @@ import org.sunbird.programcoordinator.dto.ProgramCoordinatorUpsertRequest;
 import org.sunbird.programcoordinator.model.ProgramCoordinatorBulkUploadRowSummary;
 import org.sunbird.programcoordinator.repository.ProgramCoordinatorRoleRepository;
 import org.sunbird.storage.service.StorageService;
+import org.sunbird.user.registration.model.UserRegistration;
 import org.sunbird.user.service.UserUtilityService;
 
 /**
@@ -218,7 +219,8 @@ public class ProgramCoordinatorBulkUploadProcessingServiceImpl implements Progra
         }
         String token = inputDataMap.get(Constants.X_AUTH_TOKEN);
         Set<String> validTrainerRoleCodes = loadActiveTrainerRoleCodes();
-        ProgramCoordinatorBulkUploadRowSummary summary = processRows(rawRows, programId, token, validTrainerRoleCodes);
+        String callerChannel = resolveCallerChannel(inputDataMap.get(Constants.CREATED_BY), token);
+        ProgramCoordinatorBulkUploadRowSummary summary = processRows(rawRows, programId, token, validTrainerRoleCodes, callerChannel);
         logger.info("ProgramCoordinatorBulkUploadProcessingServiceImpl:: processDownloadedFile: identifier: {}, "
                         + "total: {}, successful: {}, failed: {}",
                 identifier, summary.getTotalRecords(), summary.getSuccessfulRecords(), summary.getFailedRecords());
@@ -251,6 +253,25 @@ public class ProgramCoordinatorBulkUploadProcessingServiceImpl implements Progra
                 .collect(Collectors.toSet());
     }
 
+    /**
+     * The channel newly-created users (Case 2 - "not registered") are created under, sourced from
+     * the uploader's own account rather than a new CSV column - fetched once per file, not per
+     * row, since it's the same uploader for every row. createdBy comes through the Kafka payload
+     * unchanged from the tracking record ProgramCoordinatorBulkUploadServiceImpl built.
+     */
+    private String resolveCallerChannel(String callerUserId, String token) {
+        if (StringUtils.isBlank(callerUserId)) {
+            return null;
+        }
+        try {
+            Map<String, Object> callerData = userUtilityService.getUsersReadData(callerUserId, token, token);
+            return MapUtils.isEmpty(callerData) ? null : (String) callerData.get(Constants.CHANNEL);
+        } catch (Exception e) {
+            logger.error("ProgramCoordinatorBulkUploadProcessingServiceImpl:: resolveCallerChannel: Failed for callerUserId: {}", callerUserId, e);
+            return null;
+        }
+    }
+
     // ---------------------------------------------------------------- row extraction (CSV/XLSX)
 
     private List<Map<String, String>> extractCsvRows(File file) {
@@ -262,11 +283,13 @@ public class ProgramCoordinatorBulkUploadProcessingServiceImpl implements Progra
         Set<String> headers = records.get(0).toMap().keySet();
         String nameHeader = ProgramCoordinatorBulkUploadServiceImpl.findMatchingHeader(headers, Constants.PC_BULK_UPLOAD_COLUMN_NAME);
         String emailHeader = ProgramCoordinatorBulkUploadServiceImpl.findMatchingHeader(headers, Constants.PC_BULK_UPLOAD_COLUMN_EMAIL);
+        String phoneHeader = ProgramCoordinatorBulkUploadServiceImpl.findMatchingHeader(headers, Constants.PC_BULK_UPLOAD_COLUMN_PHONE);
         String trainerTypeHeader = ProgramCoordinatorBulkUploadServiceImpl.findMatchingHeader(headers, Constants.PC_BULK_UPLOAD_COLUMN_TRAINER_TYPE);
         for (CSVRecord csvRecord : records) {
             Map<String, String> row = new HashMap<>();
             row.put(Constants.PC_BULK_UPLOAD_COLUMN_NAME, getCsvFieldValue(csvRecord, nameHeader));
             row.put(Constants.PC_BULK_UPLOAD_COLUMN_EMAIL, getCsvFieldValue(csvRecord, emailHeader));
+            row.put(Constants.PC_BULK_UPLOAD_COLUMN_PHONE, getCsvFieldValue(csvRecord, phoneHeader));
             row.put(Constants.PC_BULK_UPLOAD_COLUMN_TRAINER_TYPE, getCsvFieldValue(csvRecord, trainerTypeHeader));
             rows.add(row);
         }
@@ -308,6 +331,7 @@ public class ProgramCoordinatorBulkUploadProcessingServiceImpl implements Progra
             }
             String nameHeader = ProgramCoordinatorBulkUploadServiceImpl.findMatchingHeader(columnIndexByHeader.keySet(), Constants.PC_BULK_UPLOAD_COLUMN_NAME);
             String emailHeader = ProgramCoordinatorBulkUploadServiceImpl.findMatchingHeader(columnIndexByHeader.keySet(), Constants.PC_BULK_UPLOAD_COLUMN_EMAIL);
+            String phoneHeader = ProgramCoordinatorBulkUploadServiceImpl.findMatchingHeader(columnIndexByHeader.keySet(), Constants.PC_BULK_UPLOAD_COLUMN_PHONE);
             String trainerTypeHeader = ProgramCoordinatorBulkUploadServiceImpl.findMatchingHeader(columnIndexByHeader.keySet(), Constants.PC_BULK_UPLOAD_COLUMN_TRAINER_TYPE);
             List<Map<String, String>> rows = new ArrayList<>();
             for (int rowIndex = 1; rowIndex <= sheet.getLastRowNum(); rowIndex++) {
@@ -318,6 +342,7 @@ public class ProgramCoordinatorBulkUploadProcessingServiceImpl implements Progra
                 Map<String, String> rowData = new HashMap<>();
                 rowData.put(Constants.PC_BULK_UPLOAD_COLUMN_NAME, getExcelCellValue(row, columnIndexByHeader, nameHeader));
                 rowData.put(Constants.PC_BULK_UPLOAD_COLUMN_EMAIL, getExcelCellValue(row, columnIndexByHeader, emailHeader));
+                rowData.put(Constants.PC_BULK_UPLOAD_COLUMN_PHONE, getExcelCellValue(row, columnIndexByHeader, phoneHeader));
                 rowData.put(Constants.PC_BULK_UPLOAD_COLUMN_TRAINER_TYPE, getExcelCellValue(row, columnIndexByHeader, trainerTypeHeader));
                 rows.add(rowData);
             }
@@ -355,11 +380,13 @@ public class ProgramCoordinatorBulkUploadProcessingServiceImpl implements Progra
     // ---------------------------------------------------------------------------- row processing
 
     private ProgramCoordinatorBulkUploadRowSummary processRows(List<Map<String, String>> rawRows, String programId,
-                                                                String token, Set<String> validTrainerRoleCodes) {
+                                                                String token, Set<String> validTrainerRoleCodes,
+                                                                String callerChannel) {
         ProgramCoordinatorBulkUploadRowSummary summary = new ProgramCoordinatorBulkUploadRowSummary();
         Set<String> seenEmails = new HashSet<>();
         List<ProgramCoordinatorUpsertRequest> batch = new ArrayList<>();
         Map<String, Map<String, String>> rowByUserId = new HashMap<>();
+        Set<String> newlyCreatedUserIds = new HashSet<>();
         List<Map<String, String>> rowResults = new ArrayList<>();
 
         for (Map<String, String> rawRow : rawRows) {
@@ -370,7 +397,8 @@ public class ProgramCoordinatorBulkUploadProcessingServiceImpl implements Progra
                 continue;
             }
             try {
-                String userId = validateAndPrepareRow(rawRow, updatedRecord, seenEmails, programId, token, validTrainerRoleCodes, batch);
+                String userId = validateAndPrepareRow(rawRow, updatedRecord, seenEmails, programId, token,
+                        validTrainerRoleCodes, callerChannel, batch, newlyCreatedUserIds);
                 if (userId != null) {
                     rowByUserId.put(userId, updatedRecord);
                 }
@@ -381,7 +409,7 @@ public class ProgramCoordinatorBulkUploadProcessingServiceImpl implements Progra
         }
 
         if (!batch.isEmpty()) {
-            reconcileUpsert(programId, token, batch, rowByUserId);
+            reconcileUpsert(programId, token, batch, rowByUserId, newlyCreatedUserIds);
         }
         rowResults.forEach(summary::recordRow);
         return summary;
@@ -390,6 +418,7 @@ public class ProgramCoordinatorBulkUploadProcessingServiceImpl implements Progra
     private boolean isRowCompletelyEmpty(Map<String, String> rawRow) {
         return StringUtils.isBlank(rawRow.get(Constants.PC_BULK_UPLOAD_COLUMN_NAME))
                 && StringUtils.isBlank(rawRow.get(Constants.PC_BULK_UPLOAD_COLUMN_EMAIL))
+                && StringUtils.isBlank(rawRow.get(Constants.PC_BULK_UPLOAD_COLUMN_PHONE))
                 && StringUtils.isBlank(rawRow.get(Constants.PC_BULK_UPLOAD_COLUMN_TRAINER_TYPE));
     }
 
@@ -403,17 +432,25 @@ public class ProgramCoordinatorBulkUploadProcessingServiceImpl implements Progra
      */
     private String validateAndPrepareRow(Map<String, String> rawRow, Map<String, String> updatedRecord,
                                           Set<String> seenEmails, String programId, String token,
-                                          Set<String> validTrainerRoleCodes, List<ProgramCoordinatorUpsertRequest> batch) {
+                                          Set<String> validTrainerRoleCodes, String callerChannel,
+                                          List<ProgramCoordinatorUpsertRequest> batch, Set<String> newlyCreatedUserIds) {
         String name = rawRow.get(Constants.PC_BULK_UPLOAD_COLUMN_NAME);
         String email = rawRow.get(Constants.PC_BULK_UPLOAD_COLUMN_EMAIL);
+        String phone = rawRow.get(Constants.PC_BULK_UPLOAD_COLUMN_PHONE);
         String trainerType = rawRow.get(Constants.PC_BULK_UPLOAD_COLUMN_TRAINER_TYPE);
 
-        if (StringUtils.isBlank(name) || StringUtils.isBlank(email) || StringUtils.isBlank(trainerType)) {
+        if (StringUtils.isBlank(name) || StringUtils.isBlank(email) || StringUtils.isBlank(phone)
+                || StringUtils.isBlank(trainerType)) {
             markRowFailed(updatedRecord, Constants.PC_BULK_UPLOAD_MANDATORY_VALUE_MISSING_ERROR);
             return null;
         }
         if (StringUtils.isNotBlank(userUtilityService.emailValidation(email, false))) {
             markRowFailed(updatedRecord, Constants.PC_BULK_UPLOAD_INVALID_EMAIL_ERROR);
+            return null;
+        }
+        String normalizedPhone = phone.trim();
+        if (!normalizedPhone.matches("^[0-9]{10}$")) {
+            markRowFailed(updatedRecord, Constants.PC_BULK_UPLOAD_INVALID_PHONE_ERROR);
             return null;
         }
         String normalizedEmail = email.toLowerCase();
@@ -427,23 +464,13 @@ public class ProgramCoordinatorBulkUploadProcessingServiceImpl implements Progra
             return null;
         }
 
-        Map<String, Object> lookedUpUser = userUtilityService.getUsersDataFromLookup(email, token);
-        if (MapUtils.isEmpty(lookedUpUser)) {
-            markRowFailed(updatedRecord, Constants.PC_BULK_UPLOAD_USER_NOT_REGISTERED_ERROR);
+        ResolvedUser resolvedUser = resolveOrCreateUser(email, normalizedPhone, name, callerChannel, token, updatedRecord);
+        if (resolvedUser == null) {
             return null;
         }
-        String userId = (String) lookedUpUser.get(Constants.ID);
-        if (StringUtils.isBlank(userId)) {
-            markRowFailed(updatedRecord, Constants.PC_BULK_UPLOAD_USER_NOT_REGISTERED_ERROR);
-            return null;
-        }
+        String userId = resolvedUser.userId;
 
-        Map<String, Object> userData = userUtilityService.getUsersReadData(userId, token, token);
-        if (MapUtils.isEmpty(userData)) {
-            markRowFailed(updatedRecord, Constants.PC_BULK_UPLOAD_USER_NOT_REGISTERED_ERROR);
-            return null;
-        }
-        if (!registeredNameMatches(name, userData)) {
+        if (!resolvedUser.newlyCreated && !registeredNameMatches(name, resolvedUser.existingAccountData)) {
             markRowFailed(updatedRecord, Constants.PC_BULK_UPLOAD_NAME_MISMATCH_ERROR);
             return null;
         }
@@ -465,7 +492,141 @@ public class ProgramCoordinatorBulkUploadProcessingServiceImpl implements Progra
         // every row it successfully processes is one, so this is always true here.
         upsertRequest.setIsCoTrainer(Boolean.TRUE);
         batch.add(upsertRequest);
+        if (resolvedUser.newlyCreated) {
+            newlyCreatedUserIds.add(userId);
+        }
         return userId;
+    }
+
+    /**
+     * Holds the outcome of resolveOrCreateUser: which userId to proceed with, whether it was
+     * freshly created by this row (so the name-match check and result-file note both know), and -
+     * only for a pre-existing user - the account record from the search that found them (used for
+     * the name-match check without a further network call).
+     */
+    private static final class ResolvedUser {
+        private final String userId;
+        private final boolean newlyCreated;
+        private final Map<String, Object> existingAccountData;
+
+        private ResolvedUser(String userId, boolean newlyCreated, Map<String, Object> existingAccountData) {
+            this.userId = userId;
+            this.newlyCreated = newlyCreated;
+            this.existingAccountData = existingAccountData;
+        }
+    }
+
+    /**
+     * Registration + identity check, per row:
+     * <p>
+     * 1. Search active + inactive accounts by email and by phone, independently.
+     * 2. More than one ACTIVE account on either search -> fail the row (Constants.PC_BULK_UPLOAD_MULTIPLE_ACTIVE_ACCOUNTS_ERROR).
+     * 3. No active account found by either -> not registered, create a new user (Case 2).
+     * 4. Otherwise, the active account found by email and the one found by phone must be the exact
+     *    same account (same id) - anything else (including only one of the two searches finding a
+     *    match) is treated as a mismatch, since the phone can't be confirmed to belong to the same
+     *    person as the email in that case.
+     */
+    private ResolvedUser resolveOrCreateUser(String email, String phone, String name, String callerChannel,
+                                              String token, Map<String, String> updatedRecord) {
+        List<Map<String, Object>> emailActive = filterActiveAccounts(
+                searchAccountsByField(Constants.PROFILE_DETAILS_PRIMARY_EMAIL, email, token));
+        List<Map<String, Object>> phoneActive = filterActiveAccounts(
+                searchAccountsByField(Constants.PROFILE_DETAILS_PHONE, phone, token));
+
+        if (emailActive.size() > 1 || phoneActive.size() > 1) {
+            markRowFailed(updatedRecord, Constants.PC_BULK_UPLOAD_MULTIPLE_ACTIVE_ACCOUNTS_ERROR);
+            return null;
+        }
+
+        if (emailActive.isEmpty() && phoneActive.isEmpty()) {
+            return createNewUser(email, phone, name, callerChannel, updatedRecord);
+        }
+
+        String emailAccountId = emailActive.isEmpty() ? null : (String) emailActive.get(0).get(Constants.ID);
+        String phoneAccountId = phoneActive.isEmpty() ? null : (String) phoneActive.get(0).get(Constants.ID);
+
+        if (emailAccountId == null || phoneAccountId == null || !emailAccountId.equals(phoneAccountId)) {
+            markRowFailed(updatedRecord, Constants.PC_BULK_UPLOAD_EMAIL_PHONE_MISMATCH_ERROR);
+            return null;
+        }
+
+        return new ResolvedUser(emailAccountId, false, emailActive.get(0));
+    }
+
+    /**
+     * Searches sunbird.user.search.endpoint by a single profileDetails field (email or mobile),
+     * with no status filter - callers decide active/inactive themselves via filterActiveAccounts,
+     * since the row needs to see both to tell "nobody has this" apart from "somebody inactive
+     * has this."
+     */
+    private List<Map<String, Object>> searchAccountsByField(String filterKey, String filterValue, String token) {
+        try {
+            Map<String, Object> filters = new HashMap<>();
+            filters.put(filterKey, filterValue);
+            Map<String, Object> requestBody = new HashMap<>();
+            requestBody.put(Constants.FILTERS, filters);
+            Map<String, Object> request = new HashMap<>();
+            request.put(Constants.REQUEST, requestBody);
+
+            Map<String, String> headers = new HashMap<>();
+            headers.put(Constants.X_AUTH_TOKEN, token);
+            headers.put(Constants.CONTENT_TYPE, Constants.APPLICATION_JSON);
+
+            Map<String, Object> response = outboundRequestHandlerService.fetchResultUsingPost(
+                    serverProperties.getSbUrl() + serverProperties.getUserSearchEndPoint(), request, headers);
+            if (response == null || !Constants.OK.equalsIgnoreCase((String) response.get(Constants.RESPONSE_CODE))) {
+                return Collections.emptyList();
+            }
+            Map<String, Object> result = (Map<String, Object>) response.get(Constants.RESULT);
+            Map<String, Object> responseBody = MapUtils.isEmpty(result) ? null : (Map<String, Object>) result.get(Constants.RESPONSE);
+            List<Map<String, Object>> content = MapUtils.isEmpty(responseBody) ? null
+                    : (List<Map<String, Object>>) responseBody.get(Constants.CONTENT);
+            return content == null ? Collections.emptyList() : content;
+        } catch (Exception e) {
+            logger.error("ProgramCoordinatorBulkUploadProcessingServiceImpl:: searchAccountsByField: Failed for filterKey: {}", filterKey, e);
+            return Collections.emptyList();
+        }
+    }
+
+    private List<Map<String, Object>> filterActiveAccounts(List<Map<String, Object>> accounts) {
+        return accounts.stream().filter(account -> "1".equals(String.valueOf(account.get(Constants.STATUS))))
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Case 2: no active account was found by email or phone, so create one instead of failing the
+     * row. Channel comes from the uploading Program Coordinator's own account (resolveCallerChannel),
+     * not the CSV - the platform's create-user API requires a channel and the template doesn't
+     * carry one. firstName/email/phone come straight from the row.
+     */
+    private ResolvedUser createNewUser(String email, String phone, String name, String callerChannel,
+                                        Map<String, String> updatedRecord) {
+        if (StringUtils.isBlank(callerChannel)) {
+            logger.error("ProgramCoordinatorBulkUploadProcessingServiceImpl:: createNewUser: "
+                    + "Could not resolve the uploading coordinator's channel; cannot create a new user.");
+            markRowFailed(updatedRecord, Constants.PC_BULK_UPLOAD_USER_CREATE_FAILED_ERROR);
+            return null;
+        }
+        try {
+            UserRegistration userRegistration = new UserRegistration();
+            userRegistration.setFirstName(name);
+            userRegistration.setEmail(email);
+            userRegistration.setPhone(phone);
+            userRegistration.setChannel(callerChannel);
+            userRegistration.setOrgName(callerChannel);
+
+            boolean created = userUtilityService.createUser(userRegistration);
+            if (!created || StringUtils.isBlank(userRegistration.getUserId())) {
+                markRowFailed(updatedRecord, Constants.PC_BULK_UPLOAD_USER_CREATE_FAILED_ERROR);
+                return null;
+            }
+            return new ResolvedUser(userRegistration.getUserId(), true, null);
+        } catch (Exception e) {
+            logger.error("ProgramCoordinatorBulkUploadProcessingServiceImpl:: createNewUser: Failed for email: {}", email, e);
+            markRowFailed(updatedRecord, Constants.PC_BULK_UPLOAD_USER_CREATE_FAILED_ERROR);
+            return null;
+        }
     }
 
     /**
@@ -577,17 +738,18 @@ public class ProgramCoordinatorBulkUploadProcessingServiceImpl implements Progra
      * asked for - and marked Failed with the response's error when the call as a whole fails.
      */
     private void reconcileUpsert(String programId, String token, List<ProgramCoordinatorUpsertRequest> batch,
-                                  Map<String, Map<String, String>> rowByUserId) {
+                                  Map<String, Map<String, String>> rowByUserId, Set<String> newlyCreatedUserIds) {
         try {
             SBApiResponse upsertResponse = programCoordinatorService.upsert(programId, batch, token);
             boolean succeeded = HttpStatus.OK.equals(upsertResponse.getResponseCode());
             for (ProgramCoordinatorUpsertRequest request : batch) {
-                Map<String, String> row = rowByUserId.get(request.getUserId().toString());
+                String userId = request.getUserId().toString();
+                Map<String, String> row = rowByUserId.get(userId);
                 if (row == null) {
                     continue;
                 }
                 if (succeeded) {
-                    markRowSuccessful(row);
+                    markRowSuccessful(row, newlyCreatedUserIds.contains(userId));
                 } else {
                     String errMsg = upsertResponse.getParams() != null ? upsertResponse.getParams().getErrmsg() : null;
                     markRowFailed(row, Constants.PC_BULK_UPLOAD_ROW_PROCESSING_ERROR + " " + StringUtils.defaultString(errMsg));
@@ -609,9 +771,10 @@ public class ProgramCoordinatorBulkUploadProcessingServiceImpl implements Progra
         updatedRecord.put(Constants.CSV_COLUMN_ERROR_DETAILS, errorDetails);
     }
 
-    private void markRowSuccessful(Map<String, String> updatedRecord) {
+    private void markRowSuccessful(Map<String, String> updatedRecord, boolean newlyCreatedUser) {
         updatedRecord.put(Constants.PASCALCASESTATUS, Constants.SUCCESSFUL_UPPERCASE);
-        updatedRecord.put(Constants.CSV_COLUMN_ERROR_DETAILS, StringUtils.EMPTY);
+        updatedRecord.put(Constants.CSV_COLUMN_ERROR_DETAILS,
+                newlyCreatedUser ? Constants.PC_BULK_UPLOAD_NEW_USER_CREATED_NOTE : StringUtils.EMPTY);
     }
 
     // ------------------------------------------------------------------------------ result file

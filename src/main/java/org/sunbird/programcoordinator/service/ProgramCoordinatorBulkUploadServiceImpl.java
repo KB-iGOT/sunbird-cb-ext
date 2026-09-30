@@ -265,6 +265,7 @@ public class ProgramCoordinatorBulkUploadServiceImpl implements ProgramCoordinat
     private boolean hasMandatoryHeaders(Collection<String> headers) {
         return findMatchingHeader(headers, Constants.PC_BULK_UPLOAD_COLUMN_NAME) != null
                 && findMatchingHeader(headers, Constants.PC_BULK_UPLOAD_COLUMN_EMAIL) != null
+                && findMatchingHeader(headers, Constants.PC_BULK_UPLOAD_COLUMN_PHONE) != null
                 && findMatchingHeader(headers, Constants.PC_BULK_UPLOAD_COLUMN_TRAINER_TYPE) != null;
     }
 
