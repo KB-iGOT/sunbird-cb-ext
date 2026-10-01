@@ -28,4 +28,11 @@ public interface ProgramCoordinatorBulkUploadService {
      * Reads back the tracking record for a previously submitted bulk upload.
      */
     SBApiResponse getStatus(String programId, String identifier, String userAuthToken);
+
+    /**
+     * Lists every bulk upload job ever submitted for this programme (not just one by identifier) -
+     * a history/log view, same shape as ProfileServiceImpl.getBulkUploadDetails(orgId) does for
+     * the older govt user bulk-upload flow.
+     */
+    SBApiResponse getBulkUploadList(String programId, String userAuthToken);
 }
