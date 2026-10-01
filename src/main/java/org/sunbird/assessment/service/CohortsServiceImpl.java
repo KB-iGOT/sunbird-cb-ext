@@ -325,6 +325,66 @@ public class CohortsServiceImpl implements CohortsService {
 				ProjectUtil.updateErrorDetails(finalResponse, String.format(Constants.CONTENT_NOT_AVAILABLE, contentId), HttpStatus.BAD_REQUEST);
 				return finalResponse;
 			}
+			if (cbExtServerProperties.getComprehensiveAssessmentCategory().equalsIgnoreCase(
+					(String) contentResponse.get(Constants.COURSE_CATEGORY))) {
+				return autoEnrollComprehensiveAssessmentViaCourseService(authUserToken, rootOrgId, contentId, language);
+			}
+			return enrollInAvailableBatch(contentResponse, authUserToken, rootOrgId, contentId, userUUID, language);
+		} catch (Exception e) {
+			logger.error("Failed to auto enrol user. Exception: ", e);
+			ProjectUtil.updateErrorDetails(finalResponse, e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+			return finalResponse;
+		}
+	}
+
+	// Comprehensive Assessment content is identified by courseCategory (not primaryCategory), so it
+	// always falls outside content.type.auto.enroll.accepted. Validation (CbPlan eligibility, access
+	// settings, mandatory-course completion) and enrolment both happen server-side in a single call
+	// to sunbird-course-service - this method never touches enrollInAvailableBatch's write path.
+	private SBApiResponse autoEnrollComprehensiveAssessmentViaCourseService(String authUserToken, String rootOrgId, String contentId, String language) {
+		SBApiResponse finalResponse = ProjectUtil.createDefaultResponse(Constants.API_USER_ENROLMENT);
+		try {
+			Map<String, String> headers = new HashMap<>();
+			headers.put(Constants.X_AUTH_TOKEN, authUserToken);
+			headers.put(Constants.AUTHORIZATION, cbExtServerProperties.getSbApiKey());
+			headers.put(Constants.X_AUTH_USER_ORG_ID, rootOrgId);
+			StringBuilder uri = new StringBuilder(cbExtServerProperties.getCourseServiceHost())
+					.append(cbExtServerProperties.getComprehensiveAssessmentAutoEnrollEndpoint())
+					.append(contentId);
+			if (!StringUtils.isEmpty(language)) {
+				uri.append("?language=").append(language);
+			}
+			logger.info("autoEnrollComprehensiveAssessmentViaCourseService :: URL : " + uri);
+			Map<String, Object> response = outboundRequestHandlerService.fetchResultUsingGet(uri.toString(), headers);
+			logger.info("autoEnrollComprehensiveAssessmentViaCourseService :: response : " + response);
+			if (!ObjectUtils.isEmpty(response) && Constants.OK.equals(response.get(Constants.RESPONSE_CODE))) {
+				finalResponse.setResponseCode(HttpStatus.OK);
+				Object result = response.get(Constants.RESULT);
+				if (result instanceof Map) {
+					finalResponse.putAll((Map<String, Object>) result);
+				}
+				return finalResponse;
+			}
+			String errMsg = "";
+			if (!ObjectUtils.isEmpty(response)) {
+				Map<String, Object> errorParamsMap = (Map<String, Object>) response.get(Constants.PARAMS);
+				if (!MapUtils.isEmpty(errorParamsMap)) {
+					errMsg = (String) errorParamsMap.get("errmsg");
+				}
+			}
+			ProjectUtil.updateErrorDetails(finalResponse,
+					StringUtils.isEmpty(errMsg) ? Constants.BATCH_AUTO_ENROLL_ERROR_MSG : errMsg, HttpStatus.BAD_REQUEST);
+		}catch (Exception e) {
+			logger.error("Failed to auto enrol to CA. Exception: ", e);
+			ProjectUtil.updateErrorDetails(finalResponse, e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+		}
+		return finalResponse;
+	}
+
+	private SBApiResponse enrollInAvailableBatch(Map<String, Object> contentResponse, String authUserToken, String rootOrgId, String contentId, String userUUID, String language) throws Exception {
+
+		SBApiResponse finalResponse = ProjectUtil.createDefaultResponse(Constants.API_USER_ENROLMENT);
+		try {
 			if (!cbExtServerProperties.getContentTypeAutoEnrollAccepted().contains(contentResponse.get(Constants.PRIMARY_CATEGORY))) {
 				ProjectUtil.updateErrorDetails(finalResponse, String.format(Constants.AUTO_ENROLL_PRIMARY_CATEGORY_ERROR_MSG,
 						contentResponse.get(Constants.PRIMARY_CATEGORY)), HttpStatus.BAD_REQUEST);
@@ -390,19 +450,20 @@ public class CohortsServiceImpl implements CohortsService {
 			}
 			if (!isEnrolledWithBatch) {
 				Map<String, Object> errorParamsMap = (Map<String, Object>) enrollResponse.get(Constants.PARAMS);
-                if (!MapUtils.isEmpty(errorParamsMap)) {
+				if (!MapUtils.isEmpty(errorParamsMap)) {
 					errMsg = (String) errorParamsMap.get("errmsg");
 					if (StringUtils.isEmpty(errMsg)) {
 						errMsg = (String) errorParamsMap.get("errMsg");
 					}
-                }
+				}
 				ProjectUtil.updateErrorDetails(finalResponse, (!StringUtils.isEmpty(errMsg)) ? errMsg : Constants.BATCH_AUTO_ENROLL_ERROR_MSG, HttpStatus.BAD_REQUEST);
 			}
+			return finalResponse;
 		} catch (Exception e) {
 			logger.error("Failed to auto enrol user. Exception: ", e);
 			ProjectUtil.updateErrorDetails(finalResponse, e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+			return finalResponse;
 		}
-		return finalResponse;
 	}
 
 	private List<Map<String, Object>> getActiveEnrollmentForUser(List<String> batchIds, String userId) {
