@@ -104,4 +104,17 @@ public class ProgramCoordinatorController {
         return new ResponseEntity<>(response, response.getResponseCode());
     }
 
+    /**
+     * Lists every bulk upload job submitted for this programme - a history/log view, same shape
+     * as the older govt user bulk-upload's GET /user/v1/bulkupload/{orgId}.
+     */
+    @GetMapping("/program/coordinator/bulk-upload/{programId}")
+    public ResponseEntity<SBApiResponse> getBulkUploadList(
+            @PathVariable(PROGRAM_ID) String programId,
+            @RequestHeader(X_AUTH_TOKEN) String token) {
+
+        SBApiResponse response = programCoordinatorBulkUploadService.getBulkUploadList(programId, token);
+        return new ResponseEntity<>(response, response.getResponseCode());
+    }
+
 }

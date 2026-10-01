@@ -160,6 +160,26 @@ public class ProgramCoordinatorBulkUploadServiceImpl implements ProgramCoordinat
         return response;
     }
 
+    @Override
+    public SBApiResponse getBulkUploadList(String programId, String userAuthToken) {
+        SBApiResponse response = ProjectUtil.createDefaultResponse(Constants.API_PROGRAM_COORDINATOR_BULK_UPLOAD_LIST);
+        try {
+            Map<String, Object> propertyMap = new HashMap<>();
+            propertyMap.put(Constants.PROGRAM_ID, programId);
+            List<Map<String, Object>> records = cassandraOperation.getRecordsByPropertiesWithoutFiltering(
+                    Constants.KEYSPACE_SUNBIRD, Constants.TABLE_PROGRAM_COORDINATOR_BULK_UPLOAD, propertyMap, null);
+            response.getParams().setStatus(Constants.SUCCESSFUL);
+            response.setResponseCode(HttpStatus.OK);
+            response.getResult().put(Constants.CONTENT, records);
+            response.getResult().put(Constants.COUNT, records != null ? records.size() : 0);
+        } catch (Exception e) {
+            logger.error("ProgramCoordinatorBulkUploadServiceImpl:: getBulkUploadList: Failed for programId: {}", programId, e);
+            markResponseFailed(response, Constants.PC_BULK_UPLOAD_PROCESSING_ERROR + " " + e.getMessage(),
+                    HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+        return response;
+    }
+
     /**
      * True if a program coordinator bulk upload for this programme is already IN-PROGRESS
      * (or freshly INITIATED and not yet picked up).
