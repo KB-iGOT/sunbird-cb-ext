@@ -1,10 +1,12 @@
 package org.sunbird.programcoordinator.service;
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -28,7 +30,12 @@ import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.core.io.Resource;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.util.ObjectUtils;
 import org.springframework.web.multipart.MultipartFile;
@@ -178,6 +185,37 @@ public class ProgramCoordinatorBulkUploadServiceImpl implements ProgramCoordinat
                     HttpStatus.INTERNAL_SERVER_ERROR);
         }
         return response;
+    }
+
+    /**
+     * Downloads the uploaded or result file from cloud storage and streams the bytes back as an
+     * attachment, instead of handing back the raw cloud URL - same pattern as
+     * ProfileServiceImpl.downloadFile(fileName) for the older govt user bulk-upload flow. Reuses
+     * the same StorageService.downloadFile(fileName) call the async processor already makes
+     * internally (pulls the file to Constants.LOCAL_BASE_PATH), then reads it back and deletes
+     * the local temp copy once streamed.
+     */
+    @Override
+    public ResponseEntity<Resource> downloadFile(String fileName) {
+        File file = new File(Constants.LOCAL_BASE_PATH + fileName);
+        try {
+            storageService.downloadFile(fileName);
+            Resource resource = new ByteArrayResource(Files.readAllBytes(file.toPath()));
+            HttpHeaders headers = new HttpHeaders();
+            headers.add(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + fileName + "\"");
+            return ResponseEntity.ok()
+                    .headers(headers)
+                    .contentLength(file.length())
+                    .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                    .body(resource);
+        } catch (IOException e) {
+            logger.error("ProgramCoordinatorBulkUploadServiceImpl:: downloadFile: Failed to read downloaded file: {}", fileName, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        } finally {
+            if (file.exists()) {
+                file.delete();
+            }
+        }
     }
 
     /**
