@@ -47,11 +47,16 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.ObjectUtils;
 import org.sunbird.cassandra.utils.CassandraOperation;
 import org.sunbird.common.model.SBApiResponse;
+import org.sunbird.cache.RedisCacheMgr;
+import org.sunbird.common.service.ContentService;
 import org.sunbird.common.service.OutboundRequestHandlerServiceImpl;
 import org.sunbird.common.util.CbExtServerProperties;
 import org.sunbird.common.util.Constants;
 import org.sunbird.programcoordinator.dto.ProgramCoordinatorUpsertRequest;
+import org.sunbird.programcoordinator.entity.ProgramCoordinatorEntity;
+import org.sunbird.programcoordinator.entity.ProgramCoordinatorRoleEntity;
 import org.sunbird.programcoordinator.model.ProgramCoordinatorBulkUploadRowSummary;
+import org.sunbird.programcoordinator.repository.ProgramCoordinatorRepository;
 import org.sunbird.programcoordinator.repository.ProgramCoordinatorRoleRepository;
 import org.sunbird.storage.service.StorageService;
 import org.sunbird.user.registration.model.UserRegistration;
@@ -88,7 +93,10 @@ public class ProgramCoordinatorBulkUploadProcessingServiceImpl implements Progra
     private final OutboundRequestHandlerServiceImpl outboundRequestHandlerService;
     private final UserUtilityService userUtilityService;
     private final ProgramCoordinatorRoleRepository programCoordinatorRoleRepository;
+    private final ProgramCoordinatorRepository programCoordinatorRepository;
     private final ProgramCoordinatorService programCoordinatorService;
+    private final ContentService contentService;
+    private final RedisCacheMgr redisCacheMgr;
 
     private List<String> getResultHeaders() {
         return Arrays.stream(resultHeadersConfig.split(",")).map(String::trim).collect(Collectors.toList());
@@ -219,8 +227,13 @@ public class ProgramCoordinatorBulkUploadProcessingServiceImpl implements Progra
         }
         String token = inputDataMap.get(Constants.X_AUTH_TOKEN);
         Set<String> validTrainerRoleCodes = loadActiveTrainerRoleCodes();
+        Map<String, Short> roleCodeToIdMap = loadRoleCodeToIdMap();
+        Map<Short, String> roleIdToNameMap = loadRoleIdToNameMap();
         String callerChannel = resolveCallerChannel(inputDataMap.get(Constants.CREATED_BY), token);
-        ProgramCoordinatorBulkUploadRowSummary summary = processRows(rawRows, programId, token, validTrainerRoleCodes, callerChannel);
+        Map<String, Short> existingCoordinatorRoleIdByUserId = loadActiveCoordinatorRoleIdByUserId(programId);
+        Set<String> allowedTrainerTypesForProgram = loadAllowedTrainerTypesForProgram(programId);
+        ProgramCoordinatorBulkUploadRowSummary summary = processRows(rawRows, programId, token, validTrainerRoleCodes,
+                callerChannel, existingCoordinatorRoleIdByUserId, roleCodeToIdMap, roleIdToNameMap, allowedTrainerTypesForProgram);
         logger.info("ProgramCoordinatorBulkUploadProcessingServiceImpl:: processDownloadedFile: identifier: {}, "
                         + "total: {}, successful: {}, failed: {}",
                 identifier, summary.getTotalRecords(), summary.getSuccessfulRecords(), summary.getFailedRecords());
@@ -251,6 +264,124 @@ public class ProgramCoordinatorBulkUploadProcessingServiceImpl implements Progra
                 .filter(role -> StringUtils.isNotBlank(role.getRoleCode()))
                 .map(role -> role.getRoleCode().toUpperCase())
                 .collect(Collectors.toSet());
+    }
+
+    /**
+     * roleCode (upper-cased) -> roleId, sourced from the same master table as
+     * loadActiveTrainerRoleCodes() - used only to tell apart KB-14838's "same Trainer Type
+     * re-uploaded" case from KB-15096's "different Trainer Type attempted" case, so each gets its
+     * own error message; both are rejected either way.
+     */
+    private Map<String, Short> loadRoleCodeToIdMap() {
+        return programCoordinatorRoleRepository.findAll().stream()
+                .filter(role -> Boolean.TRUE.equals(role.getIsActive()))
+                .filter(role -> StringUtils.isNotBlank(role.getRoleCode()))
+                .collect(Collectors.toMap(role -> role.getRoleCode().toUpperCase(), role -> role.getId(), (a, b) -> a));
+    }
+
+    /**
+     * roleId -> roleName, sourced from the same master table - used only to detect whether a
+     * user's existing coordinator entry is the base "Program Coordinator" role (as opposed to a
+     * trainer sub-type), so KB-15096's "PC cannot be converted to a trainer via bulk upload" case
+     * gets its own distinct message rather than the generic role-change-not-allowed one.
+     */
+    private Map<Short, String> loadRoleIdToNameMap() {
+        return programCoordinatorRoleRepository.findAll().stream()
+                .collect(Collectors.toMap(ProgramCoordinatorRoleEntity::getId, ProgramCoordinatorRoleEntity::getRoleName, (a, b) -> a));
+    }
+
+    /**
+     * Trainer Types (upper-cased role codes) this specific programme permits via bulk upload,
+     * sourced from the programme's own content metadata (not the global role master). Reads just
+     * the "batchSettings" field: a list of {coordinatorType, activities} entries, and keeps only
+     * the coordinatorTypes whose activities include MANAGE_OWN_BATCHES - e.g. a programme listing
+     * only STATE_LEAD_TRAINER and NATIONAL_LEAD_TRAINER here means STATE_MASTER_TRAINER rows must
+     * be rejected even though it's a globally valid Trainer Type.
+     * <p>
+     * ContentServiceImpl.readContentFromCache's in-memory DataCacheMgr layer only compares map
+     * *sizes* to decide whether its cached entry is fresh enough (ContentServiceImpl.java:428) -
+     * if some other caller already cached this same programId with a bigger-but-batchSettings-less
+     * field set, that check passes and batchSettings never gets fetched at all, even though Redis
+     * actually has it. Rather than changing that shared method (which every other feature in this
+     * codebase also calls), this method falls back to reading Redis directly, scoped to this class
+     * only, whenever the field comes back missing.
+     * <p>
+     * Fails closed: any lookup problem (missing content, missing/malformed batchSettings, no
+     * MANAGE_OWN_BATCHES anywhere) returns an empty set, so no row can reach the batch upsert
+     * unless the programme has explicitly granted a matching Trainer Type - never fails open.
+     */
+    private Set<String> loadAllowedTrainerTypesForProgram(String programId) {
+        try {
+            List<Map<String, Object>> batchSettings = extractBatchSettings(
+                    contentService.readContentFromCache(programId, Collections.singletonList(Constants.BATCH_SETTINGS)));
+            if (batchSettings == null) {
+                batchSettings = extractBatchSettings(readProgramContentDirectlyFromRedis(programId));
+            }
+            if (batchSettings == null) {
+                batchSettings = extractBatchSettings(
+                        contentService.readContent(programId, Collections.singletonList(Constants.BATCH_SETTINGS)));
+            }
+            if (batchSettings == null) {
+                return Collections.emptySet();
+            }
+            Set<String> allowed = new HashSet<>();
+            for (Map<String, Object> setting : batchSettings) {
+                Object coordinatorType = setting.get(Constants.COORDINATOR_TYPE);
+                Object activities = setting.get(Constants.ACTIVITIES);
+                if (coordinatorType == null || !(activities instanceof List)) {
+                    continue;
+                }
+                boolean canManageOwnBatches = ((List<?>) activities).stream()
+                        .anyMatch(activity -> Constants.MANAGE_OWN_BATCHES.equalsIgnoreCase(String.valueOf(activity)));
+                if (canManageOwnBatches) {
+                    allowed.add(String.valueOf(coordinatorType).toUpperCase());
+                }
+            }
+            return allowed;
+        } catch (Exception e) {
+            logger.error("ProgramCoordinatorBulkUploadProcessingServiceImpl:: loadAllowedTrainerTypesForProgram: Failed for programId: {}", programId, e);
+            return Collections.emptySet();
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<Map<String, Object>> extractBatchSettings(Map<String, Object> content) {
+        if (MapUtils.isEmpty(content) || !(content.get(Constants.BATCH_SETTINGS) instanceof List)) {
+            return null;
+        }
+        return (List<Map<String, Object>>) content.get(Constants.BATCH_SETTINGS);
+    }
+
+    /**
+     * Reads the full programme content blob straight from Redis, bypassing
+     * ContentServiceImpl's in-memory DataCacheMgr layer entirely - see the size-check caveat on
+     * loadAllowedTrainerTypesForProgram(). Scoped to this class only; does not alter how any other
+     * feature in this codebase reads content from cache.
+     */
+    private Map<String, Object> readProgramContentDirectlyFromRedis(String programId) {
+        try {
+            String contentString = redisCacheMgr.getContentFromCache(programId);
+            if (StringUtils.isBlank(contentString)) {
+                return null;
+            }
+            return objectMapper.readValue(contentString, new TypeReference<Map<String, Object>>() {
+            });
+        } catch (Exception e) {
+            logger.error("ProgramCoordinatorBulkUploadProcessingServiceImpl:: readProgramContentDirectlyFromRedis: Failed for programId: {}", programId, e);
+            return null;
+        }
+    }
+
+    /**
+     * userId -> current roleId for every user already active as a coordinator on this programme,
+     * fetched once per file. A user already active here cannot be re-processed by bulk upload at
+     * all - KB-14838 covers re-uploading them with the same Trainer Type, KB-15096 covers
+     * attempting a different one; both must fail rather than silently add/update them.
+     */
+    private Map<String, Short> loadActiveCoordinatorRoleIdByUserId(String programId) {
+        return programCoordinatorRepository.findActiveByProgramId(programId).stream()
+                .collect(Collectors.toMap(coordinator -> coordinator.getUserId().toString(),
+                        ProgramCoordinatorEntity::getRoleId, (a, b) -> a));
     }
 
     /**
@@ -381,7 +512,9 @@ public class ProgramCoordinatorBulkUploadProcessingServiceImpl implements Progra
 
     private ProgramCoordinatorBulkUploadRowSummary processRows(List<Map<String, String>> rawRows, String programId,
                                                                 String token, Set<String> validTrainerRoleCodes,
-                                                                String callerChannel) {
+                                                                String callerChannel, Map<String, Short> existingCoordinatorRoleIdByUserId,
+                                                                Map<String, Short> roleCodeToIdMap, Map<Short, String> roleIdToNameMap,
+                                                                Set<String> allowedTrainerTypesForProgram) {
         ProgramCoordinatorBulkUploadRowSummary summary = new ProgramCoordinatorBulkUploadRowSummary();
         Set<String> seenEmails = new HashSet<>();
         List<ProgramCoordinatorUpsertRequest> batch = new ArrayList<>();
@@ -398,7 +531,8 @@ public class ProgramCoordinatorBulkUploadProcessingServiceImpl implements Progra
             }
             try {
                 String userId = validateAndPrepareRow(rawRow, updatedRecord, seenEmails, programId, token,
-                        validTrainerRoleCodes, callerChannel, batch, newlyCreatedUserIds);
+                        validTrainerRoleCodes, callerChannel, batch, newlyCreatedUserIds,
+                        existingCoordinatorRoleIdByUserId, roleCodeToIdMap, roleIdToNameMap, allowedTrainerTypesForProgram);
                 if (userId != null) {
                     rowByUserId.put(userId, updatedRecord);
                 }
@@ -433,7 +567,10 @@ public class ProgramCoordinatorBulkUploadProcessingServiceImpl implements Progra
     private String validateAndPrepareRow(Map<String, String> rawRow, Map<String, String> updatedRecord,
                                           Set<String> seenEmails, String programId, String token,
                                           Set<String> validTrainerRoleCodes, String callerChannel,
-                                          List<ProgramCoordinatorUpsertRequest> batch, Set<String> newlyCreatedUserIds) {
+                                          List<ProgramCoordinatorUpsertRequest> batch, Set<String> newlyCreatedUserIds,
+                                          Map<String, Short> existingCoordinatorRoleIdByUserId,
+                                          Map<String, Short> roleCodeToIdMap, Map<Short, String> roleIdToNameMap,
+                                          Set<String> allowedTrainerTypesForProgram) {
         String name = rawRow.get(Constants.PC_BULK_UPLOAD_COLUMN_NAME);
         String email = rawRow.get(Constants.PC_BULK_UPLOAD_COLUMN_EMAIL);
         String phone = rawRow.get(Constants.PC_BULK_UPLOAD_COLUMN_PHONE);
@@ -463,12 +600,29 @@ public class ProgramCoordinatorBulkUploadProcessingServiceImpl implements Progra
             markRowFailed(updatedRecord, Constants.PC_BULK_UPLOAD_INVALID_TRAINER_TYPE_ERROR);
             return null;
         }
+        if (!allowedTrainerTypesForProgram.contains(trainerTypeCode)) {
+            markRowFailed(updatedRecord, Constants.PC_BULK_UPLOAD_TRAINER_TYPE_NOT_ALLOWED_FOR_PROGRAM_ERROR);
+            return null;
+        }
 
         ResolvedUser resolvedUser = resolveOrCreateUser(email, normalizedPhone, name, callerChannel, token, updatedRecord);
         if (resolvedUser == null) {
             return null;
         }
         String userId = resolvedUser.userId;
+
+        Short existingRoleId = existingCoordinatorRoleIdByUserId.get(userId);
+        if (existingRoleId != null) {
+            if (Constants.PROGRAM_COORDINATOR_KEY.equalsIgnoreCase(roleIdToNameMap.get(existingRoleId))) {
+                markRowFailed(updatedRecord, Constants.PC_BULK_UPLOAD_EXISTING_PC_CANNOT_BE_TRAINER_ERROR);
+                return null;
+            }
+            boolean sameRole = existingRoleId.equals(roleCodeToIdMap.get(trainerTypeCode));
+            markRowFailed(updatedRecord, sameRole
+                    ? Constants.PC_BULK_UPLOAD_ALREADY_COORDINATOR_ERROR
+                    : Constants.PC_BULK_UPLOAD_ROLE_CHANGE_NOT_ALLOWED_ERROR);
+            return null;
+        }
 
         if (!resolvedUser.newlyCreated && !registeredNameMatches(name, resolvedUser.existingAccountData)) {
             markRowFailed(updatedRecord, Constants.PC_BULK_UPLOAD_NAME_MISMATCH_ERROR);
@@ -488,9 +642,8 @@ public class ProgramCoordinatorBulkUploadProcessingServiceImpl implements Progra
         upsertRequest.setUserId(UUID.fromString(userId));
         upsertRequest.setRoleName(trainerTypeCode);
         upsertRequest.setStatus(Constants.ACTIVE_STATUS_PC);
-        // This bulk-upload flow exists specifically to add co-trainers as program coordinators -
-        // every row it successfully processes is one, so this is always true here.
-        upsertRequest.setIsCoTrainer(Boolean.TRUE);
+        // trainers added via bulk upload must not be marked as Co-Trainer by default.
+        upsertRequest.setIsCoTrainer(Boolean.FALSE);
         batch.add(upsertRequest);
         if (resolvedUser.newlyCreated) {
             newlyCreatedUserIds.add(userId);
