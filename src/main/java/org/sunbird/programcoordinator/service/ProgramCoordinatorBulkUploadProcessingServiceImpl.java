@@ -86,6 +86,14 @@ public class ProgramCoordinatorBulkUploadProcessingServiceImpl implements Progra
     @Value("${program.coordinator.bulk.upload.result.headers}")
     private String resultHeadersConfig;
 
+    /**
+     * When true, any programme whose content has no "batchSettings" field at all falls back to
+     * every globally-valid Trainer Type instead of blocking all of them. Off by default, so the
+     * default behaviour stays fail-closed for programmes missing batchSettings.
+     */
+    @Value("${program.coordinator.bulk.upload.no.batch.settings.fallback.enabled:false}")
+    private boolean noBatchSettingsFallbackEnabled;
+
     private final ObjectMapper objectMapper;
     private final CassandraOperation cassandraOperation;
     private final StorageService storageService;
@@ -231,7 +239,7 @@ public class ProgramCoordinatorBulkUploadProcessingServiceImpl implements Progra
         Map<Short, String> roleIdToNameMap = loadRoleIdToNameMap();
         String callerChannel = resolveCallerChannel(inputDataMap.get(Constants.CREATED_BY), token);
         Map<String, Short> existingCoordinatorRoleIdByUserId = loadActiveCoordinatorRoleIdByUserId(programId);
-        Set<String> allowedTrainerTypesForProgram = loadAllowedTrainerTypesForProgram(programId);
+        Set<String> allowedTrainerTypesForProgram = loadAllowedTrainerTypesForProgram(programId, validTrainerRoleCodes);
         ProgramCoordinatorBulkUploadRowSummary summary = processRows(rawRows, programId, token, validTrainerRoleCodes,
                 callerChannel, existingCoordinatorRoleIdByUserId, roleCodeToIdMap, roleIdToNameMap, allowedTrainerTypesForProgram);
         logger.info("ProgramCoordinatorBulkUploadProcessingServiceImpl:: processDownloadedFile: identifier: {}, "
@@ -306,11 +314,16 @@ public class ProgramCoordinatorBulkUploadProcessingServiceImpl implements Progra
      * codebase also calls), this method falls back to reading Redis directly, scoped to this class
      * only, whenever the field comes back missing.
      * <p>
-     * Fails closed: any lookup problem (missing content, missing/malformed batchSettings, no
-     * MANAGE_OWN_BATCHES anywhere) returns an empty set, so no row can reach the batch upsert
-     * unless the programme has explicitly granted a matching Trainer Type - never fails open.
+     * Fails closed by default: a programme whose content has no "batchSettings" field at all
+     * (never configured, as opposed to present-but-empty) blocks every Trainer Type, UNLESS
+     * program.coordinator.bulk.upload.no.batch.settings.fallback.enabled is turned on, in which
+     * case every such programme instead falls back to every globally-valid Trainer Type
+     * (validTrainerRoleCodes). A programme whose batchSettings IS present - even as an empty list,
+     * or one with no MANAGE_OWN_BATCHES entry at all - always follows the batchSettings-derived
+     * result as-is regardless of this flag, since an explicit empty/no-match batchSettings is the
+     * programme deliberately granting nobody access, not a missing-configuration case.
      */
-    private Set<String> loadAllowedTrainerTypesForProgram(String programId) {
+    private Set<String> loadAllowedTrainerTypesForProgram(String programId, Set<String> validTrainerRoleCodes) {
         try {
             List<Map<String, Object>> batchSettings = extractBatchSettings(
                     contentService.readContentFromCache(programId, Collections.singletonList(Constants.BATCH_SETTINGS)));
@@ -322,7 +335,7 @@ public class ProgramCoordinatorBulkUploadProcessingServiceImpl implements Progra
                         contentService.readContent(programId, Collections.singletonList(Constants.BATCH_SETTINGS)));
             }
             if (batchSettings == null) {
-                return Collections.emptySet();
+                return noBatchSettingsFallbackEnabled ? validTrainerRoleCodes : Collections.emptySet();
             }
             Set<String> allowed = new HashSet<>();
             for (Map<String, Object> setting : batchSettings) {
