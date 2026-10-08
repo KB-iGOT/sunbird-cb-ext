@@ -27,6 +27,7 @@ import org.sunbird.common.util.Constants;
 import org.sunbird.programcoordinator.entity.ProgramCoordinatorRoleEntity;
 import org.sunbird.programcoordinator.repository.ProgramCoordinatorRepository;
 import org.sunbird.programcoordinator.repository.ProgramCoordinatorRoleRepository;
+import org.sunbird.user.service.UserUtilityService;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -54,17 +55,21 @@ public class SmtToSltUpgradeServiceImpl implements SmtToSltUpgradeService {
 
     private final ProgramCoordinatorRoleRepository programCoordinatorRoleRepository;
 
+    private final UserUtilityService userUtilityService;
+
     public SmtToSltUpgradeServiceImpl(CbExtServerProperties props,
             OutboundRequestHandlerServiceImpl outboundRequestHandlerService, ObjectMapper objectMapper,
             @Qualifier("sbEsClient") RestHighLevelClient sbEsClient,
             ProgramCoordinatorRepository programCoordinatorRepository,
-            ProgramCoordinatorRoleRepository programCoordinatorRoleRepository) {
+            ProgramCoordinatorRoleRepository programCoordinatorRoleRepository,
+            UserUtilityService userUtilityService) {
         this.props = props;
         this.outboundRequestHandlerService = outboundRequestHandlerService;
         this.objectMapper = objectMapper;
         this.sbEsClient = sbEsClient;
         this.programCoordinatorRepository = programCoordinatorRepository;
         this.programCoordinatorRoleRepository = programCoordinatorRoleRepository;
+        this.userUtilityService = userUtilityService;
     }
 
     @Value("${smt.role.code:STATE_MASTER_TRAINER}")
@@ -257,11 +262,21 @@ public class SmtToSltUpgradeServiceImpl implements SmtToSltUpgradeService {
      */
     private boolean upgradeUserToSlt(String userId) {
         try {
+            Map<String, Object> existingUserData = userUtilityService.getUsersReadData(userId, "", "");
+            Map<String, Object> profileDetails = MapUtils.isNotEmpty(existingUserData)
+                    ? (Map<String, Object>) existingUserData.get(Constants.PROFILE_DETAILS)
+                    : null;
+            if (profileDetails == null) {
+                profileDetails = new HashMap<>();
+            }
+            // Merge into the existing profileDetails rather than replacing it - the learner-service
+            // update API treats profileDetails as a full replace, not a deep merge, so sending only
+            // bpCoTrainer here would wipe personalDetails/professionalDetails/etc.
+            profileDetails.put(Constants.BP_CO_TRAINER, sltRoleCode);
+
             Map<String, Object> request = new HashMap<>();
             Map<String, Object> requestBody = new HashMap<>();
             requestBody.put(Constants.USER_ID, userId);
-            Map<String, Object> profileDetails = new HashMap<>();
-            profileDetails.put(Constants.BP_CO_TRAINER, sltRoleCode);
             requestBody.put(Constants.PROFILE_DETAILS, profileDetails);
             request.put(Constants.REQUEST, requestBody);
 
