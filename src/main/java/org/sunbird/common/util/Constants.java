@@ -1823,6 +1823,7 @@ public class Constants {
 	public static final String PC_BULK_UPLOAD_NOT_FOUND_ERROR = "No bulk upload request found for the given identifier.";
 	public static final String PC_BULK_UPLOAD_MANDATORY_VALUE_MISSING_ERROR = "Missing mandatory value(s): Registered Name, Registered Email ID, Phone Number and/or Trainer Type.";
 	public static final String PC_BULK_UPLOAD_DUPLICATE_EMAIL_ERROR = "Duplicate email within the uploaded file.";
+	public static final String PC_BULK_UPLOAD_INVALID_FULL_NAME_ERROR = "Invalid Full Name.";
 	public static final String PC_BULK_UPLOAD_INVALID_EMAIL_ERROR = "Invalid Email format.";
 	public static final String PC_BULK_UPLOAD_INVALID_PHONE_ERROR = "Invalid Phone Number. Expecting a 10-digit number.";
 	public static final String PC_BULK_UPLOAD_INVALID_TRAINER_TYPE_ERROR = "Invalid Trainer Type.";
@@ -1831,6 +1832,7 @@ public class Constants {
 	public static final String PC_BULK_UPLOAD_ALREADY_COORDINATOR_ERROR = "User is already assigned this Trainer Type on this programme.";
 	public static final String PC_BULK_UPLOAD_ROLE_CHANGE_NOT_ALLOWED_ERROR = "User already has a different Trainer Type on this programme; role changes are not supported via bulk upload.";
 	public static final String PC_BULK_UPLOAD_EXISTING_PC_CANNOT_BE_TRAINER_ERROR = "User is already a Program Coordinator on this programme and cannot be converted to a Trainer via bulk upload.";
+	public static final String PC_BULK_UPLOAD_SUBROLE_MISMATCH_ERROR = "User already holds a different Trainer Type; cannot be added with a mismatched Trainer Type via bulk upload.";
 	public static final String PC_BULK_UPLOAD_MULTIPLE_ACTIVE_ACCOUNTS_ERROR = "Multiple active accounts found for this user.";
 	public static final String PC_BULK_UPLOAD_EMAIL_PHONE_MISMATCH_ERROR = "Registered Email ID and Phone Number do not belong to the same account.";
 	public static final String PC_BULK_UPLOAD_NEW_USER_CREATED_NOTE = "User account created as no existing registration was found.";

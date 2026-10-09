@@ -52,6 +52,7 @@ import org.sunbird.common.service.ContentService;
 import org.sunbird.common.service.OutboundRequestHandlerServiceImpl;
 import org.sunbird.common.util.CbExtServerProperties;
 import org.sunbird.common.util.Constants;
+import org.sunbird.common.util.ProjectUtil;
 import org.sunbird.programcoordinator.dto.ProgramCoordinatorUpsertRequest;
 import org.sunbird.programcoordinator.entity.ProgramCoordinatorEntity;
 import org.sunbird.programcoordinator.entity.ProgramCoordinatorRoleEntity;
@@ -594,6 +595,10 @@ public class ProgramCoordinatorBulkUploadProcessingServiceImpl implements Progra
             markRowFailed(updatedRecord, Constants.PC_BULK_UPLOAD_MANDATORY_VALUE_MISSING_ERROR);
             return null;
         }
+        if (!ProjectUtil.validateFullName(name.trim())) {
+            markRowFailed(updatedRecord, Constants.PC_BULK_UPLOAD_INVALID_FULL_NAME_ERROR);
+            return null;
+        }
         if (StringUtils.isNotBlank(userUtilityService.emailValidation(email, false))) {
             markRowFailed(updatedRecord, Constants.PC_BULK_UPLOAD_INVALID_EMAIL_ERROR);
             return null;
@@ -642,11 +647,25 @@ public class ProgramCoordinatorBulkUploadProcessingServiceImpl implements Progra
             return null;
         }
 
-        if (!assignTrainerRole(userId, token)) {
+        UserRoleProfileSnapshot snapshot = fetchUserRoleProfileSnapshot(userId, token);
+        if (snapshot == null) {
             markRowFailed(updatedRecord, Constants.PC_BULK_UPLOAD_ROLE_ASSIGN_FAILED_ERROR);
             return null;
         }
-        if (!updateBpCoTrainerProfile(userId, trainerTypeCode, token)) {
+        // Not already a coordinator on *this* programme (handled above) - but bpCoTrainer is a
+        // single global profile field, so a different pre-existing Trainer Type here means they're
+        // already established as that type elsewhere; overwriting it would silently corrupt that.
+        String existingBpCoTrainer = (String) snapshot.profileDetails.get(Constants.BP_CO_TRAINER);
+        if (StringUtils.isNotBlank(existingBpCoTrainer) && !existingBpCoTrainer.equalsIgnoreCase(trainerTypeCode)) {
+            markRowFailed(updatedRecord, Constants.PC_BULK_UPLOAD_SUBROLE_MISMATCH_ERROR);
+            return null;
+        }
+
+        if (!assignTrainerRole(userId, token, snapshot)) {
+            markRowFailed(updatedRecord, Constants.PC_BULK_UPLOAD_ROLE_ASSIGN_FAILED_ERROR);
+            return null;
+        }
+        if (!updateBpCoTrainerProfile(userId, trainerTypeCode, token, snapshot, existingBpCoTrainer)) {
             markRowFailed(updatedRecord, Constants.PC_BULK_UPLOAD_PROFILE_UPDATE_FAILED_ERROR);
             return null;
         }
@@ -679,6 +698,43 @@ public class ProgramCoordinatorBulkUploadProcessingServiceImpl implements Progra
             this.userId = userId;
             this.newlyCreated = newlyCreated;
             this.existingAccountData = existingAccountData;
+        }
+    }
+
+    /**
+     * Current system roles and profileDetails for a user, fetched once per row and shared by the
+     * sub-role-mismatch check, assignTrainerRole and updateBpCoTrainerProfile - previously each of
+     * those three fetched this independently (up to 3 calls per row); this holds one fetch's
+     * result so all three act on the exact same snapshot instead of three separate reads.
+     */
+    private static final class UserRoleProfileSnapshot {
+        private final List<String> roles;
+        private final Map<String, Object> profileDetails;
+        private final String orgId;
+
+        private UserRoleProfileSnapshot(List<String> roles, Map<String, Object> profileDetails, String orgId) {
+            this.roles = roles;
+            this.profileDetails = profileDetails;
+            this.orgId = orgId;
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private UserRoleProfileSnapshot fetchUserRoleProfileSnapshot(String userId, String token) {
+        try {
+            Map<String, Object> userData = userUtilityService.getUsersReadData(userId, token, token);
+            if (MapUtils.isEmpty(userData)) {
+                return null;
+            }
+            List<String> roles = (List<String>) userData.get(Constants.ROLES);
+            Object profileDetailsObj = userData.get(Constants.PROFILE_DETAILS);
+            Map<String, Object> profileDetails = profileDetailsObj instanceof Map
+                    ? new HashMap<>((Map<String, Object>) profileDetailsObj) : new HashMap<>();
+            String orgId = (String) userData.get(Constants.ROOT_ORG_ID);
+            return new UserRoleProfileSnapshot(roles == null ? new ArrayList<>() : new ArrayList<>(roles), profileDetails, orgId);
+        } catch (Exception e) {
+            logger.error("ProgramCoordinatorBulkUploadProcessingServiceImpl:: fetchUserRoleProfileSnapshot: Failed for userId: {}", userId, e);
+            return null;
         }
     }
 
@@ -817,26 +873,20 @@ public class ProgramCoordinatorBulkUploadProcessingServiceImpl implements Progra
      * OperationalReportServiceImpl.grantReportAccessToMDOAdmin, generalized to
      * BP_PROGRAM_TRAINER. No-op (returns true) if the user already holds the role.
      * <p>
-     * Re-fetches the user's roles immediately before acting rather than reusing a snapshot taken
-     * earlier in row processing, so this always appends onto the truly-current server state
-     * instead of a possibly-stale copy.
+     * Acts on the snapshot fetched once per row by fetchUserRoleProfileSnapshot rather than
+     * re-fetching - same userData is also used for the sub-role-mismatch check right before this
+     * runs, so there's no meaningful staleness window between the two.
      */
-    private boolean assignTrainerRole(String userId, String token) {
+    private boolean assignTrainerRole(String userId, String token, UserRoleProfileSnapshot snapshot) {
         try {
-            Map<String, Object> userData = userUtilityService.getUsersReadData(userId, token, token);
-            if (MapUtils.isEmpty(userData)) {
-                return false;
-            }
-            List<String> roles = (List<String>) userData.get(Constants.ROLES);
-            List<String> currentRoles = roles == null ? new ArrayList<>() : new ArrayList<>(roles);
-            if (currentRoles.contains(Constants.BP_PROGRAM_TRAINER)) {
+            if (snapshot.roles.contains(Constants.BP_PROGRAM_TRAINER)) {
                 return true;
             }
+            List<String> currentRoles = new ArrayList<>(snapshot.roles);
             currentRoles.add(Constants.BP_PROGRAM_TRAINER);
-            String orgId = (String) userData.get(Constants.ROOT_ORG_ID);
 
             Map<String, Object> roleRequestBody = new HashMap<>();
-            roleRequestBody.put(Constants.ORGANIZATION_ID, orgId);
+            roleRequestBody.put(Constants.ORGANIZATION_ID, snapshot.orgId);
             roleRequestBody.put(Constants.USER_ID, userId);
             roleRequestBody.put(Constants.ROLES, currentRoles);
             Map<String, Object> assignRoleReq = new HashMap<>();
@@ -856,27 +906,26 @@ public class ProgramCoordinatorBulkUploadProcessingServiceImpl implements Progra
     }
 
     /**
-     * Fetch-existing-profileDetails/mutate-one-key/PATCH-the-whole-thing pattern, same as
-     * ProfileServiceImpl's profile update - this is what preserves every other profileDetails
-     * field untouched.
+     * Mutate-one-key/PATCH-the-whole-thing pattern, same as ProfileServiceImpl's profile update -
+     * this is what preserves every other profileDetails field untouched. No-op (returns true,
+     * makes no API call) if bpCoTrainer on the snapshot already equals trainerTypeCode - the
+     * sub-role-mismatch check guarantees that's only true on an exact match, never a silent
+     * overwrite of a conflicting value.
      * <p>
-     * Re-fetches profileDetails immediately before acting (rather than reusing the snapshot from
-     * before assignTrainerRole ran), so this always merges onto the truly-current server state.
+     * Acts on the snapshot fetched once per row by fetchUserRoleProfileSnapshot rather than
+     * re-fetching.
      */
-    private boolean updateBpCoTrainerProfile(String userId, String trainerTypeCode, String token) {
+    private boolean updateBpCoTrainerProfile(String userId, String trainerTypeCode, String token,
+                                              UserRoleProfileSnapshot snapshot, String existingBpCoTrainer) {
+        if (trainerTypeCode.equalsIgnoreCase(existingBpCoTrainer)) {
+            return true;
+        }
         try {
-            Map<String, Object> userData = userUtilityService.getUsersReadData(userId, token, token);
-            if (MapUtils.isEmpty(userData)) {
-                return false;
-            }
-            Object profileDetailsObj = userData.get(Constants.PROFILE_DETAILS);
-            Map<String, Object> profileDetails = profileDetailsObj instanceof Map
-                    ? new HashMap<>((Map<String, Object>) profileDetailsObj) : new HashMap<>();
-            profileDetails.put(Constants.BP_CO_TRAINER, trainerTypeCode);
+            snapshot.profileDetails.put(Constants.BP_CO_TRAINER, trainerTypeCode);
 
             Map<String, Object> requestBody = new HashMap<>();
             requestBody.put(Constants.USER_ID, userId);
-            requestBody.put(Constants.PROFILE_DETAILS, profileDetails);
+            requestBody.put(Constants.PROFILE_DETAILS, snapshot.profileDetails);
             Map<String, Object> updateRequest = new HashMap<>();
             updateRequest.put(Constants.REQUEST, requestBody);
 
