@@ -1823,6 +1823,7 @@ public class Constants {
 	public static final String PC_BULK_UPLOAD_NOT_FOUND_ERROR = "No bulk upload request found for the given identifier.";
 	public static final String PC_BULK_UPLOAD_MANDATORY_VALUE_MISSING_ERROR = "Missing mandatory value(s): Registered Name, Registered Email ID, Phone Number and/or Trainer Type.";
 	public static final String PC_BULK_UPLOAD_DUPLICATE_EMAIL_ERROR = "Duplicate email within the uploaded file.";
+	public static final String PC_BULK_UPLOAD_INVALID_FULL_NAME_ERROR = "Invalid Full Name.";
 	public static final String PC_BULK_UPLOAD_INVALID_EMAIL_ERROR = "Invalid Email format.";
 	public static final String PC_BULK_UPLOAD_INVALID_PHONE_ERROR = "Invalid Phone Number. Expecting a 10-digit number.";
 	public static final String PC_BULK_UPLOAD_INVALID_TRAINER_TYPE_ERROR = "Invalid Trainer Type.";

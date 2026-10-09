@@ -52,6 +52,7 @@ import org.sunbird.common.service.ContentService;
 import org.sunbird.common.service.OutboundRequestHandlerServiceImpl;
 import org.sunbird.common.util.CbExtServerProperties;
 import org.sunbird.common.util.Constants;
+import org.sunbird.common.util.ProjectUtil;
 import org.sunbird.programcoordinator.dto.ProgramCoordinatorUpsertRequest;
 import org.sunbird.programcoordinator.entity.ProgramCoordinatorEntity;
 import org.sunbird.programcoordinator.entity.ProgramCoordinatorRoleEntity;
@@ -592,6 +593,10 @@ public class ProgramCoordinatorBulkUploadProcessingServiceImpl implements Progra
         if (StringUtils.isBlank(name) || StringUtils.isBlank(email) || StringUtils.isBlank(phone)
                 || StringUtils.isBlank(trainerType)) {
             markRowFailed(updatedRecord, Constants.PC_BULK_UPLOAD_MANDATORY_VALUE_MISSING_ERROR);
+            return null;
+        }
+        if (!ProjectUtil.validateFullName(name.trim())) {
+            markRowFailed(updatedRecord, Constants.PC_BULK_UPLOAD_INVALID_FULL_NAME_ERROR);
             return null;
         }
         if (StringUtils.isNotBlank(userUtilityService.emailValidation(email, false))) {
