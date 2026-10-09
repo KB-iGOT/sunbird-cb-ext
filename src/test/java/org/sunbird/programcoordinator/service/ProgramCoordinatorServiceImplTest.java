@@ -21,6 +21,7 @@ import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
@@ -31,6 +32,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.sunbird.cache.RedisCacheMgr;
 import org.sunbird.common.model.SBApiResponse;
+import org.sunbird.common.service.ContentService;
 import org.sunbird.common.util.AccessTokenValidator;
 import org.sunbird.common.util.Constants;
 import org.sunbird.core.producer.Producer;
@@ -41,6 +43,7 @@ import org.sunbird.programcoordinator.repository.ProgramCoordinatorListDto;
 import org.sunbird.programcoordinator.repository.ProgramCoordinatorRepository;
 import org.sunbird.programcoordinator.repository.ProgramCoordinatorRoleRepository;
 import org.sunbird.user.service.UserUtilityService;
+import org.sunbird.user.util.notificationUtill.NotificationTriggerService;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -73,11 +76,17 @@ public class ProgramCoordinatorServiceImplTest {
     @Mock
     private UserUtilityService userUtilityService;
 
+    @Mock
+    private ContentService contentService;
+
+    @Mock
+    private NotificationTriggerService notificationTriggerService;
+
     @InjectMocks
     private ProgramCoordinatorServiceImpl service;
 
     @BeforeEach
-    public void setUp() {
+    void setUp() {
         MockitoAnnotations.initMocks(this);
 
         ReflectionTestUtils.setField(service, "sortableFields",
@@ -134,7 +143,7 @@ public class ProgramCoordinatorServiceImplTest {
     }
 
     @Test
-    public void upsert_storesIsCoTrainerTrueWhenProvided() {
+    void upsert_storesIsCoTrainerTrueWhenProvided() {
         UUID userId = UUID.randomUUID();
         when(programCoordinatorRoleRepository.existsById(LEAD_TRAINER_ROLE_ID)).thenReturn(true);
         when(programCoordinatorRepository.addOrResurrect(
@@ -153,7 +162,90 @@ public class ProgramCoordinatorServiceImplTest {
     }
 
     @Test
-    public void upsert_defaultsIsCoTrainerToFalseWhenOmitted() {
+    void upsert_sendsAddedNotificationWithRoleNameAndProgramName() {
+        UUID userId = UUID.randomUUID();
+        when(programCoordinatorRoleRepository.existsById(LEAD_TRAINER_ROLE_ID)).thenReturn(true);
+        when(programCoordinatorRepository.addOrResurrect(
+                eq(PROGRAM_ID), eq(userId), eq(LEAD_TRAINER_ROLE_ID), eq(Boolean.FALSE), any(UUID.class)))
+                .thenReturn(1);
+
+        Map<String, Object> programContent = new HashMap<>();
+        programContent.put(Constants.NAME, "Sample Blended Program");
+        when(contentService.readContentFromCache(eq(PROGRAM_ID), anyList())).thenReturn(programContent);
+
+        SBApiResponse response = service.upsert(PROGRAM_ID,
+                Collections.singletonList(activeRequest(userId, LEAD_TRAINER_ROLE_ID, null)), TOKEN);
+
+        assertEquals(HttpStatus.OK, response.getResponseCode());
+
+        ArgumentCaptor<Map<String, Object>> messageCaptor = ArgumentCaptor.forClass(Map.class);
+        verify(notificationTriggerService).sendNotification(
+                eq(Constants.PROGRAM_COORDINATOR_ADDED), eq(Constants.ENGAGEMENT),
+                eq(Collections.singletonList(userId.toString())), messageCaptor.capture());
+
+        Map<String, Object> message = messageCaptor.getValue();
+        Map<String, String> placeholders = (Map<String, String>) message.get(Constants.PLACE_HOLDERS);
+        assertEquals("Sample Blended Program", placeholders.get(Constants.TITLE));
+        assertEquals("National Lead Trainer", placeholders.get(Constants.ROLE_NAME));
+
+        Map<String, Object> data = (Map<String, Object>) message.get(Constants.DATA);
+        assertEquals(PROGRAM_ID, data.get(Constants.PROGRAM_ID));
+    }
+
+    @Test
+    void upsert_skipsNotificationWhenRoleNameCannotBeResolved() {
+        UUID userId = UUID.randomUUID();
+        Short unknownRoleId = 999;
+        when(programCoordinatorRoleRepository.existsById(unknownRoleId)).thenReturn(true);
+        when(programCoordinatorRepository.addOrResurrect(
+                eq(PROGRAM_ID), eq(userId), eq(unknownRoleId), eq(Boolean.FALSE), any(UUID.class)))
+                .thenReturn(1);
+
+        SBApiResponse response = service.upsert(PROGRAM_ID,
+                Collections.singletonList(activeRequest(userId, unknownRoleId, null)), TOKEN);
+
+        assertEquals(HttpStatus.OK, response.getResponseCode());
+        verify(notificationTriggerService, never()).sendNotification(
+                anyString(), anyString(), anyList(), any());
+    }
+
+    @Test
+    void upsert_swallowsExceptionFromNotificationLookup() {
+        UUID userId = UUID.randomUUID();
+        when(programCoordinatorRoleRepository.existsById(LEAD_TRAINER_ROLE_ID)).thenReturn(true);
+        when(programCoordinatorRepository.addOrResurrect(
+                eq(PROGRAM_ID), eq(userId), eq(LEAD_TRAINER_ROLE_ID), eq(Boolean.FALSE), any(UUID.class)))
+                .thenReturn(1);
+
+        when(contentService.readContentFromCache(eq(PROGRAM_ID), anyList()))
+                .thenThrow(new RuntimeException("content service down"));
+
+        SBApiResponse response = service.upsert(PROGRAM_ID,
+                Collections.singletonList(activeRequest(userId, LEAD_TRAINER_ROLE_ID, null)), TOKEN);
+
+        assertEquals(HttpStatus.OK, response.getResponseCode());
+        verify(notificationTriggerService, never()).sendNotification(
+                anyString(), anyString(), anyList(), any());
+    }
+
+    @Test
+    void upsert_doesNotSendNotificationWhenNoRowsAffected() {
+        UUID userId = UUID.randomUUID();
+        when(programCoordinatorRoleRepository.existsById(LEAD_TRAINER_ROLE_ID)).thenReturn(true);
+        when(programCoordinatorRepository.addOrResurrect(
+                eq(PROGRAM_ID), eq(userId), eq(LEAD_TRAINER_ROLE_ID), eq(Boolean.FALSE), any(UUID.class)))
+                .thenReturn(0);
+
+        SBApiResponse response = service.upsert(PROGRAM_ID,
+                Collections.singletonList(activeRequest(userId, LEAD_TRAINER_ROLE_ID, null)), TOKEN);
+
+        assertEquals(HttpStatus.OK, response.getResponseCode());
+        verify(notificationTriggerService, never()).sendNotification(
+                anyString(), anyString(), anyList(), any());
+    }
+
+    @Test
+    void upsert_defaultsIsCoTrainerToFalseWhenOmitted() {
         UUID userId = UUID.randomUUID();
         when(programCoordinatorRoleRepository.existsById(LEAD_TRAINER_ROLE_ID)).thenReturn(true);
         when(programCoordinatorRepository.addOrResurrect(
@@ -169,7 +261,7 @@ public class ProgramCoordinatorServiceImplTest {
     }
 
     @Test
-    public void upsert_resolvesRoleNameFromRoleCode() {
+    void upsert_resolvesRoleNameFromRoleCode() {
         UUID userId = UUID.randomUUID();
         ProgramCoordinatorUpsertRequest request = new ProgramCoordinatorUpsertRequest();
         request.setUserId(userId);
@@ -188,7 +280,7 @@ public class ProgramCoordinatorServiceImplTest {
     }
 
     @Test
-    public void upsert_rejectsHumanReadableRoleName() {
+    void upsert_rejectsHumanReadableRoleName() {
         UUID userId = UUID.randomUUID();
         ProgramCoordinatorUpsertRequest request = new ProgramCoordinatorUpsertRequest();
         request.setUserId(userId);
@@ -203,7 +295,7 @@ public class ProgramCoordinatorServiceImplTest {
     }
 
     @Test
-    public void upsert_softRemove_neverTouchesIsCoTrainer() {
+    void upsert_softRemove_neverTouchesIsCoTrainer() {
         UUID userId = UUID.randomUUID();
         ProgramCoordinatorUpsertRequest request = new ProgramCoordinatorUpsertRequest();
         request.setUserId(userId);
@@ -220,7 +312,7 @@ public class ProgramCoordinatorServiceImplTest {
     }
 
     @Test
-    public void upsert_forbiddenWhenActorLacksAllowedRole() {
+    void upsert_forbiddenWhenActorLacksAllowedRole() {
         when(accessTokenValidator.fetchUserRolesFromToken(TOKEN))
                 .thenReturn(Collections.singletonList("SOME_OTHER_ROLE"));
 
@@ -233,7 +325,7 @@ public class ProgramCoordinatorServiceImplTest {
     }
 
     @Test
-    public void upsertByAdmin_defaultsIsCoTrainerToFalseAndRoleToDefaultWhenOmitted() {
+    void upsertByAdmin_defaultsIsCoTrainerToFalseAndRoleToDefaultWhenOmitted() {
         UUID userId = UUID.randomUUID();
         ProgramCoordinatorUpsertRequest request = new ProgramCoordinatorUpsertRequest();
         request.setUserId(userId);
@@ -251,7 +343,7 @@ public class ProgramCoordinatorServiceImplTest {
     }
 
     @Test
-    public void upsertByAdmin_passesThroughExplicitIsCoTrainerTrue() {
+    void upsertByAdmin_passesThroughExplicitIsCoTrainerTrue() {
         UUID userId = UUID.randomUUID();
         ProgramCoordinatorUpsertRequest request = activeRequest(userId, LEAD_TRAINER_ROLE_ID, true);
 
@@ -268,7 +360,7 @@ public class ProgramCoordinatorServiceImplTest {
     }
 
     @Test
-    public void list_mapsIsCoTrainerFlagForEachCoordinator() {
+    void list_mapsIsCoTrainerFlagForEachCoordinator() {
         UUID coTrainerUser = UUID.randomUUID();
         UUID nonCoTrainerUser = UUID.randomUUID();
 
@@ -307,7 +399,7 @@ public class ProgramCoordinatorServiceImplTest {
     }
 
     @Test
-    public void list_defaultsIsCoTrainerToFalseWhenNullInDto() {
+    void list_defaultsIsCoTrainerToFalseWhenNullInDto() {
         UUID userId = UUID.randomUUID();
 
         ProgramCoordinatorListDto dtoWithNullFlag = new ProgramCoordinatorListDto(
@@ -334,7 +426,7 @@ public class ProgramCoordinatorServiceImplTest {
     }
 
     @Test
-    public void list_filtersToRequestedRecordsWhenUserIdsProvided() {
+    void list_filtersToRequestedRecordsWhenUserIdsProvided() {
         UUID targetUserId = UUID.randomUUID();
 
         ProgramCoordinatorListDto dto = new ProgramCoordinatorListDto(
@@ -367,7 +459,7 @@ public class ProgramCoordinatorServiceImplTest {
     }
 
     @Test
-    public void list_emptyContentWhenNoUserIdsMatch() {
+    void list_emptyContentWhenNoUserIdsMatch() {
         UUID targetUserId = UUID.randomUUID();
 
         when(programCoordinatorRepository.findCoordinatorsByUserIds(
@@ -389,7 +481,7 @@ public class ProgramCoordinatorServiceImplTest {
     }
 
     @Test
-    public void list_badRequestWhenAUserIdIsNotAValidUuid() {
+    void list_badRequestWhenAUserIdIsNotAValidUuid() {
         Map<String, Object> requestBody = listRequestBody();
         ((Map<String, Object>) requestBody.get(Constants.REQUEST))
                 .put(Constants.USER_IDS, Collections.singletonList("not-a-uuid"));
@@ -401,7 +493,7 @@ public class ProgramCoordinatorServiceImplTest {
     }
 
     @Test
-    public void list_badRequestWhenAnyUserIdInTheListIsInvalid() {
+    void list_badRequestWhenAnyUserIdInTheListIsInvalid() {
         Map<String, Object> requestBody = listRequestBody();
         ((Map<String, Object>) requestBody.get(Constants.REQUEST))
                 .put(Constants.USER_IDS, Arrays.asList(UUID.randomUUID().toString(), "still-not-a-uuid"));
@@ -413,7 +505,7 @@ public class ProgramCoordinatorServiceImplTest {
     }
 
     @Test
-    public void list_returnsMultipleRecordsWhenMultipleUserIdsProvided() {
+    void list_returnsMultipleRecordsWhenMultipleUserIdsProvided() {
         UUID firstUserId = UUID.randomUUID();
         UUID secondUserId = UUID.randomUUID();
 
@@ -446,7 +538,7 @@ public class ProgramCoordinatorServiceImplTest {
     }
 
     @Test
-    public void list_emptyUserIdsListFallsBackToGeneralPaginatedList() {
+    void list_emptyUserIdsListFallsBackToGeneralPaginatedList() {
         ProgramCoordinatorListDto dto = new ProgramCoordinatorListDto(
                 UUID.randomUUID(), LEAD_TRAINER_ROLE_ID, "National Lead Trainer", false,
                 UUID.randomUUID(), null, null);
@@ -469,7 +561,7 @@ public class ProgramCoordinatorServiceImplTest {
     }
 
     @Test
-    public void list_userIdsFilterTakesPrecedenceOverRoleNames() {
+    void list_userIdsFilterTakesPrecedenceOverRoleNames() {
         UUID targetUserId = UUID.randomUUID();
 
         ProgramCoordinatorListDto dto = new ProgramCoordinatorListDto(
@@ -498,7 +590,7 @@ public class ProgramCoordinatorServiceImplTest {
     }
 
     @Test
-    public void getProgramCoordinator_mapsIsCoTrainerFromEntity() {
+    void getProgramCoordinator_mapsIsCoTrainerFromEntity() {
         ProgramCoordinatorEntity coordinator = ProgramCoordinatorEntity.builder()
                 .programId(PROGRAM_ID)
                 .userId(UUID.randomUUID())

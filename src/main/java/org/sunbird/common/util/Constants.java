@@ -1459,6 +1459,7 @@ public class Constants {
 	public static final String PLACE_HOLDERS ="placeholders";
 	public static final String ENGAGEMENT = "ENGAGEMENT";
 	public static final String CONTENT_SHARE = "CONTENT_SHARE";
+	public static final String PROGRAM_COORDINATOR_ADDED = "PROGRAM_COORDINATOR_ADDED";
 	public static final String PROFILE_IMAGE = "profile_image";
 	public static final String TOTAL_POINTS = "total_points";
 	public static final String ROW_NUM = "row_num";
@@ -1884,4 +1885,19 @@ public class Constants {
 	public static final String IN_PROGRESS = "IN_PROGRESS";
 	public static final String PIPE_SEPARATOR = "|";
 	public static final String TXN_STATUS_IN_PROGRESS = "IN_PROGRESS";
+
+	//smtToSltUpgrade job
+	public static final String CBATCH_INDEX = "course-batch";
+	public static final String FIELD_CREATED_BY = "createdBy";
+	public static final String FIELD_MENTORS = "mentors";
+	public static final String FIELD_CO_TRAINERS = "coTrainers";
+	public static final String FIELD_STATUS = "status";
+	public static final String FIELD_BATCH_ID = "batchId";
+	public static final String FIELD_ENROLMENT_COUNT = "enrolmentCount";
+	public static final int BATCH_STATUS_COMPLETED = 2;
+	public static final String FIELD_RAW_SUFFIX = ".raw";
+	public static final String PROFILE_DETAILS_BP_CO_TRAINER = "profileDetails.bpCoTrainer";
+	public static final String SCANNED_COUNT = "scannedCount";
+	public static final String UPGRADED_COUNT = "upgradedCount";
+	public static final String FAILED_COUNT = "failedCount";
 }

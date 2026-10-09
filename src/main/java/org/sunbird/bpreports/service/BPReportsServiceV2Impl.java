@@ -32,6 +32,10 @@ import org.sunbird.common.util.Constants;
 import org.sunbird.common.util.IndexerService;
 import org.sunbird.common.util.ProjectUtil;
 import org.sunbird.core.producer.Producer;
+import org.sunbird.programcoordinator.entity.ProgramCoordinatorEntity;
+import org.sunbird.programcoordinator.entity.ProgramCoordinatorRoleEntity;
+import org.sunbird.programcoordinator.repository.ProgramCoordinatorRepository;
+import org.sunbird.programcoordinator.repository.ProgramCoordinatorRoleRepository;
 import org.sunbird.storage.service.StorageService;
 import org.sunbird.user.service.UserUtilityService;
 
@@ -70,6 +74,12 @@ public class BPReportsServiceV2Impl implements BPReportsServiceV2 {
     private final ObjectMapper objectMapper;
     private final StorageService storageService;
     private final IndexerService indexerService;
+    private final ProgramCoordinatorRepository programCoordinatorRepository;
+    private final ProgramCoordinatorRoleRepository programCoordinatorRoleRepository;
+
+    private static final String PROGRAM_COORDINATOR_SHEET_NAME = "Program Coordinators";
+    private static final List<String> PROGRAM_COORDINATOR_SHEET_HEADERS =
+            Arrays.asList("Name", "Email", "PC Type", "Designation", "Date added", "Added-by");
 
     /**
      * Entry point for /bp/v2/generate/report. Returns 200 immediately —
@@ -448,6 +458,7 @@ public class BPReportsServiceV2Impl implements BPReportsServiceV2 {
         try {
             buildExcelSheet(workbook, batchDetails, referenceData, filteredUsers.size(), userDataList);
             logger.debug("BPReportsServiceV2Impl:: processBPReportV2: Excel sheet built with {} data rows for batchId: {}", userDataList.size(), batchId);
+            buildProgramCoordinatorSheet(workbook, courseId);
             uploadReportAndUpdateDatabase(workbook, orgId, courseId, batchId, reportRequester, counts, contextType);
         } catch (Exception e) {
             logger.error("BPReportsServiceV2Impl:: processBPReportV2: Report generation failed for batchId: {}", batchId, e);
@@ -1055,6 +1066,98 @@ public class BPReportsServiceV2Impl implements BPReportsServiceV2 {
         setCellValue(row, col++, referenceData.get(Constants.INSTRUCTOR_NAME));
         setCellValue(row, col++, userData.get(Constants.CERTIFICATE_ISSUED));
         setCellValue(row, col, userData.get(Constants.CERTIFICATE_ISSUED_DATE));
+    }
+
+    /**
+     * Adds a "Program Coordinators" sheet listing every NLT/SMT/SLT trainer on this program whose
+     * coordinator row was added by the Main PC - i.e. whose created_by resolves, via a self-join
+     * on this same table, to a user whose own row has the base "Program Coordinator" role.
+     * Trainers added by anyone else (another NLT/SMT/SLT) are excluded, as is the Main PC's own
+     * row. Any failure here is logged and swallowed so it never fails the overall report.
+     */
+    void buildProgramCoordinatorSheet(Workbook workbook, String programId) {
+        try {
+            List<ProgramCoordinatorEntity> coordinators = programCoordinatorRepository.findActiveByProgramId(programId);
+            if (CollectionUtils.isEmpty(coordinators)) {
+                return;
+            }
+
+            List<ProgramCoordinatorRoleEntity> roles = programCoordinatorRoleRepository.findAll();
+            Map<Short, String> roleIdToName = roles.stream()
+                    .collect(Collectors.toMap(ProgramCoordinatorRoleEntity::getId, ProgramCoordinatorRoleEntity::getRoleName));
+            Short mainPcRoleId = roles.stream()
+                    .filter(role -> Constants.PROGRAM_COORDINATOR_KEY.equalsIgnoreCase(role.getRoleName()))
+                    .map(ProgramCoordinatorRoleEntity::getId)
+                    .findFirst()
+                    .orElse(null);
+            if (mainPcRoleId == null) {
+                logger.error("BPReportsServiceV2Impl:: buildProgramCoordinatorSheet: Main PC role not found, "
+                        + "skipping sheet for programId: {}", programId);
+                return;
+            }
+
+            Map<UUID, Short> roleIdByUser = coordinators.stream()
+                    .collect(Collectors.toMap(ProgramCoordinatorEntity::getUserId, ProgramCoordinatorEntity::getRoleId,
+                            (first, second) -> first));
+
+            List<ProgramCoordinatorEntity> rowsAddedByMainPc = coordinators.stream()
+                    .filter(pc -> !mainPcRoleId.equals(pc.getRoleId()))
+                    .filter(pc -> mainPcRoleId.equals(roleIdByUser.get(pc.getCreatedBy())))
+                    .collect(Collectors.toList());
+            if (rowsAddedByMainPc.isEmpty()) {
+                logger.info("BPReportsServiceV2Impl:: buildProgramCoordinatorSheet: No Main-PC-added trainers "
+                        + "found for programId: {}", programId);
+                return;
+            }
+
+            Set<String> userIdsToResolve = new HashSet<>();
+            for (ProgramCoordinatorEntity pc : rowsAddedByMainPc) {
+                userIdsToResolve.add(pc.getUserId().toString());
+                userIdsToResolve.add(pc.getCreatedBy().toString());
+            }
+            Map<String, Object> profiles = batchFetchUserProfiles(new ArrayList<>(userIdsToResolve));
+
+            Sheet sheet = workbook.createSheet(PROGRAM_COORDINATOR_SHEET_NAME);
+            createProgramCoordinatorHeaderRow(workbook, sheet);
+            int rowNum = 1;
+            for (ProgramCoordinatorEntity pc : rowsAddedByMainPc) {
+                writeProgramCoordinatorRow(sheet.createRow(rowNum++), pc, roleIdToName, profiles);
+            }
+        } catch (Exception e) {
+            logger.error("BPReportsServiceV2Impl:: buildProgramCoordinatorSheet: Failed to build sheet for "
+                    + "programId: {}", programId, e);
+        }
+    }
+
+    private void createProgramCoordinatorHeaderRow(Workbook workbook, Sheet sheet) {
+        CellStyle headerStyle = workbook.createCellStyle();
+        Font font = workbook.createFont();
+        font.setBold(true);
+        headerStyle.setFont(font);
+        headerStyle.setAlignment(HorizontalAlignment.LEFT);
+        headerStyle.setWrapText(true);
+        Row headerRow = sheet.createRow(0);
+        for (int i = 0; i < PROGRAM_COORDINATOR_SHEET_HEADERS.size(); i++) {
+            Cell cell = headerRow.createCell(i);
+            cell.setCellValue(PROGRAM_COORDINATOR_SHEET_HEADERS.get(i));
+            cell.setCellStyle(headerStyle);
+        }
+    }
+
+    private void writeProgramCoordinatorRow(Row row, ProgramCoordinatorEntity pc, Map<Short, String> roleIdToName,
+                                            Map<String, Object> profiles) {
+        Map<String, Object> trainerData = new HashMap<>();
+        applyUserProfile(pc.getUserId().toString(), profiles, trainerData);
+        Map<String, Object> adderData = new HashMap<>();
+        applyUserProfile(pc.getCreatedBy().toString(), profiles, adderData);
+
+        int col = 0;
+        setCellValue(row, col++, trainerData.get(Constants.FIRSTNAME));
+        setCellValue(row, col++, trainerData.get(Constants.PRIMARY_EMAIL));
+        setCellValue(row, col++, roleIdToName.get(pc.getRoleId()));
+        setCellValue(row, col++, trainerData.get(Constants.DESIGNATION));
+        setCellValue(row, col++, pc.getCreatedOn());
+        setCellValue(row, col, adderData.get(Constants.FIRSTNAME));
     }
 
     /**

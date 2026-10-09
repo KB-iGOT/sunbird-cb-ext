@@ -20,6 +20,7 @@ import org.springframework.stereotype.Service;
 import org.sunbird.cache.RedisCacheMgr;
 import org.sunbird.common.model.SBApiResponse;
 import org.sunbird.common.model.SearchUserApiContent;
+import org.sunbird.common.service.ContentService;
 import org.sunbird.common.util.AccessTokenValidator;
 import org.sunbird.common.util.Constants;
 import org.sunbird.core.producer.Producer;
@@ -30,6 +31,7 @@ import org.sunbird.programcoordinator.repository.ProgramCoordinatorListDto;
 import org.sunbird.programcoordinator.repository.ProgramCoordinatorRepository;
 import org.sunbird.programcoordinator.repository.ProgramCoordinatorRoleRepository;
 import org.sunbird.user.service.UserUtilityService;
+import org.sunbird.user.util.notificationUtill.NotificationTriggerService;
 
 import javax.annotation.PostConstruct;
 
@@ -72,11 +74,15 @@ public class ProgramCoordinatorServiceImpl implements ProgramCoordinatorService 
     private Producer kafkaProducer;
     private ObjectMapper objectMapper;
     private UserUtilityService userUtilityService;
+    private ContentService contentService;
+    private NotificationTriggerService notificationTriggerService;
 
-    public ProgramCoordinatorServiceImpl(ProgramCoordinatorRepository programCoordinatorRepository, ProgramCoordinatorRoleRepository programCoordinatorRoleRepository, AccessTokenValidator accessTokenValidator, RedisCacheMgr redisCacheMgr, Producer kafkaProducer, ObjectMapper objectMapper, UserUtilityService userUtilityService) {
+    public ProgramCoordinatorServiceImpl(ProgramCoordinatorRepository programCoordinatorRepository, ProgramCoordinatorRoleRepository programCoordinatorRoleRepository, AccessTokenValidator accessTokenValidator, RedisCacheMgr redisCacheMgr, Producer kafkaProducer, ObjectMapper objectMapper, UserUtilityService userUtilityService, ContentService contentService, NotificationTriggerService notificationTriggerService) {
         this.programCoordinatorRepository = programCoordinatorRepository;
         this.programCoordinatorRoleRepository = programCoordinatorRoleRepository;
         this.accessTokenValidator = accessTokenValidator;
+        this.contentService = contentService;
+        this.notificationTriggerService = notificationTriggerService;
         this.redisCacheMgr = redisCacheMgr;
         this.kafkaProducer = kafkaProducer;
         this.objectMapper = objectMapper;
@@ -131,6 +137,7 @@ public class ProgramCoordinatorServiceImpl implements ProgramCoordinatorService 
             List<String> addedOrUpdated = new ArrayList<>();
             List<String> removed = new ArrayList<>();
             Set<String> affectedUsers = new HashSet<>();
+            Map<Short, List<String>> roleIdToNewlyAddedUserIds = new HashMap<>();
 
             for (ProgramCoordinatorUpsertRequest request : requests) {
 
@@ -151,6 +158,9 @@ public class ProgramCoordinatorServiceImpl implements ProgramCoordinatorService 
 
                     if (rows > 0) {
                         addedOrUpdated.add(request.getUserId().toString());
+                        roleIdToNewlyAddedUserIds
+                                .computeIfAbsent(request.getRoleId(), key -> new ArrayList<>())
+                                .add(request.getUserId().toString());
                     }
 
                 } else {
@@ -175,6 +185,8 @@ public class ProgramCoordinatorServiceImpl implements ProgramCoordinatorService 
 
                 kafkaProducer.push(coordinatorSyncTopic, event);
             }
+
+            notifyNewlyAddedCoordinators(programId, roleIdToNewlyAddedUserIds, actorUuid, token);
 
             Map<String, Object> result = new HashMap<>();
             result.put(Constants.PROGRAM_ID, programId);
@@ -574,6 +586,59 @@ public class ProgramCoordinatorServiceImpl implements ProgramCoordinatorService 
         return userProfiles;
     }
 
+    /**
+     * Notifies newly added/reactivated coordinators that they've been assigned a role
+     * (e.g. NLT/SMT/SLT) on this Blended Program. Grouped by roleId since the notification
+     * text/role placeholder differs per role. Any failure here is logged and swallowed so it
+     * never affects the upsert API's response.
+     */
+    private void notifyNewlyAddedCoordinators(String programId, Map<Short, List<String>> roleIdToNewlyAddedUserIds,
+            UUID actorUuid, String token) {
+        if (MapUtils.isEmpty(roleIdToNewlyAddedUserIds)) {
+            return;
+        }
+        try {
+            Map<String, Object> programContent = contentService.readContentFromCache(
+                    programId, Collections.singletonList(Constants.NAME));
+            String programName = MapUtils.isNotEmpty(programContent)
+                    ? (String) programContent.get(Constants.NAME)
+                    : null;
+
+            Map<String, SearchUserApiContent> actorProfile = getUserProfiles(
+                    Collections.singletonList(actorUuid.toString()), token);
+            SearchUserApiContent actor = actorProfile.get(actorUuid.toString());
+            String actorName = actor != null ? actor.getFirstName() : null;
+
+            for (Map.Entry<Short, List<String>> entry : roleIdToNewlyAddedUserIds.entrySet()) {
+                String roleName = roleMap.get(entry.getKey());
+                List<String> userIds = entry.getValue();
+                if (StringUtils.isBlank(roleName) || CollectionUtils.isEmpty(userIds)) {
+                    continue;
+                }
+
+                // roleName/title must go in "placeholders" (not "data") since the
+                // notification-wrapper-service only substitutes {placeholders} into the
+                // message template - "data" is passed through as opaque payload metadata.
+                Map<String, String> placeholders = new HashMap<>();
+                placeholders.put(Constants.USER_NAME, actorName);
+                placeholders.put(Constants.TITLE, programName);
+                placeholders.put(Constants.ROLE_NAME, roleName);
+
+                Map<String, Object> data = new HashMap<>();
+                data.put(Constants.PROGRAM_ID, programId);
+
+                Map<String, Object> message = new HashMap<>();
+                message.put(Constants.PLACE_HOLDERS, placeholders);
+                message.put(Constants.DATA, data);
+
+                notificationTriggerService.sendNotification(Constants.PROGRAM_COORDINATOR_ADDED,
+                        Constants.ENGAGEMENT, userIds, message);
+            }
+        } catch (Exception ex) {
+            logger.error("Failed to send program coordinator added notification for programId={}", programId, ex);
+        }
+    }
+
     @Override
     public SBApiResponse upsertByAdmin(String programId,
                                        List<ProgramCoordinatorUpsertRequest> requests,
@@ -654,6 +719,7 @@ public class ProgramCoordinatorServiceImpl implements ProgramCoordinatorService 
             List<String> addedOrUpdated = new ArrayList<>();
             List<String> removed = new ArrayList<>();
             Set<String> affectedUsers = new HashSet<>();
+            Map<Short, List<String>> roleIdToNewlyAddedUserIds = new HashMap<>();
 
             for (ProgramCoordinatorUpsertRequest request : requests) {
 
@@ -684,6 +750,9 @@ public class ProgramCoordinatorServiceImpl implements ProgramCoordinatorService 
 
                     if (rows > 0) {
                         addedOrUpdated.add(request.getUserId().toString());
+                        roleIdToNewlyAddedUserIds
+                                .computeIfAbsent(roleId, key -> new ArrayList<>())
+                                .add(request.getUserId().toString());
                     }
 
                 } else {
@@ -709,6 +778,8 @@ public class ProgramCoordinatorServiceImpl implements ProgramCoordinatorService 
 
                 kafkaProducer.push(coordinatorSyncTopic, event);
             }
+
+            notifyNewlyAddedCoordinators(programId, roleIdToNewlyAddedUserIds, actorUuid, token);
 
             Map<String, Object> result = new HashMap<>();
             result.put(Constants.PROGRAM_ID, programId);

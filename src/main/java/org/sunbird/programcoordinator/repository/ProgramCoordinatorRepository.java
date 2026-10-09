@@ -35,6 +35,20 @@ public interface ProgramCoordinatorRepository extends JpaRepository<ProgramCoord
             @Param("roleId") Short roleId, @Param("isCoTrainer") Boolean isCoTrainer, @Param("actorId") UUID actorId);
 
     /**
+     * Syncs role_id across every active program assignment a user holds under oldRoleId, after an
+     * out-of-band role promotion (e.g. the SMT-to-SLT auto-upgrade job) changes their profile-level
+     * role. updated_by is left NULL since this is a system-driven change with no human actor;
+     * created_by is deliberately untouched - it must keep recording who originally added this
+     * coordinator, not who last changed their role.
+     */
+    @Transactional
+    @Modifying(clearAutomatically = true)
+    @Query(value = "UPDATE program_coordinator SET role_id = :newRoleId, updated_by = NULL, updated_on = now() "
+            + "WHERE user_id = :userId AND role_id = :oldRoleId AND status = 1", nativeQuery = true)
+    int updateRoleIdForUser(@Param("userId") UUID userId, @Param("oldRoleId") Short oldRoleId,
+            @Param("newRoleId") Short newRoleId);
+
+    /**
      * Soft delete. 0 rows affected means the user wasn't an active coordinator to begin with.
      */
     @Transactional
