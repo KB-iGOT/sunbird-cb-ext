@@ -1900,7 +1900,7 @@ public class Constants {
 	public static final String SCANNED_COUNT = "scannedCount";
 	public static final String UPGRADED_COUNT = "upgradedCount";
 	public static final String FAILED_COUNT = "failedCount";
-  public static final String EVENT_TYPE_VERIFIED_PROFILE = "VERIFIED_PROFILE";
+    public static final String EVENT_TYPE_VERIFIED_PROFILE = "VERIFIED_PROFILE";
 	public static final int KARMA_POINTS_EVENT_VERSION = 1;
 	public static final String EDATA = "edata";
 }
