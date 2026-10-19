@@ -3,10 +3,13 @@ package org.sunbird.programcoordinator.controller;
 import javax.validation.Valid;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.io.Resource;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 import org.sunbird.common.model.SBApiResponse;
 import org.sunbird.programcoordinator.dto.ProgramCoordinatorUpsertRequest;
+import org.sunbird.programcoordinator.service.ProgramCoordinatorBulkUploadService;
 import org.sunbird.programcoordinator.service.ProgramCoordinatorService;
 import java.util.List;
 import java.util.Map;
@@ -18,9 +21,12 @@ import static org.sunbird.common.util.Constants.X_AUTH_TOKEN;
 public class ProgramCoordinatorController {
 
     private final ProgramCoordinatorService programCoordinatorService;
+    private final ProgramCoordinatorBulkUploadService programCoordinatorBulkUploadService;
 
-    public ProgramCoordinatorController(ProgramCoordinatorService programCoordinatorService) {
+    public ProgramCoordinatorController(ProgramCoordinatorService programCoordinatorService,
+            ProgramCoordinatorBulkUploadService programCoordinatorBulkUploadService) {
         this.programCoordinatorService = programCoordinatorService;
+        this.programCoordinatorBulkUploadService = programCoordinatorBulkUploadService;
     }
 
     /**
@@ -72,6 +78,57 @@ public class ProgramCoordinatorController {
 
         SBApiResponse response = programCoordinatorService.upsertByAdmin(programId, requests, token);
         return new ResponseEntity<>(response, response.getResponseCode());
+    }
+
+    /**
+     * Bulk "Program Coordinator" addition: uploads a CSV/Excel file of (Registered Name,
+     * Registered Email ID, Trainer Type) rows. Validates and queues the file for async
+     * processing; poll getBulkUploadStatus for the outcome.
+     */
+    @PostMapping("/program/coordinator/bulk-upload/{programId}")
+    public ResponseEntity<SBApiResponse> bulkUploadCoordinators(
+            @PathVariable(PROGRAM_ID) String programId,
+            @RequestParam("file") MultipartFile file,
+            @RequestHeader(X_AUTH_TOKEN) String token) {
+
+        SBApiResponse response = programCoordinatorBulkUploadService.bulkUpload(programId, file, token);
+        return new ResponseEntity<>(response, response.getResponseCode());
+    }
+
+    @GetMapping("/program/coordinator/bulk-upload/{programId}/status/{identifier}")
+    public ResponseEntity<SBApiResponse> getBulkUploadStatus(
+            @PathVariable(PROGRAM_ID) String programId,
+            @PathVariable("identifier") String identifier,
+            @RequestHeader(X_AUTH_TOKEN) String token) {
+
+        SBApiResponse response = programCoordinatorBulkUploadService.getStatus(programId, identifier, token);
+        return new ResponseEntity<>(response, response.getResponseCode());
+    }
+
+    /**
+     * Lists every bulk upload job submitted for this programme - a history/log view, same shape
+     * as the older govt user bulk-upload's GET /user/v1/bulkupload/{orgId}.
+     */
+    @GetMapping("/program/coordinator/bulk-upload/{programId}")
+    public ResponseEntity<SBApiResponse> getBulkUploadList(
+            @PathVariable(PROGRAM_ID) String programId,
+            @RequestHeader(X_AUTH_TOKEN) String token) {
+
+        SBApiResponse response = programCoordinatorBulkUploadService.getBulkUploadList(programId, token);
+        return new ResponseEntity<>(response, response.getResponseCode());
+    }
+
+    /**
+     * Downloads an uploaded or result file by name, proxying it through this service rather than
+     * handing back the raw cloud storage URL - same approach as the older govt user bulk-upload's
+     * GET /user/v1/bulkuser/download/{fileName}.
+     */
+    @GetMapping("/program/coordinator/bulk-upload/{programId}/download/{fileName}")
+    public ResponseEntity<Resource> downloadBulkUploadFile(
+            @PathVariable(PROGRAM_ID) String programId,
+            @PathVariable("fileName") String fileName) {
+
+        return programCoordinatorBulkUploadService.downloadFile(fileName);
     }
 
 }

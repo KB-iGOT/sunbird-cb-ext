@@ -1459,6 +1459,7 @@ public class Constants {
 	public static final String PLACE_HOLDERS ="placeholders";
 	public static final String ENGAGEMENT = "ENGAGEMENT";
 	public static final String CONTENT_SHARE = "CONTENT_SHARE";
+	public static final String PROGRAM_COORDINATOR_ADDED = "PROGRAM_COORDINATOR_ADDED";
 	public static final String PROFILE_IMAGE = "profile_image";
 	public static final String TOTAL_POINTS = "total_points";
 	public static final String ROW_NUM = "row_num";
@@ -1763,6 +1764,9 @@ public class Constants {
 	public static final String USER_ID_REQUIRED = "User Id is required.";
 	public static final String ROLE_ID_REQUIRED = "Role Id is required.";
 	public static final String INVALID_ROLE_ID = "Invalid role id : ";
+	public static final String INVALID_USER_ID = "Invalid user id : ";
+	public static final String ROLE_REQUIRED = "Role Id or Role Name is required.";
+	public static final String INVALID_ROLE_NAME = "Invalid role name : ";
 	public static final String DUPLICATE_COORDINATOR = "Duplicate coordinator : ";
 	public static final String INTERNAL_SERVER_ERROR = "Internal server error.";
 	public static final String ADDED_OR_UPDATED = "added_or_updated";
@@ -1773,6 +1777,7 @@ public class Constants {
 	public static final Short INACTIVE_STATUS_PC = 0;
 	public static final String EVENT_TYPE_COORDINATOR_LIST_SYNCED = "COORDINATOR_LIST_SYNCED";
 	public static final String TRAINER_TYPE = "trainerType";
+	public static final String IS_CO_TRAINER = "isCoTrainer";
 	public static final String COORDINATORS = "coordinators";
 	public static final String PC_USER_PROFILE_CACHE_KEY = "pc:user:profile:";
 	public static final String API_PROGRAM_COORDINATOR_READ = "program-coordinator-read";
@@ -1786,6 +1791,60 @@ public class Constants {
 	public static final String REQUEST_PAYLOAD_EMPTY = "Request payload is required";
 	public static final int DEFAULT_OFFSET = 0;
 	public static final String PROGRAM_COORDINATOR_LIST_EXCEPTION = "Exception occurred while listing program coordinators. Exception: ";
+
+	// Program Coordinator bulk upload
+	public static final String API_PROGRAM_COORDINATOR_BULK_UPLOAD = "api.program.coordinator.bulk.upload";
+	public static final String API_PROGRAM_COORDINATOR_BULK_UPLOAD_STATUS = "api.program.coordinator.bulk.upload.status";
+	public static final String API_PROGRAM_COORDINATOR_BULK_UPLOAD_LIST = "api.program.coordinator.bulk.upload.list";
+	public static final String TABLE_PROGRAM_COORDINATOR_BULK_UPLOAD = "program_coordinator_bulk_upload";
+	public static final String RESULT_FILE_PATH = "resultFilePath";
+	public static final String BP_PROGRAM_TRAINER = "BP_PROGRAM_TRAINER";
+	public static final String BP_CO_TRAINER = "bpCoTrainer";
+	public static final String PC_BULK_UPLOAD_COLUMN_NAME = "Registered Name";
+	public static final String PC_BULK_UPLOAD_COLUMN_EMAIL = "Registered Email ID";
+	public static final String PC_BULK_UPLOAD_COLUMN_PHONE = "Phone Number";
+	public static final String PC_BULK_UPLOAD_COLUMN_TRAINER_TYPE = "Trainer Type";
+	public static final String PC_BULK_UPLOAD_IN_PROGRESS_ERROR =
+			"Failed to upload for another request as previous request is in processing state, please try after some time.";
+	public static final String PC_BULK_UPLOAD_FILE_NOT_FOUND_ERROR = "Uploaded file not found or is empty.";
+	public static final String PC_BULK_UPLOAD_UNSUPPORTED_FILE_TYPE_ERROR =
+			"Unsupported file type. Please upload a .csv or .xlsx file.";
+	public static final String PC_BULK_UPLOAD_MANDATORY_COLUMNS_MISSING_ERROR =
+			"Uploaded file is missing mandatory columns: Registered Name, Registered Email ID, Phone Number and/or Trainer Type.";
+	public static final String PC_BULK_UPLOAD_NO_DATA_ROWS_ERROR =
+			"Uploaded file contains only headers with no data rows. Please add at least one coordinator to upload.";
+	public static final String PC_BULK_UPLOAD_TOO_MANY_ROWS_ERROR =
+			"Uploaded file exceeds the maximum allowed number of rows: %d.";
+	public static final String PC_BULK_UPLOAD_CSV_PARSE_ERROR = "Failed to parse the uploaded csv file of program coordinator bulk upload request.";
+	public static final String PC_BULK_UPLOAD_XLSX_PARSE_ERROR = "Failed to parse the uploaded excel file of program coordinator bulk upload request.";
+	public static final String PC_BULK_UPLOAD_FILE_UPLOAD_ERROR = "Failed to upload file for program coordinator bulk upload request.";
+	public static final String PC_BULK_UPLOAD_DB_INSERT_ERROR = "Failed to update database with program coordinator bulk upload file details.";
+	public static final String PC_BULK_UPLOAD_PROCESSING_ERROR = "Failed to process program coordinator bulk upload request.";
+	public static final String PC_BULK_UPLOAD_NOT_FOUND_ERROR = "No bulk upload request found for the given identifier.";
+	public static final String PC_BULK_UPLOAD_MANDATORY_VALUE_MISSING_ERROR = "Missing mandatory value(s): Registered Name, Registered Email ID, Phone Number and/or Trainer Type.";
+	public static final String PC_BULK_UPLOAD_DUPLICATE_EMAIL_ERROR = "Duplicate email within the uploaded file.";
+	public static final String PC_BULK_UPLOAD_INVALID_FULL_NAME_ERROR = "Invalid Full Name.";
+	public static final String PC_BULK_UPLOAD_INVALID_EMAIL_ERROR = "Invalid Email format.";
+	public static final String PC_BULK_UPLOAD_INVALID_PHONE_ERROR = "Invalid Phone Number. Expecting a 10-digit number.";
+	public static final String PC_BULK_UPLOAD_INVALID_TRAINER_TYPE_ERROR = "Invalid Trainer Type.";
+	public static final String PC_BULK_UPLOAD_USER_NOT_REGISTERED_ERROR = "User is not registered.";
+	public static final String PC_BULK_UPLOAD_NAME_MISMATCH_ERROR = "Registered Name does not match the registered user's name.";
+	public static final String PC_BULK_UPLOAD_ALREADY_COORDINATOR_ERROR = "User is already assigned this Trainer Type on this programme.";
+	public static final String PC_BULK_UPLOAD_ROLE_CHANGE_NOT_ALLOWED_ERROR = "User already has a different Trainer Type on this programme; role changes are not supported via bulk upload.";
+	public static final String PC_BULK_UPLOAD_EXISTING_PC_CANNOT_BE_TRAINER_ERROR = "User is already a Program Coordinator on this programme and cannot be converted to a Trainer via bulk upload.";
+	public static final String PC_BULK_UPLOAD_SUBROLE_MISMATCH_ERROR = "User already holds a different Trainer Type; cannot be added with a mismatched Trainer Type via bulk upload.";
+	public static final String PC_BULK_UPLOAD_MULTIPLE_ACTIVE_ACCOUNTS_ERROR = "Multiple active accounts found for this user.";
+	public static final String PC_BULK_UPLOAD_EMAIL_PHONE_MISMATCH_ERROR = "Registered Email ID and Phone Number do not belong to the same account.";
+	public static final String PC_BULK_UPLOAD_NEW_USER_CREATED_NOTE = "User account created as no existing registration was found.";
+	public static final String PC_BULK_UPLOAD_USER_CREATE_FAILED_ERROR = "Failed to create a new user account.";
+	public static final String PC_BULK_UPLOAD_ROW_PROCESSING_ERROR = "Failed to process this row.";
+	public static final String PC_BULK_UPLOAD_ROLE_ASSIGN_FAILED_ERROR = "Failed to assign BP_PROGRAM_TRAINER role to user.";
+	public static final String PC_BULK_UPLOAD_TRAINER_TYPE_NOT_ALLOWED_FOR_PROGRAM_ERROR = "This Trainer Type is not permitted for bulk upload on this programme.";
+	public static final String BATCH_SETTINGS = "batchSettings";
+	public static final String COORDINATOR_TYPE = "coordinatorType";
+	public static final String ACTIVITIES = "activities";
+	public static final String MANAGE_OWN_BATCHES = "MANAGE_OWN_BATCHES";
+	public static final String PC_BULK_UPLOAD_PROFILE_UPDATE_FAILED_ERROR = "Failed to update user profile details.";
 
 	public static final String INVALID_STATUS =
 			"Status should be either 0 (remove) or 1 (add/update).";
@@ -1801,6 +1860,7 @@ public class Constants {
 	public static final String POINTS_REDEMPTION = "POINTS_REDEMPTION";
 	public static final String POINTS_CONVERSION = "POINTS_CONVERSION";
 	public static final String PENDING_ENROLMENT_KEY_PREFIX = "pendingEnrolment";
+	public static final String PENDING_ENROLMENT_STATUS_PENDING = "Pending";
 	public static final String PROCESSING = "PROCESSING";
 	public static final String ACCEPTED = "ACCEPTED";
 	public static final String MONTHLY_CAP_EXCEEDED = "MONTHLY_CAP_EXCEEDED";
@@ -1827,7 +1887,20 @@ public class Constants {
 	public static final String IN_PROGRESS = "IN_PROGRESS";
 	public static final String PIPE_SEPARATOR = "|";
 	public static final String TXN_STATUS_IN_PROGRESS = "IN_PROGRESS";
-	public static final String EVENT_TYPE_VERIFIED_PROFILE = "VERIFIED_PROFILE";
+	public static final String CBATCH_INDEX = "course-batch";
+	public static final String FIELD_CREATED_BY = "createdBy";
+	public static final String FIELD_MENTORS = "mentors";
+	public static final String FIELD_CO_TRAINERS = "coTrainers";
+	public static final String FIELD_STATUS = "status";
+	public static final String FIELD_BATCH_ID = "batchId";
+	public static final String FIELD_ENROLMENT_COUNT = "enrolmentCount";
+	public static final int BATCH_STATUS_COMPLETED = 2;
+	public static final String FIELD_RAW_SUFFIX = ".raw";
+	public static final String PROFILE_DETAILS_BP_CO_TRAINER = "profileDetails.bpCoTrainer";
+	public static final String SCANNED_COUNT = "scannedCount";
+	public static final String UPGRADED_COUNT = "upgradedCount";
+	public static final String FAILED_COUNT = "failedCount";
+  public static final String EVENT_TYPE_VERIFIED_PROFILE = "VERIFIED_PROFILE";
 	public static final int KARMA_POINTS_EVENT_VERSION = 1;
 	public static final String EDATA = "edata";
 }

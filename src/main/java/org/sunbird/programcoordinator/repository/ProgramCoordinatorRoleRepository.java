@@ -1,5 +1,7 @@
 package org.sunbird.programcoordinator.repository;
 
+import java.util.Optional;
+
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.sunbird.programcoordinator.entity.ProgramCoordinatorRoleEntity;
 
@@ -8,4 +10,6 @@ import org.sunbird.programcoordinator.entity.ProgramCoordinatorRoleEntity;
  * program_coordinator FK constraint.
  */
 public interface ProgramCoordinatorRoleRepository extends JpaRepository<ProgramCoordinatorRoleEntity, Short> {
+
+    Optional<ProgramCoordinatorRoleEntity> findByRoleCode(String roleCode);
 }

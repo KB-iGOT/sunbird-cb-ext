@@ -8,15 +8,17 @@ public class ProgramCoordinatorListDto {
     private UUID userId;
     private Short roleId;
     private String roleName;
+    private Boolean isCoTrainer;
     private UUID createdBy;
     private Date createdOn;
     private Date updatedOn;
 
-    public ProgramCoordinatorListDto(UUID userId, Short roleId, String roleName, UUID createdBy,
-            Date createdOn, Date updatedOn) {
+    public ProgramCoordinatorListDto(UUID userId, Short roleId, String roleName, Boolean isCoTrainer,
+            UUID createdBy, Date createdOn, Date updatedOn) {
         this.userId = userId;
         this.roleId = roleId;
         this.roleName = roleName;
+        this.isCoTrainer = isCoTrainer;
         this.createdBy = createdBy;
         this.createdOn = createdOn;
         this.updatedOn = updatedOn;
@@ -34,6 +36,9 @@ public class ProgramCoordinatorListDto {
         return roleName;
     }
 
+    public Boolean getIsCoTrainer() {
+        return isCoTrainer;
+    }
 
     public UUID getCreatedBy() {
         return createdBy;

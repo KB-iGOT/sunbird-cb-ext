@@ -46,6 +46,9 @@ public class ProgramCoordinatorEntity {
     @Column(name = "status")
     private Short status;
 
+    @Column(name = "is_co_trainer")
+    private Boolean isCoTrainer;
+
     @Column(name = "created_by")
     private UUID createdBy;
 
