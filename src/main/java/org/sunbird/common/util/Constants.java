@@ -1854,6 +1854,9 @@ public class Constants {
 	public static final String KAFKA_EVENT_VERSION_KEY = "version";
 	public static final String EVENT_TYPE_EVENT_ATTENDED = "EVENT_ATTENDED";
 	public static final String EVENT_TYPE_RATING = "RATING";
+	public static final String EVENT_TYPE_VERIFIED_PROFILE = "VERIFIED_PROFILE";
+	public static final int KARMA_POINTS_EVENT_VERSION = 1;
+	public static final String EDATA = "edata";
 	public static final String API_KARMA_WALLET_REDEEM = "api.karma.wallet.redeem";
 	public static final String REQUEST_ID = "requestId";
 	public static final String POINTS_TO_CONVERT = "pointsToConvert";
