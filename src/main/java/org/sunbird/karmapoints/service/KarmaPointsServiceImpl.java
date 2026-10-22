@@ -95,14 +95,29 @@ public class KarmaPointsServiceImpl implements KarmaPointsService {
         resultMap.put(Constants.KARMA_POINTS_LIST, result);
         return resultMap;
     }
+
+    /**
+     * KPI 2.2 (ACBP claim): publishes ACBP_CLAIM to the karma points unified topic, keyed by userId,
+     * for karma-points-processor-v2 (ACBPClaimHandler reads data.edata.userId / data.edata.courseId).
+     * Contract: {"eventType": "ACBP_CLAIM", "data": {"edata": {"userId", "courseId"}}, "version": 2}.
+     */
+    @Override
     public void claimKarmaPoints(ClaimKarmaPointsRequest request) {
-        Map<String, Object> karmaPointsDataMap = new HashMap<>();
         Map<String, Object> edata = new HashMap<>();
         edata.put(Constants.USER_ID, request.getUserId());
         edata.put(Constants.COURSE_ID, request.getCourseId());
-        karmaPointsDataMap.put("edata",edata);
-        kafkaProducer.push(serverProperties.getClaimKarmaPointsTopic(), karmaPointsDataMap);
-        logger.info("UserID and CourseId successfully Published to : " + serverProperties.getClaimKarmaPointsTopic());
+        Map<String, Object> data = new HashMap<>();
+        data.put(Constants.EDATA, edata);
+
+        Map<String, Object> event = new HashMap<>();
+        event.put(Constants.EVENT_TYPE, Constants.EVENT_TYPE_ACBP_CLAIM);
+        event.put(Constants.DATA, data);
+        event.put(Constants.KAFKA_EVENT_VERSION_KEY, serverProperties.getKafkaEventEnvelopeVersion());
+
+        String topic = serverProperties.getKarmaPointsUnifiedEventTopic();
+        kafkaProducer.pushWithKey(topic, event, request.getUserId());
+        logger.info("[KARMA_POINTS][ACBP_CLAIM][published] userId={}, courseId={}, topic={}",
+                request.getUserId(), request.getCourseId(), topic);
     }
 
     public Map<String, Object> userTotalKarmaPoints(String userId){

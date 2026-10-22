@@ -1905,4 +1905,5 @@ public class Constants {
 	public static final String SCANNED_COUNT = "scannedCount";
 	public static final String UPGRADED_COUNT = "upgradedCount";
 	public static final String FAILED_COUNT = "failedCount";
+	public static final String EVENT_TYPE_ACBP_CLAIM = "ACBP_CLAIM";
 }

@@ -619,8 +619,6 @@ public class CbExtServerProperties {
 
 	@Value("${karma.points.limit}")
 	private int KarmaPointsLimit;
-	@Value("${kafka.topics.claim.acbp.karma.points}")
-	private String claimKarmaPointsTopic;
 	@Value("${karma.coin.monthly.cap}")
 	private int karmaCoinMonthlyCap;
 	@Value("${karma.coin.wallet.redis.ttl}")
@@ -3020,10 +3018,6 @@ public class CbExtServerProperties {
 		KarmaPointsLimit = karmaPointsLimit;
 	}
 
-	public String getClaimKarmaPointsTopic() {
-		return claimKarmaPointsTopic;
-	}
-
 	public int getKarmaCoinMonthlyCap() {
 		return karmaCoinMonthlyCap;
 	}
@@ -3062,10 +3056,6 @@ public class CbExtServerProperties {
 
 	public void setKarmaCoinWalletAuthorizedRoles(String karmaCoinWalletAuthorizedRoles) {
 		this.karmaCoinWalletAuthorizedRoles = karmaCoinWalletAuthorizedRoles;
-	}
-
-	public void setClaimKarmaPointsTopic(String claimKarmaPointsTopic) {
-		this.claimKarmaPointsTopic = claimKarmaPointsTopic;
 	}
 
 	public Map<String, String> getReportMap() {
