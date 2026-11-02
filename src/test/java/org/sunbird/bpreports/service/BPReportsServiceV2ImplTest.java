@@ -28,8 +28,8 @@ import org.sunbird.common.service.OutboundRequestHandlerServiceImpl;
 import org.sunbird.common.util.AccessTokenValidator;
 import org.sunbird.common.util.CbExtServerProperties;
 import org.sunbird.common.util.Constants;
-import org.sunbird.common.util.IndexerService;
 import org.sunbird.core.producer.Producer;
+import org.sunbird.form.repository.FormSubmissionReadRepository;
 import org.sunbird.programcoordinator.entity.ProgramCoordinatorEntity;
 import org.sunbird.programcoordinator.entity.ProgramCoordinatorRoleEntity;
 import org.sunbird.programcoordinator.repository.ProgramCoordinatorRepository;
@@ -63,7 +63,7 @@ class BPReportsServiceV2ImplTest {
     @Mock
     private StorageService storageService;
     @Mock
-    private IndexerService indexerService;
+    private FormSubmissionReadRepository formSubmissionReadRepository;
     @Mock
     private ProgramCoordinatorRepository programCoordinatorRepository;
     @Mock
@@ -79,7 +79,7 @@ class BPReportsServiceV2ImplTest {
         objectMapper = new ObjectMapper();
         service = new BPReportsServiceV2Impl(accessTokenValidator, userUtilityService, cassandraOperation,
                 kafkaProducer, serverProperties, wfStatusEntityRepository, outboundRequestHandlerService,
-                objectMapper, storageService, indexerService, programCoordinatorRepository,
+                objectMapper, storageService, formSubmissionReadRepository, programCoordinatorRepository,
                 programCoordinatorRoleRepository);
         workbook = new XSSFWorkbook();
         when(serverProperties.getBpReportCassandraInChunkSize()).thenReturn(100);

@@ -11,7 +11,6 @@ import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
-import org.elasticsearch.search.sort.SortOrder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,6 +22,7 @@ import org.sunbird.common.util.CbExtServerProperties;
 import org.sunbird.common.util.Constants;
 import org.sunbird.common.util.IndexerService;
 import org.sunbird.common.util.ProjectUtil;
+import org.sunbird.form.repository.FormSubmissionReadRepository;
 import org.sunbird.storage.service.StorageService;
 
 import java.io.*;
@@ -53,6 +53,9 @@ public class PeerValidationReportConsumer {
 
     @Autowired
     private StorageService storageService;
+
+    @Autowired
+    private FormSubmissionReadRepository formSubmissionReadRepository;
 
     private static final String CONSUMER_IDENTITY = "user-survey-report-consumer";
     private static final int PAGE_SIZE = 100;
@@ -288,60 +291,24 @@ public class PeerValidationReportConsumer {
             // First pass: collect all submissions and peer IDs
             List<Map<String, Object>> allSubmissions = new ArrayList<>();
             Set<String> allPeerIds = new HashSet<>();
-            Object[] searchAfter = null;
 
             logger.info("Starting first pass to collect submissions and peer IDs for formId: {}", formId);
 
-            while (true) {
-                SearchSourceBuilder sourceBuilder = new SearchSourceBuilder();
+            formSubmissionReadRepository.forEachSubmission(formId, Constants.CONTEXT_TYPE_PEER_VALIDATION_SURVEY,
+                    Constants.SUBMITTED, PAGE_SIZE, submission -> {
+                        allSubmissions.add(submission);
 
-                BoolQueryBuilder query = QueryBuilders.boolQuery()
-                        .must(QueryBuilders.termQuery(Constants.FORM_ID, formId))
-                        .must(QueryBuilders.termQuery(Constants.CONTEXT_TYPE, Constants.CONTEXT_TYPE_PEER_VALIDATION_SURVEY))
-                        .must(QueryBuilders.termQuery(Constants.STATUS, Constants.SUBMITTED));
-
-                sourceBuilder.query(query);
-                sourceBuilder.size(PAGE_SIZE);
-                // Use _id for sorting as it's always available and sortable
-                sourceBuilder.sort(Constants.ES_SORT_FIELD_ID, SortOrder.ASC);
-
-                if (searchAfter != null) {
-                    sourceBuilder.searchAfter(searchAfter);
-                }
-
-                SearchResponse searchResponse = indexerService.getEsResult(
-                        serverProperties.getUserFormDataIndexV2(),
-                        Constants.ES_DOC_TYPE,
-                        sourceBuilder,
-                        ProjectUtil.ESIndexType.IGOT_ES
-                );
-
-                SearchHit[] hits = searchResponse.getHits().getHits();
-                if (hits == null || hits.length == 0) {
-                    break; // No more results
-                }
-
-                // Collect submissions and extract peer IDs
-                for (SearchHit hit : hits) {
-                    Map<String, Object> submission = hit.getSourceAsMap();
-                    allSubmissions.add(submission);
-
-                    // Extract peer IDs from this submission
-                    List<Map<String, Object>> peerReviews = (List<Map<String, Object>>) submission.get(Constants.PEER_REVIEWS);
-                    if (peerReviews != null) {
-                        for (Map<String, Object> peer : peerReviews) {
-                            String peerId = getStringValue(peer.get(Constants.PEER_ID));
-                            if (StringUtils.isNotBlank(peerId)) {
-                                allPeerIds.add(peerId);
+                        // Extract peer IDs from this submission
+                        List<Map<String, Object>> peerReviews = (List<Map<String, Object>>) submission.get(Constants.PEER_REVIEWS);
+                        if (peerReviews != null) {
+                            for (Map<String, Object> peer : peerReviews) {
+                                String peerId = getStringValue(peer.get(Constants.PEER_ID));
+                                if (StringUtils.isNotBlank(peerId)) {
+                                    allPeerIds.add(peerId);
+                                }
                             }
                         }
-                    }
-                }
-
-                // Prepare for next page
-                searchAfter = hits[hits.length - 1].getSortValues();
-                logger.info("Collected {} submissions so far, total unique peer IDs: {}", allSubmissions.size(), allPeerIds.size());
-            }
+                    });
 
             logger.info("First pass complete. Total submissions: {}, Total unique peer IDs: {}", allSubmissions.size(), allPeerIds.size());
 

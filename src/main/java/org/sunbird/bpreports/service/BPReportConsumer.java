@@ -8,13 +8,6 @@ import org.apache.http.HttpHeaders;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
-import org.elasticsearch.action.search.SearchResponse;
-import org.elasticsearch.index.query.BoolQueryBuilder;
-import org.elasticsearch.index.query.MatchQueryBuilder;
-import org.elasticsearch.index.query.QueryBuilders;
-import org.elasticsearch.search.SearchHit;
-import org.elasticsearch.search.builder.SearchSourceBuilder;
-import org.elasticsearch.search.sort.SortOrder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
@@ -31,8 +24,7 @@ import org.sunbird.common.model.SBApiResponse;
 import org.sunbird.common.service.OutboundRequestHandlerServiceImpl;
 import org.sunbird.common.util.CbExtServerProperties;
 import org.sunbird.common.util.Constants;
-import org.sunbird.common.util.IndexerService;
-import org.sunbird.common.util.ProjectUtil.ESIndexType;
+import org.sunbird.form.repository.FormSubmissionReadRepository;
 import org.sunbird.storage.service.StorageService;
 
 import javax.ws.rs.core.MediaType;
@@ -53,7 +45,7 @@ public class BPReportConsumer {
     private final ObjectMapper mapper;
     private final WfStatusEntityRepository wfStatusEntityRepository;
     private final CassandraOperation cassandraOperation;
-    private final IndexerService indexerService;
+    private final FormSubmissionReadRepository formSubmissionReadRepository;
     private final CbExtServerProperties serverProperties;
     private final StorageService storageService;
     private final OutboundRequestHandlerServiceImpl outboundRequestHandlerService;
@@ -470,40 +462,11 @@ public class BPReportConsumer {
     private List<Map<String, Object>> getUserFormData(String surveyId, String userId, String contextId) {
         List<Map<String, Object>> result = new ArrayList<>();
         try {
-            // Build the search request
-            SearchSourceBuilder sourceBuilder = new SearchSourceBuilder();
-
-            // Build the base query
-            BoolQueryBuilder finalQuery = QueryBuilders.boolQuery()
-                    .must(QueryBuilders.termQuery(Constants.FORM_ID, surveyId))
-                    .must(QueryBuilders.termQuery(Constants.CONTEXT_ID_CAMEL, contextId))
-                    .must(QueryBuilders.termQuery(Constants.SUBMITTED_BY, userId));
-
-            // Apply query and sorting
-            sourceBuilder.query(finalQuery);
-            sourceBuilder.sort(Constants.SUBMITTED_DATE, SortOrder.DESC); // Sorting by timestamp in descending order
-
-            // Execute the search request
-            SearchResponse searchResponse = indexerService.getEsResult(
-                    serverProperties.getUserFormDataIndexV2(),
-                    serverProperties.getEsFormIndexType(),
-                    sourceBuilder,
-                    ESIndexType.IGOT_ES
-            );
-
-            // Process search results
-            if (searchResponse != null && searchResponse.getHits().getHits().length > 0) {
-                for (SearchHit hit : searchResponse.getHits().getHits()) {
-                    Map<String, Object> sourceMap = hit.getSourceAsMap();
-                    if (sourceMap != null) {
-                        result.add(sourceMap);
-                    }
-                }
-            } else {
+            result = formSubmissionReadRepository.findUserSubmission(surveyId, userId, contextId);
+            if (result.isEmpty()) {
                 logger.warn("No results found for surveyId: {} and userId: {}", surveyId, userId);
             }
-
-        } catch (IOException e) {
+        } catch (Exception e) {
             logger.error("Error while processing user form response for surveyId: {} and userId: {}", surveyId, userId, e);
         }
 
@@ -773,61 +736,30 @@ public class BPReportConsumer {
     private Map<String, Object> getUserBatchFormData(String surveyId) {
         Map<String, Object> resultMap = new LinkedHashMap<>();
         final int BATCH_SIZE = 500;
-        Object[] searchAfter = null;
 
         try {
-            while (true) {
-                SearchSourceBuilder sourceBuilder = new SearchSourceBuilder();
-
-                // Query
-                BoolQueryBuilder finalQuery = QueryBuilders.boolQuery()
-                        .must(QueryBuilders.termQuery(Constants.FORM_ID, surveyId));
-
-                sourceBuilder.query(finalQuery);
-                sourceBuilder.sort(Constants.SUBMITTED_DATE, SortOrder.DESC);
-                sourceBuilder.size(BATCH_SIZE);
-
-                if (searchAfter != null) {
-                    sourceBuilder.searchAfter(searchAfter);
+            // oldest first, so each user ends up with their latest submission
+            formSubmissionReadRepository.forEachSubmission(surveyId, null, null, BATCH_SIZE, submission -> {
+                List<Map<String, Object>> questionsAnswerList =
+                        (List<Map<String, Object>>) submission.get(Constants.RESPONSES);
+                if (CollectionUtils.isEmpty(questionsAnswerList)) {
+                    return;
                 }
 
-                SearchResponse searchResponse = indexerService.getEsResult(
-                        serverProperties.getUserFormDataIndexV2(),
-                        serverProperties.getEsFormIndexType(),
-                        sourceBuilder,
-                        ESIndexType.IGOT_ES
-                );
+                Map<String, Object> questionsAnswerMap = questionsAnswerList.stream()
+                        .filter(Objects::nonNull)
+                        .filter(qa -> qa.get(Constants.QUESTION) != null)
+                        .collect(Collectors.toMap(
+                                qa -> (String) qa.get(Constants.QUESTION),
+                                qa -> qa.get(Constants.ANSWER),
+                                (existing, replacement) -> replacement,
+                                LinkedHashMap::new
+                        ));
 
-                SearchHit[] hits = searchResponse.getHits().getHits();
-                if (hits == null || hits.length == 0) {
-                    break; // stop when no records found
-                }
+                resultMap.put((String) submission.get(Constants.SUBMITTED_BY), questionsAnswerMap);
+            });
 
-                for (SearchHit hit : hits) {
-                    Map<String, Object> sourceMap = hit.getSourceAsMap();
-                    if (sourceMap != null) {
-                        List<Map<String, Object>> questionsAnswerList =
-                                (List<Map<String, Object>>) sourceMap.get(Constants.RESPONSES);
-
-                        Map<String, Object> questionsAnswerMap = questionsAnswerList.stream()
-                                .filter(Objects::nonNull)
-                                .filter(qa -> qa.get(Constants.QUESTION) != null)
-                                .collect(Collectors.toMap(
-                                        qa -> (String) qa.get(Constants.QUESTION),
-                                        qa -> qa.get(Constants.ANSWER),
-                                        (existing, replacement) -> replacement,
-                                        LinkedHashMap::new
-                                ));
-
-                        resultMap.put((String) sourceMap.get(Constants.SUBMITTED_BY), questionsAnswerMap);
-                    }
-                }
-
-                // Prepare next search_after value (use last hit’s sort values)
-                searchAfter = hits[hits.length - 1].getSortValues();
-            }
-
-        } catch (IOException e) {
+        } catch (Exception e) {
             logger.error("Error while processing user form response for surveyId: {}", surveyId, e);
         }
 

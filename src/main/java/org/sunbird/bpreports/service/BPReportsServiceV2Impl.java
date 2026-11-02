@@ -7,12 +7,6 @@ import org.apache.commons.collections.MapUtils;
 import org.apache.commons.lang.StringUtils;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.streaming.SXSSFWorkbook;
-import org.elasticsearch.action.search.SearchResponse;
-import org.elasticsearch.index.query.BoolQueryBuilder;
-import org.elasticsearch.index.query.QueryBuilders;
-import org.elasticsearch.search.SearchHit;
-import org.elasticsearch.search.builder.SearchSourceBuilder;
-import org.elasticsearch.search.sort.SortOrder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
@@ -29,9 +23,9 @@ import org.sunbird.common.service.OutboundRequestHandlerServiceImpl;
 import org.sunbird.common.util.AccessTokenValidator;
 import org.sunbird.common.util.CbExtServerProperties;
 import org.sunbird.common.util.Constants;
-import org.sunbird.common.util.IndexerService;
 import org.sunbird.common.util.ProjectUtil;
 import org.sunbird.core.producer.Producer;
+import org.sunbird.form.repository.FormSubmissionReadRepository;
 import org.sunbird.programcoordinator.entity.ProgramCoordinatorEntity;
 import org.sunbird.programcoordinator.entity.ProgramCoordinatorRoleEntity;
 import org.sunbird.programcoordinator.repository.ProgramCoordinatorRepository;
@@ -73,7 +67,7 @@ public class BPReportsServiceV2Impl implements BPReportsServiceV2 {
     private final OutboundRequestHandlerServiceImpl outboundRequestHandlerService;
     private final ObjectMapper objectMapper;
     private final StorageService storageService;
-    private final IndexerService indexerService;
+    private final FormSubmissionReadRepository formSubmissionReadRepository;
     private final ProgramCoordinatorRepository programCoordinatorRepository;
     private final ProgramCoordinatorRoleRepository programCoordinatorRoleRepository;
 
@@ -1376,10 +1370,11 @@ public class BPReportsServiceV2Impl implements BPReportsServiceV2 {
 
     /**
      * Fetches Designation/Group "filled during enrollment" from the batch's Profile Survey
-     * form responses in Elasticsearch — mirrors V1's getUserBatchFormData. The survey form
-     * is identified by batch_attributes.profileSurveyId; each submission is a question/answer
-     * document keyed by submittedBy (userId). Returns an empty map if the batch has no
-     * profileSurveyId configured or the index has no matching submissions.
+     * form submissions in Postgres (form_submissions) — mirrors V1's getUserBatchFormData.
+     * The survey form is identified by batch_attributes.profileSurveyId; each submission's
+     * question/answer pairs are keyed by submittedBy (userId), latest submission winning.
+     * Returns an empty map if the batch has no profileSurveyId configured or the form has
+     * no submissions.
      */
     private Map<String, Map<String, Object>> fetchProfileSurveyResponses(Map<String, Object> batchDetails) {
         String profileSurveyId = extractProfileSurveyId(batchDetails);
@@ -1388,20 +1383,10 @@ public class BPReportsServiceV2Impl implements BPReportsServiceV2 {
         }
         Map<String, Map<String, Object>> resultMap = new LinkedHashMap<>();
         try {
-            Object[] searchAfter = null;
-            SearchHit[] hits;
-            do {
-                SearchResponse searchResponse = searchProfileSurveyPage(profileSurveyId, searchAfter);
-                hits = searchResponse.getHits().getHits();
-                if (ObjectUtils.isEmpty(hits)) {
-                    hits = new SearchHit[0];
-                }
-                for (SearchHit hit : hits) {
-                    collectSurveyResponse(hit, resultMap);
-                }
-                searchAfter = hits.length == 0 ? null : hits[hits.length - 1].getSortValues();
-            } while (hits.length > 0);
-        } catch (IOException e) {
+            formSubmissionReadRepository.forEachSubmission(profileSurveyId, null, null,
+                    serverProperties.getBpReportProfileSurveyEsPageSize(),
+                    submission -> collectSurveyResponse(submission, resultMap));
+        } catch (Exception e) {
             logger.error("BPReportsServiceV2Impl:: fetchProfileSurveyResponses: Failed for profileSurveyId: {}", profileSurveyId, e);
         }
         logger.info("BPReportsServiceV2Impl:: fetchProfileSurveyResponses: {} records found for profileSurveyId: {}", resultMap.size(), profileSurveyId);
@@ -1435,35 +1420,10 @@ public class BPReportsServiceV2Impl implements BPReportsServiceV2 {
     }
 
     /**
-     * Fetches one page of form-data-index submissions for the given survey, ordered by
-     * submittedDate desc. Pass the previous page's last sort values as searchAfter to
-     * page forward; null fetches the first page.
-     */
-    private SearchResponse searchProfileSurveyPage(String profileSurveyId, Object[] searchAfter) throws IOException {
-        logger.debug("BPReportsServiceV2Impl:: searchProfileSurveyPage: profileSurveyId: {}, hasSearchAfter: {}",
-                profileSurveyId, !ObjectUtils.isEmpty(searchAfter));
-        SearchSourceBuilder sourceBuilder = new SearchSourceBuilder();
-        BoolQueryBuilder finalQuery = QueryBuilders.boolQuery()
-                .must(QueryBuilders.termQuery(Constants.FORM_ID, profileSurveyId));
-        sourceBuilder.query(finalQuery);
-        sourceBuilder.sort(Constants.SUBMITTED_DATE, SortOrder.DESC);
-        sourceBuilder.size(serverProperties.getBpReportProfileSurveyEsPageSize());
-        if (!ObjectUtils.isEmpty(searchAfter)) {
-            sourceBuilder.searchAfter(searchAfter);
-        }
-        return indexerService.getEsResult(
-                serverProperties.getUserFormDataIndexV2(),
-                serverProperties.getEsFormIndexType(),
-                sourceBuilder,
-                ProjectUtil.ESIndexType.IGOT_ES);
-    }
-
-    /**
      * Extracts one submission's question/answer pairs and stores them keyed by submittedBy
-     * (userId) into resultMap. No-ops if the hit has no source or no responses array.
+     * (userId) into resultMap. No-ops if the submission has no responses array.
      */
-    private void collectSurveyResponse(SearchHit hit, Map<String, Map<String, Object>> resultMap) {
-        Map<String, Object> sourceMap = hit.getSourceAsMap();
+    private void collectSurveyResponse(Map<String, Object> sourceMap, Map<String, Map<String, Object>> resultMap) {
         if (MapUtils.isEmpty(sourceMap)) {
             return;
         }
