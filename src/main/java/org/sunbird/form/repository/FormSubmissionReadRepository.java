@@ -3,6 +3,7 @@ package org.sunbird.form.repository;
 import java.io.IOException;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Types;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -29,7 +30,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 @Repository
 public class FormSubmissionReadRepository {
 
-    private static final Logger logger = LoggerFactory.getLogger(FormSubmissionReadRepository.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(FormSubmissionReadRepository.class);
 
     private static final String COLUMNS = "submissionid, formid, userid, contextid, contexttype, contextname, "
             + "contextorgid, status, fullname, submittedby, submitteddate, updatedby, updateddate, version, "
@@ -88,8 +89,8 @@ public class FormSubmissionReadRepository {
         do {
             MapSqlParameterSource params = new MapSqlParameterSource()
                     .addValue("formId", formId)
-                    .addValue("contextType", contextType, java.sql.Types.VARCHAR)
-                    .addValue("status", status == null ? null : status.toUpperCase(), java.sql.Types.VARCHAR)
+                    .addValue("contextType", contextType, Types.VARCHAR)
+                    .addValue("status", status == null ? null : status.toUpperCase(), Types.VARCHAR)
                     .addValue("afterDate", afterDate)
                     .addValue("afterId", afterId)
                     .addValue("limit", pageSize);
@@ -105,7 +106,7 @@ public class FormSubmissionReadRepository {
                 total += page.size();
             }
         } while (page.size() == pageSize);
-        logger.info("FormSubmissionReadRepository:: forEachSubmission: formId: {}, contextType: {}, status: {}, rows: {}",
+        LOGGER.info("FormSubmissionReadRepository:: forEachSubmission: formId: {}, contextType: {}, status: {}, rows: {}",
                 formId, contextType, status, total);
     }
 
@@ -144,7 +145,7 @@ public class FormSubmissionReadRepository {
         try {
             return objectMapper.readValue(json, JSON_TYPE);
         } catch (IOException e) {
-            logger.error("FormSubmissionReadRepository:: readJson: invalid {} for submissionid: {}",
+            LOGGER.error("FormSubmissionReadRepository:: readJson: invalid {} for submissionid: {}",
                     column, rs.getString("submissionid"), e);
             return null;
         }

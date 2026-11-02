@@ -21,6 +21,7 @@ import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.mockito.ArgumentMatchers;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.springframework.jdbc.core.RowMapper;
@@ -74,11 +75,43 @@ class FormSubmissionReadRepositoryTest {
     }
 
     @Test
+    void toSubmissionKeepsMissingValuesAsNullAndSkipsInvalidJson() throws Exception {
+        ResultSet rs = mock(ResultSet.class);
+        when(rs.getString("submissionid")).thenReturn("sub-2");
+        when(rs.wasNull()).thenReturn(true);
+        when(rs.getString("responses")).thenReturn("not-json");
+        when(rs.getString("peerreviews")).thenReturn(" ");
+
+        Map<String, Object> submission = repository.toSubmission(rs);
+
+        assertNull(submission.get("submittedDate"));
+        assertNull(submission.get("responses"));
+        assertNull(submission.get("peerReviews"));
+    }
+
+    @Test
+    void rowMappersBuildSubmissions() throws Exception {
+        ResultSet rs = mock(ResultSet.class);
+        when(rs.getString("submissionid")).thenReturn("sub-3");
+        ArgumentCaptor<RowMapper<Object>> mapper = ArgumentCaptor.forClass(RowMapper.class);
+        doReturn(Collections.emptyList()).when(jdbcTemplate)
+                .query(anyString(), any(SqlParameterSource.class), ArgumentMatchers.<RowMapper<Object>>any());
+
+        repository.findUserSubmission("form-1", "user-1", "ctx");
+        repository.forEachSubmission("form-1", null, null, 10, submission -> { });
+
+        verify(jdbcTemplate, times(2)).query(anyString(), any(SqlParameterSource.class), mapper.capture());
+        for (RowMapper<Object> rowMapper : mapper.getAllValues()) {
+            assertEquals("sub-3", ((Map<?, ?>) rowMapper.mapRow(rs, 0)).get("submissionId"));
+        }
+    }
+
+    @Test
     void forEachSubmissionPagesFromTheLastRowOfEachPage() {
         List<Map<String, Object>> page1 = Arrays.asList(row("sub-a", 10L), row("sub-b", 20L));
         List<Map<String, Object>> page2 = Collections.singletonList(row("sub-c", 30L));
         doReturn(page1, page2).when(jdbcTemplate)
-                .query(anyString(), any(SqlParameterSource.class), any(RowMapper.class));
+                .query(anyString(), any(SqlParameterSource.class), ArgumentMatchers.<RowMapper<Object>>any());
 
         List<Object> seen = new ArrayList<>();
         repository.forEachSubmission("form-1", "peerValidationSurvey", "submitted", 2,
@@ -86,7 +119,7 @@ class FormSubmissionReadRepositoryTest {
 
         assertEquals(Arrays.asList("sub-a", "sub-b", "sub-c"), seen);
         ArgumentCaptor<SqlParameterSource> params = ArgumentCaptor.forClass(SqlParameterSource.class);
-        verify(jdbcTemplate, times(2)).query(anyString(), params.capture(), any(RowMapper.class));
+        verify(jdbcTemplate, times(2)).query(anyString(), params.capture(), ArgumentMatchers.<RowMapper<Object>>any());
 
         MapSqlParameterSource first = (MapSqlParameterSource) params.getAllValues().get(0);
         assertEquals(-1L, first.getValue("afterDate"));
@@ -103,12 +136,12 @@ class FormSubmissionReadRepositoryTest {
     @Test
     void forEachSubmissionWithoutFiltersPassesNulls() {
         doReturn(Collections.emptyList()).when(jdbcTemplate)
-                .query(anyString(), any(SqlParameterSource.class), any(RowMapper.class));
+                .query(anyString(), any(SqlParameterSource.class), ArgumentMatchers.<RowMapper<Object>>any());
 
         repository.forEachSubmission("form-1", null, null, 500, submission -> { });
 
         ArgumentCaptor<SqlParameterSource> params = ArgumentCaptor.forClass(SqlParameterSource.class);
-        verify(jdbcTemplate).query(anyString(), params.capture(), any(RowMapper.class));
+        verify(jdbcTemplate).query(anyString(), params.capture(), ArgumentMatchers.<RowMapper<Object>>any());
         assertNull(params.getValue().getValue("contextType"));
         assertNull(params.getValue().getValue("status"));
     }
@@ -116,12 +149,12 @@ class FormSubmissionReadRepositoryTest {
     @Test
     void findUserSubmissionTreatsMissingContextAsEmpty() {
         doReturn(Collections.emptyList()).when(jdbcTemplate)
-                .query(anyString(), any(SqlParameterSource.class), any(RowMapper.class));
+                .query(anyString(), any(SqlParameterSource.class), ArgumentMatchers.<RowMapper<Object>>any());
 
         repository.findUserSubmission("form-1", "user-1", null);
 
         ArgumentCaptor<SqlParameterSource> params = ArgumentCaptor.forClass(SqlParameterSource.class);
-        verify(jdbcTemplate).query(anyString(), params.capture(), any(RowMapper.class));
+        verify(jdbcTemplate).query(anyString(), params.capture(), ArgumentMatchers.<RowMapper<Object>>any());
         assertEquals("form-1", params.getValue().getValue("formId"));
         assertEquals("user-1", params.getValue().getValue("userId"));
         assertEquals("", params.getValue().getValue("contextId"));

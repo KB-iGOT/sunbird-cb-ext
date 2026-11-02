@@ -54,8 +54,12 @@ public class PeerValidationReportConsumer {
     @Autowired
     private StorageService storageService;
 
-    @Autowired
     private FormSubmissionReadRepository formSubmissionReadRepository;
+
+    @Autowired
+    public void setFormSubmissionReadRepository(FormSubmissionReadRepository formSubmissionReadRepository) {
+        this.formSubmissionReadRepository = formSubmissionReadRepository;
+    }
 
     private static final String CONSUMER_IDENTITY = "user-survey-report-consumer";
     private static final int PAGE_SIZE = 100;

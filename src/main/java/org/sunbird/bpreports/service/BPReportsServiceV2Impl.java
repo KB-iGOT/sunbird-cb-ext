@@ -9,6 +9,7 @@ import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.streaming.SXSSFWorkbook;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataAccessException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
@@ -1386,7 +1387,7 @@ public class BPReportsServiceV2Impl implements BPReportsServiceV2 {
             formSubmissionReadRepository.forEachSubmission(profileSurveyId, null, null,
                     serverProperties.getBpReportProfileSurveyEsPageSize(),
                     submission -> collectSurveyResponse(submission, resultMap));
-        } catch (Exception e) {
+        } catch (DataAccessException e) {
             logger.error("BPReportsServiceV2Impl:: fetchProfileSurveyResponses: Failed for profileSurveyId: {}", profileSurveyId, e);
         }
         logger.info("BPReportsServiceV2Impl:: fetchProfileSurveyResponses: {} records found for profileSurveyId: {}", resultMap.size(), profileSurveyId);

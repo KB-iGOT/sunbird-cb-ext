@@ -2,9 +2,13 @@ package org.sunbird.bpreports.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
 
 import java.util.Arrays;
@@ -13,6 +17,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.Consumer;
 
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
@@ -22,6 +27,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.springframework.dao.DataRetrievalFailureException;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.sunbird.bpreports.postgres.repository.WfStatusEntityRepository;
 import org.sunbird.cassandra.utils.CassandraOperationImpl;
 import org.sunbird.common.service.OutboundRequestHandlerServiceImpl;
@@ -212,5 +219,49 @@ class BPReportsServiceV2ImplTest {
         service.buildProgramCoordinatorSheet(workbook, PROGRAM_ID);
 
         assertNull(workbook.getSheet("Program Coordinators"));
+    }
+
+    @Test
+    void profileSurveyResponsesAreReadFromFormSubmissions() {
+        when(serverProperties.getBpReportProfileSurveyEsPageSize()).thenReturn(100);
+        Map<String, Object> answer = new HashMap<>();
+        answer.put(Constants.QUESTION, "Designation");
+        answer.put(Constants.ANSWER, "Engineer");
+        Map<String, Object> withAnswers = new HashMap<>();
+        withAnswers.put(Constants.SUBMITTED_BY, "user-1");
+        withAnswers.put(Constants.RESPONSES, Collections.singletonList(answer));
+        Map<String, Object> withoutAnswers = new HashMap<>();
+        withoutAnswers.put(Constants.SUBMITTED_BY, "user-2");
+        doAnswer(invocation -> {
+            Consumer<Map<String, Object>> callback = invocation.getArgument(4);
+            callback.accept(withAnswers);
+            callback.accept(withoutAnswers);
+            callback.accept(Collections.emptyMap());
+            return null;
+        }).when(formSubmissionReadRepository).forEachSubmission(eq("profile-1"), isNull(), isNull(), eq(100), any());
+
+        Map<String, Map<String, Object>> result = ReflectionTestUtils.invokeMethod(service,
+                "fetchProfileSurveyResponses", batchWithProfileSurvey("profile-1"));
+
+        assertEquals(1, result.size());
+        assertEquals(Collections.singletonMap("Designation", "Engineer"), result.get("user-1"));
+    }
+
+    @Test
+    void profileSurveyResponsesAreEmptyWhenTheReadFails() {
+        when(serverProperties.getBpReportProfileSurveyEsPageSize()).thenReturn(100);
+        doThrow(new DataRetrievalFailureException("db down")).when(formSubmissionReadRepository)
+                .forEachSubmission(eq("profile-1"), isNull(), isNull(), eq(100), any());
+
+        Map<String, Map<String, Object>> result = ReflectionTestUtils.invokeMethod(service,
+                "fetchProfileSurveyResponses", batchWithProfileSurvey("profile-1"));
+
+        assertTrue(result.isEmpty());
+    }
+
+    private Map<String, Object> batchWithProfileSurvey(String profileSurveyId) {
+        Map<String, Object> batch = new HashMap<>();
+        batch.put(Constants.BATCH_ATTRIBUTES, "{\"" + Constants.PROFILE_SURVEY_ID + "\":\"" + profileSurveyId + "\"}");
+        return batch;
     }
 }

@@ -10,6 +10,7 @@ import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataAccessException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import lombok.RequiredArgsConstructor;
@@ -466,7 +467,7 @@ public class BPReportConsumer {
             if (result.isEmpty()) {
                 logger.warn("No results found for surveyId: {} and userId: {}", surveyId, userId);
             }
-        } catch (Exception e) {
+        } catch (DataAccessException e) {
             logger.error("Error while processing user form response for surveyId: {} and userId: {}", surveyId, userId, e);
         }
 
@@ -759,7 +760,7 @@ public class BPReportConsumer {
                 resultMap.put((String) submission.get(Constants.SUBMITTED_BY), questionsAnswerMap);
             });
 
-        } catch (Exception e) {
+        } catch (DataAccessException e) {
             logger.error("Error while processing user form response for surveyId: {}", surveyId, e);
         }
 
