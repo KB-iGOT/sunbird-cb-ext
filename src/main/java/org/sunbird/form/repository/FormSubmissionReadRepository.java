@@ -90,7 +90,7 @@ public class FormSubmissionReadRepository {
             MapSqlParameterSource params = new MapSqlParameterSource()
                     .addValue("formId", formId)
                     .addValue("contextType", contextType, Types.VARCHAR)
-                    .addValue("status", status == null ? null : status.toUpperCase(), Types.VARCHAR)
+                    .addValue("status", StringUtils.upperCase(status), Types.VARCHAR)
                     .addValue("afterDate", afterDate)
                     .addValue("afterId", afterId)
                     .addValue("limit", pageSize);
@@ -124,7 +124,7 @@ public class FormSubmissionReadRepository {
         submission.put(Constants.SUBMITTED_DATE, getLong(rs, "submitteddate"));
         submission.put("updatedBy", rs.getString("updatedby"));
         submission.put("updatedDate", getLong(rs, "updateddate"));
-        submission.put(VERSION, getLong(rs, "version"));
+        submission.put(VERSION, getLong(rs, VERSION));
         submission.put(Constants.RESPONSES, readJson(rs, "responses"));
         submission.put(Constants.ATTACHMENTS, readJson(rs, "attachments"));
         submission.put(Constants.PEER_REVIEWS, readJson(rs, "peerreviews"));
