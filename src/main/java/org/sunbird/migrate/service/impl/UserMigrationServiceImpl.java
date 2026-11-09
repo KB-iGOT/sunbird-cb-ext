@@ -423,6 +423,7 @@ public class UserMigrationServiceImpl implements UserMigrationService {
             compositeKey.put(Constants.ID, userId);
             Map<String, Object> updateDBResponse = cassandraOperation.updateRecord(Constants.KEYSPACE_SUNBIRD,
                     Constants.TABLE_USER, updateDBRequest, compositeKey);
+            redisCacheMgr.evictUserProfileCache(userId);
             if (updateDBResponse != null
                     && !Constants.SUCCESS.equalsIgnoreCase((String) updateDBResponse.get(Constants.RESPONSE))) {
                 errMsg = String.format("Failed to update profileDetails for UserId : %s", userId);

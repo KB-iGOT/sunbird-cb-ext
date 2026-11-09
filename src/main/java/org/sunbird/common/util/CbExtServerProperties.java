@@ -1247,6 +1247,24 @@ public class CbExtServerProperties {
 	@Value("${profile.preference.value}")
 	private String profilePreferenceValue;
 
+	@Value("${user.profile.redis.host:}")
+	private String userProfileRedisHost;
+
+	@Value("${user.profile.redis.port:6379}")
+	private int userProfileRedisPort;
+
+	@Value("${user.profile.redis.index:0}")
+	private int userProfileRedisIndex;
+
+	@Value("${user.profile.redis.password.enabled:false}")
+	private boolean userProfileRedisPasswordEnabled;
+
+	@Value("${user.profile.redis.username:}")
+	private String userProfileRedisUsername;
+
+	@Value("${user.profile.redis.password:}")
+	private String userProfileRedisPassword;
+
 	@Value("${redis.user.insights.host.name}")
 	private String redisUserInsightsHostName;
 
@@ -4372,6 +4390,30 @@ public class CbExtServerProperties {
 
 	public void setPeerValidationReportInprogressRestrictionHours(int peerValidationReportInprogressRestrictionHours) { this.peerValidationReportInprogressRestrictionHours = peerValidationReportInprogressRestrictionHours; }
 
+
+	public String getUserProfileRedisHost() {
+		return userProfileRedisHost;
+	}
+
+	public int getUserProfileRedisPort() {
+		return userProfileRedisPort;
+	}
+
+	public int getUserProfileRedisIndex() {
+		return userProfileRedisIndex;
+	}
+
+	public boolean isUserProfileRedisPasswordEnabled() {
+		return userProfileRedisPasswordEnabled;
+	}
+
+	public String getUserProfileRedisUsername() {
+		return userProfileRedisUsername;
+	}
+
+	public String getUserProfileRedisPassword() {
+		return userProfileRedisPassword;
+	}
 
 	public String getRedisUserInsightsHostName() {
 		return redisUserInsightsHostName;

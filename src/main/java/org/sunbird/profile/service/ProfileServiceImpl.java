@@ -737,6 +737,7 @@ public class ProfileServiceImpl implements ProfileService {
 		};
 		Map<String, Object> updateDBResponse = cassandraOperation.updateRecord(Constants.KEYSPACE_SUNBIRD,
 				Constants.TABLE_USER, updateDBRequest, compositeKey);
+		redisCacheMgr.evictUserProfileCache(userId);
 		if (updateDBResponse != null
 				&& !Constants.SUCCESS.equalsIgnoreCase((String) updateDBResponse.get(Constants.RESPONSE))) {
 			errMsg = String.format("Failed to update profileDetails for UserId : %s", userId);
@@ -2442,6 +2443,7 @@ public class ProfileServiceImpl implements ProfileService {
 					userInfoUpdated.put(Constants.UPDATED_DATE, ProjectUtil.getFormattedDate());
 					Map<String, Object> resp = cassandraOperation.updateRecord(Constants.KEYSPACE_SUNBIRD,
 							Constants.TABLE_USER, userInfoUpdated, compositeKey);
+					redisCacheMgr.evictUserProfileCache(userId);
 					if (resp.get(Constants.RESPONSE).equals(Constants.SUCCESS)) {
 						String errMsg = syncUserData(userId);
 						if (StringUtils.isEmpty(errMsg)) {
