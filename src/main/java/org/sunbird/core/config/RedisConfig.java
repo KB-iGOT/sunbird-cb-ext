@@ -44,7 +44,7 @@ public class RedisConfig {
 
 	/**
 	 * Pool for the per-user cache hash (userprofile:{userId}) owned by sunbird-lms-service. Absent
-	 * (null bean) when user.profile.redis.host is blank; callers must treat it as optional.
+	 * (null bean) when user_profile_redis_host is blank; callers must treat it as optional.
 	 */
 	@Bean(name = "userProfileJedisPool")
 	public JedisPool userProfileJedisPool() {
@@ -62,7 +62,7 @@ public class RedisConfig {
 			if (user != null && !user.trim().isEmpty()) {
 				// Jedis 2.9 (Spring Boot 2.0.x) only supports AUTH <password>; a Redis ACL user
 				// cannot be honoured here. Fail loudly instead of authenticating as the wrong user.
-				logger.warn("user.profile.redis.username is set but this Jedis version has no ACL user "
+				logger.warn("user_profile_redis_username is set but this Jedis version has no ACL user "
 						+ "support; user-profile cache eviction disabled in cb-ext");
 				return null;
 			}

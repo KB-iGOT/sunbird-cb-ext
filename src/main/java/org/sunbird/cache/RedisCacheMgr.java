@@ -381,7 +381,7 @@ public class RedisCacheMgr {
     /**
      * Drops the whole lms-owned user hash (info/roles/org/login/...) after a direct write to
      * sunbird.user that bypasses lms, so lms repopulates on its next read. No-op when
-     * user.profile.redis.host is not configured; never throws.
+     * user_profile_redis_host is not configured; never throws.
      */
     public void evictUserProfileCache(String userId) {
         if (userProfileJedisPool == null || StringUtils.isBlank(userId)) {

@@ -1247,22 +1247,22 @@ public class CbExtServerProperties {
 	@Value("${profile.preference.value}")
 	private String profilePreferenceValue;
 
-	@Value("${user.profile.redis.host:}")
+	@Value("${user_profile_redis_host:}")
 	private String userProfileRedisHost;
 
-	@Value("${user.profile.redis.port:6379}")
+	@Value("${user_profile_redis_port:6379}")
 	private int userProfileRedisPort;
 
-	@Value("${user.profile.redis.index:0}")
+	@Value("${user_profile_redis_index:0}")
 	private int userProfileRedisIndex;
 
-	@Value("${user.profile.redis.password.enabled:false}")
+	@Value("${user_profile_redis_password_enabled:false}")
 	private boolean userProfileRedisPasswordEnabled;
 
-	@Value("${user.profile.redis.username:}")
+	@Value("${user_profile_redis_username:}")
 	private String userProfileRedisUsername;
 
-	@Value("${user.profile.redis.password:}")
+	@Value("${user_profile_redis_password:}")
 	private String userProfileRedisPassword;
 
 	@Value("${redis.user.insights.host.name}")
