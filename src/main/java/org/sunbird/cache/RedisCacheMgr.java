@@ -9,6 +9,7 @@ import java.util.Set;
 
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 import org.sunbird.common.util.CbExtServerProperties;
 import org.sunbird.common.util.Constants;
@@ -33,6 +34,13 @@ public class RedisCacheMgr {
 
     @Autowired
     private JedisPool jedisUserInsightsPool;
+
+    @Autowired(required = false)
+    @Qualifier("userProfileJedisPool")
+    private JedisPool userProfileJedisPool;
+
+    /** Key prefix of the per-user hash owned by sunbird-lms-service. */
+    public static final String USER_PROFILE_KEY_PREFIX = "userprofile:";
 
     @Autowired
     CbExtServerProperties cbExtServerProperties;
@@ -367,6 +375,22 @@ public class RedisCacheMgr {
             logger.debug("Cache_key_value " + Constants.BASIC_PROFILE_KEY + key + " is saved in redis");
         } catch (Exception e) {
             logger.error(e);
+        }
+    }
+
+    /**
+     * Drops the whole lms-owned user hash (info/roles/org/login/...) after a direct write to
+     * sunbird.user that bypasses lms, so lms repopulates on its next read. No-op when
+     * user_profile_redis_host is not configured; never throws.
+     */
+    public void evictUserProfileCache(String userId) {
+        if (userProfileJedisPool == null || StringUtils.isBlank(userId)) {
+            return;
+        }
+        try (Jedis jedis = userProfileJedisPool.getResource()) {
+            jedis.del(USER_PROFILE_KEY_PREFIX + userId);
+        } catch (Exception e) {
+            logger.error("Failed to evict " + USER_PROFILE_KEY_PREFIX + userId + " : " + e.getMessage(), e);
         }
     }
 
