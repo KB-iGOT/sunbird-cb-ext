@@ -22,6 +22,7 @@ import org.sunbird.common.util.AccessTokenValidator;
 import org.sunbird.common.util.CbExtServerProperties;
 import org.sunbird.common.util.Constants;
 import org.sunbird.core.config.PropertiesConfig;
+import org.sunbird.migrate.service.OrgHierarchyServiceClient;
 import org.sunbird.migrate.service.impl.UserMigrationServiceImpl;
 import org.sunbird.profile.service.ProfileService;
 import org.sunbird.storage.service.StorageServiceImpl;
@@ -64,6 +65,9 @@ public class UserMigrationBulkConsumer {
 
     @Autowired
     private AccessTokenValidator accessTokenValidator;
+
+    @Autowired
+    private OrgHierarchyServiceClient orgHierarchyServiceClient;
 
     @Autowired
     PropertiesConfig configuration;
@@ -761,9 +765,25 @@ public class UserMigrationBulkConsumer {
 
     private void processExcelWithStatusUpdateV2(String fileName, String frameworkId, String rootOrgId, String userAuthToken, String identifier) throws Exception {
 
-        Map<String, Object> frameworkData = userMigrationService.getCompleteFrameworkDataFromUtil(frameworkId);
-        Map<String, Set<String>> orgHierarchyMap = buildOrgHierarchyMap(frameworkData);
-        Map<String, String> orgIdToChannelMap = buildOrgIdToChannelMap(frameworkData);
+        Map<String, Set<String>> orgHierarchyMap;
+        Map<String, String> orgIdToChannelMap;
+        if (serverProperties.isBulkUserTransferUseCbOrgHierarchyService()) {
+            List<Map<String, String>> masterData = orgHierarchyServiceClient.fetchMasterData(rootOrgId, userAuthToken);
+            orgIdToChannelMap = new HashMap<>();
+            Set<String> descendantOrgIds = new HashSet<>();
+            for (Map<String, String> org : masterData) {
+                String orgId = org.get(Constants.ID);
+                orgIdToChannelMap.put(orgId, org.get(Constants.CHANNEL));
+                if (!rootOrgId.equalsIgnoreCase(orgId)) {
+                    descendantOrgIds.add(orgId);
+                }
+            }
+            orgHierarchyMap = Collections.singletonMap(rootOrgId, descendantOrgIds);
+        } else {
+            Map<String, Object> frameworkData = userMigrationService.getCompleteFrameworkDataFromUtil(frameworkId);
+            orgHierarchyMap = buildOrgHierarchyMap(frameworkData);
+            orgIdToChannelMap = buildOrgIdToChannelMap(frameworkData);
+        }
 
         List<String> userRoles = getUserRolesFromToken(userAuthToken);
 

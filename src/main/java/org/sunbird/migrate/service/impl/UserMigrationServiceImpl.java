@@ -41,6 +41,7 @@ import org.sunbird.common.util.*;
 import org.sunbird.consumer.KafkaProducer;
 import org.sunbird.core.config.PropertiesConfig;
 import org.sunbird.core.producer.Producer;
+import org.sunbird.migrate.service.OrgHierarchyServiceClient;
 import org.sunbird.migrate.service.UserMigrationService;
 import org.sunbird.migrate.util.OrganizationUtils;
 import org.sunbird.org.util.ExcelUtil;
@@ -113,6 +114,9 @@ public class UserMigrationServiceImpl implements UserMigrationService {
 
     @Autowired
     RedisCacheMgr redisCacheMgr;
+
+    @Autowired
+    OrgHierarchyServiceClient orgHierarchyServiceClient;
 
     @Autowired StorageServiceImpl storageService;
 
@@ -691,7 +695,7 @@ public class UserMigrationServiceImpl implements UserMigrationService {
             Sheet referenceSheet = createReferenceSheet(workbook);
             Sheet masterDataSheet = createMasterDataSheet(workbook);
 
-            List<Map<String, String>> orgList = getOrgList(orgHierarchyFrameworkId, tokenOrg);
+            List<Map<String, String>> orgList = getOrgList(orgHierarchyFrameworkId, tokenOrg, userAuthToken);
             Map<String, Map<String, String>> uniqueOrgs = getUniqueOrgs(orgList);
 
             int rowIdx = populateMasterDataSheet(masterDataSheet, uniqueOrgs);
@@ -730,11 +734,16 @@ public class UserMigrationServiceImpl implements UserMigrationService {
         return masterDataSheet;
     }
 
-    private List<Map<String, String>> getOrgList(String orgHierarchyFrameworkId, String tokenOrg) throws Exception {
+    private List<Map<String, String>> getOrgList(String orgHierarchyFrameworkId, String tokenOrg, String userAuthToken) throws Exception {
         String baseFrameworkOrgId = orgHierarchyFrameworkId.split(Constants.ORG_HIERARCHY_SUFFIX)[0];
         log.info("Framework processing - baseFrameworkOrgId: {}, orgHierarchyFrameworkId: {}, tokenOrg: {}",
                 baseFrameworkOrgId, orgHierarchyFrameworkId, tokenOrg);
-        if (tokenOrg != null && tokenOrg.equals(baseFrameworkOrgId)) {
+        boolean isRootAdmin = tokenOrg != null && tokenOrg.equals(baseFrameworkOrgId);
+
+        if (serverConfig.isBulkUserTransferUseCbOrgHierarchyService()) {
+            return orgHierarchyServiceClient.fetchMasterData(isRootAdmin ? baseFrameworkOrgId : tokenOrg, userAuthToken);
+        }
+        if (isRootAdmin) {
             return fetchCompleteFrameworkHierarchy(orgHierarchyFrameworkId);
         } else {
             return fetchTokenOrgDescendantHierarchy(orgHierarchyFrameworkId, tokenOrg);
