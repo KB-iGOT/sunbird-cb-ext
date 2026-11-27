@@ -1906,4 +1906,8 @@ public class Constants {
 	public static final String UPGRADED_COUNT = "upgradedCount";
 	public static final String FAILED_COUNT = "failedCount";
 	public static final String EVENT_TYPE_ACBP_CLAIM = "ACBP_CLAIM";
+
+	public static final String ORG_HIERARCHY_SERVICE_MASTER_DATA_CACHE_KEY_PREFIX = "orgHierarchyService:masterOrgData:";
+	public static final String COMPLETE = "complete";
+	public static final String LEVEL_REQUIRED = "levelRequired";
 }

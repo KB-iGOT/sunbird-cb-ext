@@ -1426,6 +1426,18 @@ public class CbExtServerProperties {
 	@Value("${karma.coin.convert.lock.key.pattern:karmaCoinConvertLock:{userId}}")
 	private String karmaCoinConvertLockKeyPattern;
 
+	@Value("${org.hierarchy.service.url}")
+	private String orgHierarchyServiceUrl;
+
+	@Value("${org.hierarchy.service.complete.path}")
+	private String orgHierarchyServiceCompletePath;
+
+	@Value("${org.hierarchy.service.master.data.redis.ttl}")
+	private int orgHierarchyServiceMasterDataRedisTtl;
+
+	@Value("${bulk.user.transfer.use.cb.org.hierarchy.service}")
+	private boolean bulkUserTransferUseCbOrgHierarchyService;
+
 	public int getUserSearchLimit() {
 		return userSearchLimit;
 	}
@@ -4825,5 +4837,21 @@ public class CbExtServerProperties {
 
 	public int getKarmaCoinConversionRate() {
 		return karmaCoinConversionRate;
+	}
+
+	public String getOrgHierarchyServiceUrl() {
+		return orgHierarchyServiceUrl;
+	}
+
+	public String getOrgHierarchyServiceCompletePath() {
+		return orgHierarchyServiceCompletePath;
+	}
+
+	public int getOrgHierarchyServiceMasterDataRedisTtl() {
+		return orgHierarchyServiceMasterDataRedisTtl;
+	}
+
+	public boolean isBulkUserTransferUseCbOrgHierarchyService() {
+		return bulkUserTransferUseCbOrgHierarchyService;
 	}
 }
