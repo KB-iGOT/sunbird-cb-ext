@@ -67,12 +67,15 @@ public class UserMigrationBulkConsumer {
     private AccessTokenValidator accessTokenValidator;
 
     @Autowired
-    private OrgHierarchyServiceClient orgHierarchyServiceClient;
-
-    @Autowired
     PropertiesConfig configuration;
 
     private final List<String> messageBuffer = Collections.synchronizedList(new ArrayList<>());
+
+    private final OrgHierarchyServiceClient orgHierarchyServiceClient;
+
+    public UserMigrationBulkConsumer(OrgHierarchyServiceClient orgHierarchyServiceClient) {
+        this.orgHierarchyServiceClient = orgHierarchyServiceClient;
+    }
 
     @PostConstruct
     public void init() {
@@ -765,25 +768,10 @@ public class UserMigrationBulkConsumer {
 
     private void processExcelWithStatusUpdateV2(String fileName, String frameworkId, String rootOrgId, String userAuthToken, String identifier) throws Exception {
 
-        Map<String, Set<String>> orgHierarchyMap;
-        Map<String, String> orgIdToChannelMap;
-        if (serverProperties.isBulkUserTransferUseCbOrgHierarchyService()) {
-            List<Map<String, String>> masterData = orgHierarchyServiceClient.fetchMasterData(rootOrgId, userAuthToken);
-            orgIdToChannelMap = new HashMap<>();
-            Set<String> descendantOrgIds = new HashSet<>();
-            for (Map<String, String> org : masterData) {
-                String orgId = org.get(Constants.ID);
-                orgIdToChannelMap.put(orgId, org.get(Constants.CHANNEL));
-                if (!rootOrgId.equalsIgnoreCase(orgId)) {
-                    descendantOrgIds.add(orgId);
-                }
-            }
-            orgHierarchyMap = Collections.singletonMap(rootOrgId, descendantOrgIds);
-        } else {
-            Map<String, Object> frameworkData = userMigrationService.getCompleteFrameworkDataFromUtil(frameworkId);
-            orgHierarchyMap = buildOrgHierarchyMap(frameworkData);
-            orgIdToChannelMap = buildOrgIdToChannelMap(frameworkData);
-        }
+        Map.Entry<Map<String, Set<String>>, Map<String, String>> orgContext =
+                resolveOrgHierarchyContext(frameworkId, rootOrgId, userAuthToken);
+        Map<String, Set<String>> orgHierarchyMap = orgContext.getKey();
+        Map<String, String> orgIdToChannelMap = orgContext.getValue();
 
         List<String> userRoles = getUserRolesFromToken(userAuthToken);
 
@@ -857,6 +845,26 @@ public class UserMigrationBulkConsumer {
         }
 
         logger.debug("Bulk transfer V2 completed for identifier: {}. Total: {}, Success: {}, Failed: {}", identifier, totalRecords, successCount, failedCount);
+    }
+
+    private Map.Entry<Map<String, Set<String>>, Map<String, String>> resolveOrgHierarchyContext(
+            String frameworkId, String rootOrgId, String userAuthToken) throws Exception {
+        if (serverProperties.isBulkUserTransferUseCbOrgHierarchyService()) {
+            List<Map<String, String>> masterData = orgHierarchyServiceClient.fetchMasterData(rootOrgId, userAuthToken);
+            Map<String, String> orgIdToChannelMap = new HashMap<>();
+            Set<String> descendantOrgIds = new HashSet<>();
+            for (Map<String, String> org : masterData) {
+                String orgId = org.get(Constants.ID);
+                orgIdToChannelMap.put(orgId, org.get(Constants.CHANNEL));
+                if (!rootOrgId.equalsIgnoreCase(orgId)) {
+                    descendantOrgIds.add(orgId);
+                }
+            }
+            Map<String, Set<String>> orgHierarchyMap = Collections.singletonMap(rootOrgId, descendantOrgIds);
+            return new AbstractMap.SimpleEntry<>(orgHierarchyMap, orgIdToChannelMap);
+        }
+        Map<String, Object> frameworkData = userMigrationService.getCompleteFrameworkDataFromUtil(frameworkId);
+        return new AbstractMap.SimpleEntry<>(buildOrgHierarchyMap(frameworkData), buildOrgIdToChannelMap(frameworkData));
     }
 
     private boolean processRowWithStatusUpdateV2(Row row, Map<String, Set<String>> orgHierarchyMap, Map<String, String> orgIdToChannelMap, String rootOrgId, String userAuthToken, List<String> userRoles, int statusColumnIndex, int errorColumnIndex, Map<String, Map<String, Object>> orgCache) {

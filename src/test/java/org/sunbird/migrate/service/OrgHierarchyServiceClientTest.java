@@ -8,6 +8,7 @@ import org.sunbird.cache.RedisCacheMgr;
 import org.sunbird.common.service.OutboundRequestHandlerServiceImpl;
 import org.sunbird.common.util.CbExtServerProperties;
 import org.sunbird.common.util.Constants;
+import org.sunbird.migrate.exception.OrgHierarchyServiceException;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -15,12 +16,12 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -69,7 +70,7 @@ class OrgHierarchyServiceClientTest {
     }
 
     @Test
-    void fetchMasterData_cacheHit_returnsCachedDataWithoutCallingApi() throws Exception {
+    void fetchMasterData_cacheHit_returnsCachedDataWithoutCallingApi() {
         when(redisCacheMgr.getCache(CACHE_KEY)).thenReturn("[{\"id\":\"org-root-1\",\"channel\":\"Root Org\"}]");
 
         List<Map<String, String>> result = client.fetchMasterData(ORG_ID, ACCESS_TOKEN);
@@ -82,7 +83,7 @@ class OrgHierarchyServiceClientTest {
     }
 
     @Test
-    void fetchMasterData_cacheMiss_flattensNestedTreeAndCachesResult() throws Exception {
+    void fetchMasterData_cacheMiss_flattensNestedTreeAndCachesResult() {
         when(redisCacheMgr.getCache(CACHE_KEY)).thenReturn(null);
         Map<String, Object> child = orgNode("org-child-1", "Child Org", null);
         Map<String, Object> root = orgNode(ORG_ID, "Root Org", Collections.singletonList(child));
@@ -95,12 +96,12 @@ class OrgHierarchyServiceClientTest {
         assertEquals(ORG_ID, result.get(0).get(Constants.ID));
         assertEquals("org-child-1", result.get(1).get(Constants.ID));
         assertEquals("Child Org", result.get(1).get(Constants.CHANNEL));
-        verify(redisCacheMgr, times(1)).putCache(eq(CACHE_KEY), eq(result), eq(CACHE_TTL_SECONDS));
+        verify(redisCacheMgr, times(1)).putCache(CACHE_KEY, result, CACHE_TTL_SECONDS);
     }
 
     @Test
     @SuppressWarnings("unchecked")
-    void fetchMasterData_requestsCompleteEndpointWithLevelRequiredFalseParamAndAuthHeader() throws Exception {
+    void fetchMasterData_requestsCompleteEndpointWithLevelRequiredFalseParamAndAuthHeader() {
         when(redisCacheMgr.getCache(CACHE_KEY)).thenReturn(null);
         when(outboundRequestHandlerService.fetchUsingGetWithHeaders(anyString(), anyMap()))
                 .thenReturn(apiResponse(orgNode(ORG_ID, "Root Org", null)));
@@ -117,7 +118,7 @@ class OrgHierarchyServiceClientTest {
     }
 
     @Test
-    void fetchMasterData_nonOkResponseCode_returnsEmptyListAndDoesNotCache() throws Exception {
+    void fetchMasterData_nonOkResponseCode_returnsEmptyListAndDoesNotCache() {
         when(redisCacheMgr.getCache(CACHE_KEY)).thenReturn(null);
         Map<String, Object> failedResponse = new HashMap<>();
         failedResponse.put(Constants.RESPONSE_CODE, "FAILED");
@@ -131,7 +132,7 @@ class OrgHierarchyServiceClientTest {
     }
 
     @Test
-    void fetchMasterData_emptyApiResponse_returnsEmptyListAndDoesNotCache() throws Exception {
+    void fetchMasterData_emptyApiResponse_returnsEmptyListAndDoesNotCache() {
         when(redisCacheMgr.getCache(CACHE_KEY)).thenReturn(null);
         when(outboundRequestHandlerService.fetchUsingGetWithHeaders(anyString(), anyMap()))
                 .thenReturn(null);
@@ -143,7 +144,7 @@ class OrgHierarchyServiceClientTest {
     }
 
     @Test
-    void fetchMasterData_resultNodeWithoutId_producesEmptyListAndDoesNotCache() throws Exception {
+    void fetchMasterData_resultNodeWithoutId_producesEmptyListAndDoesNotCache() {
         when(redisCacheMgr.getCache(CACHE_KEY)).thenReturn(null);
         Map<String, Object> nodeWithoutId = new HashMap<>();
         nodeWithoutId.put(Constants.NAME, "No Id Org");
@@ -154,5 +155,39 @@ class OrgHierarchyServiceClientTest {
 
         assertTrue(result.isEmpty());
         verify(redisCacheMgr, never()).putCache(anyString(), any(), anyInt());
+    }
+
+    @Test
+    void fetchMasterData_cachedNullStringOrEmptyArray_treatedAsCacheMiss() {
+        when(redisCacheMgr.getCache(CACHE_KEY)).thenReturn(Constants.NULL_STRING, Constants.EMPTY_JSON_ARRAY);
+        when(outboundRequestHandlerService.fetchUsingGetWithHeaders(anyString(), anyMap()))
+                .thenReturn(apiResponse(orgNode(ORG_ID, "Root Org", null)));
+
+        client.fetchMasterData(ORG_ID, ACCESS_TOKEN);
+        client.fetchMasterData(ORG_ID, ACCESS_TOKEN);
+
+        verify(outboundRequestHandlerService, times(2)).fetchUsingGetWithHeaders(anyString(), anyMap());
+    }
+
+    @Test
+    void fetchMasterData_emptyResultNode_producesEmptyListWithoutError() {
+        when(redisCacheMgr.getCache(CACHE_KEY)).thenReturn(null);
+        when(outboundRequestHandlerService.fetchUsingGetWithHeaders(anyString(), anyMap()))
+                .thenReturn(apiResponse(new HashMap<>()));
+
+        List<Map<String, String>> result = client.fetchMasterData(ORG_ID, ACCESS_TOKEN);
+
+        assertTrue(result.isEmpty());
+    }
+
+    @Test
+    void fetchMasterData_corruptedCachedJson_throwsOrgHierarchyServiceException() {
+        when(redisCacheMgr.getCache(CACHE_KEY)).thenReturn("not-valid-json");
+
+        OrgHierarchyServiceException exception = assertThrows(OrgHierarchyServiceException.class,
+                () -> client.fetchMasterData(ORG_ID, ACCESS_TOKEN));
+
+        assertTrue(exception.getMessage().contains(ORG_ID));
+        verify(outboundRequestHandlerService, never()).fetchUsingGetWithHeaders(anyString(), anyMap());
     }
 }

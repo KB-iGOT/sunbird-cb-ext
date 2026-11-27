@@ -13,12 +13,15 @@ import org.sunbird.cache.RedisCacheMgr;
 import org.sunbird.common.service.OutboundRequestHandlerServiceImpl;
 import org.sunbird.common.util.CbExtServerProperties;
 import org.sunbird.common.util.Constants;
+import org.sunbird.migrate.exception.OrgHierarchyServiceException;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 @Service
 public class OrgHierarchyServiceClient {
@@ -38,11 +41,11 @@ public class OrgHierarchyServiceClient {
         this.mapper = mapper;
     }
 
-    public List<Map<String, String>> fetchMasterData(String orgId, String accessToken) throws Exception {
+    public List<Map<String, String>> fetchMasterData(String orgId, String accessToken) {
         String cacheKey = Constants.ORG_HIERARCHY_SERVICE_MASTER_DATA_CACHE_KEY_PREFIX + orgId;
-        List<Map<String, String>> cachedMasterData = readFromCache(cacheKey, orgId);
-        if (cachedMasterData != null) {
-            return cachedMasterData;
+        Optional<List<Map<String, String>>> cachedMasterData = readFromCache(cacheKey, orgId);
+        if (cachedMasterData.isPresent()) {
+            return cachedMasterData.get();
         }
 
         Map<String, Object> response = callCompleteApi(orgId, accessToken);
@@ -61,16 +64,20 @@ public class OrgHierarchyServiceClient {
         return masterData;
     }
 
-    private List<Map<String, String>> readFromCache(String cacheKey, String orgId) throws Exception {
+    private Optional<List<Map<String, String>>> readFromCache(String cacheKey, String orgId) {
         String cachedDataStr = redisCacheMgr.getCache(cacheKey);
         if (StringUtils.isEmpty(cachedDataStr) ||
                 Constants.NULL_STRING.equalsIgnoreCase(cachedDataStr) ||
                 Constants.EMPTY_JSON_ARRAY.equals(cachedDataStr)) {
-            return null;
+            return Optional.empty();
         }
         log.info("Cache hit for fetchMasterData, orgId: {}", orgId);
-        return mapper.readValue(cachedDataStr, new TypeReference<List<Map<String, String>>>() {
-        });
+        try {
+            return Optional.of(mapper.readValue(cachedDataStr, new TypeReference<List<Map<String, String>>>() {
+            }));
+        } catch (IOException e) {
+            throw new OrgHierarchyServiceException("Failed to parse cached org hierarchy master data for orgId: " + orgId, e);
+        }
     }
 
     @SuppressWarnings("unchecked")

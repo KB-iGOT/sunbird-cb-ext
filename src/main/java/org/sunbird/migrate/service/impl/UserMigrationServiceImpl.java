@@ -115,13 +115,16 @@ public class UserMigrationServiceImpl implements UserMigrationService {
     @Autowired
     RedisCacheMgr redisCacheMgr;
 
-    @Autowired
-    OrgHierarchyServiceClient orgHierarchyServiceClient;
-
     @Autowired StorageServiceImpl storageService;
 
     @Autowired
     Producer kafkaProducer;
+
+    private final OrgHierarchyServiceClient orgHierarchyServiceClient;
+
+    public UserMigrationServiceImpl(OrgHierarchyServiceClient orgHierarchyServiceClient) {
+        this.orgHierarchyServiceClient = orgHierarchyServiceClient;
+    }
 
     @Override
     public SBApiResponse migrateUsers() {
